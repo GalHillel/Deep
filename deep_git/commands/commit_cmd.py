@@ -10,6 +10,7 @@ import sys
 import time
 from pathlib import Path
 
+from deep_git.core.config import Config
 from deep_git.core.index import read_index
 from deep_git.core.objects import Blob, Commit, Tree, TreeEntry
 from deep_git.core.refs import get_current_branch, resolve_head, update_branch
@@ -51,9 +52,16 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     parent_sha = resolve_head(dg_dir)
     parent_shas = [parent_sha] if parent_sha else []
 
+    config = Config(repo_root)
+    author_name = config.get("user.name", "Deep Git User")
+    author_email = config.get("user.email", "user@deepgit")
+    author_str = f"{author_name} <{author_email}>"
+
     commit = Commit(
         tree_sha=tree_sha,
         parent_shas=parent_shas,
+        author=author_str,
+        committer=author_str,
         message=args.message,
         timestamp=int(time.time()),
     )

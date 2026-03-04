@@ -134,6 +134,49 @@ def delete_branch(dg_dir: Path, name: str) -> None:
     bp.unlink()
 
 
+# ── Tag helpers ──────────────────────────────────────────────────────
+
+def _tag_path(dg_dir: Path, name: str) -> Path:
+    return dg_dir / "refs" / "tags" / name
+
+
+def list_tags(dg_dir: Path) -> list[str]:
+    """Return a sorted list of tag names."""
+    tags_dir = dg_dir / "refs" / "tags"
+    if not tags_dir.exists():
+        return []
+    return sorted(p.name for p in tags_dir.iterdir() if p.is_file())
+
+
+def get_tag(dg_dir: Path, name: str) -> Optional[str]:
+    """Return the object SHA a tag points to, or ``None`` if it doesn't exist."""
+    tp = _tag_path(dg_dir, name)
+    if not tp.exists():
+        return None
+    return tp.read_text(encoding="utf-8").strip()
+
+
+def create_tag(dg_dir: Path, name: str, sha: str) -> None:
+    """Atomically create a tag ref.
+
+    Args:
+        dg_dir: Path to ``.deep_git``.
+        name:   Tag name (e.g. ``"v1.0"``).
+        sha:    40-character SHA-1 hex digest of the target commit or tag object.
+    
+    Raises:
+        FileExistsError: If the tag already exists.
+    """
+    tp = _tag_path(dg_dir, name)
+    if tp.exists():
+        raise FileExistsError(f"Tag '{name}' already exists")
+        
+    lock = FileLock(str(tp) + ".lock")
+    with lock:
+        with AtomicWriter(tp, mode="w") as aw:
+            aw.write(sha + "\n")
+
+
 # ── DAG traversal ───────────────────────────────────────────────────
 
 def log_history(
@@ -175,3 +218,60 @@ def log_history(
         current = obj.parent_shas[0] if obj.parent_shas else None
 
     return result
+
+
+def get_commit_decorations(dg_dir: Path) -> dict[str, list[str]]:
+    """Return a mapping of commit SHA to a list of decoration strings.
+    E.g. { 'abcdef...': ['HEAD -> main', 'feature-x'] }
+    """
+    decorations: dict[str, list[str]] = {}
+    
+    current_branch = get_current_branch(dg_dir)
+    head_sha = resolve_head(dg_dir)
+
+    for branch_name in list_branches(dg_dir):
+        sha = get_branch(dg_dir, branch_name)
+        if not sha:
+            continue
+        
+        lbl = branch_name
+        if branch_name == current_branch:
+            lbl = f"HEAD -> {branch_name}"
+            
+        decorations.setdefault(sha, []).append(lbl)
+
+    # Note: A tag could point to a Tag object, not directly the commit.
+    # In a full git, log resolves the tag object back to the commit.
+    # We will just map the tag SHA for now; if it's an annotated tag, 
+    # the decoration naturally belongs to the tag object or we must dereference it.
+    # Let's dereference it here via read_object.
+    from deep_git.core.objects import Tag, read_object
+    objects_dir = dg_dir / "objects"
+    for tag_name in list_tags(dg_dir):
+        sha = get_tag(dg_dir, tag_name)
+        if not sha:
+            continue
+        
+        # Dereference if it's an annotated tag
+        try:
+            obj = read_object(objects_dir, sha)
+            if isinstance(obj, Tag):
+                target_sha = obj.target_sha
+            else:
+                target_sha = sha
+            decorations.setdefault(target_sha, []).append(f"tag: {tag_name}")
+        except (FileNotFoundError, ValueError):
+            # Ignore broken tags
+            pass
+
+    # Detached HEAD coverage
+    if not current_branch and head_sha:
+        if head_sha not in decorations or not any("HEAD" in d for d in decorations[head_sha]):
+            decorations.setdefault(head_sha, []).insert(0, "HEAD")
+
+    # Sort each list to have HEAD and branches first (optional, but good for display)
+    for sh, decs in decorations.items():
+        # Ensure anything with HEAD comes first
+        decs.sort(key=lambda x: (not x.startswith("HEAD"), x))
+
+    return decorations

@@ -16,6 +16,7 @@ from deep_git.core.refs import (
     update_branch,
 )
 from deep_git.core.repository import DEEP_GIT_DIR, find_repo
+from deep_git.core.utils import Color
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
@@ -36,8 +37,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             print("No branches yet (make a commit first).")
             return
         for b in branches:
-            prefix = "* " if b == current else "  "
-            print(f"{prefix}{b}")
+            if b == current:
+                print(Color.wrap(Color.GREEN, f"* {b}"))
+            else:
+                print(f"  {b}")
         return
 
     # Create a new branch.

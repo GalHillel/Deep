@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sys
 import tempfile
 from pathlib import Path
 from typing import Optional, Union
@@ -101,3 +102,69 @@ class AtomicWriter:
             Number of bytes/characters written.
         """
         return self._file.write(data)  # type: ignore[union-attr]
+
+
+def get_local_timezone_offset() -> str:
+    """Return local timezone offset in +HHMM format."""
+    import time
+    if time.localtime().tm_isdst and time.daylight:
+        offset = -time.altzone
+    else:
+        offset = -time.timezone
+    
+    hours, remainder = divmod(abs(offset), 3600)
+    minutes = remainder // 60
+    sign = "+" if offset >= 0 else "-"
+    return f"{sign}{hours:02d}{minutes:02d}"
+
+
+def format_git_date(timestamp: int, tz_offset_str: str) -> str:
+    """Format a Unix timestamp and tz offset into Git's date string.
+    Example: 'Tue Mar 4 14:20:00 2026 +0200'
+    """
+    import time
+    sign = 1 if tz_offset_str.startswith('+') else -1
+    try:
+        hours = int(tz_offset_str[1:3])
+        minutes = int(tz_offset_str[3:5])
+        offset_seconds = sign * (hours * 3600 + minutes * 60)
+    except (ValueError, IndexError):
+        offset_seconds = 0
+
+    gm = time.gmtime(timestamp + offset_seconds)
+    # Note: %d is zero-padded on Windows, but %e is space-padded.
+    # Python on Windows doesn't universally support %e, so we stick to %d
+    # but strip leading zero if needed or just use %d.
+    formatted = time.strftime('%a %b %d %H:%M:%S %Y', gm)
+    
+    # Strip leading zero from day for Git compatibility: ' 4' instead of '04'
+    # Wait, we can manually replace it:
+    # Actually, Git's output looks like 'Tue Mar 4...' or 'Tue Mar 14...'
+    day_str = time.strftime('%d', gm)
+    if day_str.startswith('0'):
+        formatted = formatted.replace(f" {day_str} ", f"  {day_str[1]} ", 1)
+
+    return f"{formatted} {tz_offset_str}"
+
+
+# ── CLI Utilities ───────────────────────────────────────────────────
+
+class Color:
+    """Helper class for ANSI colors, respects TTY."""
+    USE_COLOR = sys.stdout.isatty()
+
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    CYAN = "\033[96m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+
+    @classmethod
+    def wrap(cls, color: str, text: str) -> str:
+        """Wrap text in color, returning uncolored text if not in a TTY."""
+        if cls.USE_COLOR:
+            return f"{color}{text}{cls.RESET}"
+        return text

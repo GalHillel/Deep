@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Union
 
-from deep_git.core.utils import AtomicWriter, hash_bytes
+from deep_git.core.utils import AtomicWriter, get_local_timezone_offset, hash_bytes
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -171,7 +171,7 @@ class Commit(GitObject):
     committer: str = "Deep Git User <user@deepgit>"
     message: str = ""
     timestamp: int = field(default_factory=lambda: int(time.time()))
-    timezone: str = "+0000"
+    timezone: str = field(default_factory=get_local_timezone_offset)
 
     def serialize_content(self) -> bytes:
         lines: list[str] = [f"tree {self.tree_sha}"]
@@ -220,22 +220,71 @@ class Commit(GitObject):
         )
 
 
+# ── Tag ──────────────────────────────────────────────────────────────
+
+@dataclass
+class Tag(GitObject):
+    """An annotated tag object."""
+
+    OBJ_TYPE: str = field(init=False, default="tag", repr=False)
+    target_sha: str = ""
+    target_type: str = "commit"
+    tag_name: str = ""
+    tagger: str = ""
+    message: str = ""
+    timestamp: int = field(default_factory=lambda: int(time.time()))
+    timezone: str = field(default_factory=get_local_timezone_offset)
+
+    def serialize_content(self) -> bytes:
+        lines: list[str] = [
+            f"object {self.target_sha}",
+            f"type {self.target_type}",
+            f"tag {self.tag_name}",
+            f"tagger {self.tagger} {self.timestamp} {self.timezone}",
+            "",
+            self.message
+        ]
+        return "\n".join(lines).encode("utf-8")
+
+    @classmethod
+    def from_content(cls, content: bytes) -> "Tag":
+        text = content.decode("utf-8")
+        headers, message = text.split("\n\n", 1)
+        target_sha = ""
+        target_type = "commit"
+        tag_name = ""
+        tagger = ""
+        timestamp = 0
+        timezone = "+0000"
+        
+        for line in headers.split("\n"):
+            if line.startswith("object "):
+                target_sha = line[7:]
+            elif line.startswith("type "):
+                target_type = line[5:]
+            elif line.startswith("tag "):
+                tag_name = line[4:]
+            elif line.startswith("tagger "):
+                parts = line[7:].rsplit(" ", 2)
+                tagger = parts[0]
+                timestamp = int(parts[1])
+                timezone = parts[2]
+                
+        return cls(
+            target_sha=target_sha,
+            target_type=target_type,
+            tag_name=tag_name,
+            tagger=tagger,
+            message=message,
+            timestamp=timestamp,
+            timezone=timezone,
+        )
+
+
 # ── Read from disk ──────────────────────────────────────────────────
 
 def read_object(objects_dir: Path, sha: str) -> GitObject:
-    """Read and deserialise an object from the object store.
-
-    Args:
-        objects_dir: Path to the ``objects/`` directory.
-        sha: 40-character hex SHA-1 digest.
-
-    Returns:
-        A :class:`Blob`, :class:`Tree`, or :class:`Commit` instance.
-
-    Raises:
-        FileNotFoundError: If the object does not exist.
-        ValueError: If the object type is unknown.
-    """
+    """Read and deserialise an object from the object store."""
     path = _object_path(objects_dir, sha)
     compressed = path.read_bytes()
     raw = zlib.decompress(compressed)
@@ -247,5 +296,7 @@ def read_object(objects_dir: Path, sha: str) -> GitObject:
         return Tree.from_content(content)
     elif obj_type == "commit":
         return Commit.from_content(content)
+    elif obj_type == "tag":
+        return Tag.from_content(content)
     else:
         raise ValueError(f"Unknown object type: {obj_type!r}")

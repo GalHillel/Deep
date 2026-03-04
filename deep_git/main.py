@@ -45,7 +45,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_commit.add_argument("-m", "--message", required=True, help="Commit message")
 
     # ── log ──────────────────────────────────────────────────────────
-    sub.add_parser("log", help="Show commit history")
+    p_log = sub.add_parser("log", help="Show commit history")
+    p_log.add_argument("--oneline", action="store_true", help="Print each commit on a single line")
+    p_log.add_argument("-n", "--max-count", type=int, help="Limit the number of commits to output")
+    p_log.add_argument("--graph", action="store_true", help="Draw a text-based graphical representation of the commit history")
 
     # ── branch ───────────────────────────────────────────────────────
     p_branch = sub.add_parser("branch", help="List or create branches")
@@ -65,6 +68,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_merge = sub.add_parser("merge", help="Merge a branch into the current branch")
     p_merge.add_argument("branch", help="Branch to merge")
 
+    # ── rebase ──────────────────────────────────────────────────────
+    p_rebase = sub.add_parser("rebase", help="Rebase the current branch on top of another branch")
+    p_rebase.add_argument("branch", help="Branch to rebase onto")
+
+    # ── doctor ──────────────────────────────────────────────────────
+    sub.add_parser("doctor", help="Check repository integrity (objects, refs, index)")
+
     # ── rm ──────────────────────────────────────────────────────────
     p_rm = sub.add_parser("rm", help="Remove files from the working tree and index")
     p_rm.add_argument("files", nargs="+", help="File(s) to remove")
@@ -73,6 +83,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_reset = sub.add_parser("reset", help="Reset current HEAD to the specified state")
     p_reset.add_argument("--hard", action="store_true", help="Reset the working tree and index")
     p_reset.add_argument("commit", help="Commit SHA to reset to")
+
+    # ── config ──────────────────────────────────────────────────────
+    p_config = sub.add_parser("config", help="Get and set repository or global options")
+    p_config.add_argument("--global", action="store_true", dest="global_", help="Use global config file")
+    p_config.add_argument("key", help="Config key (e.g. user.name)")
+    p_config.add_argument("value", nargs="?", help="Config value")
+
+    # ── tag ─────────────────────────────────────────────────────────
+    p_tag = sub.add_parser("tag", help="Create, list, or delete a tag object")
+    p_tag.add_argument("name", nargs="?", help="Tag name")
+    p_tag.add_argument("-a", "--annotate", action="store_true", help="Make an unsigned, annotated tag object")
+    p_tag.add_argument("-m", "--message", help="Tag message")
+
+    # ── stash ───────────────────────────────────────────────────────
+    p_stash = sub.add_parser("stash", help="Stash the changes in a dirty working directory away")
+    p_stash.add_argument("action", nargs="?", choices=["save", "pop", "list"], default="save", help="Stash action to perform")
 
     return parser
 
@@ -109,6 +135,16 @@ def main(argv: list[str] | None = None) -> None:
         from deep_git.commands.rm_cmd import run
     elif args.command == "reset":
         from deep_git.commands.reset_cmd import run
+    elif args.command == "config":
+        from deep_git.commands.config_cmd import run
+    elif args.command == "tag":
+        from deep_git.commands.tag_cmd import run
+    elif args.command == "stash":
+        from deep_git.commands.stash_cmd import run
+    elif args.command == "rebase":
+        from deep_git.commands.rebase_cmd import run
+    elif args.command == "doctor":
+        from deep_git.commands.doctor_cmd import run
     else:
         parser.print_help()
         sys.exit(1)

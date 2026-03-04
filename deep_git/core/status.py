@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional, Set
 
+from deep_git.core.ignore import IgnoreEngine
 from deep_git.core.index import read_index
 from deep_git.core.objects import Blob, Commit, Tree, read_object
 from deep_git.core.refs import resolve_head
@@ -109,6 +110,8 @@ def compute_status(repo_root: Path) -> StatusResult:
     working_files = _walk_working_dir(repo_root)
 
     all_paths = set(head_entries) | set(index_entries) | working_files
+    
+    ignore_engine = IgnoreEngine(repo_root)
 
     for path in sorted(all_paths):
         in_head = path in head_entries
@@ -133,6 +136,7 @@ def compute_status(repo_root: Path) -> StatusResult:
 
         # --- Untracked ---
         if in_wd and not in_index:
-            result.untracked.append(path)
+            if not ignore_engine.is_ignored(path):
+                result.untracked.append(path)
 
     return result
