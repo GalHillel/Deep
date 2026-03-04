@@ -47,34 +47,97 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     dg_dir = repo_root / DEEP_GIT_DIR
     objects_dir = dg_dir / "objects"
 
-    tree_sha = _build_tree_from_index(dg_dir)
+    from deep_git.core.txlog import TransactionLog
+    from deep_git.core.telemetry import TelemetryCollector, Timer
+    from deep_git.core.audit import AuditLog
 
-    parent_sha = resolve_head(dg_dir)
-    parent_shas = [parent_sha] if parent_sha else []
+    txlog = TransactionLog(dg_dir)
+    telemetry = TelemetryCollector(dg_dir)
+    audit = AuditLog(dg_dir)
 
-    config = Config(repo_root)
-    author_name = config.get("user.name", "Deep Git User")
-    author_email = config.get("user.email", "user@deepgit")
-    author_str = f"{author_name} <{author_email}>"
+    from deep_git.core.locks import RepositoryLock, BranchLock
 
-    commit = Commit(
-        tree_sha=tree_sha,
-        parent_shas=parent_shas,
-        author=author_str,
-        committer=author_str,
-        message=args.message,
-        timestamp=int(time.time()),
-    )
-    commit_sha = commit.write(objects_dir)
+    # Fast-fail if repo is locked
+    repo_lock = RepositoryLock(dg_dir)
+    try:
+        repo_lock.acquire()
+    except TimeoutError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
-    # Update the branch ref.
-    branch = get_current_branch(dg_dir)
-    if branch:
-        update_branch(dg_dir, branch, commit_sha)
-    else:
-        # Detached HEAD — just update HEAD directly.
-        from deep_git.core.refs import update_head
-        update_head(dg_dir, commit_sha)
+    try:
+        with Timer(telemetry, "commit"):
+            tree_sha = _build_tree_from_index(dg_dir)
 
-    short = commit_sha[:7]
-    print(f"[{branch or 'detached HEAD'} {short}] {args.message}")
+            parent_sha = resolve_head(dg_dir)
+            parent_shas = [parent_sha] if parent_sha else []
+
+            config = Config(repo_root)
+            author_name = config.get("user.name", "Deep Git User")
+            author_email = config.get("user.email", "user@deepgit")
+            author_str = f"{author_name} <{author_email}>"
+
+            timestamp = int(time.time())
+            from deep_git.core.utils import get_local_timezone_offset
+            timezone = get_local_timezone_offset()
+            signature = "MOCKED_GPG_SIGNATURE" if getattr(args, "sign", False) else None
+
+            commit = Commit(
+                tree_sha=tree_sha,
+                parent_shas=parent_shas,
+                author=author_str,
+                committer=author_str,
+                message=args.message,
+                timestamp=timestamp,
+                timezone=timezone,
+                signature=signature,
+            )
+            # Objects are content-addressable; it is safe to write them before the transaction BEGINs
+            # or during the transaction. If the transaction fails, they just become orphaned.
+            commit_sha = commit.write(objects_dir)
+
+            branch = get_current_branch(dg_dir)
+            
+            # Acquire branch lock if we are on a branch
+            branch_lock = BranchLock(dg_dir, branch) if branch else None
+            if branch_lock:
+                try:
+                    branch_lock.acquire()
+                except TimeoutError as e:
+                    print(f"Error: {e}", file=sys.stderr)
+                    sys.exit(1)
+
+            try:
+                # Start transaction right before the dangerous part (branch/HEAD update)
+                tx_id = txlog.begin(
+                    operation="commit", 
+                    details=args.message,
+                    target_object_id=commit_sha,
+                    branch_ref=branch or "",
+                    previous_commit_sha=parent_sha or ""
+                )
+
+                try:
+                    if branch:
+                        update_branch(dg_dir, branch, commit_sha)
+                    else:
+                        from deep_git.core.refs import update_head
+                        update_head(dg_dir, commit_sha)
+
+                    txlog.commit(tx_id)
+                except Exception as e:
+                    txlog.rollback(tx_id, str(e))
+                    raise
+            finally:
+                if branch_lock:
+                    branch_lock.release()
+
+        audit.record(author_name, "commit", ref=branch or "HEAD", sha=commit_sha)
+
+        short = commit_sha[:7]
+        print(f"[{branch or 'detached HEAD'} {short}] {args.message}")
+    except Exception as e:
+        raise
+    finally:
+        repo_lock.release()
+

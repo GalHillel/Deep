@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeepGit Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#c9d1d9;--text-muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--purple:#bc8cff;--red:#f85149;--orange:#d29922;--radius:8px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden}
+#sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+#sidebar h1{padding:20px;font-size:18px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,#58a6ff22,#bc8cff22)}
+#sidebar h1 span{background:linear-gradient(90deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.refs-section{padding:12px 16px}
+.refs-section h3{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px}
+.ref-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--radius);cursor:pointer;font-size:13px;transition:background .15s}
+.ref-item:hover{background:#ffffff08}
+.ref-item.active{background:var(--accent);color:#fff}
+.ref-badge{font-size:10px;padding:2px 6px;border-radius:10px;font-weight:600}
+.branch-badge{background:var(--green);color:#000}
+.tag-badge{background:var(--orange);color:#000}
+.head-badge{background:var(--red);color:#fff}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#toolbar{padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+#toolbar input{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:var(--radius);width:300px;font-size:13px}
+#toolbar input:focus{outline:none;border-color:var(--accent)}
+#toolbar .stats{margin-left:auto;font-size:12px;color:var(--text-muted)}
+#content{display:flex;flex:1;overflow:hidden}
+#dag-container{flex:1;overflow:auto;padding:20px}
+#dag{position:relative;min-height:100%}
+.commit-node{position:absolute;display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .15s;font-size:13px;white-space:nowrap}
+.commit-node:hover{border-color:var(--accent);transform:translateX(2px);box-shadow:0 0 12px #58a6ff22}
+.commit-node.selected{border-color:var(--accent);background:#58a6ff15;box-shadow:0 0 20px #58a6ff33}
+.commit-sha{font-family:'Cascadia Code',monospace;color:var(--accent);font-size:12px}
+.commit-msg{max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.commit-labels{display:flex;gap:4px}
+.dag-line{position:absolute;pointer-events:none}
+#detail-panel{width:380px;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:none;flex-direction:column}
+#detail-panel.open{display:flex}
+#detail-header{padding:16px;border-bottom:1px solid var(--border)}
+#detail-header h2{font-size:14px;margin-bottom:4px}
+#detail-header .sha-full{font-family:monospace;font-size:11px;color:var(--accent);word-break:break-all}
+#detail-body{padding:16px;flex:1;overflow-y:auto}
+.detail-section{margin-bottom:16px}
+.detail-section h4{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px}
+.detail-section p,.detail-section pre{font-size:13px;line-height:1.5}
+.detail-section pre{background:var(--bg);padding:10px;border-radius:var(--radius);overflow-x:auto;font-family:monospace;font-size:12px;max-height:300px;overflow-y:auto}
+.diff-add{color:var(--green)}
+.diff-del{color:var(--red)}
+.diff-hdr{color:var(--purple)}
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.metric-card{background:var(--bg);padding:10px;border-radius:var(--radius);text-align:center}
+.metric-card .val{font-size:20px;font-weight:700;color:var(--accent)}
+.metric-card .lbl{font-size:10px;color:var(--text-muted);text-transform:uppercase}
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h1>🔱 <span>DeepGit</span></h1>
+  <div class="refs-section" id="refs-branches"><h3>Branches</h3></div>
+  <div class="refs-section" id="refs-tags"><h3>Tags</h3></div>
+  <div class="refs-section" id="refs-metrics"><h3>Metrics</h3><div class="metrics-grid" id="metrics-grid"></div></div>
+</div>
+<div id="main">
+  <div id="toolbar">
+    <input type="text" id="search" placeholder="Search commits...">
+    <div class="stats" id="stats"></div>
+  </div>
+  <div id="content">
+    <div id="dag-container"><div id="dag"></div></div>
+    <div id="detail-panel">
+      <div id="detail-header"><h2 id="detail-title"></h2><div class="sha-full" id="detail-sha"></div></div>
+      <div id="detail-body"></div>
+    </div>
+  </div>
+</div>
+<script>
+const API = '';
+let commits = [], refs = {}, selectedSha = null;
+
+async function fetchJSON(url) {
+  const r = await fetch(API + url);
+  return r.json();
+}
+
+async function loadData() {
+  [commits, refs] = await Promise.all([fetchJSON('/api/log'), fetchJSON('/api/refs')]);
+  renderRefs();
+  renderDAG();
+  document.getElementById('stats').textContent = `${commits.length} commits · ${Object.keys(refs.branches||{}).length} branches · ${Object.keys(refs.tags||{}).length} tags`;
+  loadMetrics();
+}
+
+function renderRefs() {
+  const bDiv = document.getElementById('refs-branches');
+  bDiv.innerHTML = '<h3>Branches</h3>';
+  for (const [name, sha] of Object.entries(refs.branches || {})) {
+    const el = document.createElement('div');
+    el.className = 'ref-item' + (name === refs.current_branch ? ' active' : '');
+    el.innerHTML = `<span class="ref-badge branch-badge">B</span> ${name} <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${sha.slice(0,7)}</span>`;
+    el.onclick = () => scrollToCommit(sha);
+    bDiv.appendChild(el);
+  }
+  const tDiv = document.getElementById('refs-tags');
+  tDiv.innerHTML = '<h3>Tags</h3>';
+  for (const [name, sha] of Object.entries(refs.tags || {})) {
+    const el = document.createElement('div');
+    el.className = 'ref-item';
+    el.innerHTML = `<span class="ref-badge tag-badge">T</span> ${name}`;
+    el.onclick = () => scrollToCommit(sha);
+    tDiv.appendChild(el);
+  }
+}
+
+function getLabels(sha) {
+  const labels = [];
+  if (sha === refs.head) labels.push({text: 'HEAD', cls: 'head-badge'});
+  for (const [n, s] of Object.entries(refs.branches || {})) if (s === sha) labels.push({text: n, cls: 'branch-badge'});
+  for (const [n, s] of Object.entries(refs.tags || {})) if (s === sha) labels.push({text: n, cls: 'tag-badge'});
+  return labels;
+}
+
+function renderDAG() {
+  const dag = document.getElementById('dag');
+  dag.innerHTML = '';
+  const ROW_H = 50, LEFT = 30;
+  const shaToY = {};
+  commits.forEach((c, i) => { shaToY[c.sha] = i * ROW_H; });
+
+  // Draw lines first
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:' + (commits.length * ROW_H + 40) + 'px;pointer-events:none';
+  commits.forEach(c => {
+    (c.parents || []).forEach(p => {
+      if (shaToY[p] !== undefined) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', LEFT + 8); line.setAttribute('y1', shaToY[c.sha] + 20);
+        line.setAttribute('x2', LEFT + 8); line.setAttribute('y2', shaToY[p] + 20);
+        line.setAttribute('stroke', '#30363d'); line.setAttribute('stroke-width', '2');
+        svg.appendChild(line);
+      }
+    });
+  });
+  dag.appendChild(svg);
+
+  // Draw nodes
+  commits.forEach((c, i) => {
+    const node = document.createElement('div');
+    node.className = 'commit-node';
+    node.style.top = (i * ROW_H) + 'px';
+    node.style.left = (LEFT + 24) + 'px';
+    const labels = getLabels(c.sha);
+    const labelHtml = labels.map(l => `<span class="ref-badge ${l.cls}">${l.text}</span>`).join('');
+    node.innerHTML = `<span class="commit-sha">${c.sha.slice(0,7)}</span><span class="commit-msg">${escHtml(c.message.split('\n')[0])}</span><span class="commit-labels">${labelHtml}</span>`;
+    node.onclick = () => selectCommit(c.sha);
+    node.id = 'node-' + c.sha;
+    dag.appendChild(node);
+  });
+  dag.style.height = (commits.length * ROW_H + 40) + 'px';
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function scrollToCommit(sha) {
+  const el = document.getElementById('node-' + sha);
+  if (el) { el.scrollIntoView({behavior: 'smooth', block: 'center'}); selectCommit(sha); }
+}
+
+async function selectCommit(sha) {
+  document.querySelectorAll('.commit-node.selected').forEach(n => n.classList.remove('selected'));
+  const node = document.getElementById('node-' + sha);
+  if (node) node.classList.add('selected');
+  selectedSha = sha;
+  const panel = document.getElementById('detail-panel');
+  panel.classList.add('open');
+  const [detail, diff] = await Promise.all([fetchJSON('/api/object/' + sha), fetchJSON('/api/diff/' + sha)]);
+  document.getElementById('detail-title').textContent = detail.message || sha;
+  document.getElementById('detail-sha').textContent = sha;
+  let html = '';
+  if (detail.author) html += `<div class="detail-section"><h4>Author</h4><p>${escHtml(detail.author)} &lt;${escHtml(detail.email||'')}&gt;</p></div>`;
+  if (detail.timestamp) html += `<div class="detail-section"><h4>Date</h4><p>${new Date(detail.timestamp * 1000).toLocaleString()}</p></div>`;
+  if (detail.parents && detail.parents.length) html += `<div class="detail-section"><h4>Parents</h4><p>${detail.parents.map(p=>`<a href="#" onclick="selectCommit('${p}');return false" style="color:var(--accent)">${p.slice(0,7)}</a>`).join(', ')}</p></div>`;
+  if (diff && diff.length) {
+    html += `<div class="detail-section"><h4>Changes (${diff.length})</h4><pre>`;
+    diff.forEach(d => {
+      const cls = d.status === 'added' ? 'diff-add' : d.status === 'deleted' ? 'diff-del' : '';
+      html += `<span class="${cls}">${d.status.toUpperCase()} ${escHtml(d.path)}</span>\n`;
+    });
+    html += '</pre></div>';
+  }
+  document.getElementById('detail-body').innerHTML = html;
+}
+
+document.getElementById('search').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  document.querySelectorAll('.commit-node').forEach(n => {
+    n.style.display = !q || n.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+
+async function loadMetrics() {
+  try {
+    const m = await fetchJSON('/api/metrics');
+    const grid = document.getElementById('metrics-grid');
+    grid.innerHTML = '';
+    for (const [k, v] of Object.entries(m)) {
+      grid.innerHTML += `<div class="metric-card"><div class="val">${v}</div><div class="lbl">${k}</div></div>`;
+    }
+  } catch(e) {}
+}
+
+loadData();
+setInterval(loadData, 5000);
+</script>
+</body>
+</html>

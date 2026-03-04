@@ -50,13 +50,7 @@ def get_current_branch(dg_dir: Path) -> Optional[str]:
 
 
 def resolve_head(dg_dir: Path) -> Optional[str]:
-    """Resolve HEAD to a commit SHA-1 hex digest.
-
-    Returns:
-        The 40-character SHA-1 hex string, or ``None`` if the ref does not
-        yet point to a commit (e.g. a freshly initialised repo with no
-        commits).
-    """
+    """Resolve HEAD to a commit SHA-1 hex digest."""
     raw = read_head(dg_dir)
     if raw.startswith("ref:"):
         ref_path = raw.split("ref:", 1)[1].strip()
@@ -64,8 +58,71 @@ def resolve_head(dg_dir: Path) -> Optional[str]:
         if not ref_file.exists():
             return None
         return ref_file.read_text(encoding="utf-8").strip()
-    # Detached HEAD — raw is the SHA itself.
     return raw
+
+
+def resolve_revision(dg_dir: Path, revision: str) -> Optional[str]:
+    """Resolve a revision string (branch, tag, sha, HEAD~n) to a SHA-1.
+
+    Args:
+        dg_dir:   Path to .deep_git
+        revision: Revision string (e.g. "main", "v1.0", "abc1234", "HEAD~2")
+
+    Returns:
+        40-char SHA-1 hex digest, or None if not found.
+    """
+    if not revision:
+        return None
+
+    # Handle HEAD~n
+    if revision.startswith("HEAD~"):
+        try:
+            n = int(revision[5:])
+        except ValueError:
+            n = 0
+        from deep_git.core.objects import Commit, read_object
+        current = resolve_head(dg_dir)
+        for _ in range(n):
+            if not current: return None
+            try:
+                obj = read_object(dg_dir / "objects", current)
+                if isinstance(obj, Commit) and obj.parent_shas:
+                    current = obj.parent_shas[0]
+                else:
+                    return None
+            except: return None
+        return current
+
+    if revision == "HEAD":
+        return resolve_head(dg_dir)
+
+    # Try branch
+    sha = get_branch(dg_dir, revision)
+    if sha: return sha
+
+    # Try tag
+    sha = get_tag(dg_dir, revision)
+    if sha: return sha
+
+    # Try full/short SHA
+    if len(revision) >= 4:
+        # Check if it's a valid hex
+        try:
+            int(revision, 16)
+            # If 40 chars, assume it's a SHA
+            if len(revision) == 40: return revision
+            # Short SHA lookup
+            objs_dir = dg_dir / "objects"
+            for p in objs_dir.glob("**/*"):
+                if p.is_file() and p.name != "pack":
+                    # Reconstruct SHA from path: objects/XX/YYYY...
+                    sha_candidate = p.parent.name + p.name
+                    if sha_candidate.startswith(revision):
+                        return sha_candidate
+        except ValueError:
+            pass
+
+    return None
 
 
 def update_head(dg_dir: Path, value: str) -> None:

@@ -99,6 +99,10 @@ class Blob(GitObject):
     def serialize_content(self) -> bytes:
         return self.data
 
+    @classmethod
+    def from_content(cls, content: bytes) -> "Blob":
+        return cls(data=content)
+
 
 # ── Tree ─────────────────────────────────────────────────────────────
 
@@ -172,6 +176,7 @@ class Commit(GitObject):
     message: str = ""
     timestamp: int = field(default_factory=lambda: int(time.time()))
     timezone: str = field(default_factory=get_local_timezone_offset)
+    signature: Optional[str] = None
 
     def serialize_content(self) -> bytes:
         lines: list[str] = [f"tree {self.tree_sha}"]
@@ -181,6 +186,12 @@ class Commit(GitObject):
         lines.append(
             f"committer {self.committer} {self.timestamp} {self.timezone}"
         )
+        if self.signature:
+            lines.append("gpgsig -----BEGIN PGP SIGNATURE-----")
+            for sig_line in self.signature.splitlines():
+                lines.append(f" {sig_line}")
+            lines.append(" -----END PGP SIGNATURE-----")
+            
         lines.append("")
         lines.append(self.message)
         return "\n".join(lines).encode("utf-8")
@@ -189,14 +200,33 @@ class Commit(GitObject):
     def from_content(cls, content: bytes) -> "Commit":
         """Deserialise commit content bytes back into a :class:`Commit`."""
         text = content.decode("utf-8")
-        headers, message = text.split("\n\n", 1)
+        
+        # Split headers from message
+        if "\n\n" in text:
+            headers_text, message = text.split("\n\n", 1)
+        else:
+            headers_text, message = text, ""
+            
         tree_sha = ""
         parent_shas: list[str] = []
         author = ""
         committer = ""
         timestamp = 0
         timezone = "+0000"
-        for line in headers.split("\n"):
+        signature_lines = []
+        in_sig = False
+        
+        for line in headers_text.split("\n"):
+            if line.startswith("gpgsig "):
+                in_sig = True
+                continue
+            if in_sig:
+                if line.startswith(" -----END PGP SIGNATURE-----"):
+                    in_sig = False
+                else:
+                    signature_lines.append(line[1:] if line.startswith(" ") else line)
+                continue
+                
             if line.startswith("tree "):
                 tree_sha = line[5:]
             elif line.startswith("parent "):
@@ -209,6 +239,9 @@ class Commit(GitObject):
             elif line.startswith("committer "):
                 parts = line[10:].rsplit(" ", 2)
                 committer = parts[0]
+                
+        signature = "\n".join(signature_lines) if signature_lines else None
+        
         return cls(
             tree_sha=tree_sha,
             parent_shas=parent_shas,
@@ -217,6 +250,7 @@ class Commit(GitObject):
             message=message,
             timestamp=timestamp,
             timezone=timezone,
+            signature=signature,
         )
 
 
@@ -284,10 +318,26 @@ class Tag(GitObject):
 # ── Read from disk ──────────────────────────────────────────────────
 
 def read_object(objects_dir: Path, sha: str) -> GitObject:
-    """Read and deserialise an object from the object store."""
+    """Read and deserialise an object from the object store.
+    
+    This function transparently handles both compressed (zlib) and 
+    legacy uncompressed objects.
+    """
     path = _object_path(objects_dir, sha)
-    compressed = path.read_bytes()
-    raw = zlib.decompress(compressed)
+    data = path.read_bytes()
+    
+    try:
+        # Try decompressing first (new format)
+        raw = zlib.decompress(data)
+    except zlib.error:
+        # If decompression fails, it might be an old uncompressed object
+        # Valid Git objects start with type + space (e.g., 'blob ', 'commit ')
+        valid_headers = [b"blob ", b"tree ", b"commit ", b"tag "]
+        if any(data.startswith(h) for h in valid_headers):
+            raw = data
+        else:
+            raise ValueError(f"Object {sha} is corrupted or in an unknown format.")
+
     obj_type, content = _deserialize(raw)
 
     if obj_type == "blob":
@@ -300,3 +350,70 @@ def read_object(objects_dir: Path, sha: str) -> GitObject:
         return Tag.from_content(content)
     else:
         raise ValueError(f"Unknown object type: {obj_type!r}")
+
+
+def read_object_safe(objects_dir: Path, sha: str) -> GitObject:
+    """Read an object and verify its SHA-1 hash."""
+    path = _object_path(objects_dir, sha)
+    if not path.exists():
+        raise FileNotFoundError(f"Object {sha} not found")
+        
+    data = path.read_bytes()
+    try:
+        raw = zlib.decompress(data)
+    except zlib.error:
+        raw = data # fallback to uncompressed
+        
+    actual_sha = hash_bytes(raw)
+    
+    if actual_sha != sha:
+        # Quarantine corrupt object
+        quarantine_dir = objects_dir.parent / "quarantine"
+        quarantine_dir.mkdir(exist_ok=True)
+        q_path = quarantine_dir / sha
+        if not q_path.exists():
+            path.replace(q_path)
+        
+        # Phase 57: Attempt P2P Heal
+        healed_data = _attempt_p2p_heal(objects_dir.parent, sha)
+        if healed_data:
+            # Persist healed object
+            # (Note: full_serialize already includes header, so we avoid nested headers)
+            # We use a simple write here.
+            with AtomicWriter(path) as aw:
+                aw.write(zlib.compress(healed_data))
+            raw = healed_data
+        else:
+            raise ValueError(f"Corrupt object {sha} (hash mismatch). P2P healing failed.")
+        
+    obj_type, content = _deserialize(raw)
+    cls = {
+        "blob": Blob,
+        "tree": Tree,
+        "commit": Commit,
+        "tag": Tag,
+    }.get(obj_type)
+    
+    if cls is None:
+        raise ValueError(f"Unknown object type: {obj_type}")
+        
+    return cls.from_content(content)
+
+
+def _attempt_p2p_heal(dg_dir: Path, sha: str) -> Optional[bytes]:
+    """Attempt to fetch a valid object from P2P peers."""
+    try:
+        from deep_git.network.p2p import P2PEngine
+        engine = P2PEngine(dg_dir)
+        # In a real scenario, this would already be running and have peers.
+        # For simulation/tests, we might need a way to pass an existing engine.
+        peers = engine.get_peers()
+        for p in peers:
+            data = engine.request_tunnel_data(p.node_id, sha)
+            if data:
+                # Verify healed data before returning
+                if hash_bytes(data) == sha:
+                    return data
+    except Exception:
+        pass
+    return None

@@ -44,9 +44,13 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         return
 
     # Create a new branch.
-    head_sha = resolve_head(dg_dir)
-    if head_sha is None:
-        print("Error: cannot create branch without any commits", file=sys.stderr)
+    from deep_git.core.refs import resolve_revision
+    start_point = args.start_point if hasattr(args, "start_point") else "HEAD"
+    target_sha = resolve_revision(dg_dir, start_point)
+    
+    if target_sha is None:
+        print(f"Error: Not a valid object name: '{start_point}'", file=sys.stderr)
         sys.exit(1)
-    update_branch(dg_dir, args.name, head_sha)
-    print(f"Created branch '{args.name}' at {head_sha[:7]}")
+        
+    update_branch(dg_dir, args.name, target_sha)
+    print(f"Created branch '{args.name}' at {target_sha[:7]}")

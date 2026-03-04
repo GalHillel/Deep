@@ -89,6 +89,40 @@ def diff_blob_vs_file(
         new_label=f"b/{rel_path}",
     )
 
+def diff_blobs(
+    objects_dir: Path,
+    sha_a: str,
+    sha_b: str,
+    rel_path: str,
+) -> Optional[str]:
+    """Diff two blobs by their SHAs.
+
+    Args:
+        objects_dir: Path to the objects directory.
+        sha_a:       SHA of the first (old) blob.
+        sha_b:       SHA of the second (new) blob.
+        rel_path:    Relative path for display labels.
+
+    Returns:
+        Unified diff string, or ``None`` if identical.
+    """
+    if sha_a == sha_b:
+        return None
+
+    try:
+        obj_a = read_object(objects_dir, sha_a) if sha_a else None
+        obj_b = read_object(objects_dir, sha_b) if sha_b else None
+        
+        text_a = obj_a.data.decode("utf-8", errors="replace") if isinstance(obj_a, Blob) else ""
+        text_b = obj_b.data.decode("utf-8", errors="replace") if isinstance(obj_b, Blob) else ""
+        
+        old_lines = text_a.splitlines()
+        new_lines = text_b.splitlines()
+        
+        return diff_lines(old_lines, new_lines, f"a/{rel_path}", f"b/{rel_path}")
+    except Exception:
+        return None
+
 
 def diff_working_tree(repo_root: Path) -> list[tuple[str, str]]:
     """Compute diffs for all tracked files that differ from the index.

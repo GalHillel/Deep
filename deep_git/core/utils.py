@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -57,6 +58,11 @@ class AtomicWriter:
         self._fd: Optional[int] = None
         self._tmp_path: Optional[Path] = None
         self._file = None
+        self._is_append = "a" in self.mode
+        if self._is_append:
+            # If appending, we actually open the temp file in write mode
+            # because we'll copy existing contents over first.
+            self.mode = self.mode.replace("a", "w")
 
     # ------------------------------------------------------------------
     # Context-manager protocol
@@ -72,7 +78,14 @@ class AtomicWriter:
         )
         self._fd = fd
         self._tmp_path = Path(tmp_name)
-        self._file = os.fdopen(fd, self.mode)
+
+        if self._is_append and self.target.exists():
+            # Copy existing contents to the temp file first
+            with open(self.target, "rb") as src:
+                with os.fdopen(self._fd, "wb", closefd=False) as dst:
+                    shutil.copyfileobj(src, dst)
+
+        self._file = os.fdopen(self._fd, self.mode)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[override]
@@ -90,6 +103,19 @@ class AtomicWriter:
         os.fsync(self._file.fileno())  # type: ignore[union-attr]
         self._file.close()  # type: ignore[union-attr]
         os.replace(str(self._tmp_path), str(self.target))
+        
+        # Fsync the parent directory to ensure the directory entry is persisted
+        try:
+            if sys.platform != "win32":
+                dir_fd = os.open(str(self.target.parent), os.O_RDONLY)
+                try:
+                    os.fsync(dir_fd)
+                finally:
+                    os.close(dir_fd)
+        except OSError:
+            # Ignoring directory fsync errors, particularly on systems where 
+            # opening a directory for reading is restricted (like Windows without specific flags).
+            pass
 
     # ------------------------------------------------------------------
     # Writing helpers

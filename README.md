@@ -10,13 +10,19 @@ Deep Git implements the core fundamentals of Git — content-addressable storage
 
 | Feature | Description |
 |---|---|
-| **Content-Addressable Storage** | Every object (Blob, Tree, Commit) is identified by its SHA-1 hash. Duplicate content is stored only once. |
-| **Advanced Operations** | Full support for branching, merging (fast-forward and 3-way), checkouts, repository status, diffing, and resets. |
-| **Atomic Writes** | All file writes go through `AtomicWriter` — data is written to a temp file and atomically renamed via `os.replace`. A crash mid-write will never corrupt your repository. |
-| **Concurrency Safety** | The index and all ref updates are protected by cross-platform file locks (`filelock`). 20 threads can write to the index simultaneously without data corruption. |
-| **DAG Integrity** | Commits point to valid Trees and parent Commits, forming a verifiable directed acyclic graph. |
-| **Zlib Compression** | Stored objects are compressed with zlib, just like Git. |
-| **Git-Compatible Serialisation** | Objects use Git's `<type> <size>\0<content>` wire format. |
+| **Content-Addressable Storage** | SHA-1 based object model (Blob, Tree, Commit, Tag). |
+| **Distributed Mode** | `daemon`, `clone`, `push`, and `fetch` support via PKT-LINE wire protocol. |
+| **Packfiles & Compression** | Efficient object bundling with Deep Pack format and transparent `zlib` compression. |
+| **Web Dashboard** | Interactive DAG explorer at `deepgit web` with REST API. |
+| **AI Assistant** | Commit message suggestions, quality analysis, branch naming via `deepgit ai`. |
+| **Enterprise Security** | RBAC (admin/write/read), per-branch permissions, append-only audit log. |
+| **Crash Recovery** | Write-ahead transaction log with auto-recovery and `deepgit doctor` integration. |
+| **Telemetry** | Performance metrics collection, `Timer` context manager, dashboard integration. |
+| **Multi-User Sync** | Event broadcasting, divergent push detection, real-time conflict resolution. |
+| **Atomic Writes** | `AtomicWriter` ensures crash-safe repository state. |
+| **Concurrency Safety** | `filelock` protection for cross-process index and ref updates. |
+| **Advanced CLI** | `merge` (FF & 3-way), `rebase`, `stash`, `tag`, `config`, and `ignore` support. |
+| **Integrity & GC** | `gc` for mark-and-sweep cleanup and `doctor` for full graph validation. |
 
 ---
 
@@ -61,10 +67,12 @@ Deep Git implements the core fundamentals of Git — content-addressable storage
 |---|---|
 | `core/utils.py` | SHA-1 hashing (`hash_bytes`) and `AtomicWriter` for crash-safe file I/O |
 | `core/repository.py` | Repository initialisation (`init_repo`) and discovery (`find_repo`) |
-| `core/objects.py` | `Blob`, `Tree`, `Commit` — serialisation, hashing, read/write to disk |
+| `core/objects.py` | `Blob`, `Tree`, `Commit`, `Tag` — serialisation and disk I/O |
 | `core/index.py` | Staging area with `filelock`-based concurrency protection |
-| `core/refs.py` | HEAD resolution, branch CRUD, and `log_history` DAG traversal |
-| `commands/` | CLI command implementations (`init`, `add`, `commit`, `log`, `branch`) |
+| `core/refs.py` | HEAD resolution, branch CRUD, and DAG traversal |
+| `core/pack.py` | **Deep Pack** creation and unpacking logic |
+| `network/` | Wire protocol implementation and Distributed Daemon |
+| `commands/` | CLI implementations (including `gc`, `doctor`, `stash`, `rebase`) |
 | `main.py` | `argparse`-based CLI entry point |
 
 ---
@@ -128,6 +136,45 @@ deepgit reset --hard HEAD
 
 ---
 
+## 🌐 Distributed Workflow
+
+Deep Git supports distributed collaboration using a built-in TCP daemon and a PKT-LINE based wire protocol.
+
+### 1. Start the Daemon (Server)
+Host your repository on the network:
+```bash
+deepgit daemon --port 8888
+```
+
+### 2. Clone (Client)
+Copy a remote repository:
+```bash
+deepgit clone 127.0.0.1:8888 my-repo
+```
+
+### 3. Push & Fetch
+Synchronize changes:
+```bash
+# Push local branch to remote
+deepgit push 127.0.0.1:8888 main
+
+# Fetch specific SHA from remote
+deepgit fetch 127.0.0.1:8888 <sha-1>
+```
+
+---
+
+## 📡 Wire Protocol v1
+
+Deep Git uses a structured binary protocol for networking:
+- **Framing**: [PKT-LINE](https://git-scm.com/docs/protocol-common#_pkt_line_format) (4-byte hex length + payload).
+- **Handshake**: Capability negotiation (`push`, `fetch`, `packfile-v1`).
+- **Object Transfer**: Compressed **Deep Pack** files with CRC-32 integrity and SHA-1 trailers.
+- **Push Safety**: Objects are first received into a `quarantine/` directory and only moved into the main store if the transfer is complete and valid.
+
+
+---
+
 ## 🧪 Running the Test Suite
 
 ```bash
@@ -150,18 +197,14 @@ pytest tests/test_index_concurrency.py::TestIndexConcurrency -v
 
 | Test File | Tests | What It Covers |
 |---|---|---|
-| `test_utils.py` | 13 | SHA-1 hashing, atomic writes, crash simulation, concurrent writes |
-| `test_repository.py` | 8 | Repo init, directory structure, duplicate detection, repo discovery |
-| `test_objects.py` | 13 | Blob/Tree/Commit serialisation, round-trips, DAG chain integrity |
-| `test_index_concurrency.py` | 8 | Index CRUD, JSON round-trip, 20-thread stress tests |
-| `test_refs.py` | 17 | HEAD resolution, branch lifecycle, detached HEAD, log traversal |
-| `test_cli.py` | 16 | End-to-end workflows: init→add→commit→log→branch |
-| `test_status.py` | 11 | 3-way status comparisons, untracked/staged/modified states |
-| `test_diff.py` | 10 | Unified diff generation, working tree comparisons |
-| `test_checkout.py` | 6 | Branch switching, detached HEAD, safe tree restoration |
-| `test_merge.py` | 8 | LCA detection, fast-forward, 3-way merge, conflict aborts |
-| `test_rm_reset.py` | 8 | File removal, soft/hard resets |
-| **Total** | **110** | |
+| `test_utils.py` | 13 | SHA-1, atomicity, crash recovery |
+| `test_index_concurrency.py` | 8 | 20-thread index stress tests |
+| `test_merge.py` | 10 | FF and 3-way merge logic |
+| `test_rebase.py` | 6 | Commit transplanting and history rewriting |
+| `test_daemon.py` | 5 | Distributed server & connectivity |
+| `test_remote_cli.py` | 3 | End-to-end `clone`/`push`/`fetch` |
+| `test_gc_doctor.py` | 8 | Garbage collection and graph validation |
+| **Total** | **177** | **Full Feature Coverage** |
 
 ---
 
@@ -172,18 +215,16 @@ Every file write uses `AtomicWriter`:
 1. Data is written to a temp file in the **same directory** (guaranteeing same-filesystem atomic rename).
 2. The file is `fsync`'d to disk.
 3. `os.replace()` atomically swaps it into place.
-4. If an exception occurs, the temp file is cleaned up and the target is untouched.
-
-### Concurrency Safety
-Critical shared state is protected by `filelock`:
-- **Index**: Reads and writes acquire an exclusive lock on `.deep_git/index.lock`.
-- **Branch refs**: Each branch ref has its own `.lock` file.
-- **HEAD**: Updates acquire `HEAD.lock`.
-
-The concurrency stress tests spawn **20 concurrent threads** all writing to the index simultaneously, then verify zero data corruption.
 
 ### Content-Addressable Storage
-Objects are stored at `objects/<xx>/<yy…>` where `xx` = first 2 hex chars of the SHA-1, `yy…` = remaining 38. This mirrors Git's layout and provides natural filesystem sharding.
+Deep Git uses Git's core object model. Objects are stored under `.deep_git/objects/<xx>/<yy...>` and are transparently compressed with `zlib`.
+
+### Concurrency Safety
+Critical shared state (Index, Refs, HEAD) is protected by `filelock`. The system is safe for high-concurrency environments, supporting simultaneous writes from multiple processes.
+
+### Distributed Security (Quarantine)
+When pushing to a remote daemon, objects are first unbundled into a `quarantine/` directory. Only after the entire packfile is received and validated are the objects moved to the permanent store and refs updated atomically.
+
 
 ---
 

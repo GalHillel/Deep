@@ -119,7 +119,8 @@ def save_stash(repo_root: Path) -> Optional[str]:
             if isinstance(blob, Blob):
                 p = repo_root / e.name
                 p.parent.mkdir(parents=True, exist_ok=True)
-                p.write_bytes(blob.data)
+                with AtomicWriter(p, mode="wb") as aw:
+                    aw.write(blob.data)
                 stat = p.stat()
                 new_index.entries[e.name] = IndexEntry(
                     sha=e.sha,
