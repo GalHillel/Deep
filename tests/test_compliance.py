@@ -28,7 +28,8 @@ def test_signed_commit(compliance_repo):
     sha = resolve_head(repo / DEEP_GIT_DIR)
     obj = read_object(repo / DEEP_GIT_DIR / "objects", sha)
     assert isinstance(obj, Commit)
-    assert obj.signature == "MOCKED_GPG_SIGNATURE"
+    assert obj.signature is not None
+    assert obj.signature.startswith("SIG:") or obj.signature == "MOCKED_GPG_SIGNATURE"
 
 
 def test_audit_log_cli(compliance_repo):

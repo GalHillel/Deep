@@ -1,7 +1,9 @@
 """
 deep_git.commands.audit_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-``deepgit audit`` command implementation.
+``deepgit audit [show|report]`` command implementation.
+
+GOD MODE: Supports 'report' subcommand for Merkle-chained audit report.
 """
 
 from __future__ import annotations
@@ -23,7 +25,14 @@ def run(args) -> None:
 
     dg_dir = repo_root / DEEP_GIT_DIR
     audit = AuditLog(dg_dir)
-    
+
+    audit_command = getattr(args, "audit_command", "show") or "show"
+
+    if audit_command == "report":
+        print(audit.export_report())
+        return
+
+    # Default: show entries
     entries = audit.read_all()
     if not entries:
         print("No audit entries recorded.")

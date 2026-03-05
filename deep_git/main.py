@@ -154,6 +154,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── audit ───────────────────────────────────────────────────────
     p_audit = sub.add_parser("audit", help="Show the audit log")
+    p_audit.add_argument("audit_command", nargs="?", default="show",
+                         choices=["show", "report"],
+                         help="Audit sub-command (show or report)")
+
+    # ── verify ──────────────────────────────────────────────────────
+    p_verify = sub.add_parser("verify", help="Verify repository integrity, signatures, and audit chain")
+    p_verify.add_argument("--all", action="store_true", dest="verify_all", help="Verify all commits, DAG, audit, and WAL")
+
+    # ── sandbox ─────────────────────────────────────────────────────
+    p_sandbox = sub.add_parser("sandbox", help="Execute scripts in a secure sandbox")
+    p_sandbox.add_argument("sandbox_command", choices=["run"], help="Sandbox sub-command")
+    p_sandbox.add_argument("script", help="Path to script to execute")
+    p_sandbox.add_argument("--timeout", type=int, default=30, help="Timeout in seconds")
+
+    # ── rollback ────────────────────────────────────────────────────
+    p_rollback = sub.add_parser("rollback", help="Roll back incomplete transactions")
+    p_rollback.add_argument("--verify", action="store_true", help="Verify WAL signatures before rollback")
 
     # ── ultra ───────────────────────────────────────────────────────
     p_ultra = sub.add_parser("ultra", help="The ultimate status summary")
@@ -253,6 +270,12 @@ def main(argv: list[str] | None = None) -> None:
         from deep_git.commands.ultra_cmd import run
     elif args.command == "batch":
         from deep_git.commands.batch_cmd import run
+    elif args.command == "verify":
+        from deep_git.commands.verify_cmd import run
+    elif args.command == "sandbox":
+        from deep_git.commands.sandbox_cmd import run
+    elif args.command == "rollback":
+        from deep_git.commands.rollback_cmd import run
     else:
         parser.print_help()
         sys.exit(1)

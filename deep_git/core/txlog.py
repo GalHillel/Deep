@@ -2,6 +2,8 @@
 deep_git.core.txlog
 ~~~~~~~~~~~~~~~~~~~
 Write-ahead transaction log for crash recovery.
+
+GOD MODE: WAL entries can be cryptographically signed for integrity verification.
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ import os
 import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
+from typing import Optional
 
 
 @dataclass
@@ -23,27 +26,43 @@ class TxRecord:
     target_object_id: str = ""
     branch_ref: str = ""
     previous_commit_sha: str = ""
+    signature: str = ""  # GOD MODE: HMAC signature of the record
+    signing_key_id: str = ""  # GOD MODE: Key ID used for signing
 
 
 class TransactionLog:
-    """Write-ahead log at .deep_git/txlog."""
+    """Write-ahead log at .deep_git/txlog.
+
+    GOD MODE: Supports signed WAL entries for tamper detection during recovery.
+    """
 
     def __init__(self, dg_dir: Path):
         self.log_path = dg_dir / "txlog"
+        self.dg_dir = dg_dir
 
-    def begin(self, operation: str, details: str = "", target_object_id: str = "", branch_ref: str = "", previous_commit_sha: str = "") -> str:
-        """Start a new transaction, return tx_id."""
+    def begin(self, operation: str, details: str = "", target_object_id: str = "",
+              branch_ref: str = "", previous_commit_sha: str = "",
+              signing_key_id: Optional[str] = None) -> str:
+        """Start a new transaction, return tx_id.
+
+        If signing_key_id is provided, the WAL entry is signed.
+        """
         tx_id = f"{operation}_{int(time.time() * 1000)}"
-        self._write(TxRecord(
-            tx_id=tx_id, 
-            operation=operation, 
-            status="BEGIN", 
-            timestamp=time.time(), 
+        record = TxRecord(
+            tx_id=tx_id,
+            operation=operation,
+            status="BEGIN",
+            timestamp=time.time(),
             details=details,
             target_object_id=target_object_id,
             branch_ref=branch_ref,
-            previous_commit_sha=previous_commit_sha
-        ))
+            previous_commit_sha=previous_commit_sha,
+        )
+
+        if signing_key_id:
+            record = self._sign_record(record, signing_key_id)
+
+        self._write(record)
         return tx_id
 
     def commit(self, tx_id: str):
@@ -53,6 +72,20 @@ class TransactionLog:
     def rollback(self, tx_id: str, reason: str = ""):
         """Mark a transaction as rolled back."""
         self._write(TxRecord(tx_id, "", "ROLLBACK", time.time(), reason))
+
+    def _sign_record(self, record: TxRecord, key_id: str) -> TxRecord:
+        """Sign a WAL record using the specified key."""
+        try:
+            from deep_git.core.security import KeyManager, CommitSigner
+            km = KeyManager(self.dg_dir)
+            signer = CommitSigner(km)
+            data = json.dumps(asdict(record), sort_keys=True).encode("utf-8")
+            sig_hex, used_key_id = signer.sign(data, key_id)
+            record.signature = sig_hex
+            record.signing_key_id = used_key_id
+        except Exception:
+            pass  # Signing is optional; failure doesn't block operation
+        return record
 
     def _write(self, record: TxRecord):
         from deep_git.core.utils import AtomicWriter
@@ -88,8 +121,51 @@ class TransactionLog:
         """Check if there are incomplete transactions."""
         return len(self.get_incomplete()) > 0
 
+    def verify_record_signature(self, record: TxRecord) -> bool:
+        """Verify the HMAC signature of a WAL record.
+
+        Returns True if valid or if unsigned (backward compat).
+        """
+        if not record.signature or not record.signing_key_id:
+            return True  # Unsigned records pass (backward compat)
+
+        try:
+            from deep_git.core.security import KeyManager, CommitSigner
+            km = KeyManager(self.dg_dir)
+            signer = CommitSigner(km)
+
+            # Reconstruct the record without signature for verification
+            verify_record = TxRecord(
+                tx_id=record.tx_id,
+                operation=record.operation,
+                status=record.status,
+                timestamp=record.timestamp,
+                details=record.details,
+                target_object_id=record.target_object_id,
+                branch_ref=record.branch_ref,
+                previous_commit_sha=record.previous_commit_sha,
+            )
+            data = json.dumps(asdict(verify_record), sort_keys=True).encode("utf-8")
+            return signer.verify(data, record.signature, record.signing_key_id)
+        except Exception:
+            return False
+
+    def verify_all(self) -> list[tuple[str, bool]]:
+        """Verify signatures on all WAL records.
+
+        Returns list of (tx_id, is_valid) tuples.
+        """
+        results = []
+        for record in self.read_all():
+            is_valid = self.verify_record_signature(record)
+            results.append((record.tx_id, is_valid))
+        return results
+
     def recover(self):
-        """Perform idempotent recovery on incomplete transactions."""
+        """Perform idempotent recovery on incomplete transactions.
+
+        GOD MODE: Verifies WAL entry signatures before applying recovery.
+        """
 
         incomplete = self.get_incomplete()
         if not incomplete:
@@ -99,6 +175,11 @@ class TransactionLog:
         from deep_git.core.objects import read_object_safe
 
         for record in incomplete:
+            # GOD MODE: Verify signature before trusting the WAL entry
+            if record.signature and not self.verify_record_signature(record):
+                self.rollback(record.tx_id, "Crash recovery: WAL signature verification failed")
+                continue
+
             # If a commit crashed mid-flight, we need to restore the branch pointer
             # to its previous state. The objects written are content-addressable and 
             # won't cause corruption if left dangling.

@@ -187,3 +187,25 @@ class P2PEngine:
         except Exception:
             pass
         return None
+
+    def verify_peer_commit(self, commit_obj, peer_id: str = "") -> bool:
+        """Zero-Trust: Verify a commit received from a P2P peer.
+
+        Only commits with valid, non-revoked signatures are accepted
+        into the local DAG. Unsigned commits are rejected.
+
+        Returns True if the commit has a valid signature.
+        """
+        from deep_git.core.security import verify_peer_commit as _verify
+        from deep_git.core.security import KeyManager
+        km = KeyManager(self.dg_dir)
+        return _verify(commit_obj, km)
+
+    def _reject_unsigned_commit(self, commit_obj) -> bool:
+        """Check if a commit should be rejected due to missing signature.
+
+        Returns True if the commit should be REJECTED (unsigned or invalid).
+        """
+        if not getattr(commit_obj, "signature", None):
+            return True  # Reject: no signature
+        return not self.verify_peer_commit(commit_obj)
