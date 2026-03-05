@@ -1,7 +1,7 @@
 """
 tests.test_log_advanced
 ~~~~~~~~~~~~~~~~~~~~~~~
-Tests for deepgit log advanced options (--oneline, -n, --graph)
+Tests for deep log advanced options (--oneline, -n, --graph)
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.main import main
+from deep.cli.main import main
 
 
 @pytest.fixture()

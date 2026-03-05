@@ -1,7 +1,7 @@
 """
 tests.test_diff
 ~~~~~~~~~~~~~~~~
-Tests for :mod:`deep_git.core.diff` and ``deepgit diff`` command.
+Tests for :mod:`deep.core.diff` and ``deep diff`` command.
 """
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.diff import diff_lines, diff_working_tree
-from deep_git.main import main
+from deep.core.diff import diff_lines, diff_working_tree
+from deep.cli.main import main
 
 
 @pytest.fixture()

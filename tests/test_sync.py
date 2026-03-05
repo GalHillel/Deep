@@ -3,18 +3,18 @@ from pathlib import Path
 import subprocess, sys, os
 import pytest
 
-from deep_git.network.sync import SyncEngine, SyncEvent
-from deep_git.core.repository import DEEP_GIT_DIR
+from deep.network.sync import SyncEngine, SyncEvent
+from deep.core.repository import DEEP_GIT_DIR
 
 
 @pytest.fixture
 def sync_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd())
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
     (tmp_path / "a.txt").write_text("hi")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "a.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "a.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path
 
 
@@ -37,7 +37,7 @@ def test_sync_broadcast(sync_repo):
 
 def test_sync_conflict_detection(sync_repo):
     engine = SyncEngine(sync_repo / DEEP_GIT_DIR)
-    from deep_git.core.refs import resolve_head
+    from deep.core.refs import resolve_head
     head = resolve_head(sync_repo / DEEP_GIT_DIR)
     # No conflict if expected matches
     conflict = engine.detect_conflict("refs/heads/main", head, "new_sha")

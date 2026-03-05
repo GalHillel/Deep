@@ -1,7 +1,7 @@
 """
 tests.test_rm_reset
 ~~~~~~~~~~~~~~~~~~~~
-Tests for ``deepgit rm`` and ``deepgit reset``.
+Tests for ``deep rm`` and ``deep reset``.
 """
 
 from __future__ import annotations
@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.index import read_index
-from deep_git.core.refs import resolve_head
-from deep_git.main import main
+from deep.storage.index import read_index
+from deep.core.refs import resolve_head
+from deep.cli.main import main
 
 
 @pytest.fixture()

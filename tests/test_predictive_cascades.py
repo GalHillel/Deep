@@ -8,8 +8,8 @@ import pytest
 import json
 import time
 from pathlib import Path
-from deep_git.core.repository import init_repo, DEEP_GIT_DIR
-from deep_git.core.pipeline import PipelineRunner
+from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.pipeline import PipelineRunner
 
 
 @pytest.fixture

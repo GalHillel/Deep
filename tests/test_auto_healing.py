@@ -8,8 +8,8 @@ import pytest
 import time
 import zlib
 from pathlib import Path
-from deep_git.core.repository import init_repo, DEEP_GIT_DIR
-from deep_git.core.objects import Blob, read_object_safe
+from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.storage.objects import Blob, read_object_safe
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def test_p2p_auto_heal(healing_env):
     obj_path.write_bytes(zlib.compress(b"CORRUPT DATA"))
     
     # 3. Setup P2P discovery so r2 knows about r1
-    from deep_git.network.p2p import P2PEngine, PeerNode
+    from deep.network.p2p import P2PEngine, PeerNode
     e2 = P2PEngine(r2 / DEEP_GIT_DIR)
     # Manually seed r1 as a peer of r2
     e2.peers["node_1"] = PeerNode(
@@ -49,13 +49,13 @@ def test_p2p_auto_heal(healing_env):
     
     # We need a way to make read_object_safe use our engine.
     # For the test, we can monkeypatch P2PEngine to return our instance.
-    import deep_git.core.objects
-    original_p2p = deep_git.core.objects._attempt_p2p_heal
+    import deep.storage.objects
+    original_p2p = deep.storage.objects._attempt_p2p_heal
     
     def mock_heal(dg_dir, target_sha):
         return e2.request_tunnel_data("node_1", target_sha)
         
-    deep_git.core.objects._attempt_p2p_heal = mock_heal
+    deep.storage.objects._attempt_p2p_heal = mock_heal
     
     try:
         # 4. Attempt to read the corrupt object in r2
@@ -68,4 +68,4 @@ def test_p2p_auto_heal(healing_env):
         assert b"stable content" in new_data
         
     finally:
-        deep_git.core.objects._attempt_p2p_heal = original_p2p
+        deep.storage.objects._attempt_p2p_heal = original_p2p

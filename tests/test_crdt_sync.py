@@ -6,7 +6,7 @@ Tests for Phase 55: Quantum-Level Conflict Resolution (CRDTs).
 
 import pytest
 import time
-from deep_git.core.crdt import LWWSet, RepoStateCRDT
+from deep.core.crdt import LWWSet, RepoStateCRDT
 
 
 def test_lww_set_basic():

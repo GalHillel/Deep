@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.main import main
+from deep.cli.main import main
 
 
 @pytest.fixture()

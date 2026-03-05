@@ -7,8 +7,8 @@ Tests for Phase 52: AI Auto-Refactor Engine.
 import pytest
 import os
 from pathlib import Path
-from deep_git.core.repository import init_repo
-from deep_git.ai.assistant import DeepGitAI
+from deep.core.repository import init_repo
+from deep.ai.assistant import DeepGitAI
 
 import contextlib
 
@@ -38,7 +38,7 @@ def test_ai_refactor_suggestions(refactor_repo):
         code_py = refactor_repo / "logic.py"
         code_py.write_text("if x == True:\n    print('dirty code')\n")
         
-        from deep_git.commands.add_cmd import run as run_add
+        from deep.commands.add_cmd import run as run_add
         class Args: pass
         add_args = Args()
         add_args.files = ["logic.py"]
@@ -68,7 +68,7 @@ def test_ai_refactor_no_issues(refactor_repo):
         clean_py = refactor_repo / "clean.py"
         clean_py.write_text("def main():\n    return 42\n")
         
-        from deep_git.commands.add_cmd import run as run_add
+        from deep.commands.add_cmd import run as run_add
         class Args: pass
         add_args = Args()
         add_args.files = ["clean.py"]

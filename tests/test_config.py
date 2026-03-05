@@ -1,7 +1,7 @@
 """
 tests.test_config
 ~~~~~~~~~~~~~~~~~~
-Tests for the configuration system (`.deepgitconfig` / `.deep_git/config`).
+Tests for the configuration system (`.deepconfig` / `.deep_git/config`).
 """
 
 from __future__ import annotations
@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.config import Config
-from deep_git.main import main
+from deep.core.config import Config
+from deep.cli.main import main
 
 
 @pytest.fixture()

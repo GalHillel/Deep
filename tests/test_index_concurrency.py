@@ -1,7 +1,7 @@
 """
 tests.test_index_concurrency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Concurrency stress tests for :mod:`deep_git.core.index`.
+Concurrency stress tests for :mod:`deep.core.index`.
 
 Spawns 20 threads that simultaneously update the index and verifies no data
 corruption occurs.
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.index import (
+from deep.storage.index import (
     Index,
     IndexEntry,
     read_index,
@@ -22,7 +22,7 @@ from deep_git.core.index import (
     update_index_entry,
     write_index,
 )
-from deep_git.core.repository import init_repo
+from deep.core.repository import init_repo
 
 
 class TestIndexBasic:

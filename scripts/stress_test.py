@@ -36,7 +36,7 @@ def stress_test(tmp_path):
     print(f"Generated {NUM_COMMITS} commits in {gen_time:.2f}s")
     
     # 2. Run benchmark
-    print("Running deepgit benchmark...")
+    print("Running deep benchmark...")
     res = run_cmd([sys.executable, "-m", "deep_git.main", "benchmark"], cwd=server_root, env=env)
     print(res.stdout)
     

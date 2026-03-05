@@ -1,0 +1,17 @@
+# .deepci.yml Example Configuration
+# This file defines a pipeline that runs on every push.
+
+jobs:
+  - name: lint
+    command: "python -m flake8 src/"
+  
+  - name: test
+    command: "python -m pytest tests/"
+
+  - name: security-audit
+    command: "deep audit report"
+
+# Optional: dependencies between repos (simulated)
+# dependencies:
+#   - repo: "shared-library"
+#     branch: "main"

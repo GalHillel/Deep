@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.objects import Blob, Tree, TreeEntry, read_object
-from deep_git.core.pack import create_pack, unpack
+from deep.storage.objects import Blob, Tree, TreeEntry, read_object
+from deep.storage.pack import create_pack, unpack
 
 
 @pytest.fixture()

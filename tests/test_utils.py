@@ -1,7 +1,7 @@
 """
 tests.test_utils
 ~~~~~~~~~~~~~~~~
-Unit tests for :mod:`deep_git.core.utils`.
+Unit tests for :mod:`deep.core.utils`.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.utils import AtomicWriter, hash_bytes
+from deep.utils.utils import AtomicWriter, hash_bytes
 
 
 # ── hash_bytes ───────────────────────────────────────────────────────

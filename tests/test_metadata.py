@@ -7,8 +7,8 @@ Tests for commit metadata parsing, timezone offsets, and date formatting.
 from __future__ import annotations
 
 import time
-from deep_git.core.utils import format_git_date, get_local_timezone_offset
-from deep_git.core.objects import Commit
+from deep.utils.utils import format_git_date, get_local_timezone_offset
+from deep.storage.objects import Commit
 
 
 def test_format_git_date_utc() -> None:

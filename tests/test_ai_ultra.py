@@ -3,25 +3,25 @@ from pathlib import Path
 import subprocess, sys, os
 import pytest
 
-from deep_git.ai.assistant import DeepGitAI
-from deep_git.ai.analyzer import classify_change, extract_keywords, score_complexity
-from deep_git.core.repository import DEEP_GIT_DIR
+from deep.ai.assistant import DeepGitAI
+from deep.ai.analyzer import classify_change, extract_keywords, score_complexity
+from deep.core.repository import DEEP_GIT_DIR
 
 
 @pytest.fixture
 def ultra_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd())
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
     # Create complex files
     engine_code = ""
     for i in range(5):
         engine_code += f"class Engine{i}:\n    def process(self): pass\n    def validate(self): pass\n\n"
     (tmp_path / "engine.py").write_text(engine_code)
     (tmp_path / "config.json").write_text('{"key": "value"}')
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "engine.py", "config.json"],
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "engine.py", "config.json"],
                    cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "initial"],
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "initial"],
                    cwd=tmp_path, env=env, check=True)
     return tmp_path
 
@@ -58,12 +58,12 @@ def test_ai_metrics_tracking(ultra_repo):
 
 def test_branch_name_from_description():
     """Branch naming from description."""
-    from deep_git.ai.assistant import DeepGitAI
+    from deep.ai.assistant import DeepGitAI
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(Path.cwd())
-        subprocess.run([sys.executable, "-m", "deep_git.main", "init"], cwd=tmp, env=env, check=True)
+        subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp, env=env, check=True)
         ai = DeepGitAI(Path(tmp))
         result = ai.suggest_branch_name("fix login page authentication bug")
         assert "feature/" in result.text or "fix" in result.text.lower()

@@ -17,7 +17,7 @@ from urllib.request import urlopen
 
 import pytest
 
-from deep_git.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_GIT_DIR
 
 
 def get_free_port():
@@ -37,23 +37,23 @@ def dashboard_server(tmp_path):
 
     # Init repo and make some commits
     subprocess.run(
-        [sys.executable, "-m", "deep_git.main", "init"],
+        [sys.executable, "-m", "deep.main", "init"],
         cwd=repo_root, env=env, check=True
     )
     for i in range(3):
         (repo_root / f"file_{i}.txt").write_text(f"content {i}")
         subprocess.run(
-            [sys.executable, "-m", "deep_git.main", "add", f"file_{i}.txt"],
+            [sys.executable, "-m", "deep.main", "add", f"file_{i}.txt"],
             cwd=repo_root, env=env, check=True
         )
         subprocess.run(
-            [sys.executable, "-m", "deep_git.main", "commit", "-m", f"commit {i}"],
+            [sys.executable, "-m", "deep.main", "commit", "-m", f"commit {i}"],
             cwd=repo_root, env=env, check=True
         )
 
     port = get_free_port()
     proc = subprocess.Popen(
-        [sys.executable, "-m", "deep_git.main", "web", "--port", str(port)],
+        [sys.executable, "-m", "deep.main", "web", "--port", str(port)],
         cwd=repo_root, env=env,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
@@ -127,7 +127,7 @@ def test_api_multi_repo(dashboard_server):
     # Create a sibling repo
     sibling = repo_root.parent / "sibling"
     sibling.mkdir()
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], cwd=sibling, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=sibling, check=True)
     
     resp = urlopen(f"http://127.0.0.1:{port}/api/multi-repo")
     data = json.loads(resp.read())

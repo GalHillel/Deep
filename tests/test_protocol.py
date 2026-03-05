@@ -1,14 +1,14 @@
 """
 tests.test_protocol
 ~~~~~~~~~~~~~~~~~~~
-Tests for PKT-LINE framing in deep_git.network.protocol.
+Tests for PKT-LINE framing in deep.network.protocol.
 """
 
 from __future__ import annotations
 
 import io
 import pytest
-from deep_git.network.protocol import encode_pkt, decode_pkt, FLUSH_PKT, PktLineStream
+from deep.network.protocol import encode_pkt, decode_pkt, FLUSH_PKT, PktLineStream
 
 
 def test_encode_pkt():

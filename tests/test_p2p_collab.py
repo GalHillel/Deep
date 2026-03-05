@@ -8,8 +8,8 @@ import pytest
 import time
 import socket
 from pathlib import Path
-from deep_git.core.repository import init_repo
-from deep_git.network.p2p import P2PEngine
+from deep.core.repository import init_repo
+from deep.network.p2p import P2PEngine
 
 
 @pytest.fixture
@@ -59,8 +59,8 @@ def test_p2p_tunnel_simulation(p2p_repos):
     r1, r2 = p2p_repos
     # repo1 has an object
     (r1 / "data.txt").write_text("secret data")
-    from deep_git.commands.add_cmd import run as run_add
-    from deep_git.commands.commit_cmd import run as run_commit
+    from deep.commands.add_cmd import run as run_add
+    from deep.commands.commit_cmd import run as run_commit
     
     import os
     old_cwd = os.getcwd()
@@ -71,7 +71,7 @@ def test_p2p_tunnel_simulation(p2p_repos):
     commit_args = Args(); commit_args.message = "add data"; commit_args.sign = False
     run_commit(commit_args)
     
-    from deep_git.core.refs import resolve_head
+    from deep.core.refs import resolve_head
     head_sha = resolve_head(r1 / ".deep_git")
     os.chdir(old_cwd)
     
@@ -79,7 +79,7 @@ def test_p2p_tunnel_simulation(p2p_repos):
     e2 = P2PEngine(r2 / ".deep_git")
     
     # Manually add e1 to e2's peers to avoid waiting for beacon
-    from deep_git.network.p2p import PeerNode
+    from deep.network.p2p import PeerNode
     e2.peers[e1.node_id] = PeerNode(
         node_id=e1.node_id,
         host="127.0.0.1",

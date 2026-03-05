@@ -8,8 +8,8 @@ import pytest
 import os
 import shutil
 from pathlib import Path
-from deep_git.core.repository import init_repo
-from deep_git.ai.assistant import DeepGitAI
+from deep.core.repository import init_repo
+from deep.ai.assistant import DeepGitAI
 
 
 import contextlib
@@ -40,8 +40,8 @@ def test_predict_push_basic(hyper_repo):
         app_py = hyper_repo / "app.py"
         app_py.write_text("print('hello')")
         
-        from deep_git.commands.add_cmd import run as run_add
-        from deep_git.commands.commit_cmd import run as run_commit
+        from deep.commands.add_cmd import run as run_add
+        from deep.commands.commit_cmd import run as run_commit
         
         class Args: pass
         
@@ -91,10 +91,10 @@ def test_predict_push_conflict_simulation(hyper_repo):
         f = hyper_repo / "conflict.txt"
         f.write_text("base\n")
         
-        from deep_git.commands.add_cmd import run as run_add
-        from deep_git.commands.commit_cmd import run as run_commit
-        from deep_git.commands.branch_cmd import run as run_branch
-        from deep_git.commands.checkout_cmd import run as run_checkout
+        from deep.commands.add_cmd import run as run_add
+        from deep.commands.commit_cmd import run as run_commit
+        from deep.commands.branch_cmd import run as run_branch
+        from deep.commands.checkout_cmd import run as run_checkout
 
         class Args: pass
         

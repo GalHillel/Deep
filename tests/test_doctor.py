@@ -1,7 +1,7 @@
 """
 tests.test_doctor
 ~~~~~~~~~~~~~~~~~
-Tests for the repository integrity guard (deepgit doctor).
+Tests for the repository integrity guard (deep doctor).
 """
 
 from __future__ import annotations
@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.repository import DEEP_GIT_DIR
-from deep_git.core.refs import update_branch, update_head
-from deep_git.main import main
+from deep.core.repository import DEEP_GIT_DIR
+from deep.core.refs import update_branch, update_head
+from deep.cli.main import main
 
 
 @pytest.fixture()

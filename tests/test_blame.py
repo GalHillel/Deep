@@ -3,30 +3,30 @@ from pathlib import Path
 import subprocess, sys, os, time
 import pytest
 
-from deep_git.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_GIT_DIR
 
 
 @pytest.fixture
 def blame_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd())
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
     
     # Commit 1
     (tmp_path / "f.txt").write_text("line 1\nline 2")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "f.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "c1"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c1"], cwd=tmp_path, env=env, check=True)
     
     # Commit 2
     (tmp_path / "f.txt").write_text("line 1\nline 2 MODIFIED")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "f.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "c2"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c2"], cwd=tmp_path, env=env, check=True)
     
     return tmp_path, env
 
 
 def test_blame_attribution(blame_repo):
-    from deep_git.core.blame import get_blame
+    from deep.core.blame import get_blame
     repo, env = blame_repo
     dg_dir = repo / DEEP_GIT_DIR
     
@@ -44,7 +44,7 @@ def test_blame_attribution(blame_repo):
 
 
 def test_heatmap_calculation(blame_repo):
-    from deep_git.web.dashboard import DashboardHandler
+    from deep.web.dashboard import DashboardHandler
     repo, env = blame_repo
     dg_dir = repo / DEEP_GIT_DIR
     

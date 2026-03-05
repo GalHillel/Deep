@@ -1,7 +1,7 @@
 """
 tests.test_refs
 ~~~~~~~~~~~~~~~~
-Unit tests for :mod:`deep_git.core.refs`.
+Unit tests for :mod:`deep.core.refs`.
 """
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.objects import Blob, Commit, Tree, TreeEntry
-from deep_git.core.refs import (
+from deep.storage.objects import Blob, Commit, Tree, TreeEntry
+from deep.core.refs import (
     delete_branch,
     get_branch,
     get_current_branch,
@@ -22,7 +22,7 @@ from deep_git.core.refs import (
     update_branch,
     update_head,
 )
-from deep_git.core.repository import init_repo
+from deep.core.repository import init_repo
 
 
 # ── Helpers ──────────────────────────────────────────────────────────

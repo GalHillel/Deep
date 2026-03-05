@@ -1,7 +1,7 @@
 """
 tests.test_status
 ~~~~~~~~~~~~~~~~~~
-Tests for :mod:`deep_git.core.status` and ``deepgit status`` command.
+Tests for :mod:`deep.core.status` and ``deep status`` command.
 """
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.status import compute_status
-from deep_git.main import main
+from deep.core.status import compute_status
+from deep.cli.main import main
 
 
 @pytest.fixture()
@@ -103,7 +103,7 @@ class TestStatusEngine:
 
 
 class TestStatusCLI:
-    """Integration tests for ``deepgit status``."""
+    """Integration tests for ``deep status``."""
 
     def test_clean_output(self, repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
         main(["status"])

@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.objects import Tag, read_object
-from deep_git.core.refs import get_tag
-from deep_git.main import main
+from deep.storage.objects import Tag, read_object
+from deep.core.refs import get_tag
+from deep.cli.main import main
 
 
 @pytest.fixture()

@@ -14,12 +14,12 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.objects import Blob, read_object
-from deep_git.core.pack import create_pack
-from deep_git.core.repository import DEEP_GIT_DIR
-from deep_git.network.daemon import DeepGitDaemon
-from deep_git.network.protocol import encode_pkt, decode_pkt
-from deep_git.main import main
+from deep.storage.objects import Blob, read_object
+from deep.storage.pack import create_pack
+from deep.core.repository import DEEP_GIT_DIR
+from deep.network.daemon import DeepGitDaemon
+from deep.network.protocol import encode_pkt, decode_pkt
+from deep.cli.main import main
 
 
 def get_free_port():
@@ -36,8 +36,8 @@ def test_daemon_handshake_sync(tmp_path):
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     os.chdir(repo_root)
-    # Using sys.executable -m deep_git.main to run the module directly
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], check=True)
+    # Using sys.executable -m deep.main to run the module directly
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], check=True)
     
     port = get_free_port()
     # Start daemon in Separate Process
@@ -45,7 +45,7 @@ def test_daemon_handshake_sync(tmp_path):
     env["PYTHONPATH"] = str(Path.cwd())
     env["PYTHONUNBUFFERED"] = "1"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "deep_git.main", "daemon", "--port", str(port)],
+        [sys.executable, "-m", "deep.main", "daemon", "--port", str(port)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=env
@@ -59,7 +59,7 @@ def test_daemon_handshake_sync(tmp_path):
             if header1:
                 l1 = int(header1.decode(), 16)
                 p1 = s.recv(l1 - 4)
-                assert b"deepgit v1" in p1
+                assert b"deep v1" in p1
                 
             header2 = s.recv(4)
             if header2:
@@ -76,20 +76,20 @@ def test_daemon_push_sync(tmp_path):
     server_root = tmp_path / "server"
     server_root.mkdir()
     os.chdir(server_root)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], check=True)
     
     # Client repo
     client_root = tmp_path / "client"
     client_root.mkdir()
     os.chdir(client_root)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], check=True)
     (client_root / "f.txt").write_text("hello remote")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "f.txt"], check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "first commit"], check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"], check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "first commit"], check=True)
     
-    from deep_git.core.refs import resolve_head
+    from deep.core.refs import resolve_head
     new_sha = resolve_head(client_root / DEEP_GIT_DIR)
-    from deep_git.core.objects import Commit, read_object, Tree
+    from deep.storage.objects import Commit, read_object, Tree
     commit_obj = read_object(client_root / DEEP_GIT_DIR / "objects", new_sha)
     tree_sha = commit_obj.tree_sha
     tree_obj = read_object(client_root / DEEP_GIT_DIR / "objects", tree_sha)
@@ -104,7 +104,7 @@ def test_daemon_push_sync(tmp_path):
     env["PYTHONPATH"] = str(Path.cwd())
     env["PYTHONUNBUFFERED"] = "1"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "deep_git.main", "daemon", "--port", str(port)],
+        [sys.executable, "-m", "deep.main", "daemon", "--port", str(port)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=str(server_root),
@@ -114,12 +114,15 @@ def test_daemon_push_sync(tmp_path):
     
     try:
         with socket.create_connection(("127.0.0.1", port), timeout=5) as s:
-            # Consume handshake (deepgit v1)
+            # Consume handshake (deep v1)
             h1 = s.recv(4)
             if h1: s.recv(int(h1.decode(), 16) - 4)
             # Consume capabilities
             h2 = s.recv(4)
             if h2: s.recv(int(h2.decode(), 16) - 4) 
+            
+            # Consume flush (0000)
+            s.recv(4)
             
             # Send push
             cmd = f"push refs/heads/main {'0'*40} {new_sha}".encode("ascii")

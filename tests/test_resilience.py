@@ -3,15 +3,15 @@ from pathlib import Path
 import subprocess, sys, os, zlib
 import pytest
 
-from deep_git.core.repository import DEEP_GIT_DIR
-from deep_git.core.utils import hash_bytes
+from deep.core.repository import DEEP_GIT_DIR
+from deep.utils.utils import hash_bytes
 
 
 @pytest.fixture
 def resilience_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd())
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path, env
 
 
@@ -19,16 +19,16 @@ def test_object_quarantine(resilience_repo):
     repo, env = resilience_repo
     # Create a valid object
     (repo / "f.txt").write_text("stable content")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "f.txt"], cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "c1"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c1"], cwd=repo, env=env, check=True)
     
     # Identify the blob SHA
-    from deep_git.core.refs import resolve_head
-    from deep_git.core.objects import read_object, Commit
+    from deep.core.refs import resolve_head
+    from deep.storage.objects import read_object, Commit
     dg_dir = repo / DEEP_GIT_DIR
     sha = resolve_head(dg_dir)
     commit = read_object(dg_dir / "objects", sha)
-    from deep_git.web.dashboard import _tree_entries_flat
+    from deep.web.dashboard import _tree_entries_flat
     entries = _tree_entries_flat(dg_dir / "objects", commit.tree_sha)
     blob_sha = list(entries.values())[0]
     
@@ -41,7 +41,7 @@ def test_object_quarantine(resilience_repo):
     
     # Run doctor to trigger quarantine
     result = subprocess.run(
-        [sys.executable, "-m", "deep_git.main", "doctor"],
+        [sys.executable, "-m", "deep.main", "doctor"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert "corrupt" in result.stdout.lower()

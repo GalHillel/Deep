@@ -3,21 +3,21 @@ from pathlib import Path
 import subprocess, sys, os
 import pytest
 
-from deep_git.ai.assistant import DeepGitAI
-from deep_git.ai.analyzer import (
+from deep.ai.assistant import DeepGitAI
+from deep.ai.analyzer import (
     analyze_diff_text, classify_change, extract_keywords, score_complexity
 )
-from deep_git.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_GIT_DIR
 
 
 @pytest.fixture
 def ai_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd())
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
     (tmp_path / "main.py").write_text("def hello():\n    print('hi')\n")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "main.py"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "initial"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "main.py"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "initial"], cwd=tmp_path, env=env, check=True)
     return tmp_path
 
 

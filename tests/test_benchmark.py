@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.main import main
+from deep.cli.main import main
 
 
 def test_benchmark_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -23,7 +23,7 @@ def test_benchmark_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys:
     out = capsys.readouterr().out
     assert "RESULTS" in out
     assert "Blob Hashing" in out
-    assert "Commit Creation" in out
+    assert "Commit Speed" in out
     assert "Benchmark complete" in out
 
 
@@ -33,7 +33,7 @@ def test_benchmark_no_side_effects(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     main(["init"])
     
     # Track initial object count
-    from deep_git.core.repository import DEEP_GIT_DIR
+    from deep.core.repository import DEEP_GIT_DIR
     objects_dir = tmp_path / DEEP_GIT_DIR / "objects"
     initial_objects = list(objects_dir.glob("??/*"))
     

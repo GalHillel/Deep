@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.objects import Blob, Commit, Tag, Tree, TreeEntry, read_object, hash_bytes
-from deep_git.core.utils import AtomicWriter
+from deep.storage.objects import Blob, Commit, Tag, Tree, TreeEntry, read_object, hash_bytes
+from deep.utils.utils import AtomicWriter
 
 
 @pytest.fixture()

@@ -1,7 +1,7 @@
 """
 tests.test_repository
 ~~~~~~~~~~~~~~~~~~~~~~
-Unit tests for :mod:`deep_git.core.repository`.
+Unit tests for :mod:`deep.core.repository`.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.repository import DEEP_GIT_DIR, find_repo, init_repo
+from deep.core.repository import DEEP_GIT_DIR, find_repo, init_repo
 
 
 class TestInitRepo:

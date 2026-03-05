@@ -3,15 +3,15 @@ from pathlib import Path
 import subprocess, sys, os
 import pytest
 
-from deep_git.core.txlog import TransactionLog
-from deep_git.core.repository import DEEP_GIT_DIR
+from deep.storage.txlog import TransactionLog
+from deep.core.repository import DEEP_GIT_DIR
 
 
 @pytest.fixture
 def tx_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd())
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path
 
 

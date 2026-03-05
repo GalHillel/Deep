@@ -3,27 +3,27 @@ from pathlib import Path
 import subprocess, sys, os, json
 import pytest
 
-from deep_git.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_GIT_DIR
 
 
 @pytest.fixture
 def merge_env(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd())
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
     
     # Base commit
     (tmp_path / "common.txt").write_text("base content")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "common.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "base"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "common.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "base"], cwd=tmp_path, env=env, check=True)
     
     # Branch 'main' modifies common.txt
     (tmp_path / "common.txt").write_text("base content\nmain change")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "common.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "main mod"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "common.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "main mod"], cwd=tmp_path, env=env, check=True)
     
     # Branch 'feature' branched from base, modifies same file
-    subprocess.run([sys.executable, "-m", "deep_git.main", "branch", "feature", "HEAD~1"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "branch", "feature", "HEAD~1"], cwd=tmp_path, env=env, check=True)
     # We don't have 'checkout' yet in a simple way, but we can commit to 'feature' 
     # if we manually set HEAD or use a command that supports it.
     # Actually, let's just create another commit that branched from base.
@@ -35,11 +35,11 @@ def test_predict_merge_no_conflict(merge_env):
     repo, env = merge_env
     # Feature branch (simulated by creating a new commit from base)
     (repo / "other.txt").write_text("new file")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "other.txt"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "other.txt"], cwd=repo, env=env, check=True)
     # We commit it. Since HEAD is 'main', this is a clean addition.
     
     result = subprocess.run(
-        [sys.executable, "-m", "deep_git.main", "ai", "predict-merge", "--branch", "main"],
+        [sys.executable, "-m", "deep.main", "ai", "predict-merge", "--branch", "main"],
         cwd=repo, env=env, capture_output=True, text=True, check=True
     )
     assert result.returncode == 0
@@ -52,7 +52,7 @@ def test_predict_merge_conflict(merge_env):
     
     # Branch 'main' already modifies common.txt in merge_env.
     # We want to create a 'feature' branch that also modifies common.txt.
-    from deep_git.core.refs import resolve_revision, update_branch
+    from deep.core.refs import resolve_revision, update_branch
     base_sha = resolve_revision(dg_dir, "HEAD~1")
     assert base_sha is not None
     
@@ -70,7 +70,7 @@ def test_predict_merge_conflict(merge_env):
     # For simplicity of the test, let's just assert that 'predict-merge' 
     # can run and handles branches.
     result = subprocess.run(
-        [sys.executable, "-m", "deep_git.main", "ai", "predict-merge", "--branch", "feature"],
+        [sys.executable, "-m", "deep.main", "ai", "predict-merge", "--branch", "feature"],
         cwd=repo, env=env, capture_output=True, text=True, check=True
     )
     assert "Simulation" in result.stdout or "Merge" in result.stdout
@@ -79,7 +79,7 @@ def test_predict_merge_conflict(merge_env):
 def test_ai_cleanup_cli(merge_env):
     repo, env = merge_env
     result = subprocess.run(
-        [sys.executable, "-m", "deep_git.main", "ai", "cleanup"],
+        [sys.executable, "-m", "deep.main", "ai", "cleanup"],
         cwd=repo, env=env, capture_output=True, text=True, check=True
     )
     assert "Hygiene" in result.stdout

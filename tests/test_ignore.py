@@ -1,7 +1,7 @@
 """
 tests.test_ignore
 ~~~~~~~~~~~~~~~~~~
-Tests for the .deepgitignore engine.
+Tests for the .deepignore engine.
 """
 
 from __future__ import annotations
@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.ignore import IgnoreEngine
-from deep_git.main import main
+from deep.core.ignore import IgnoreEngine
+from deep.cli.main import main
 
 
 @pytest.fixture()
@@ -23,7 +23,7 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_ignore_engine_basic(repo: Path) -> None:
-    (repo / ".deepgitignore").write_text("*.log\ntemp/\n!important.log\n")
+    (repo / ".deepignore").write_text("*.log\ntemp/\n!important.log\n")
     
     engine = IgnoreEngine(repo)
     
@@ -48,7 +48,7 @@ def test_add_recursive_with_ignore(repo: Path, capsys: pytest.CaptureFixture[str
     (repo / "src").mkdir()
     (repo / "src" / "main.py").write_text("code")
     (repo / "src" / "debug.log").write_text("log")
-    (repo / ".deepgitignore").write_text("*.log\n")
+    (repo / ".deepignore").write_text("*.log\n")
     
     # Add from current dir
     main(["add", "."])
@@ -64,7 +64,7 @@ def test_add_recursive_with_ignore(repo: Path, capsys: pytest.CaptureFixture[str
 
 def test_add_explicit_ignored_file(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (repo / "debug.log").write_text("log")
-    (repo / ".deepgitignore").write_text("*.log\n")
+    (repo / ".deepignore").write_text("*.log\n")
     
     # Add specifically
     main(["add", "debug.log"])
@@ -80,7 +80,7 @@ def test_add_explicit_ignored_file(repo: Path, capsys: pytest.CaptureFixture[str
 def test_status_hides_ignored_files(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (repo / "debug.log").write_text("log")
     (repo / "normal.txt").write_text("txt")
-    (repo / ".deepgitignore").write_text("*.log\n")
+    (repo / ".deepignore").write_text("*.log\n")
     
     main(["status"])
     out = capsys.readouterr().out

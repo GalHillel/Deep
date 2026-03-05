@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.repository import DEEP_GIT_DIR
-from deep_git.core.refs import delete_branch
-from deep_git.main import main
+from deep.core.repository import DEEP_GIT_DIR
+from deep.core.refs import delete_branch
+from deep.cli.main import main
 
 
 @pytest.fixture()
@@ -97,28 +97,23 @@ def test_gc_preserves_reachable(repo_with_orphan: tuple[Path, str], capsys: pyte
     main(["add", "tag.txt"])
     main(["commit", "-m", "tagged commit"])
     
-    head_sha = (dg_dir / "HEAD").read_text().strip() # Simplified for direct check
-    # Wait, HEAD is symbolic. Resolve it.
-    from deep_git.core.refs import resolve_head
+    from deep.core.refs import resolve_head
     tagged_sha = resolve_head(dg_dir)
     assert tagged_sha
     
     main(["tag", "my-tag"])
     
-    # Reset main back to base
-    main(["checkout", "main"])
-    # We don't have 'reset --hard' yet in the CLI as a direct command, but we have the logic.
-    # Let's just create a new branch and checkout that.
-    
-    # Actually, let's just use the current HEAD which is already 'tagged commit'.
-    # If we run GC now, it should preserve it because it's at HEAD and at tag.
+    # HEAD is already at 'tagged commit' on branch main.
+    # GC should preserve it because it's reachable via HEAD, main branch, and tag.
     
     main(["gc"])
-    out = capsys.readouterr().out
+    capsys.readouterr()  # consume output
     
+    # Verify the object is still readable (may be in packfile after GC)
+    from deep.storage.objects import read_object
     objects_dir = dg_dir / "objects"
-    tagged_path = objects_dir / tagged_sha[:2] / tagged_sha[2:]
-    assert tagged_path.exists()
+    obj = read_object(objects_dir, tagged_sha)
+    assert obj is not None
 
 
 def test_gc_preserves_stash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -132,7 +127,7 @@ def test_gc_preserves_stash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cap
     (tmp_path / "f.txt").write_text("v2")
     main(["stash", "save"])
     
-    from deep_git.core.stash import get_stash_list
+    from deep.core.stash import get_stash_list
     stashes = get_stash_list(tmp_path / DEEP_GIT_DIR)
     assert stashes
     stash_sha = stashes[0]
@@ -140,7 +135,10 @@ def test_gc_preserves_stash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cap
     # Run GC
     main(["gc"])
     
-    # Verify stash object remains
+    # Verify stash object is still readable (may be in packfile after GC)
     dg_dir = tmp_path / DEEP_GIT_DIR
     objects_dir = dg_dir / "objects"
-    assert (objects_dir / stash_sha[:2] / stash_sha[2:]).exists()
+    from deep.storage.objects import read_object
+    obj = read_object(objects_dir, stash_sha)
+    assert obj is not None
+

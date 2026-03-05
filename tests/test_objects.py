@@ -1,7 +1,7 @@
 """
 tests.test_objects
 ~~~~~~~~~~~~~~~~~~~
-Unit tests for :mod:`deep_git.core.objects`.
+Unit tests for :mod:`deep.core.objects`.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.objects import (
+from deep.storage.objects import (
     Blob,
     Commit,
     Tree,
@@ -19,7 +19,7 @@ from deep_git.core.objects import (
     _serialize,
     _deserialize,
 )
-from deep_git.core.repository import init_repo
+from deep.core.repository import init_repo
 
 
 # ── Serialisation helpers ────────────────────────────────────────────

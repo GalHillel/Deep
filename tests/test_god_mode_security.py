@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_GIT_DIR
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ def god_repo(tmp_path):
     """Initialize a DeepGit repo with a key and a signed commit."""
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd())
-    subprocess.run([sys.executable, "-m", "deep_git.main", "init"],
+    subprocess.run([sys.executable, "-m", "deep.main", "init"],
                    cwd=tmp_path, env=env, check=True)
     dg_dir = tmp_path / DEEP_GIT_DIR
     return tmp_path, dg_dir, env
@@ -45,7 +45,7 @@ def god_repo(tmp_path):
 def test_ecdsa_key_generation(god_repo):
     """KeyManager generates and persists a signing key."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import KeyManager
+    from deep.core.security import KeyManager
     km = KeyManager(dg_dir)
     assert km.get_active_key() is None
 
@@ -64,7 +64,7 @@ def test_ecdsa_key_generation(god_repo):
 def test_key_rotation(god_repo):
     """Rotating a key revokes the old one and creates a new active key."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import KeyManager
+    from deep.core.security import KeyManager
     km = KeyManager(dg_dir)
     old = km.generate_key("old_key")
     assert old.status == "active"
@@ -83,7 +83,7 @@ def test_key_rotation(god_repo):
 def test_key_revocation_rejects_commit(god_repo):
     """A revoked key cannot be used for signing."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import KeyManager, CommitSigner
+    from deep.core.security import KeyManager, CommitSigner
     km = KeyManager(dg_dir)
     key = km.generate_key("rev_key")
     km.revoke_key("rev_key")
@@ -98,8 +98,8 @@ def test_key_revocation_rejects_commit(god_repo):
 def test_commit_signing_and_verification(god_repo):
     """Sign a commit and verify the signature round-trips correctly."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import KeyManager, CommitSigner
-    from deep_git.core.objects import Commit
+    from deep.core.security import KeyManager, CommitSigner
+    from deep.storage.objects import Commit
 
     km = KeyManager(dg_dir)
     km.generate_key("sign_key")
@@ -126,8 +126,8 @@ def test_commit_signing_and_verification(god_repo):
 def test_commit_verify_rejects_tampered(god_repo):
     """Tampering with commit content after signing should fail verification."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import KeyManager, CommitSigner
-    from deep_git.core.objects import Commit
+    from deep.core.security import KeyManager, CommitSigner
+    from deep.storage.objects import Commit
 
     km = KeyManager(dg_dir)
     km.generate_key("tamper_key")
@@ -155,7 +155,7 @@ def test_commit_verify_rejects_tampered(god_repo):
 def test_merkle_audit_chain(god_repo):
     """Audit entries form a valid SHA-256 hash chain."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.audit import AuditLog
+    from deep.core.audit import AuditLog
 
     audit = AuditLog(dg_dir)
     audit.record("alice", "commit", sha="aaa")
@@ -170,7 +170,7 @@ def test_merkle_audit_chain(god_repo):
 def test_merkle_chain_tamper_detection(god_repo):
     """Mutating an audit entry breaks the Merkle chain."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.audit import AuditLog
+    from deep.core.audit import AuditLog
 
     audit = AuditLog(dg_dir)
     audit.record("alice", "commit", sha="aaa")
@@ -195,7 +195,7 @@ def test_merkle_chain_tamper_detection(god_repo):
 def test_audit_export_report(god_repo):
     """Audit report is generated with integrity status."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.audit import AuditLog
+    from deep.core.audit import AuditLog
 
     audit = AuditLog(dg_dir)
     audit.record("alice", "commit")
@@ -213,8 +213,8 @@ def test_audit_export_report(god_repo):
 def test_signed_wal_entry(god_repo):
     """WAL entries can be signed and verified."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import KeyManager
-    from deep_git.core.txlog import TransactionLog
+    from deep.core.security import KeyManager
+    from deep.storage.txlog import TransactionLog
 
     km = KeyManager(dg_dir)
     key = km.generate_key("wal_key")
@@ -240,8 +240,8 @@ def test_signed_wal_entry(god_repo):
 def test_wal_recovery_verifies_signature(god_repo):
     """Recovery rejects WAL entries with tampered signatures."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import KeyManager
-    from deep_git.core.txlog import TransactionLog
+    from deep.core.security import KeyManager
+    from deep.storage.txlog import TransactionLog
 
     km = KeyManager(dg_dir)
     km.generate_key("wal_key2")
@@ -279,7 +279,7 @@ def test_wal_recovery_verifies_signature(god_repo):
 def test_sandbox_restricts_writes(god_repo):
     """Sandbox runs scripts in an isolated environment."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import SandboxRunner
+    from deep.core.security import SandboxRunner
 
     # Create a simple script that writes output
     script = dg_dir / "tmp" / "test_script.py"
@@ -297,7 +297,7 @@ def test_sandbox_restricts_writes(god_repo):
 def test_sandbox_logs_operations(god_repo):
     """Sandbox logs all operations including start and end."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import SandboxRunner
+    from deep.core.security import SandboxRunner
 
     script = dg_dir / "tmp" / "log_test.py"
     script.parent.mkdir(parents=True, exist_ok=True)
@@ -314,7 +314,7 @@ def test_sandbox_logs_operations(god_repo):
 def test_sandbox_timeout(god_repo):
     """Long-running scripts are killed after timeout."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import SandboxRunner
+    from deep.core.security import SandboxRunner
 
     script = dg_dir / "tmp" / "slow_script.py"
     script.parent.mkdir(parents=True, exist_ok=True)
@@ -330,7 +330,7 @@ def test_sandbox_timeout(god_repo):
 def test_sandbox_nonexistent_script(god_repo):
     """Sandbox gracefully handles missing scripts."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.security import SandboxRunner
+    from deep.core.security import SandboxRunner
 
     runner = SandboxRunner(dg_dir)
     result = runner.run(Path("/nonexistent/script.py"))
@@ -344,8 +344,8 @@ def test_sandbox_nonexistent_script(god_repo):
 def test_p2p_rejects_unsigned_commit(god_repo):
     """P2P rejects commits without signatures."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.objects import Commit
-    from deep_git.core.security import KeyManager, verify_peer_commit
+    from deep.storage.objects import Commit
+    from deep.core.security import KeyManager, verify_peer_commit
 
     km = KeyManager(dg_dir)
 
@@ -361,8 +361,8 @@ def test_p2p_rejects_unsigned_commit(god_repo):
 def test_p2p_accepts_signed_commit(god_repo):
     """P2P accepts commits with valid signatures."""
     _, dg_dir, _ = god_repo
-    from deep_git.core.objects import Commit
-    from deep_git.core.security import KeyManager, CommitSigner, verify_peer_commit
+    from deep.storage.objects import Commit
+    from deep.core.security import KeyManager, CommitSigner, verify_peer_commit
 
     km = KeyManager(dg_dir)
     km.generate_key("p2p_key")
@@ -386,8 +386,8 @@ def test_p2p_accepts_signed_commit(god_repo):
 def test_crash_mid_signed_commit(god_repo):
     """Recovery works correctly for signed commits that crash mid-write."""
     repo, dg_dir, env = god_repo
-    from deep_git.core.security import KeyManager
-    from deep_git.core.txlog import TransactionLog
+    from deep.core.security import KeyManager
+    from deep.storage.txlog import TransactionLog
 
     km = KeyManager(dg_dir)
     km.generate_key("crash_key")
@@ -421,22 +421,22 @@ def test_full_pipeline_integration(god_repo):
     repo, dg_dir, env = god_repo
 
     # Generate a signing key
-    from deep_git.core.security import KeyManager, CommitSigner
+    from deep.core.security import KeyManager, CommitSigner
     km = KeyManager(dg_dir)
     key = km.generate_key("pipeline_key")
 
     # Create and add a file
     (repo / "hello.txt").write_text("hello world")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "hello.txt"],
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "hello.txt"],
                    cwd=repo, env=env, check=True)
 
     # Commit with signing
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "signed commit", "--sign"],
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "signed commit", "--sign"],
                    cwd=repo, env=env, check=True)
 
     # Verify the commit was signed
-    from deep_git.core.refs import resolve_head
-    from deep_git.core.objects import read_object, Commit
+    from deep.core.refs import resolve_head
+    from deep.storage.objects import read_object, Commit
     sha = resolve_head(dg_dir)
     obj = read_object(dg_dir / "objects", sha)
     assert isinstance(obj, Commit)
@@ -448,13 +448,13 @@ def test_full_pipeline_integration(god_repo):
     assert signer.verify_commit(obj) is True
 
     # Verify audit chain
-    from deep_git.core.audit import AuditLog
+    from deep.core.audit import AuditLog
     audit = AuditLog(dg_dir)
     is_valid, _ = audit.verify_chain()
     assert is_valid is True
 
     # Verify WAL
-    from deep_git.core.txlog import TransactionLog
+    from deep.storage.txlog import TransactionLog
     txlog = TransactionLog(dg_dir)
     assert txlog.needs_recovery() is False
 
@@ -462,18 +462,18 @@ def test_full_pipeline_integration(god_repo):
 # ── CLI Integration ──────────────────────────────────────────────────
 
 def test_verify_all_cli(god_repo):
-    """deepgit verify --all runs without errors."""
+    """deep verify --all runs without errors."""
     repo, dg_dir, env = god_repo
 
     # Create a commit first
     (repo / "f.txt").write_text("content")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "f.txt"],
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"],
                    cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "c1"],
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c1"],
                    cwd=repo, env=env, check=True)
 
     result = subprocess.run(
-        [sys.executable, "-m", "deep_git.main", "verify", "--all"],
+        [sys.executable, "-m", "deep.main", "verify", "--all"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0
@@ -482,11 +482,11 @@ def test_verify_all_cli(god_repo):
 
 
 def test_rollback_verify_cli(god_repo):
-    """deepgit rollback --verify runs without errors on clean repo."""
+    """deep rollback --verify runs without errors on clean repo."""
     repo, dg_dir, env = god_repo
 
     result = subprocess.run(
-        [sys.executable, "-m", "deep_git.main", "rollback", "--verify"],
+        [sys.executable, "-m", "deep.main", "rollback", "--verify"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0
@@ -494,18 +494,18 @@ def test_rollback_verify_cli(god_repo):
 
 
 def test_audit_report_cli(god_repo):
-    """deepgit audit report generates a formatted report."""
+    """deep audit report generates a formatted report."""
     repo, dg_dir, env = god_repo
 
     # Create a commit to generate audit entries
     (repo / "f.txt").write_text("content")
-    subprocess.run([sys.executable, "-m", "deep_git.main", "add", "f.txt"],
+    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"],
                    cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep_git.main", "commit", "-m", "c1"],
+    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c1"],
                    cwd=repo, env=env, check=True)
 
     result = subprocess.run(
-        [sys.executable, "-m", "deep_git.main", "audit", "report"],
+        [sys.executable, "-m", "deep.main", "audit", "report"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0

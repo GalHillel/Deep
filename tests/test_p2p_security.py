@@ -7,7 +7,7 @@ Tests for Phase 56: Multi-Node Security & Anomaly Detection.
 import pytest
 import time
 from pathlib import Path
-from deep_git.core.security import SecurityMonitor
+from deep.core.security import SecurityMonitor
 
 
 def test_commit_anomaly_detection(tmp_path):

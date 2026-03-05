@@ -1,7 +1,7 @@
 """
 tests.test_merge
 ~~~~~~~~~~~~~~~~~
-Tests for :mod:`deep_git.core.merge` and ``deepgit merge`` command.
+Tests for :mod:`deep.core.merge` and ``deep merge`` command.
 """
 
 from __future__ import annotations
@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.core.merge import find_lca, three_way_merge
-from deep_git.core.objects import Blob, Commit, Tree, TreeEntry, read_object
-from deep_git.core.refs import resolve_head, get_branch
-from deep_git.main import main
-from deep_git.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.merge import find_lca, three_way_merge
+from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
+from deep.core.refs import resolve_head, get_branch
+from deep.cli.main import main
+from deep.core.repository import init_repo, DEEP_GIT_DIR
 
 
 @pytest.fixture()

@@ -1,0 +1,156 @@
+import asyncio
+import socket
+import threading
+import sys
+import time
+from pathlib import Path
+
+from deep.core.repository import DEEP_GIT_DIR, find_repo
+from deep.network.p2p import P2PEngine
+from deep.network.daemon import DeepGitDaemon
+
+
+def run(args) -> None:
+    """Execute the ``p2p`` command."""
+    try:
+        repo_root = find_repo()
+    except FileNotFoundError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    dg_dir = repo_root / DEEP_GIT_DIR
+    p2p_cmd = args.p2p_command or "list"
+
+    if p2p_cmd == "start":
+        port = args.port or 9001
+        print(f"📡 Starting P2P node '{socket.gethostname()}' on port {port}...")
+        
+        # Start a local daemon so others can pull from us
+        daemon = DeepGitDaemon(repo_root, port=port)
+        
+        def run_daemon():
+            asyncio.run(daemon.start())
+            
+        threading.Thread(target=run_daemon, daemon=True).start()
+        
+        # Start the P2P discovery engine
+        engine = P2PEngine(dg_dir, listen_port=port)
+        engine.start()
+        
+        try:
+            while True:
+                peers = engine.get_peers()
+                print(f"\rNodes: {len(peers)} active", end="", flush=True)
+                time.sleep(2)
+        except KeyboardInterrupt:
+            print("\nStopping P2P node...")
+            engine.stop()
+            daemon.stop()
+
+    elif p2p_cmd == "list":
+        # This requires the p2p engine to be running in the background normally,
+        # but for a CLI command we'll just listen for a few seconds.
+        engine = P2PEngine(dg_dir)
+        engine.start()
+        print("🔍 Searching for peers (5s)...")
+        time.sleep(5)
+        peers = engine.get_peers()
+        engine.stop()
+        
+        if not peers:
+            print("No peers found.")
+            return
+            
+        print(f"{'Node ID':\u003c30} {'Address':\u003c20} {'Last Seen'}")
+        print("-" * 65)
+        for p in peers:
+            print(f"{p.node_id:\u003c30} {p.host + ':' + str(p.port):\u003c20} {int(time.time() - p.last_seen)}s ago")
+            for b, sha in p.branches.items():
+                print(f"  - {b}: {sha[:7]}")
+
+    elif p2p_cmd == "sync":
+        # real-world TCP object exchange sync
+        engine = P2PEngine(dg_dir)
+        engine.start()
+        
+        peer_addr = getattr(args, "peer", None)
+        if peer_addr:
+            print(f"🔗 Manually connecting to peer at {peer_addr}...")
+            # For manual peer, we skip discovery and inject it
+            if ":" in peer_addr:
+                host, port_str = peer_addr.split(":", 1)
+                port = int(port_str)
+            else:
+                host, port = peer_addr, 8888
+            
+            from deep.network.p2p import PeerNode
+            mock_peer = PeerNode(
+                node_id=f"manual_{host}_{port}",
+                host=host,
+                port=port,
+                last_seen=time.time(),
+                branches={}, # Will be populated during handshake if we had one, 
+                             # but here we'll just try to fetch
+                repo_name=""
+            )
+            # We still need to know WHAT to fetch. 
+            # In a real manual sync, we'd pull all refs first.
+            from deep.network.client import get_remote_client
+            client = get_remote_client(f"{host}:{port}")
+            try:
+                client.connect()
+                refs = client.ls_refs()
+                mock_peer.branches = {r.split("/")[-1]: sha for r, sha in refs.items() if r.startswith("refs/heads/")}
+                with engine._lock:
+                    engine.peers[mock_peer.node_id] = mock_peer
+            except Exception as e:
+                print(f"  ❌ Failed to connect to manual peer: {e}")
+                engine.stop()
+                return
+
+        print("🔍 Discovering remote states...")
+        time.sleep(3)
+        conflicts = engine.discover_conflicts()
+        
+        if not conflicts:
+            print("All branches up to date with discovered peers.")
+            engine.stop()
+            return
+
+        print(f"Found {len(conflicts)} divergent/behind branches.")
+        
+        from deep.network.client import get_remote_client
+        from deep.core.refs import update_branch, is_ancestor
+
+        for c in conflicts:
+            branch = c['branch']
+            peer_url = c['peer_host']
+            remote_sha = c['remote_sha']
+            local_sha = c['local_sha']
+            
+            print(f"\n🔄 Syncing branch '{branch}' from peer {c['peer']} ({peer_url})...")
+            
+            client = get_remote_client(peer_url)
+            try:
+                client.connect()
+                # Fetch missing objects
+                objects_dir = dg_dir / "objects"
+                count = client.fetch(objects_dir, remote_sha)
+                print(f"  Fetched {count} objects.")
+                
+                # Check for fast-forward
+                if is_ancestor(objects_dir, local_sha, remote_sha):
+                    update_branch(dg_dir, branch, remote_sha)
+                    print(f"  ✅ Fast-forwarded '{branch}' to {remote_sha[:7]}")
+                else:
+                    print(f"  ⚠️ Diverged: Manual merge/rebase required for '{branch}'")
+            except Exception as e:
+                print(f"  ❌ Sync failed for {branch}: {e}")
+            finally:
+                client.disconnect()
+
+        engine.stop()
+        print("\nSync complete.")
+
+import socket
+import threading

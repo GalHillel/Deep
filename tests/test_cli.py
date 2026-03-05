@@ -4,7 +4,7 @@ tests.test_cli
 End-to-end integration tests for the Deep Git CLI.
 
 Each test creates a fresh temporary repo and exercises the CLI by calling
-:func:`deep_git.main.main` directly with argv lists.
+:func:`deep.main.main` directly with argv lists.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from deep_git.main import main
-from deep_git.core.repository import DEEP_GIT_DIR
+from deep.cli.main import main
+from deep.core.repository import DEEP_GIT_DIR
 
 
 @pytest.fixture()
@@ -52,7 +52,7 @@ class TestAddCLI:
         f.write_text("hello")
         main(["add", str(f)])
         # Verify the index has the entry.
-        from deep_git.core.index import read_index
+        from deep.storage.index import read_index
         idx = read_index(repo / DEEP_GIT_DIR)
         assert "hello.txt" in idx.entries
 
@@ -62,7 +62,7 @@ class TestAddCLI:
         a.write_text("aaa")
         b.write_text("bbb")
         main(["add", str(a), str(b)])
-        from deep_git.core.index import read_index
+        from deep.storage.index import read_index
         idx = read_index(repo / DEEP_GIT_DIR)
         assert "a.txt" in idx.entries
         assert "b.txt" in idx.entries
@@ -81,7 +81,7 @@ class TestCommitCLI:
         main(["add", str(f)])
         main(["commit", "-m", "initial commit"])
         # HEAD should now resolve to a commit.
-        from deep_git.core.refs import resolve_head
+        from deep.core.refs import resolve_head
         sha = resolve_head(repo / DEEP_GIT_DIR)
         assert sha is not None and len(sha) == 40
 
@@ -99,7 +99,7 @@ class TestCommitCLI:
         main(["add", str(f)])
         main(["commit", "-m", "second"])
 
-        from deep_git.core.refs import log_history
+        from deep.core.refs import log_history
         history = log_history(repo / DEEP_GIT_DIR)
         assert len(history) == 2
 
