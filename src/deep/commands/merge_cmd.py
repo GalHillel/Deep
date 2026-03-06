@@ -132,7 +132,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 sys.exit(1)
 
             lca_commit = read_object(objects_dir, lca_sha) if lca_sha else None
-            base_tree_sha = lca_commit.tree_sha if isinstance(lca_commit, Commit) else ""
+            base_tree_sha = lca_commit.tree_sha if isinstance(lca_commit, Commit) else None
 
             merged_entries, conflicts = three_way_merge(
                 objects_dir, base_tree_sha, head_commit.tree_sha, target_commit.tree_sha,

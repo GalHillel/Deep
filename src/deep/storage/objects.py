@@ -431,6 +431,9 @@ def read_object(objects_dir: Path, sha: str) -> GitObject:
     This function transparently handles compressed (zlib), 
     legacy uncompressed, DELTA-compressed, and PACKed objects.
     """
+    if not sha or not isinstance(sha, str) or len(sha) != 40:
+        raise ValueError(f"Invalid object SHA: {sha!r}")
+        
     path = _object_path(objects_dir, sha)
     if not path.exists():
         # Check packfiles

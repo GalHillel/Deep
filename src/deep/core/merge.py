@@ -55,8 +55,10 @@ def find_lca(objects_dir: Path, sha_a: str, sha_b: str) -> Optional[str]:
     return None
 
 
-def _tree_entries_map(objects_dir: Path, tree_sha: str) -> dict[str, str]:
+def _tree_entries_map(objects_dir: Path, tree_sha: str | None) -> dict[str, str]:
     """Return {name: blob_sha} for entries in a tree."""
+    if not tree_sha:
+        return {}
     obj = read_object(objects_dir, tree_sha)
     if not isinstance(obj, Tree):
         return {}
