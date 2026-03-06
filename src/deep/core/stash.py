@@ -140,8 +140,7 @@ def pop_stash(repo_root: Path) -> bool:
     dg_dir = repo_root / DEEP_GIT_DIR
     stashes = get_stash_list(dg_dir)
     if not stashes:
-        print("No stash entries found.", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError("No stash entries found.")
 
     stash_sha = stashes.pop()
     objects_dir = dg_dir / "objects"
@@ -169,9 +168,10 @@ def pop_stash(repo_root: Path) -> bool:
     # We must ensure working dir is clean before popping!
     status = compute_status(repo_root)
     if status.staged_new or status.staged_modified or status.staged_deleted or status.modified or status.deleted:
-        print("Error: your local changes would be overwritten by pop.", file=sys.stderr)
-        print("Please commit or stash them.", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError(
+            "Error: your local changes would be overwritten by pop.\n"
+            "Please commit or stash them."
+        )
 
     merged_entries, conflicts = three_way_merge(
         objects_dir, base_tree_sha, curr_tree_sha, stash_commit.tree_sha

@@ -7,13 +7,13 @@ deep.commands.pull_cmd
 from __future__ import annotations
 
 import sys
+from argparse import Namespace
 from pathlib import Path
 
 from deep.core.repository import find_repo, DEEP_GIT_DIR
 from deep.core.refs import update_branch, resolve_head, get_branch
 from deep.core.config import Config
 from deep.network.client import get_remote_client
-from deep.cli.main import main
 from deep.utils.ux import Color
 
 def run(args) -> None:
@@ -51,9 +51,9 @@ def run(args) -> None:
         
         # 2. Merge
         print(f"Merging {remote_sha[:7]} into current branch...")
-        # We pass the SHA directly to the merge command.
-        # We'll need to update merge_cmd.py to handle SHAs.
-        main(["merge", remote_sha])
+        from deep.commands.merge_cmd import run as merge_run
+        merge_args = Namespace(branch=remote_sha)
+        merge_run(merge_args)
         
     except Exception as e:
         print(f"Pull failed: {e}", file=sys.stderr)

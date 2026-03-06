@@ -94,7 +94,7 @@ def test_unpack_corrupt_crc(objects_dir: Path) -> None:
     new_trailer = hashlib.sha1(data_without_trailer).digest()
     corrupt_pack_fixed_trailer = data_without_trailer + new_trailer
     
-    with pytest.raises(ValueError, match="CRC mismatch"):
+    with pytest.raises(ValueError, match="Corrupt pack entry: zlib decompression failed"):
         unpack(corrupt_pack_fixed_trailer, objects_dir)
 
 

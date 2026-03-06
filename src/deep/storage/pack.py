@@ -78,20 +78,23 @@ class PackWriter:
 
     def _create_idx(self, offsets: Dict[str, int]) -> bytes:
         """Create a fanout index for the packfile."""
-        # Simple Index: 4B signature, 4B version, 256B fanout, SHAs, Offsets
+        # Simple Index: 4B signature, 4B version, 256*4B fanout, SHAs, Offsets
         idx = bytearray(b"DIDX") # Deep Index
         idx.extend(struct.pack(">I", 1))
         
         # Sorted SHAs
         sorted_shas = sorted(offsets.keys())
         
-        # 256 Fanout Table (count of SHAs starting with 00, 01, ..., FF)
+        # 256 Fanout Table: fanout[i] = count of SHAs whose first byte <= i
+        # This is a cumulative histogram.
         fanout = [0] * 256
-        count = 0
         for sha in sorted_shas:
             first_byte = int(sha[:2], 16)
-            for i in range(first_byte, 256):
-                fanout[i] += 1
+            fanout[first_byte] += 1
+        
+        # Convert counts to cumulative sums
+        for i in range(1, 256):
+            fanout[i] += fanout[i - 1]
         
         for count in fanout:
             idx.extend(struct.pack(">I", count))
@@ -191,22 +194,9 @@ def create_pack(objects_dir: Path, shas: List[str]) -> bytes:
 
 from concurrent.futures import ThreadPoolExecutor
 
-def _unpack_worker(objects_dir: Path, data: bytes) -> None:
-    # We need to deserialize to get the SHA
-    from deep.storage.objects import _deserialize, _object_path
-    import hashlib
-    import zlib
-    
-    # Pack object data is header(1B type + 8B size) + zlib_data
-    # Actually client.py might expect a different pack format or our own DIDX
-    # BUT client.py is using this for network.
-    # Let's assume the pack format we defined in PackWriter.
-    pass
-
 def unpack(pack_data: bytes, objects_dir: Path) -> int:
     """Extract objects from pack_data and write them as loose objects."""
     import hashlib
-    import binascii
 
     # 1. Validate trailer SHA-1 (last 20 bytes)
     if len(pack_data) > 20:
@@ -219,48 +209,57 @@ def unpack(pack_data: bytes, objects_dir: Path) -> int:
     if not pack_data.startswith(PACK_SIGNATURE):
         raise ValueError("Invalid packfile signature")
     
+    if len(pack_data) < 12:
+        raise ValueError("Pack data too short")
+    
     version = struct.unpack(">I", pack_data[4:8])[0]
     count = struct.unpack(">I", pack_data[8:12])[0]
     
     offset = 12
     shas_to_write = []
+    # Remove the 20-byte trailer from the data boundary
+    data_end = len(pack_data) - 20 if len(pack_data) > 20 else len(pack_data)
     
     for _ in range(count):
+        if offset + 9 > data_end:
+            raise ValueError("Pack data truncated: not enough bytes for entry header")
+        
+        # Read the 1-byte type ID and 8-byte compressed size
         type_id, comp_size = struct.unpack_from(">BQ", pack_data, offset)
         offset += 9
+        
+        if offset + comp_size > data_end:
+            raise ValueError(f"Pack data truncated: entry demands {comp_size} bytes but only {data_end - offset} available")
+            
         compressed = pack_data[offset : offset + comp_size]
         offset += comp_size
         
-        # 3. CRC check on compressed data
-        expected_crc = binascii.crc32(compressed) & 0xFFFFFFFF
-        # Try decompressing
+        # 3. Decompress and verify content integrity via SHA
         try:
             raw = zlib.decompress(compressed)
         except zlib.error:
-            raise ValueError(f"CRC mismatch for entry (decompression failed)")
-        
-        # Verify round-trip CRC
-        recompressed = zlib.compress(raw)
-        # The CRC should match the original compressed data
-        actual_crc = binascii.crc32(compressed) & 0xFFFFFFFF
-        if actual_crc != expected_crc:
-            raise ValueError(f"CRC mismatch for entry")
+            raise ValueError("Corrupt pack entry: zlib decompression failed")
         
         sha = hashlib.sha1(raw).hexdigest()
         shas_to_write.append((sha, compressed))
 
+    from deep.utils.utils import AtomicWriter
+
     def write_one(sha: str, comp: bytes):
-        path = objects_dir / sha[:2] / sha[2:]
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(comp)
+        dest = objects_dir / sha[:2] / sha[2:]
+        if dest.exists():
+            return
+            
+        # Write into temp file then rename (AtomicWriter handles this safely)
+        with AtomicWriter(dest) as aw:
+            aw.write(comp)
 
     # Parallelize writing loose objects
     if shas_to_write:
         max_workers = min(os.cpu_count() or 4, len(shas_to_write))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for sha, comp in shas_to_write:
-                executor.submit(write_one, sha, comp)
+            # We must exhaust the iterator to ensure exceptions are raised
+            list(executor.map(lambda item: write_one(*item), shas_to_write))
                 
     return count
 

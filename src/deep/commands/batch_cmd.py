@@ -60,11 +60,21 @@ def run(args) -> None:
                 if not parts:
                     continue
 
-                # Import and execute the deep main dispatch
-                from deep.main import build_parser, main
-                # Build args for this sub-command
+                # Build parser and execute mapped command
+                from deep.cli.main import build_parser
+                import importlib
+                parser = build_parser()
                 try:
-                    main(parts)
+                    cmd_args = parser.parse_args(parts)
+                except SystemExit as se:
+                    if se.code != 0 and se.code is not None:
+                        raise RuntimeError(f"Argument parsing failed: {line}")
+                    else:
+                        continue
+
+                try:
+                    cmd_module = importlib.import_module(f"deep.commands.{cmd_args.command}_cmd")
+                    cmd_module.run(cmd_args)
                 except SystemExit as se:
                     if se.code != 0 and se.code is not None:
                         raise RuntimeError(f"Command failed: {line}")

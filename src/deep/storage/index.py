@@ -140,11 +140,18 @@ def _read_index_no_lock(dg_dir: Path) -> Index:
     path = _index_path(dg_dir)
     if not path.exists():
         return Index()
-    with open(path, "rb") as f:
-        if os.fstat(f.fileno()).st_size == 0:
+    
+    try:
+        data = path.read_bytes()
+        if not data:
             return Index()
-        with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
-            return Index.from_binary(mm.read())
+        return Index.from_binary(data)
+    except Exception as e:
+        # If the index is totally corrupted, return an empty index
+        # A more advanced recovery could be implemented, but an empty index
+        # is safe because `deep status` will just show everything as deleted/new.
+        print(f"Warning: Index corrupted, resetting to empty. Error: {e}")
+        return Index()
 
 
 def read_index(dg_dir: Path) -> Index:

@@ -356,8 +356,8 @@ class SandboxRunner:
             # On Unix, use standard binary paths
             env["PATH"] = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-        # Only pass through other essential variables if they exist
-        for var in ("TEMP", "TMP", "HOME", "PYTHONPATH"):
+        # Only pass through essential variables — NOT PYTHONPATH (security risk)
+        for var in ("TEMP", "TMP", "HOME"):
             if var in os.environ:
                 env[var] = os.environ[var]
 

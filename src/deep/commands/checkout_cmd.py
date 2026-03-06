@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from deep.core.reconcile import sanitize_path
 
 from deep.storage.index import Index, IndexEntry, read_index, write_index
 from deep.storage.objects import Blob, Commit, Tree, read_object

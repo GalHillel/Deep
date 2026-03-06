@@ -13,7 +13,8 @@ from deep.core.repository import DEEP_GIT_DIR
 from deep.core.refs import update_head, update_branch, resolve_head
 from deep.core.config import Config
 from deep.network.client import get_remote_client
-from deep.cli.main import main
+from deep.commands import init_cmd, checkout_cmd
+import argparse
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
@@ -38,7 +39,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     old_cwd = os.getcwd()
     os.chdir(target_dir)
     try:
-        main(["init"])
+        init_cmd.run(argparse.Namespace(path=None))
         
         # Connect to remote
         auth_token = getattr(args, "token", None)
@@ -71,7 +72,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         config.set_local("remote.origin.url", url)
         
         # Checkout files
-        main(["checkout", "--force", "main"])
+        checkout_cmd.run(argparse.Namespace(target="main", force=True, branch=None))
         
         print("Done.")
         

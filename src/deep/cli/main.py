@@ -249,6 +249,14 @@ Examples:
     p_rebase.add_argument("--continue", action="store_true", dest="continue_rebase", help="Continue rebase process")
     p_rebase.add_argument("--abort", action="store_true", help="Abort the rebase operation")
 
+    # ── inspect-tree ──────────────────────────────────────────────
+    p_inspect_tree = sub.add_parser(
+        "inspect-tree",
+        help="Internal: Inspect raw tree entries (debug)",
+        description="Verify raw tree entry modes and object types.",
+    )
+    p_inspect_tree.add_argument("sha", help="SHA of the tree object to inspect")
+
     # ── tag ─────────────────────────────────────────────────────────
     p_tag = sub.add_parser(
         "tag", 
@@ -623,6 +631,18 @@ Examples:
     p_verify.add_argument("--all", action="store_true", help="Verify all objects")
     p_verify.add_argument("--verbose", action="store_true", help="Detailed check progress")
 
+    # ── fsck ─────────────────────────────────────────────────────────
+    p_fsck = sub.add_parser(
+        "fsck",
+        help="Verify connectivity and validity of objects",
+        description="Verify the integrity of the commit graph, trees, and blobs.",
+        epilog="""
+Examples:
+  deep fsck                  # Check repository health
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
     # ── sandbox ──────────────────────────────────────────────────────
     p_sandbox = sub.add_parser(
         "sandbox",
@@ -798,6 +818,12 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.checkout_cmd import run
     elif args.command == "merge":
         from deep.commands.merge_cmd import run
+    elif args.command == "inspect-tree":
+        from deep.commands import inspect_tree_cmd
+        inspect_tree_cmd.run(args)
+    elif args.command == "fsck":
+        from deep.commands.fsck_cmd import run
+        from deep.commands.fsck_cmd import run
     elif args.command == "rm":
         from deep.commands.rm_cmd import run
     elif args.command == "mv":
@@ -852,6 +878,10 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.pipeline_cmd import run
     elif args.command == "search":
         from deep.commands.search_cmd import run
+    elif args.command == "mirror":
+        from deep.commands.mirror_cmd import run
+    elif args.command == "sync":
+        from deep.commands.sync_cmd import run
     elif args.command == "audit":
         from deep.commands.audit_cmd import run
     elif args.command == "ultra":
@@ -900,7 +930,7 @@ def main(argv: list[str] | None = None) -> None:
             dg_dir = repo_root / DEEP_GIT_DIR
             
             # Only recover if txlog actually exists and we're not doing a read-only command
-            if args.command in ("commit", "merge", "push", "pull", "rollback"):
+            if args.command in ("commit", "merge", "push", "pull", "rollback", "checkout", "status"):
                 from deep.storage.txlog import TransactionLog
                 txlog = TransactionLog(dg_dir)
                 if txlog.log_path.exists() and txlog.needs_recovery():

@@ -38,7 +38,7 @@ def _build_tree_recursive(objects_dir: Path, files: dict[str, str]) -> str:
     def process_dir(name_and_files):
         name, sub_files = name_and_files
         sub_tree_sha = _build_tree_recursive(objects_dir, sub_files)
-        return TreeEntry(mode="040000", name=name, sha=sub_tree_sha)
+        return TreeEntry(mode="40000", name=name, sha=sub_tree_sha)
 
     if children_by_dir:
         from concurrent.futures import ThreadPoolExecutor

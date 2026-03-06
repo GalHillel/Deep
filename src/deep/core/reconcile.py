@@ -8,7 +8,7 @@ from deep.core.refs import update_branch, update_head
 
 import unicodedata
 
-INVALID_WIN_CHARS = r'[?*<>|:"]'
+INVALID_WIN_CHARS = r'[\x00-\x1f\\?*<>|:"]'
 RESERVED_WIN_NAMES = {
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
     "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
@@ -17,38 +17,26 @@ RESERVED_WIN_NAMES = {
 def sanitize_filename(name: str) -> str:
     """
     Guarantees a safe filename for Git and all filesystems.
-    - Strips whitespace
-    - Removes \r, \n, \t
+    - Replaces \r, \n, \t and control characters with underscores
     - Normalizes Unicode to NFC
-    - Blocks null bytes and control characters
     - Replaces Windows-illegal characters with underscores
+    - Strips leading/trailing whitespace and trailing dots
     """
     if not name:
         return "unnamed_file"
 
-    # 1. Strip and basic cleanup
-    name = name.strip()
-    name = name.replace("\r", "").replace("\n", "").replace("\t", "")
-    
-    # 2. Unicode Normalization (NFC)
+    # 1. Unicode Normalization (NFC)
     name = unicodedata.normalize('NFC', name)
     
-    # 3. Block null bytes and control characters
-    if "\x00" in name:
-        raise ValueError("Null byte not allowed in filename")
-        
-    # Check for other control characters
-    if any(ord(c) < 32 for c in name):
-        # We could raise Exception as requested, but let's try to filter them first
-        # to be more robust, or just raise as the prompt suggests "raise Exception"
-        for c in name:
-            if ord(c) < 32:
-                raise Exception(f"Invalid control character {repr(c)} in filename: {repr(name)}")
-
-    # 4. Windows-illegal characters: < > : " | ? *
+    # 2. Replace all Windows-illegal and control characters (including \r \n \t) with underscores
+    # Note: We do this before stripping to ensure trailing control characters become underscores 
+    # and are NOT stripped by name.strip().
     name = re.sub(INVALID_WIN_CHARS, '_', name)
     
-    # 5. Final safety check for empty or dot-only names
+    # 3. Strip whitespace and basic cleanup
+    name = name.strip()
+    
+    # 4. Final safety check for empty or dot-only names
     name = name.rstrip('. ')
     if not name:
         return "sanitized_file"
@@ -62,13 +50,7 @@ def sanitize_path(path: str) -> Tuple[str, bool]:
     if not path:
         return path, False
         
-    try:
-        new_path = sanitize_filename(path)
-    except Exception:
-        # If it failed due to control characters, we need to be even more aggressive
-        # Let's replace anything < 32 with underscore
-        new_path = "".join(c if ord(c) >= 32 else "_" for c in path)
-        new_path = sanitize_filename(new_path)
+    new_path = sanitize_filename(path)
     
     # Handle reserved Windows names (case-insensitive)
     base_name = new_path.split('.')[0].upper()

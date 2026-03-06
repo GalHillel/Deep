@@ -12,12 +12,40 @@ safety during high-frequency operations.
 
 from __future__ import annotations
 
+import re
+from collections import deque
 from pathlib import Path
 from typing import Optional
 
 from filelock import FileLock
 
 from deep.utils.utils import AtomicWriter
+
+# Pattern for invalid ref name characters (control chars, backslash, etc.)
+_INVALID_REF_CHARS = re.compile(r'[\x00-\x1f~^:?*\[\]\\\\]')
+
+
+def _validate_ref_name(name: str) -> None:
+    """Validate that a branch or tag name is safe.
+
+    Rejects names containing path traversal patterns, control characters,
+    or other dangerous sequences that could escape the refs directory.
+
+    Raises:
+        ValueError: If the name is invalid.
+    """
+    if not name:
+        raise ValueError("Reference name cannot be empty")
+    if '..' in name:
+        raise ValueError(f"Reference name cannot contain '..': {name!r}")
+    if name.startswith('/'):
+        raise ValueError(f"Reference name cannot start with '/': {name!r}")
+    if name.endswith('/'):
+        raise ValueError(f"Reference name cannot end with '/': {name!r}")
+    if name.endswith('.lock'):
+        raise ValueError(f"Reference name cannot end with '.lock': {name!r}")
+    if _INVALID_REF_CHARS.search(name):
+        raise ValueError(f"Reference name contains invalid characters: {name!r}")
 
 
 # ── HEAD helpers ─────────────────────────────────────────────────────
@@ -90,7 +118,8 @@ def resolve_revision(dg_dir: Path, revision: str) -> Optional[str]:
                     current = obj.parent_shas[0]
                 else:
                     return None
-            except: return None
+            except Exception:
+                return None
         return current
 
     if revision == "HEAD":
@@ -185,11 +214,11 @@ def is_ancestor(objects_dir: Path, ancestor_sha: Optional[str], tip_sha: str) ->
         return True
 
     from deep.storage.objects import Commit, read_object
-    queue = [tip_sha]
+    queue = deque([tip_sha])
     visited = {tip_sha}
 
     while queue:
-        current = queue.pop(0)
+        current = queue.popleft()
         try:
             obj = read_object(objects_dir, current)
             if not isinstance(obj, Commit):
@@ -229,6 +258,7 @@ def update_branch(dg_dir: Path, name: str, commit_sha: str) -> None:
         name:       Branch name (e.g. ``"main"``).
         commit_sha: 40-character SHA-1 hex digest of the tip commit.
     """
+    _validate_ref_name(name)
     bp = _branch_path(dg_dir, name)
     lock = FileLock(str(bp) + ".lock")
     with lock:
@@ -284,7 +314,9 @@ def create_tag(dg_dir: Path, name: str, sha: str) -> None:
     
     Raises:
         FileExistsError: If the tag already exists.
+        ValueError: If the tag name is invalid.
     """
+    _validate_ref_name(name)
     tp = _tag_path(dg_dir, name)
     if tp.exists():
         raise FileExistsError(f"Tag '{name}' already exists")

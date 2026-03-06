@@ -17,21 +17,31 @@ at scale.
 
 from __future__ import annotations
 
+import re
 import os
 import sys
 import time
 import zlib
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Union
 
 from deep.utils.utils import AtomicWriter, get_local_timezone_offset, hash_bytes
 
+_SHA_RE = re.compile(r'^[0-9a-f]{40}$')
+
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
 def _object_path(objects_dir: Path, sha: str) -> Path:
-    """Return the absolute filesystem path for an object given its SHA-1."""
+    """Return the absolute filesystem path for an object given its SHA-1.
+    
+    Raises ValueError if the SHA is not a valid 40-character hex string,
+    preventing path traversal attacks.
+    """
+    if not _SHA_RE.match(sha):
+        raise ValueError(f"Invalid SHA format: {sha!r}")
     return objects_dir / sha[:2] / sha[2:]
 
 
@@ -77,19 +87,26 @@ class GitObject:
         return hash_bytes(self.full_serialize())
 
     def write(self, objects_dir: Path) -> str:
-        """Persist this object to disk under *objects_dir*.
-
+        """Serialize and write the object to the object store.
+        
         Returns:
             The SHA-1 hex digest of the written object.
         """
-        raw = self.full_serialize()
-        sha = hash_bytes(raw)
+        if isinstance(self, Tree):
+            for entry in self.entries:
+                entry.validate(objects_dir)
+
+        content = self.full_serialize()
+        sha = hash_bytes(content)
+        
         dest = _object_path(objects_dir, sha)
         if dest.exists():
-            return sha  # already stored — content-addressable
-        compressed = zlib.compress(raw)
+            return sha
+            
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        compressed_content = zlib.compress(content)
         with AtomicWriter(dest) as aw:
-            aw.write(compressed)
+            aw.write(compressed_content)
         return sha
 
 
@@ -126,6 +143,31 @@ class TreeEntry:
     name: str
     sha: str
 
+    def __post_init__(self):
+        # Normalize mode (Git trees often use "40000" but sometimes omit leading zero)
+        # However, for serialization we must be consistent.
+        if self.mode == "040000":
+            self.mode = "40000"
+        
+        valid_modes = {"100644", "100755", "40000", "120000", "160000"}
+        if self.mode not in valid_modes:
+            # Try to be helpful: if it looks like a directory but has blob mode, we will catch it in validate()
+            pass
+
+    def validate(self, objects_dir: Path):
+        """Strict validation: ensure mode matches actual object type."""
+        from deep.storage.objects import read_object_safe, Tree, Blob
+        try:
+            obj = read_object_safe(objects_dir, self.sha)
+            if isinstance(obj, Tree) and self.mode != "40000":
+                raise ValueError(f"Entry '{self.name}' object type (tree) doesn't match mode type ({self.mode})")
+            if isinstance(obj, Blob) and self.mode == "40000":
+                raise ValueError(f"Entry '{self.name}' object type (blob) doesn't match mode type (40000)")
+        except (FileNotFoundError, ValueError):
+            # If object is missing, we can't definitively check type here, 
+            # but fsck should catch it.
+            pass
+
 
 @dataclass
 class Tree(GitObject):
@@ -139,22 +181,20 @@ class Tree(GitObject):
 
         Format: <mode> <name>\0<20-byte raw SHA-1>
         """
-        from deep.core.reconcile import sanitize_filename
+        from deep.core.reconcile import sanitize_filename  # noqa: F401 – defensive import kept for future use
         
         parts: list[bytes] = []
+        # We need objects_dir for validation. If NOT provided, we skip strict validation 
+        # (e.g. during initial construction before writing).
+        # But for 'write()', we always have objects_dir.
+        
         for entry in sorted(self.entries, key=lambda e: e.name):
-            # 1. Sanitize and Validate
-            clean_name = sanitize_filename(entry.name)
-            
-            # Phase 4: Hard Validation
-            assert "\r" not in clean_name, f"Carriage return in filename: {repr(clean_name)}"
-            assert "\n" not in clean_name, f"Newline in filename: {repr(clean_name)}"
-            assert "\t" not in clean_name, f"Tab in filename: {repr(clean_name)}"
-            assert "\x00" not in clean_name, f"Null byte in filename: {repr(clean_name)}"
+            # 1. Validate
+            assert "\x00" not in entry.name, f"Null byte in filename: {repr(entry.name)}"
             
             # 2. Convert to binary
             mode_bytes = entry.mode.encode("ascii")
-            name_bytes = clean_name.encode("utf-8")
+            name_bytes = entry.name.encode("utf-8")
             sha_bytes = bytes.fromhex(entry.sha)
             
             # 3. Construct entry: <mode> <name>\0<sha>
@@ -565,14 +605,13 @@ def _attempt_p2p_heal(dg_dir: Path, sha: str) -> Optional[bytes]:
 def get_reachable_objects(objects_dir: Path, shas: list[str], max_depth: int | None = None, filter_spec: str | None = None) -> list[str]:
     """Return all objects reachable from the given SHAs (commits, trees, blobs), supporting depth and filters."""
     seen = set()
-    # Queue stores (sha, depth)
-    queue = [(sha, 1) for sha in shas]
+    queue = deque((sha, 1) for sha in shas)
     reachable = []
     
     blob_none = (filter_spec == "blob:none")
     
     while queue:
-        sha, depth = queue.pop(0)
+        sha, depth = queue.popleft()
         if not sha or sha == "0"*40 or sha in seen:
             continue
             

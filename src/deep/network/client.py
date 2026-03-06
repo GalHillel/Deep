@@ -22,6 +22,11 @@ from deep.storage.pack import create_pack, unpack
 from deep.network.protocol import PktLineStream, encode_pkt, decode_pkt
 
 
+class GitBridgeError(Exception):
+    """Raised when a Git bridge operation fails."""
+    pass
+
+
 class RemoteClient:
     """Synchronous client for Deep Git remote operations."""
 
@@ -189,9 +194,9 @@ class RemoteClient:
 
 class GitBridge:
     """Bridge to standard Git remotes using the 'git' CLI."""
-    def __init__(self, url: str):
+    def __init__(self, url: str | Path):
         # Normalize backslashes for standard Git CLI on Windows
-        self.url = url.replace("\\", "/")
+        self.url = str(url).replace("\\", "/")
 
     def connect(self):
         """No-op for bridge."""
@@ -202,40 +207,42 @@ class GitBridge:
         pass
 
     def _handle_git_error(self, cmd: str, stderr: str):
-        """Analyze stderr for common SSH/Git errors and provide friendly advice."""
+        """Analyze stderr for common SSH/Git errors and raise GitBridgeError with friendly advice."""
         if "Host key verification failed" in stderr:
-            print("\n[bold red]SSH Error:[/bold red] Host key verification failed.", file=sys.stderr)
-            print("\nPossible fixes:", file=sys.stderr)
-            print("1. Run: [cyan]ssh -T git@github.com[/cyan]", file=sys.stderr)
-            print("2. Verify the host is in your known_hosts file.", file=sys.stderr)
-            sys.exit(1)
+            raise GitBridgeError(
+                "SSH Error: Host key verification failed.\n"
+                "Possible fixes:\n"
+                "1. Run: ssh -T git@github.com\n"
+                "2. Verify the host is in your known_hosts file."
+            )
         
         if "Permission denied (publickey)" in stderr:
-            print("\n[bold red]SSH Error:[/bold red] Permission denied (publickey).", file=sys.stderr)
-            print("\nPossible fixes:", file=sys.stderr)
-            print("1. Run: [cyan]ssh -T git@github.com[/cyan]", file=sys.stderr)
-            print("2. Ensure your SSH key is added to your Git provider.", file=sys.stderr)
-            print("3. Check if your SSH agent is running.", file=sys.stderr)
-            sys.exit(1)
+            raise GitBridgeError(
+                "SSH Error: Permission denied (publickey).\n"
+                "Possible fixes:\n"
+                "1. Run: ssh -T git@github.com\n"
+                "2. Ensure your SSH key is added to your Git provider.\n"
+                "3. Check if your SSH agent is running."
+            )
 
         if "Could not read from remote repository" in stderr:
-            print("\n[bold red]Git Error:[/bold red] Could not read from remote repository.", file=sys.stderr)
-            print("\nPossible fixes:", file=sys.stderr)
-            print("1. Verify the repository URL.", file=sys.stderr)
-            print("2. Ensure you have read permissions for this repository.", file=sys.stderr)
-            sys.exit(1)
+            raise GitBridgeError(
+                "Git Error: Could not read from remote repository.\n"
+                "Possible fixes:\n"
+                "1. Verify the repository URL.\n"
+                "2. Ensure you have read permissions for this repository."
+            )
 
         if "Updates were rejected" in stderr or "non-fast-forward" in stderr:
-            print("\n[bold red]Push Error:[/bold red] Push rejected (non-fast-forward).", file=sys.stderr)
-            print("\nPossible fixes:", file=sys.stderr)
-            print("1. Run: [cyan]deep pull[/cyan] to fetch latest changes and merge them.", file=sys.stderr)
-            print("2. Use force push if you want to overwrite remote history (caution!).", file=sys.stderr)
-            sys.exit(1)
+            raise GitBridgeError(
+                "Push Error: Push rejected (non-fast-forward).\n"
+                "Possible fixes:\n"
+                "1. Run: deep pull to fetch latest changes and merge them.\n"
+                "2. Use force push if you want to overwrite remote history (caution!)."
+            )
 
         # Fallback for other errors
-        print(f"\n[bold red]Error:[/bold red] {cmd} failed.", file=sys.stderr)
-        print(f"Details: {stderr}", file=sys.stderr)
-        sys.exit(1)
+        raise GitBridgeError(f"{cmd} failed: {stderr}")
 
     def ls_refs(self) -> Dict[str, str]:
         """Use 'git ls-remote' to discover refs."""
@@ -382,9 +389,7 @@ class GitBridge:
                                 # Check for invisible/control characters in the original name
                                 # repr() will show them as \x or \u
                                 if any(ord(c) < 32 for c in e.name):
-                                    print(f"[bold red]Safety Error:[/bold red] Filename {name_repr} contains control characters.", file=sys.stderr)
-                                    print("DeepGit bridge refuses to push corrupted trees.", file=sys.stderr)
-                                    sys.exit(1)
+                                    raise GitBridgeError(f"Safety Error: Filename {name_repr} contains control characters. DeepGit bridge refuses to push corrupted trees.")
                                     
                                 # Standard Git mktree format: <mode> <type> <sha>\t<name>
                                 obj_type_str = read_object(objects_dir, e.sha).__class__.__name__.lower()
@@ -408,7 +413,7 @@ class GitBridge:
                     if res.returncode != 0:
                         print("GitBridge: Divergence detected. Attempting physical sync merge...")
                         subprocess.run(["git", "checkout", "-b", "sync-branch", final_push_sha, "-q"], cwd=tmp, check=True)
-                        res = subprocess.run(["git", "merge", remote_ref, "-m", f"Sync Bridge: Merge remote {branch}"], cwd=tmp, capture_output=True, text=True)
+                        res = subprocess.run(["git", "merge", remote_ref, "--allow-unrelated-histories", "-m", f"Sync Bridge: Merge remote {branch}"], cwd=tmp, capture_output=True, text=True)
                         if res.returncode != 0:
                             self._handle_git_error("git merge", res.stderr)
                         final_push_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp, text=True).strip()
@@ -426,13 +431,11 @@ class GitBridge:
                 
             except subprocess.CalledProcessError as e:
                 stderr = e.stderr if hasattr(e, 'stderr') and e.stderr else str(e)
-                print(f"GitBridge: Bridge operation failed: {stderr}", file=sys.stderr)
-                sys.exit(1)
+                raise GitBridgeError(f"Bridge operation failed: {stderr}")
             except Exception as e:
                 import traceback
-                print(f"GitBridge: Unexpected bridge error: {str(e)}", file=sys.stderr)
                 traceback.print_exc()
-                sys.exit(1)
+                raise GitBridgeError(f"Unexpected bridge error: {str(e)}")
 
 def get_remote_client(url: str, auth_token: Optional[str] = None):
     """Factory to return either RemoteClient or GitBridge based on URL."""

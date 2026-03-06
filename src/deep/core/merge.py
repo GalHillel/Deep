@@ -7,6 +7,7 @@ and basic 3-way merge with conflict detection.
 
 from __future__ import annotations
 
+from collections import deque
 from pathlib import Path
 from typing import Optional, Set
 
@@ -14,18 +15,18 @@ from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import resolve_head
 
 
-def _ancestors(objects_dir: Path, start_sha: str) -> set[str]:
-    """Return the set of ALL ancestor commit SHAs (inclusive) reachable from *start_sha*."""
+def _ancestors(objects_dir: Path, commit_sha: str) -> Set[str]:
+    """Iterative BFS to find all ancestor SHAs."""
     visited: set[str] = set()
-    stack = [start_sha]
-    while stack:
-        sha = stack.pop()
-        if sha in visited:
+    queue = deque([commit_sha])
+    while queue:
+        current = queue.popleft()
+        if current in visited:
             continue
-        visited.add(sha)
-        obj = read_object(objects_dir, sha)
+        visited.add(current)
+        obj = read_object(objects_dir, current)
         if isinstance(obj, Commit):
-            stack.extend(obj.parent_shas)
+            queue.extend(obj.parent_shas)
     return visited
 
 
@@ -40,10 +41,10 @@ def find_lca(objects_dir: Path, sha_a: str, sha_b: str) -> Optional[str]:
     """
     ancestors_a = _ancestors(objects_dir, sha_a)
     # BFS from sha_b, stop at first ancestor of a.
-    queue = [sha_b]
+    queue = deque([sha_b])
     visited: set[str] = set()
     while queue:
-        current = queue.pop(0)
+        current = queue.popleft()
         if current in visited:
             continue
         visited.add(current)
@@ -55,14 +56,14 @@ def find_lca(objects_dir: Path, sha_a: str, sha_b: str) -> Optional[str]:
     return None
 
 
-def _tree_entries_map(objects_dir: Path, tree_sha: str | None) -> dict[str, str]:
-    """Return {name: blob_sha} for entries in a tree."""
+def _tree_entries_map_full(objects_dir: Path, tree_sha: str | None) -> dict[str, TreeEntry]:
+    """Return {name: TreeEntry} for entries in a tree."""
     if not tree_sha:
         return {}
     obj = read_object(objects_dir, tree_sha)
     if not isinstance(obj, Tree):
         return {}
-    return {e.name: e.sha for e in obj.entries}
+    return {e.name: e for e in obj.entries}
 
 
 def three_way_merge(
@@ -77,41 +78,45 @@ def three_way_merge(
         A tuple of ``(merged_entries, conflict_paths)``.
         ``conflict_paths`` lists files that have conflicting changes.
     """
-    base = _tree_entries_map(objects_dir, base_tree_sha)
-    ours = _tree_entries_map(objects_dir, ours_tree_sha)
-    theirs = _tree_entries_map(objects_dir, theirs_tree_sha)
+    base = _tree_entries_map_full(objects_dir, base_tree_sha)
+    ours = _tree_entries_map_full(objects_dir, ours_tree_sha)
+    theirs = _tree_entries_map_full(objects_dir, theirs_tree_sha)
 
     all_names = sorted(set(base) | set(ours) | set(theirs))
-    merged: list[TreeEntry] = []
+    merged_entries: list[TreeEntry] = []
     conflicts: list[str] = []
 
     for name in all_names:
-        b_sha = base.get(name)
-        o_sha = ours.get(name)
-        t_sha = theirs.get(name)
+        b_entry = base.get(name)
+        o_entry = ours.get(name)
+        t_entry = theirs.get(name)
+
+        o_sha = o_entry.sha if o_entry else None
+        t_sha = t_entry.sha if t_entry else None
+        b_sha = b_entry.sha if b_entry else None
 
         if o_sha == t_sha:
             # Both sides agree (or both deleted).
-            if o_sha is not None:
-                merged.append(TreeEntry(mode="100644", name=name, sha=o_sha))
+            if o_entry:
+                merged_entries.append(o_entry)
             continue
 
         if o_sha == b_sha:
             # We didn't change it; take theirs.
-            if t_sha is not None:
-                merged.append(TreeEntry(mode="100644", name=name, sha=t_sha))
+            if t_entry:
+                merged_entries.append(t_entry)
             continue
 
         if t_sha == b_sha:
             # They didn't change it; take ours.
-            if o_sha is not None:
-                merged.append(TreeEntry(mode="100644", name=name, sha=o_sha))
+            if o_entry:
+                merged_entries.append(o_entry)
             continue
 
         # Both sides changed differently → conflict.
         conflicts.append(name)
         # Keep ours for now.
-        if o_sha is not None:
-            merged.append(TreeEntry(mode="100644", name=name, sha=o_sha))
+        if o_entry:
+            merged_entries.append(o_entry)
 
-    return merged, conflicts
+    return merged_entries, conflicts
