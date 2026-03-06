@@ -91,7 +91,15 @@ class IgnoreEngine:
         if not ignore_file.exists():
             return
 
-        for line in ignore_file.read_text(encoding="utf-8").splitlines():
+        try:
+            content = ignore_file.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            try:
+                content = ignore_file.read_text(encoding="utf-16")
+            except UnicodeDecodeError:
+                content = ignore_file.read_text(encoding="utf-8", errors="replace")
+
+        for line in content.splitlines():
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
