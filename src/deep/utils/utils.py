@@ -71,8 +71,6 @@ class AtomicWriter:
 
     def __enter__(self) -> "AtomicWriter":
         self.target.parent.mkdir(parents=True, exist_ok=True)
-        # Create temp file in the SAME directory so os.replace is guaranteed
-        # to be atomic on all platforms (same filesystem).
         fd, tmp_name = tempfile.mkstemp(
             dir=str(self.target.parent),
             prefix=".tmp_deep_git_",
@@ -81,29 +79,39 @@ class AtomicWriter:
         self._tmp_path = Path(tmp_name)
 
         if self._is_append and self.target.exists():
-            # Copy existing contents to the temp file first
             with open(self.target, "rb") as src:
-                with os.fdopen(self._fd, "wb", closefd=False) as dst:
-                    shutil.copyfileobj(src, dst)
+                # Copy to the raw FD
+                os.write(self._fd, src.read())
 
         self._file = os.fdopen(self._fd, self.mode)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[override]
-        if exc_type is not None:
-            # An error occurred — clean up the temp file.
-            self._file.close()  # type: ignore[union-attr]
+        if self._file:
             try:
-                self._tmp_path.unlink()  # type: ignore[union-attr]
-            except OSError:
-                pass
-            return
+                if exc_type is not None:
+                    self._file.close()
+                    if self._tmp_path.exists():
+                        self._tmp_path.unlink()
+                    return
 
-        # Happy path — flush → fsync → atomic rename.
-        self._file.flush()  # type: ignore[union-attr]
-        os.fsync(self._file.fileno())  # type: ignore[union-attr]
-        self._file.close()  # type: ignore[union-attr]
-        os.replace(str(self._tmp_path), str(self.target))
+                self._file.flush()
+                try:
+                    os.fsync(self._file.fileno())
+                except OSError:
+                    pass # Some systems don't support fsync on all files
+                self._file.close()
+                self._file = None
+                
+                os.replace(str(self._tmp_path), str(self.target))
+            except Exception:
+                if self._file:
+                    try: self._file.close()
+                    except: pass
+                if self._tmp_path and self._tmp_path.exists():
+                    try: self._tmp_path.unlink()
+                    except: pass
+                raise
         
         # Fsync the parent directory to ensure the directory entry is persisted
         try:

@@ -189,7 +189,22 @@ def update_multiple_index_entries(
     lock = FileLock(str(_lock_path(dg_dir)))
     with lock:
         index = _read_index_no_lock(dg_dir)
+        from deep.core.reconcile import sanitize_path
+        
         for rel_path, sha, size, mtime in updates:
+            # Defensive check: ensure no illegal characters in path
+            # Even though add_cmd should sanitize, we guard here too.
+            sanitized_parts = []
+            path_changed = False
+            for part in rel_path.split('/'):
+                s_part, changed = sanitize_path(part)
+                sanitized_parts.append(s_part)
+                if changed:
+                    path_changed = True
+            
+            if path_changed:
+                rel_path = "/".join(sanitized_parts)
+            
             index.entries[rel_path] = IndexEntry(sha=sha, size=size, mtime=mtime)
         _write_index_no_lock(dg_dir, index)
 

@@ -69,9 +69,13 @@ def _collect_restore_tasks(
     prefix: str = "",
 ) -> list[tuple[str, str, bool]]:
     """Recursively collect (rel_path, blob_sha, is_missing) for restoration."""
+    from deep.core.reconcile import sanitize_path
     tasks = []
     for entry in tree.entries:
-        rel_path = f"{prefix}/{entry.name}" if prefix else entry.name
+        # Sanitize entry name for Windows compatibility
+        safe_name, _ = sanitize_path(entry.name)
+        rel_path = f"{prefix}/{safe_name}" if prefix else safe_name
+        
         try:
             obj = read_object(objects_dir, entry.sha)
             if isinstance(obj, Blob):

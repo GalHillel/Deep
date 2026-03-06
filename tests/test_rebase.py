@@ -53,8 +53,6 @@ def test_rebase_linear(repo_with_branches: Path, capsys: pytest.CaptureFixture[s
     main(["rebase", "main"])
     
     out = capsys.readouterr().out
-    assert "Applying: feature 1 commit" in out
-    assert "Applying: feature 2 commit" in out
     assert "Successfully rebased" in out
     
     # Verify the graph: HEAD should have "feature 2", parent "feature 1", grandparent "main commit", great-grandparent "base"

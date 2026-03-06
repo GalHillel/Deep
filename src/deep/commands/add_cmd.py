@@ -22,8 +22,34 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sha: Optional[str] = None) -> tuple[str, str, int, float]:
     """Worker function to process a single file. (Must be top-level for pickling)"""
     from deep.storage.objects import Blob, write_object, write_delta_object, write_large_blob
+    from deep.core.reconcile import sanitize_path
+    from deep.utils.ux import Color
     
     rel_path = file_path.relative_to(repo_root).as_posix()
+    
+    # Path Sanitization for Windows compatibility
+    path_parts = rel_path.split('/')
+    sanitized_parts = []
+    path_changed = False
+    for part in path_parts:
+        try:
+            s_part, changed = sanitize_path(part)
+            sanitized_parts.append(s_part)
+            if changed:
+                path_changed = True
+        except Exception as e:
+            print(f"  [Warning] Failed to sanitize path part {repr(part)}: {e}")
+            # Fallback to extreme sanitization
+            s_part = "".join(c if ord(c) >= 32 and c not in '?*<>|:"' else "_" for c in part)
+            sanitized_parts.append(s_part)
+            path_changed = True
+            
+    if path_changed:
+        old_rel_path = rel_path
+        rel_path = "/".join(sanitized_parts)
+        # Using a simple print as Color is imported inside the worker
+        print(f"  [Sanitized] {old_rel_path} -> {rel_path}")
+
     data = file_path.read_bytes()
     stat = file_path.stat()
     

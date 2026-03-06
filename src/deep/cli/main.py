@@ -728,6 +728,15 @@ Examples:
 
     sub.add_parser("version", help="Show DeepGit version information")
 
+    # ── debug-tree (Diagnostics) ────────────────────────────────────
+    p_debug = sub.add_parser(
+        "debug-tree",
+        help="Inspect tree contents with hidden character visibility",
+        description="Forensic tool to inspect DeepGit tree objects. Uses repr() to reveal hidden characters.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_debug.add_argument("sha", nargs="?", help="Tree or Commit SHA to inspect")
+
     # ── help ──────────────────────────────────────────────────────────
     sub.add_parser("help", help="Show this help message and exit")
 
@@ -855,6 +864,8 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.sandbox_cmd import run
     elif args.command == "rollback":
         from deep.commands.rollback_cmd import run
+    elif args.command == "debug-tree":
+        from deep.commands.debug_cmd import run_debug_tree as run
     elif args.command == "version":
         from deep.cli.main import VERSION
         try:

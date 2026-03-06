@@ -17,6 +17,8 @@ at scale.
 
 from __future__ import annotations
 
+import os
+import sys
 import time
 import zlib
 from dataclasses import dataclass, field
@@ -135,18 +137,29 @@ class Tree(GitObject):
     def serialize_content(self) -> bytes:
         """Serialize entries sorted by name, Git-style.
 
-        Each entry is::
-
-            <mode> <name>\\0<20-byte raw SHA-1>
+        Format: <mode> <name>\0<20-byte raw SHA-1>
         """
+        from deep.core.reconcile import sanitize_filename
+        
         parts: list[bytes] = []
         for entry in sorted(self.entries, key=lambda e: e.name):
+            # 1. Sanitize and Validate
+            clean_name = sanitize_filename(entry.name)
+            
+            # Phase 4: Hard Validation
+            assert "\r" not in clean_name, f"Carriage return in filename: {repr(clean_name)}"
+            assert "\n" not in clean_name, f"Newline in filename: {repr(clean_name)}"
+            assert "\t" not in clean_name, f"Tab in filename: {repr(clean_name)}"
+            assert "\x00" not in clean_name, f"Null byte in filename: {repr(clean_name)}"
+            
+            # 2. Convert to binary
+            mode_bytes = entry.mode.encode("ascii")
+            name_bytes = clean_name.encode("utf-8")
             sha_bytes = bytes.fromhex(entry.sha)
-            parts.append(
-                f"{entry.mode} {entry.name}".encode("utf-8")
-                + b"\x00"
-                + sha_bytes
-            )
+            
+            # 3. Construct entry: <mode> <name>\0<sha>
+            parts.append(mode_bytes + b" " + name_bytes + b"\x00" + sha_bytes)
+            
         return b"".join(parts)
 
     @classmethod
@@ -179,7 +192,7 @@ class Commit(GitObject):
     committer: str = "Deep Git User <user@deep>"
     message: str = ""
     timestamp: int = field(default_factory=lambda: int(time.time()))
-    timezone: str = field(default_factory=get_local_timezone_offset)
+    timezone: str = field(default_factory=lambda: get_local_timezone_offset())
     signature: Optional[str] = None
 
     def serialize_content(self) -> bytes:
@@ -271,7 +284,7 @@ class Tag(GitObject):
     tagger: str = ""
     message: str = ""
     timestamp: int = field(default_factory=lambda: int(time.time()))
-    timezone: str = field(default_factory=get_local_timezone_offset)
+    timezone: str = field(default_factory=lambda: get_local_timezone_offset())
 
     def serialize_content(self) -> bytes:
         lines: list[str] = [
