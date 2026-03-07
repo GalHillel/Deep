@@ -20,7 +20,7 @@ def run(args) -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    from deep.web.dashboard import start_dashboard
+    from deep.web.dashboard.dashboard import start_dashboard
 
     port = args.port if hasattr(args, "port") else 9000
     start_dashboard(repo_root, port=port)

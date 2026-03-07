@@ -13,7 +13,8 @@ import asyncio
 import hashlib
 import json
 import os
-import traceback
+import mimetypes
+import sys
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from typing import Optional
@@ -211,6 +212,55 @@ def _commit_diff(dg_dir: Path, sha: str) -> list[dict]:
 # ── HTTP Handler ─────────────────────────────────────────────────────
 
 STATIC_DIR = Path(__file__).parent / "static"
+UI_SRC_DIR = Path(__file__).parent / "ui"
+UI_DIST_DIR = UI_SRC_DIR / "dist"
+
+
+def _rebuild_ui_if_needed():
+    """Build the modern UI if it's missing or outdated."""
+    if not UI_SRC_DIR.exists():
+        return
+
+    # Check if build exists
+    if not UI_DIST_DIR.exists():
+        print("Modern UI build missing. Triggering automatic rebuild...")
+        _trigger_build()
+    else:
+        # Simple heuristic: rebuild if src is newer than dist index
+        # (Practical implementation would check hashes, but this is a good first step)
+        src_time = 0
+        for p in UI_SRC_DIR.glob("src/**/*"):
+            if p.is_file():
+                src_time = max(src_time, p.stat().st_mtime)
+        
+        dist_time = (UI_DIST_DIR / "index.html").stat().st_mtime if (UI_DIST_DIR / "index.html").exists() else 0
+        
+        if src_time > dist_time:
+            print("Modern UI source has changed. Rebuilding...")
+            _trigger_build()
+
+
+def _trigger_build():
+    """Run npm install and npm run build."""
+    import subprocess
+    import shutil
+    
+    npm_cmd = shutil.which("npm")
+    if not npm_cmd:
+        print("Error: npm not found. Cannot build UI.")
+        return
+
+    try:
+        # Install dependencies if node_modules missing
+        if not (UI_SRC_DIR / "node_modules").exists():
+            print("Installing frontend dependencies...")
+            subprocess.run([npm_cmd, "install"], cwd=UI_SRC_DIR, check=True)
+        
+        print("Building modern UI...")
+        subprocess.run([npm_cmd, "run", "build"], cwd=UI_SRC_DIR, check=True)
+        print("Build successful.")
+    except Exception as e:
+        print(f"Error during UI build: {e}")
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
@@ -234,8 +284,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 pass
 
     def _handle_get(self):
+        # Prioritise Modern UI index
         if self.path == "/" or self.path == "/index.html":
-            self._serve_file(STATIC_DIR / "index.html", "text/html")
+            if (UI_DIST_DIR / "index.html").exists():
+                self._serve_file(UI_DIST_DIR / "index.html", "text/html")
+            else:
+                self._serve_file(STATIC_DIR / "index.html", "text/html")
         elif self.path.startswith("/api/log"):
             from urllib.parse import urlparse, parse_qs
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
@@ -386,13 +440,19 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             ai = DeepGitAI(self.dg_dir.parent)
             self._json_response(ai.get_metrics())
         else:
-            # Try to serve static file
-            fpath = STATIC_DIR / self.path.lstrip("/")
-            if fpath.exists() and fpath.is_file():
-                ctype = "text/css" if fpath.suffix == ".css" else \
-                        "application/javascript" if fpath.suffix == ".js" else \
-                        "text/html"
-                self._serve_file(fpath, ctype)
+            # Fallback to legacy static or Modern UI assets
+            target = UI_DIST_DIR / self.path.lstrip("/")
+            if not target.exists():
+                target = STATIC_DIR / self.path.lstrip("/")
+            
+            if target.exists() and target.is_file():
+                ctype, _ = mimetypes.guess_type(str(target))
+                if not ctype:
+                    ctype = "application/octet-stream"
+                # Ensure JS is served correctly for ESM
+                if target.suffix == ".js":
+                    ctype = "text/javascript" # Better for ESM compatibility
+                self._serve_file(target, ctype)
             else:
                 self.send_error(404)
 
@@ -460,6 +520,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
 def start_dashboard(repo_root: Path, host: str = "127.0.0.1", port: int = 9000):
     """Start the Web Dashboard HTTP server."""
+    _rebuild_ui_if_needed()
     dg_dir = repo_root / DEEP_GIT_DIR
     DashboardHandler.dg_dir = dg_dir
     DashboardHandler.repo_root = repo_root
