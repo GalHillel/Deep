@@ -9,16 +9,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from deep.core.repository import DEEP_GIT_DIR, find_repo
-from deep.core.platform import PlatformManager
+from deep.core.repository import DEEP_DIR, find_repo
+from deep.platform.platform import PlatformManager
 from deep.utils.ux import Color
 
 def run(args) -> None:
     """Execute the ``repo`` command."""
-    # We find the server root (where the server is running or intended to run)
     try:
-        server_root = Path(".").resolve() # Assume current dir is server root or we find it
-        # Try to find a .deep_git dir to use as server metadata
+        server_root = Path(".").resolve()
         try:
             repo_root = find_repo()
             server_root = repo_root
@@ -54,16 +52,12 @@ def run(args) -> None:
                 print(f"  - {r}")
                 
         elif cmd == "clone":
-            # Repo clone from server side - essentially a local clone/init
             print(f"Cloning {args.url} into {args.name or 'repo'}...")
             from deep.commands.clone_cmd import run as clone_run
             from deep.core.config import Config
-            
-            # Attempt to get auth token for remote operations
             config = Config(server_root)
             auth_token = config.get("auth.token")
-            
-            clone_args_instance = args # Reuse args
+            clone_args_instance = args
             setattr(clone_args_instance, "token", auth_token)
             clone_run(clone_args_instance)
 
@@ -72,21 +66,11 @@ def run(args) -> None:
             role = args.role
             try:
                 from deep.core.access import AccessManager
-                # We need the dg_dir of the platform server (server_root)
-                # No, we need it for the specific repo if repo-level? 
-                # The prompt said "repository permissions". PlatformManager manages repos.
-                # Usually permissions are per-repository.
-                # Let's assume it's for the "current" repo if we are in one, 
-                # or a specific one if specified?
-                # The 'deep repo' command usually acts on the platform level.
-                # Let's make it work on the repository specified by name if possible,
-                # or the current repo.
-                
                 target_repo_name = getattr(args, "name", None)
                 if target_repo_name:
-                    repo_path = server_root / "repos" / target_repo_name / DEEP_GIT_DIR
+                    repo_path = server_root / "repos" / target_repo_name / DEEP_DIR
                 else:
-                    repo_path = server_root / DEEP_GIT_DIR
+                    repo_path = server_root / DEEP_DIR
                 
                 if not repo_path.exists():
                     print(Color.wrap(Color.RED, f"Error: Repository metadata not found at {repo_path}"), file=sys.stderr)

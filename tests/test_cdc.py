@@ -1,8 +1,8 @@
 from pathlib import Path
 import os
 import shutil
-from deep_git.core.repository import DEEP_GIT_DIR
-from deep_git.core.objects import Blob, read_object, write_large_blob, ChunkedBlob, Chunk
+from deep.core.repository import DEEP_DIR
+from deep.storage.objects import Blob, read_object, write_large_blob, ChunkedBlob, Chunk
 
 def test_cdc_deduplication():
     # Setup temp repo
@@ -12,7 +12,7 @@ def test_cdc_deduplication():
         shutil.rmtree(tmp_path)
     tmp_path.mkdir()
     
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     dg_dir.mkdir()
     objects_dir = dg_dir / "objects"
     objects_dir.mkdir()
@@ -34,7 +34,7 @@ def test_cdc_deduplication():
     assert obj1.serialize_content() == data1
     
     # Check internal storage
-    from deep_git.core.objects import _object_path
+    from deep.storage.objects import _object_path
     import zlib
     raw = zlib.decompress(_object_path(objects_dir, sha1).read_bytes())
     assert raw.startswith(b"chunked_blob ")

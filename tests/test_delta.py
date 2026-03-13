@@ -1,4 +1,4 @@
-from deep_git.core.delta import create_delta, apply_delta
+from deep.storage.delta import create_delta, apply_delta
 
 def test_delta_roundtrip():
     source = b"Hello world! This is a test file for delta compression. It has some common parts."

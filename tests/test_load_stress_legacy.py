@@ -20,15 +20,15 @@ def stress_test(tmp_path):
     
     server_root = tmp_path / "server"
     server_root.mkdir()
-    run_cmd([sys.executable, "-m", "deep_git.main", "init"], cwd=server_root, env=env)
+    run_cmd([sys.executable, "-m", "deep.cli.main", "init"], cwd=server_root, env=env)
     
     # 1. Generate 1000 commits
     start_time = time.time()
     for i in range(NUM_COMMITS):
         f = server_root / f"file_{i}.txt"
         f.write_text(f"content {i}")
-        run_cmd([sys.executable, "-m", "deep_git.main", "add", f"file_{i}.txt"], cwd=server_root, env=env)
-        run_cmd([sys.executable, "-m", "deep_git.main", "commit", "-m", f"commit {i}"], cwd=server_root, env=env)
+        run_cmd([sys.executable, "-m", "deep.cli.main", "add", f"file_{i}.txt"], cwd=server_root, env=env)
+        run_cmd([sys.executable, "-m", "deep.cli.main", "commit", "-m", f"commit {i}"], cwd=server_root, env=env)
         if i % 100 == 0:
             print(f"Generated {i} commits...")
     
@@ -37,7 +37,7 @@ def stress_test(tmp_path):
     
     # 2. Run benchmark
     print("Running deep benchmark...")
-    res = run_cmd([sys.executable, "-m", "deep_git.main", "benchmark"], cwd=server_root, env=env)
+    res = run_cmd([sys.executable, "-m", "deep.cli.main", "benchmark"], cwd=server_root, env=env)
     print(res.stdout)
     
     # 3. Start Daemon
@@ -49,7 +49,7 @@ def stress_test(tmp_path):
             
     port = get_free_port()
     daemon_proc = subprocess.Popen(
-        [sys.executable, "-m", "deep_git.main", "daemon", "--port", str(port)],
+        [sys.executable, "-m", "deep.cli.main", "daemon", "--port", str(port)],
         cwd=server_root,
         env=env
     )
@@ -60,7 +60,7 @@ def stress_test(tmp_path):
         client_root = tmp_path / "client"
         print(f"Cloning {NUM_COMMITS} commits...")
         start_time = time.time()
-        res = run_cmd([sys.executable, "-m", "deep_git.main", "clone", f"127.0.0.1:{port}", str(client_root)], env=env)
+        res = run_cmd([sys.executable, "-m", "deep.cli.main", "clone", f"127.0.0.1:{port}", str(client_root)], env=env)
         if res.returncode != 0:
              print(f"Clone failed: {res.stderr}")
              return
@@ -79,9 +79,9 @@ def stress_test(tmp_path):
         for i in range(CONCURRENT_CLIENTS):
             c_root = tmp_path / f"client_concurrent_{i}"
             c_root.mkdir()
-            run_cmd([sys.executable, "-m", "deep_git.main", "init"], cwd=c_root, env=env)
+            run_cmd([sys.executable, "-m", "deep.cli.main", "init"], cwd=c_root, env=env)
             p = subprocess.Popen(
-                [sys.executable, "-m", "deep_git.main", "fetch", f"127.0.0.1:{port}", head_sha],
+                [sys.executable, "-m", "deep.cli.main", "fetch", f"127.0.0.1:{port}", head_sha],
                 cwd=c_root,
                 env=env
             )
@@ -94,7 +94,7 @@ def stress_test(tmp_path):
         # 6. GC stress
         print("Running GC on server...")
         start_time = time.time()
-        res = run_cmd([sys.executable, "-m", "deep_git.main", "gc"], cwd=server_root, env=env)
+        res = run_cmd([sys.executable, "-m", "deep.cli.main", "gc"], cwd=server_root, env=env)
         gc_time = time.time() - start_time
         print(f"GC completed in {gc_time:.2f}s")
         

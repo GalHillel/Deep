@@ -52,9 +52,24 @@ def test_sanitize_history(tmp_path, monkeypatch):
     objects_dir = dg_dir / "objects"
     
     # Manually create a tree with an illegal name (simulating historical corruption)
+    # We bypass the proactive Tree.write sanitization by injecting raw bytes
     blob_sha = write_object(objects_dir, Blob(data=b"data"))
-    tree = Tree(entries=[TreeEntry(name="illegal:file.txt", mode="100644", sha=blob_sha)])
-    tree_sha = tree.write(objects_dir)
+    
+    mode = "100644"
+    name = "illegal:file.txt"
+    sha_bytes = bytes.fromhex(blob_sha)
+    # Format: <mode> <name>\0<sha>
+    content = f"{mode} {name}\x00".encode("utf-8") + sha_bytes
+    
+    from deep.utils.utils import hash_bytes
+    tree_sha = hash_bytes(content)
+    
+    os.makedirs(objects_dir / tree_sha[:2], exist_ok=True)
+    import zlib
+    with open(objects_dir / tree_sha[:2] / tree_sha[2:], "wb") as f:
+        # header: tree <len>\0<data>
+        header = f"tree {len(content)}\x00".encode("ascii")
+        f.write(zlib.compress(header + content))
     
     renamed_log = {}
     new_tree_sha = sanitize_tree(objects_dir, tree_sha, renamed_log)
@@ -76,14 +91,24 @@ def test_checkout_sanitization_cr(tmp_path, monkeypatch):
     
     # Manually create a tree with \r (simulating a repo from Linux)
     blob_sha = write_object(objects_dir, Blob(data=b"content"))
-    tree = Tree(entries=[TreeEntry(name="README.md\r", mode="100644", sha=blob_sha)])
-    tree_sha = tree.write(objects_dir)
+    
+    mode = "100644"
+    name = "README.md\r"
+    sha_bytes = bytes.fromhex(blob_sha)
+    content = f"{mode} {name}\x00".encode("utf-8") + sha_bytes
+    from deep.utils.utils import hash_bytes
+    tree_sha = hash_bytes(content)
+    
+    os.makedirs(objects_dir / tree_sha[:2], exist_ok=True)
+    import zlib
+    with open(objects_dir / tree_sha[:2] / tree_sha[2:], "wb") as f:
+        header = f"tree {len(content)}\x00".encode("ascii")
+        f.write(zlib.compress(header + content))
     
     commit = Commit(tree_sha=tree_sha, message="cr commit")
     commit_sha = commit.write(objects_dir)
     
     # Try to checkout this commit
-    # This would fail before the fix with OSError: [Errno 22] Invalid argument
     main(["checkout", commit_sha])
     
     # Verify file exists on disk with sanitized name

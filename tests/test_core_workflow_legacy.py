@@ -1,7 +1,9 @@
 import subprocess
 import tempfile
-import pathlib
 import sys
+from pathlib import Path
+from deep.cli.main import main as deep_main
+from deep.core.repository import DEEP_DIR
 
 def run_deep(cmd_list, cwd):
     print(f"RUN: deep {' '.join(cmd_list)}")

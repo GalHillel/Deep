@@ -1,11 +1,7 @@
 from pathlib import Path
-import os
-import shutil
-import subprocess
-import sys
-from deep_git.core.repository import DEEP_GIT_DIR, find_repo
-from deep_git.core.objects import Blob, write_object, read_object
-from deep_git.core.gc import collect_garbage
+from deep.core.repository import DEEP_DIR, find_repo
+from deep.storage.objects import Blob, write_object, read_object
+from deep.core.gc import collect_garbage
 
 def test_packfile_compaction():
     # Setup unique temp repo
@@ -24,7 +20,7 @@ def test_packfile_compaction():
     cleanup()
     tmp_path.mkdir()
     
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     dg_dir.mkdir()
     objects_dir = dg_dir / "objects"
     objects_dir.mkdir()

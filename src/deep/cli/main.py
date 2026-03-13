@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build and return the top-level argument parser."""
     parser = argparse.ArgumentParser(
         prog="deep",
-        description="DEEP — Next-generation Distributed Version Control System",
+        description="DeepBridge — Next-generation Distributed Version Control System",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Core Commands:
@@ -52,91 +52,97 @@ Help:
     # ── init ─────────────────────────────────────────────────────────
     p_init = sub.add_parser(
         "init",
-        help="Initialize a new empty Deep repository",
-        description="Create an empty Deep repository or reinitialize an existing one.",
+        help="Initialize a new empty DeepBridge repository",
+        description="Create an empty DeepBridge repository or reinitialize an existing one. This sets up the internal .deep structures.",
         epilog="""
 Examples:
-  deep init                  # Initialize in current directory
-  deep init my-project       # Create 'my-project' and initialize there
+  deep init                  # Initialize in the current directory
+  deep init my-project       # Create 'my-project' directory and initialize there
+  deep init /path/to/repo    # Initialize at a specific absolute path
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_init.add_argument("path", nargs="?", default=None, help="Target directory (default: current directory)")
+    p_init.add_argument("path", nargs="?", default=None, help="The target directory for the repository (default: current directory)")
 
     # ── add ──────────────────────────────────────────────────────────
     p_add = sub.add_parser(
         "add",
         help="Add file contents to the staging index",
-        description="Add file contents to the staging area (index) to be included in the next commit.",
+        description="Add file contents to the staging area (index) to be included in the next commit. This prepares changes for recording.",
         epilog="""
 Examples:
-  deep add file.txt          # Add a specific file
-  deep add .                 # Add all changes in the current directory
+  deep add file.txt          # Add a specific file to the index
+  deep add .                 # Add all changed and new files in the current directory
   deep add src/*.py          # Add specific files using glob patterns
+  deep add -u                # Add only updated files (not new ones)
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_add.add_argument("files", nargs="+", help="One or more files to stage")
+    p_add.add_argument("files", nargs="+", help="One or more files or directory paths to stage for commit")
 
     # ── commit ───────────────────────────────────────────────────────
     p_commit = sub.add_parser(
         "commit",
         help="Record changes to the repository history",
-        description="Create a new commit containing the current contents of the index with a descriptive message.",
+        description="Create a new commit containing the current contents of the index with a descriptive message and metadata.",
         epilog="""
 Examples:
-  deep commit -m "Fix bug"   # Commit with a manual message
-  deep commit --ai           # Use AI to generate a smart commit message
-  deep commit -S -m "Signed" # Create a GPG-signed commit for security
+  deep commit -m "Fix bug"   # Create a commit with a manual message
+  deep commit --ai           # Use the AI assistant to generate a smart commit message
+  deep commit -S -m "Signed" # Create a cryptographically signed commit for security
+  deep commit --allow-empty  # Create a commit even if no changes are staged
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_commit.add_argument("-m", "--message", help="Commit message")
-    p_commit.add_argument("--ai", action="store_true", help="Generate message using AI")
-    p_commit.add_argument("-S", "--sign", action="store_true", help="Digitally sign the commit")
+    p_commit.add_argument("-m", "--message", help="The commit message describing the changes")
+    p_commit.add_argument("--ai", action="store_true", help="Automatically generate a commit message using DeepBridge AI")
+    p_commit.add_argument("-S", "--sign", action="store_true", help="Digitally sign the commit using your identity key")
 
     # ── status ───────────────────────────────────────────────────────
     p_status = sub.add_parser(
         "status",
         help="Show the working tree and index status",
-        description="Displays the state of the working directory and the staging area (index).",
+        description="Displays the current state of the working directory and the staging area (index).",
         epilog="""
 Examples:
-  deep status                # Human-friendly status overview
-  deep status --porcelain    # Stable, machine-readable output format
+  deep status                # Display a human-friendly status overview
+  deep status --porcelain    # Generate stable, machine-readable output for scripts
+  deep status --verbose      # Show more detailed information about tracked files
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_status.add_argument("--porcelain", action="store_true", help="Produce machine-readable output")
+    p_status.add_argument("--porcelain", action="store_true", help="Produce machine-readable output format")
 
     # ── log ──────────────────────────────────────────────────────────
     p_log = sub.add_parser(
         "log",
         help="Display commit history logs",
-        description="Browse through the commit history of the current branch or specified range.",
+        description="Browse through the commit history of the current branch or a specified commit range.",
         epilog="""
 Examples:
-  deep log                   # Show full detailed logs
-  deep log --oneline         # Concise summary (SHA and message)
-  deep log -n 10             # Limit output to the last 10 commits
-  deep log --graph           # Visualize history with a text-based graph
+  deep log                   # Show full detailed logs for the current branch
+  deep log --oneline         # Show a concise summary (short SHA and first line of message)
+  deep log -n 10             # Limit output to the most recent 10 commits
+  deep log --graph           # Visualize history with an ASCII-based commit graph
+  deep log master..feature   # Show commits reachable from 'feature' but not 'master'
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_log.add_argument("--oneline", action="store_true", help="Display each commit on one line")
-    p_log.add_argument("-n", "--max-count", type=int, help="Maximum number of commits to show")
-    p_log.add_argument("--graph", action="store_true", help="Draw a text-based representation of the commit graph")
+    p_log.add_argument("--oneline", action="store_true", help="Display each commit entry on a single concise line")
+    p_log.add_argument("-n", "--max-count", type=int, help="Limit the number of commits to display")
+    p_log.add_argument("--graph", action="store_true", help="Render a text-based representation of the commit graph")
 
     # ── diff ─────────────────────────────────────────────────────────
     p_diff = sub.add_parser(
         "diff",
-        help="Show changes between commits or working tree",
-        description="Show changes between the working tree and the index, or between two arbitrary commits.",
+        help="Show changes between commits or the working tree",
+        description="Show changes between the working tree and the index, or between two arbitrary commit objects.",
         epilog="""
 Examples:
-  deep diff                  # Compare working tree with staging index
-  deep diff HEAD             # Compare working tree with the latest commit
-  deep diff abc1234 def5678  # Compare two specific commits
+  deep diff                  # Compare the working tree with the staging index
+  deep diff HEAD             # Compare the working tree with the latest commit
+  deep diff abc1234 def5678  # Compare two specific commits by their SHAs
+  deep diff --cached         # Show changes currently in the staging area
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -145,297 +151,314 @@ Examples:
     p_branch = sub.add_parser(
         "branch",
         help="Manage repository branches",
-        description="List, create, or delete branches in the current repository.",
+        description="List, create, or delete branches in the current DeepBridge repository.",
         epilog="""
 Examples:
   deep branch                # List all local branches
-  deep branch feature        # Create a new branch named 'feature'
-  deep branch -d feature     # Delete the 'feature' branch
+  deep branch feature        # Create a new local branch named 'feature'
+  deep branch -d feature     # Delete the local 'feature' branch
+  deep branch -a             # List both local and tracked remote branches
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_branch.add_argument("name", nargs="?", default=None, help="Name of the branch to create")
-    p_branch.add_argument("-d", "--delete", action="store_true", help="Delete the specified branch")
-    p_branch.add_argument("start_point", nargs="?", default="HEAD", help="Commit or branch to start from (default: HEAD)")
+    p_branch.add_argument("name", nargs="?", default=None, help="The name of the branch to create")
+    p_branch.add_argument("-d", "--delete", action="store_true", help="Delete the specified branch name")
+    p_branch.add_argument("start_point", nargs="?", default="HEAD", help="The commit or branch name to start the new branch from (default: HEAD)")
 
     # ── checkout ─────────────────────────────────────────────────────
     p_checkout = sub.add_parser(
         "checkout",
         help="Switch branches or restore files",
-        description="Switch to a different branch or restore files from a specific commit.",
+        description="Switch to a different branch or restore files from a specific commit to the working tree.",
         epilog="""
 Examples:
   deep checkout main         # Switch to the 'main' branch
-  deep checkout -b feature   # Create and switch to a new branch 'feature'
-  deep checkout abc1234      # Detach HEAD and switch to commit abc1234
+  deep checkout -b feature   # Create a new 'feature' branch and switch to it immediately
+  deep checkout abc1234      # Detach HEAD and switch to a specific commit
+  deep checkout -- file.txt  # Restore a specific file from the index
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_checkout.add_argument("-f", "--force", action="store_true", help="Force switching even with local changes")
-    p_checkout.add_argument("-b", "--branch", help="Create and switch to a new branch")
-    p_checkout.add_argument("target", help="Branch name or commit SHA to switch to")
+    p_checkout.add_argument("-f", "--force", action="store_true", help="Force branch switching even if there are uncommitted local changes")
+    p_checkout.add_argument("-b", "--branch", help="Create a new branch with this name and switch to it")
+    p_checkout.add_argument("target", help="The branch name or commit SHA to switch to")
 
     # ── merge ───────────────────────────────────────────────────────
     p_merge = sub.add_parser(
         "merge",
         help="Merge branches or histories",
-        description="Integrate changes from another branch into the current branch.",
+        description="Integrate changes from another branch into the current checked-out branch.",
         epilog="""
 Examples:
-  deep merge feature         # Merge 'feature' branch into current branch
+  deep merge feature         # Merge the 'feature' branch into the current branch
+  deep merge --no-ff dev     # Merge 'dev' and always create a merge commit (no fast-forward)
+  deep merge --abort         # Cancel a merge in progress that has conflicts
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_merge.add_argument("branch", help="Branch name to merge from")
+    p_merge.add_argument("branch", help="The name of the branch to merge into the current one")
 
     # ── rm ──────────────────────────────────────────────────────────
     p_rm = sub.add_parser(
         "rm", 
-        help="Remove files from working tree and index",
-        description="Remove files from the working directory and the staging area.",
+        help="Remove files from the working tree and the index",
+        description="Remove files from the working directory and the staging area. This stops tracking the specified files.",
         epilog="""
 Examples:
-  deep rm file.txt           # Delete file and unstage it
-  deep rm --cached file.txt  # Keep file locally but remove from index
+  deep rm file.txt           # Permanently delete file and remove it from the index
+  deep rm -r folder/         # Recursively remove a directory and its contents
+  deep rm --cached file.txt  # Keep the file in the working tree but remove it from the index
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_rm.add_argument("files", nargs="+", help="Files to remove")
-    p_rm.add_argument("--cached", action="store_true", help="Remove from index only")
+    p_rm.add_argument("files", nargs="+", help="One or more files or directory paths to remove")
+    p_rm.add_argument("--cached", action="store_true", help="Remove from the index only, keeping the file in the working tree")
 
     # ── mv ──────────────────────────────────────────────────────────
     p_mv = sub.add_parser(
         "mv", 
         help="Move or rename a file or directory",
-        description="Move or rename a file, directory, or symlink and update the index.",
+        description="Move or rename a file, directory, or symlink and update the DeepBridge index accordingly.",
         epilog="""
 Examples:
-  deep mv old.txt new.txt    # Rename a file
+  deep mv old.txt new.txt    # Rename a file and stage the change
+  deep mv file.txt docs/      # Move a file to a new directory
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_mv.add_argument("source", help="Source path")
-    p_mv.add_argument("destination", help="Destination path")
+    p_mv.add_argument("source", help="The source file or directory path")
+    p_mv.add_argument("destination", help="The destination file or directory path")
 
     # ── reset ───────────────────────────────────────────────────────
     p_reset = sub.add_parser(
         "reset", 
         help="Reset HEAD to a specific state",
-        description="Reset the current HEAD to a specified commit, optionally updating index/working tree.",
+        description="Reset the current HEAD to a specified commit, optionally updating the index and working tree to match.",
         epilog="""
 Examples:
-  deep reset HEAD~1          # Undo the last commit, keeping changes staged
-  deep reset --hard HEAD     # Discard all local changes and reset to HEAD
+  deep reset HEAD~1          # Undo the last commit, leaving your changes staged in the index
+  deep reset --hard HEAD     # Discard all local changes (staged and unstaged) and reset to current HEAD
+  deep reset --soft HEAD~2   # Move HEAD back two commits, keeping all changes in the index
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_reset.add_argument("commit", nargs="?", default="HEAD", help="Commit to reset to (default: HEAD)")
-    p_reset.add_argument("--hard", action="store_true", help="Reset index and working tree (discard local changes)")
-    p_reset.add_argument("--soft", action="store_true", help="Keep index and working tree (preserve changes)")
+    p_reset.add_argument("commit", nargs="?", default="HEAD", help="The commit identifier to reset to (default: HEAD)")
+    p_reset.add_argument("--hard", action="store_true", help="Reset index and working tree (all local changes will be lost)")
+    p_reset.add_argument("--soft", action="store_true", help="Keep index and working tree (all changes are preserved as staged)")
 
     # ── rebase ──────────────────────────────────────────────────────
     p_rebase = sub.add_parser(
         "rebase", 
         help="Reapply commits on top of another base",
-        description="Forward-port local commits to the tip of another branch.",
+        description="Forward-port local commits to the tip of another branch, maintaining a clean linear history.",
         epilog="""
 Examples:
-  deep rebase main           # Rebase current branch onto 'main'
-  deep rebase --continue     # Continue rebase after resolving conflicts
+  deep rebase main           # Rebase the current branch onto 'main'
+  deep rebase --continue     # Resume the rebase process after resolving conflicts
+  deep rebase --abort        # Cancel the rebase and return to the original state
+  deep rebase -i HEAD~3      # Start an interactive rebase for the last 3 commits
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_rebase.add_argument("branch", nargs="?", help="Branch to rebase onto")
-    p_rebase.add_argument("--continue", action="store_true", dest="continue_rebase", help="Continue rebase process")
-    p_rebase.add_argument("--abort", action="store_true", help="Abort the rebase operation")
+    p_rebase.add_argument("branch", nargs="?", help="The branch or commit identifier to rebase onto")
+    p_rebase.add_argument("--continue", action="store_true", dest="continue_rebase", help="Continue the rebase process after resolving conflicts")
+    p_rebase.add_argument("--abort", action="store_true", help="Abort the rebase operation and restore the original branch state")
 
     # ── inspect-tree ──────────────────────────────────────────────
     p_inspect_tree = sub.add_parser(
         "inspect-tree",
         help="Internal: Inspect raw tree entries (debug)",
-        description="Verify raw tree entry modes and object types.",
+        description="Forensic tool to verify raw tree entry modes and object types in the database.",
     )
-    p_inspect_tree.add_argument("sha", help="SHA of the tree object to inspect")
+    p_inspect_tree.add_argument("sha", help="The SHA-1 hash of the tree object to inspect")
 
     # ── tag ─────────────────────────────────────────────────────────
     p_tag = sub.add_parser(
         "tag", 
         help="Create or manage release tags",
-        description="Create, list, or delete tag objects for marking specific points in history.",
+        description="Create, list, or delete tag objects for marking specific points in history as significant (e.g., releases).",
         epilog="""
 Examples:
-  deep tag v1.0.0            # Create a lightweight tag
-  deep tag -a v1.1.0 -m "Rel" # Create an annotated release tag
-  deep tag -d v1.0.0         # Delete a tag
+  deep tag v1.0.0            # Create a lightweight tag at current HEAD
+  deep tag -a v1.1.0 -m "Rel" # Create an annotated tag with a message
+  deep tag -d v1.0.0         # Delete the specified tag
+  deep tag                   # List all existing tags in the repository
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_tag.add_argument("name", nargs="?", help="Tag name")
-    p_tag.add_argument("-a", "--annotate", action="store_true", help="Annotate the tag")
-    p_tag.add_argument("-m", "--message", help="Tag message")
-    p_tag.add_argument("-d", "--delete", action="store_true", help="Delete a tag")
+    p_tag.add_argument("name", nargs="?", help="The name of the tag")
+    p_tag.add_argument("-a", "--annotate", action="store_true", help="Create an annotated tag object with metadata")
+    p_tag.add_argument("-m", "--message", help="The message accompanying the annotated tag")
+    p_tag.add_argument("-d", "--delete", action="store_true", help="Delete the specified tag")
 
     # ── stash ───────────────────────────────────────────────────────
     p_stash = sub.add_parser(
         "stash", 
-        help="Stash local changes temporarily",
-        description="Save local changes in a temporary area to work on something else.",
+        help="Stash temporary changes",
+        description="Save local changes in a temporary stack (stash) to clean your working tree for other tasks.",
         epilog="""
 Examples:
-  deep stash save "Work"     # Save current changes to stash
-  deep stash pop             # Apply and remove the latest stash
-  deep stash list            # View all stashed changes
+  deep stash save "Work"     # Save currently staged/unstaged changes to the stash
+  deep stash pop             # Apply the latest stash and remove it from the stack
+  deep stash list            # View all stashed changes in the current repository
+  deep stash apply           # Apply the latest stash without removing it
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_stash.add_argument("action", choices=["push", "save", "pop", "list", "drop", "clear"], nargs="?", default="save", help="Stash operation")
+    p_stash.add_argument("action", choices=["push", "save", "pop", "list", "drop", "clear", "apply"], nargs="?", default="save", help="The stash operation to perform (default: save)")
 
     # ── config ──────────────────────────────────────────────────────
     p_config = sub.add_parser(
         "config", 
         help="Manage repository configuration",
-        description="Get and set configuration options for the local repository or globally.",
+        description="Get and set configuration options for the local repository or the global user environment.",
         epilog="""
 Examples:
-  deep config user.name "Alice"      # Set local user name
-  deep config --global user.email ... # Set global user email
+  deep config user.name "Alice"      # Set the local user name for this repository
+  deep config --global user.email ... # Set the global user email for all repositories
+  deep config core.editor vim       # Set the preferred text editor
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_config.add_argument("--global", action="store_true", dest="global_", help="Target global config instead of local")
-    p_config.add_argument("key", help="Configuration key (e.g., user.name)")
-    p_config.add_argument("value", nargs="?", help="Value to set")
+    p_config.add_argument("--global", action="store_true", dest="global_", help="Target the global configuration instead of local")
+    p_config.add_argument("key", help="The configuration key (e.g., user.name)")
+    p_config.add_argument("value", nargs="?", help="The value to assign to the key")
 
     # ── Group: Remote & Distributed
     # ── clone ───────────────────────────────────────────────────────
     p_clone = sub.add_parser(
         "clone",
         help="Clone a repository into a new directory",
-        description="Create a local copy of a remote Deep repository.",
+        description="Create a local copy of a remote DeepBridge repository, including all history and metadata.",
         epilog="""
 Examples:
-  deep clone http://git.io/repo      # Clone from a URL
-  deep clone /path/to/local/repo     # Clone from a local path
-  deep clone repo --depth 1           # Create a shallow clone
+  deep clone https://deepbridge.com/user/project  # Clone from a remote URL
+  deep clone /path/to/local/repo                  # Clone from a local directory path
+  deep clone repo --depth 1                       # Create a shallow clone with truncated history
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_clone.add_argument("url", help="Repository URL or local path")
-    p_clone.add_argument("dir", nargs="?", help="Optional target directory name")
-    p_clone.add_argument("--depth", type=int, help="Truncate history to N commits")
-    p_clone.add_argument("--filter", help="Object filtering for partial clones")
-    p_clone.add_argument("--shallow-since", help="Shallow clone after a specific date")
+    p_clone.add_argument("url", help="The repository URL or local path to clone from")
+    p_clone.add_argument("dir", nargs="?", help="The name of the new directory to clone into")
+    p_clone.add_argument("--depth", type=int, help="Limit the history to the specified number of commits")
+    p_clone.add_argument("--filter", help="Specify object filtering for a partial clone")
+    p_clone.add_argument("--shallow-since", help="Create a shallow clone containing history after a specific date")
 
     # ── push ────────────────────────────────────────────────────────
     p_push = sub.add_parser(
         "push",
         help="Upload local changes to a remote",
-        description="Update remote refs along with associated objects from your local history.",
+        description="Update remote references and associated objects in the target repository from your local history.",
         epilog="""
 Examples:
-  deep push origin main      # Push local 'main' to 'origin' remote
+  deep push origin main      # Push the local 'main' branch to the 'origin' remote
+  deep push --tags origin    # Push all local tags to the remote
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_push.add_argument("url", help="Remote name or URL")
-    p_push.add_argument("branch", help="Branch name to push")
+    p_push.add_argument("url", help="The remote name (e.g., 'origin') or a direct URL")
+    p_push.add_argument("branch", help="The name of the branch to push")
 
     # ── pull ────────────────────────────────────────────────────────
     p_pull = sub.add_parser(
         "pull",
-        help="Fetch and merge from a remote",
-        description="Fetch from and integrate with another repository or a local branch.",
+        help="Fetch and merge changes from a remote",
+        description="Fetch changes from another repository or local branch and integrate them into the current branch.",
         epilog="""
 Examples:
-  deep pull origin main      # Pul 'main' changes from 'origin'
+  deep pull origin main      # Pull changes from the 'main' branch of the 'origin' remote
+  deep pull --rebase origin  # Fetch and rebase local changes onto the remote branch
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_pull.add_argument("url", help="Remote name or URL")
-    p_pull.add_argument("branch", help="Branch name to pull")
+    p_pull.add_argument("url", help="The remote name or URL to pull from")
+    p_pull.add_argument("branch", help="The name of the branch to integrate")
 
     # ── fetch ────────────────────────────────────────────────────────
     p_fetch = sub.add_parser(
         "fetch",
-        help="Download objects from a remote",
-        description="Download objects and references from another repository without merging.",
+        help="Download objects and references from another repository",
+        description="Download objects, branches, and tags from a remote repository without integrating them into your current local branches.",
         epilog="""
 Examples:
-  deep fetch origin          # Fetch all branches from 'origin'
+  deep fetch origin          # Fetch all branches and objects from the 'origin' remote
+  deep fetch --all           # Fetch updates from all registered remotes
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_fetch.add_argument("url", help="Remote name or URL")
-    p_fetch.add_argument("sha", nargs="?", help="Specific commit SHA to fetch")
+    p_fetch.add_argument("url", help="The remote name or URL to fetch from")
+    p_fetch.add_argument("sha", nargs="?", help="A specific commit SHA to fetch (optional)")
 
     # ── remote ───────────────────────────────────────────────────────
     p_remote = sub.add_parser(
         "remote",
         help="Manage tracked remote repositories",
-        description="Manage the set of 'remotes' whose branches you track.",
+        description="Manage the list of remote repositories ('remotes') that you track for synchronization.",
         epilog="""
 Examples:
-  deep remote add origin <url> # Add a new remote
-  deep remote list             # Show all registered remotes
+  deep remote add origin <url> # Track a new remote repository named 'origin'
+  deep remote remove origin    # Stop tracking the 'origin' remote
+  deep remote list             # Display all currently registered remotes
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_remote.add_argument("remote_command", choices=["add", "remove", "list"], help="Remote action")
-    p_remote.add_argument("name", nargs="?", help="Remote short name")
-    p_remote.add_argument("url", nargs="?", help="Remote URL")
+    p_remote.add_argument("remote_command", choices=["add", "remove", "list"], help="The remote management action to perform")
+    p_remote.add_argument("name", nargs="?", help="The short name for the remote")
+    p_remote.add_argument("url", nargs="?", help="The URL of the remote repository")
 
     # ── mirror ───────────────────────────────────────────────────────
     p_mirror = sub.add_parser(
         "mirror",
-        help="Create a full mirror of a repository",
-        description="Create a 1:1 mirror of a repository, including all refs and metadata.",
+        help="Create a full 1:1 mirror of a repository",
+        description="Create a complete mirror of a DeepBridge repository, including all references, branches, and internal metadata.",
         epilog="""
 Examples:
-  deep mirror <url> <path>   # Create a mirror in the specified path
+  deep mirror https://deepbridge.com/repo /local/mirror # Create a mirror at the specified path
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_mirror.add_argument("url", help="Source repository URL")
-    p_mirror.add_argument("path", help="Local directory for the mirror")
+    p_mirror.add_argument("url", help="The URL of the source repository to mirror")
+    p_mirror.add_argument("path", help="The local directory path to store the mirrored repository")
 
     # ── daemon ───────────────────────────────────────────────────────
     p_daemon = sub.add_parser(
         "daemon",
         help="Start the DeepBridge network daemon",
-        description="Launches a daemon to serve the current repository over the network.",
+        description="Launch a background daemon process to serve the current repository over the network to other DeepBridge clients.",
         epilog="""
 Examples:
-  deep daemon --port 9090    # Start serving on port 9090
+  deep daemon --port 9090    # Start the daemon listening on port 9090
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_daemon.add_argument("--port", type=int, default=9090, help="Listen on this port")
+    p_daemon.add_argument("--port", type=int, default=9090, help="The network port to listen on (default: 9090)")
 
     # ── p2p ─────────────────────────────────────────────────────────
     p_p2p = sub.add_parser(
         "p2p",
-        help="P2P discovery and sync",
-        description="Discover peers and synchronize data over a decentralized P2P network.",
+        help="P2P discovery and direct synchronization",
+        description="Discover nearby peers and synchronize repository data over a decentralized Peer-to-Peer network.",
         epilog="""
 Examples:
-  deep p2p discover          # Look for peers on local network
-  deep p2p sync <peer-id>    # Direct sync with a known peer
+  deep p2p discover          # Scan the local network for DeepBridge peers
+  deep p2p sync <peer-id>    # Initiate a direct synchronization with a specific peer
+  deep p2p start             # Start the P2P listener for decentralized discovery
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_p2p.add_argument("p2p_command", choices=["discover", "list", "start", "sync", "status"], help="P2P operation")
-    p_p2p.add_argument("target", nargs="?", help="Identifier of target peer")
-    p_p2p.add_argument("--peer", help="Manual peer address (host:port)")
-    p_p2p.add_argument("--port", type=int, help="Port for the P2P listener")
+    p_p2p.add_argument("p2p_command", choices=["discover", "list", "start", "sync", "status"], help="The P2P operation to execute")
+    p_p2p.add_argument("target", nargs="?", help="The identifier of the target peer for operations like 'sync'")
+    p_p2p.add_argument("--peer", help="Manually specify a peer address in 'host:port' format")
+    p_p2p.add_argument("--port", type=int, help="The port to use for the P2P listener")
 
     # ── sync ────────────────────────────────────────────────────────
     p_sync = sub.add_parser(
         "sync",
         help="Smart repository synchronization",
-        description="High-level command to synchronize the current branch with its upstream.",
+        description="High-level orchestration command to automatically synchronize the current branch with its upstream counterpart.",
         epilog="""
 Examples:
-  deep sync                  # Fetch and integrate upstream changes
+  deep sync                  # Perform a smart fetch and integration of upstream changes
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -444,201 +467,215 @@ Examples:
     p_server = sub.add_parser(
         "server",
         help="Manage the DeepBridge platform server",
-        description="Control the lifecycle of the DeepBridge platform server process.",
+        description="Control the lifecycle of the DeepBridge platform server process (start, stop, restart, status).",
         epilog="""
 Examples:
-  deep server start          # Start the background server
-  deep server stop           # Terminate the server process
+  deep server start          # Launch the DeepBridge background server
+  deep server stop           # Gracefully terminate the server process
+  deep server status         # Check if the server is currently running
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_server.add_argument("server_command", choices=["start", "stop", "status", "restart"], help="Lifecycle command")
+    p_server.add_argument("server_command", choices=["start", "stop", "status", "restart"], help="The lifecycle command to execute")
 
     # ── repo ─────────────────────────────────────────────────────────
     p_repo = sub.add_parser(
         "repo",
         help="Manage platform-hosted repositories",
-        description="Interface with repositories hosted on the DeepBridge platform.",
+        description="Interface with and manage repositories hosted on the DeepBridge platform.",
         epilog="""
 Examples:
-  deep repo create my-app    # Create a new repo on the platform
-  deep repo list             # List all your platform repos
+  deep repo create my-app    # Create a new repository on the DeepBridge platform
+  deep repo list             # List all repositories you have access to on the platform
+  deep repo permit --user bob --role write # Grant 'write' access to user 'bob'
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_repo.add_argument("repo_command", choices=["create", "delete", "list", "clone", "permit"], help="Repo operation")
-    p_repo.add_argument("name", nargs="?", help="Repository name")
-    p_repo.add_argument("url", nargs="?", help="Optional URL for cloning")
-    p_repo.add_argument("--user", help="User to grant permissions to")
-    p_repo.add_argument("--role", help="Role (admin/write/read) to assign")
+    p_repo.add_argument("repo_command", choices=["create", "delete", "list", "clone", "permit"], help="The repository operation to perform")
+    p_repo.add_argument("name", nargs="?", help="The name of the repository")
+    p_repo.add_argument("url", nargs="?", help="The platform URL for cloning (optional)")
+    p_repo.add_argument("--user", help="The platform username to target for permissions")
+    p_repo.add_argument("--role", help="The access role (admin/write/read) to assign to the user")
 
     # ── user ─────────────────────────────────────────────────────────
     p_user = sub.add_parser(
         "user",
         help="Manage platform user accounts",
-        description="Manage user profiles and accounts on the DeepBridge platform.",
+        description="Manage user profiles, settings, and accounts on the DeepBridge platform.",
         epilog="""
 Examples:
-  deep user create bob       # Create a new user profile
+  deep user create bob       # Create a new user profile named 'bob'
+  deep user info alice       # Display detailed information for user 'alice'
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_user.add_argument("user_command", choices=["create", "delete", "list", "info"], help="User operation")
-    p_user.add_argument("name", nargs="?", help="Account username")
+    p_user.add_argument("user_command", choices=["add", "remove", "list", "info"], help="The user account operation to perform")
+    p_user.add_argument("username", nargs="?", help="The username of the account")
+    p_user.add_argument("public_key", nargs="?", help="The public SSH key for authentication")
+    p_user.add_argument("email", nargs="?", help="The email address associated with the account")
 
     # ── auth ─────────────────────────────────────────────────────────
     p_auth = sub.add_parser(
         "auth",
         help="Platform authentication management",
-        description="Manage session tokens and login status for the DeepBridge platform.",
+        description="Manage session tokens, credentials, and login status for the DeepBridge platform.",
         epilog="""
 Examples:
-  deep auth login            # Authenticate with the platform
-  deep auth status           # Show current login info
+  deep auth login            # Interactively authenticate with the DeepBridge platform
+  deep auth status           # Display the current authentication status and active user
+  deep auth logout           # Clear local session tokens and logout
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_auth.add_argument("auth_command", choices=["login", "logout", "status", "token"], help="Auth action")
+    p_auth.add_argument("auth_command", choices=["login", "logout", "status", "token"], help="The authentication action to perform")
 
     # ── pr ───────────────────────────────────────────────────────────
     p_pr = sub.add_parser(
         "pr",
         help="Manage platform Pull Requests",
-        description="Create and interact with Pull Requests on the DeepBridge platform.",
+        description="Create, review, and interact with Pull Requests on the DeepBridge platform.",
         epilog="""
 Examples:
-  deep pr create             # Open a new PR for current branch
-  deep pr list               # View open PRs in this repo
+  deep pr create             # Open a new Pull Request for the current branch
+  deep pr list               # View all open Pull Requests for this repository
+  deep pr show 123           # Display detailed information for Pull Request #123
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_pr.add_argument("pr_command", choices=["create", "list", "show", "merge", "close"], help="PR action")
-    p_pr.add_argument("id", nargs="?", help="Pull Request ID")
+    p_pr.add_argument("pr_command", choices=["create", "list", "show", "merge", "close"], help="The Pull Request action to perform")
+    p_pr.add_argument("id", nargs="?", help="The numerical ID of the Pull Request")
 
     # ── issue ────────────────────────────────~~~~~~~~~~~~~~~~~~~~~~~~
     p_issue = sub.add_parser(
         "issue",
         help="Manage platform Issues",
-        description="Track bugs and tasks using platform-integrated issues.",
+        description="Track bugs, tasks, and feature requests using DeepBridge platform-integrated issues.",
         epilog="""
 Examples:
-  deep issue create          # Open a new issue
-  deep issue list            # List all open issues
+  deep issue create          # Open a new issue interactively
+  deep issue list            # List all open issues for the current repository
+  deep issue show 456        # Display details for issue #456
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_issue.add_argument("issue_command", choices=["create", "list", "show", "close", "reopen"], help="Issue action")
-    p_issue.add_argument("id", nargs="?", help="Issue ID")
+    p_issue.add_argument("issue_command", choices=["create", "list", "show", "close", "reopen"], help="The issue tracking action to perform")
+    p_issue.add_argument("id", nargs="?", help="The numerical ID of the issue")
 
     # ── pipeline ────────────────────────────────────────────────────
     p_pipeline = sub.add_parser(
         "pipeline",
         help="Interact with CI/CD Pipelines",
-        description="Run, monitor, and manage automated CI/CD pipelines.",
+        description="Run, monitor, and manage automated CI/CD pipelines on the DeepBridge platform.",
         epilog="""
 Examples:
-  deep pipeline run          # Execute pipeline for local changes
-  deep pipeline status       # Show status of latest runs
+  deep pipeline run          # Trigger a pipeline run for the local changes
+  deep pipeline status       # Show the status of the most recent pipeline runs
+  deep pipeline log 789      # Download and display logs for pipeline run #789
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_pipeline.add_argument("pipe_command", choices=["run", "list", "status", "log"], help="Pipeline action")
-    p_pipeline.add_argument("run_id", nargs="?", help="Specific Run ID") 
-    p_pipeline.add_argument("--commit", help="Commit SHA to target")
+    p_pipeline.add_argument("pipe_command", choices=["run", "list", "status", "log"], help="The CI/CD pipeline action to perform")
+    p_pipeline.add_argument("run_id", nargs="?", help="The specific Pipeline Run ID") 
+    p_pipeline.add_argument("--commit", help="Target a specific commit SHA for the pipeline run")
 
     # ── web ──────────────────────────────────────────────────────────
     p_web = sub.add_parser(
         "web",
         help="Open the visual dashboard",
-        description="Launch an interactive web dashboard for visual repository management.",
+        description="Launch an interactive, browser-based dashboard for visual repository management and history browsing.",
         epilog="""
 Examples:
-  deep web                   # Open dashboard on default port
+  deep web                   # Open the DeepBridge dashboard on the default port (9000)
+  deep web --port 8080       # Start the dashboard on port 8080
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_web.add_argument("--port", type=int, default=9000, help="Listen on this port")
+    p_web.add_argument("--port", type=int, default=9000, help="The network port to listen on (default: 9000)")
 
     # ── Group: Diagnostics & Dev Tools
     # ── doctor ───────────────────────────────────────────────────────
     p_doctor = sub.add_parser(
         "doctor",
         help="Run repository health checks",
-        description="Audit repository health and optionally fix common corruption issues.",
+        description="Audit the health of the local DeepBridge repository and optionally fix common corruption or configuration issues.",
         epilog="""
 Examples:
-  deep doctor                # Run all diagnostic checks
-  deep doctor --fix          # Attempt to resolve found issues
+  deep doctor                # Run a comprehensive suite of diagnostic checks
+  deep doctor --fix          # Attempt to automatically resolve any detected issues
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_doctor.add_argument("--fix", action="store_true", help="Try to fix detected problems")
+    p_doctor.add_argument("--fix", action="store_true", help="Attempt to automatically repair detected repository problems")
 
     # ── benchmark ────────────────────────────────────────────────────
     p_benchmark = sub.add_parser(
         "benchmark",
         help="Performance benchmarking suite",
-        description="Measure and analyze the performance of core VCS operations.",
+        description="Measure and analyze the performance of core DeepBridge VCS operations.",
         epilog="""
 Examples:
-  deep benchmark             # Run default benchmark suite
-  deep benchmark --compare-git # Compare performance with native Git
+  deep benchmark                 # Run the default performance benchmark suite
+  deep benchmark --compare-legacy # Compare performance with legacy VCS (Git)
+  deep benchmark --report        # Export the benchmark results to a JSON file
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_benchmark.add_argument("--compare-git", action="store_true", help="Include Git comparison in report")
-    p_benchmark.add_argument("--report", action="store_true", help="Export results to JSON")
+    p_benchmark.add_argument("--compare-legacy", "--compare-git", dest="compare_git", action="store_true", help="Include legacy VCS comparison (Git) for performance baseline")
+    p_benchmark.add_argument("--report", action="store_true", help="Generate and export a detailed JSON performance report")
 
     # ── graph ────────────────────────────────────────────────────────
     p_graph = sub.add_parser(
         "graph",
         help="Visualize the commit graph",
-        description="Renders a text-based visualization of the commit history graph.",
+        description="Renders a text-based ASCII visualization of the commit history graph, showing branch relationships and merge points.",
         epilog="""
 Examples:
-  deep graph                 # Visualize current branch history
-  deep graph --all           # Include all branches and tags in graph
+  deep graph                 # Visualize history for the current branch
+  deep graph --all           # Include all branches and tags in the visualization
+  deep graph -n 20           # Limit the graph to the most recent 20 commits
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_graph.add_argument("--all", action="store_true", help="Show all references")
-    p_graph.add_argument("-n", "--max-count", type=int, default=100, help="Max number of commits")
+    p_graph.add_argument("--all", action="store_true", help="Include all references (branches and tags) in the graph")
+    p_graph.add_argument("-n", "--max-count", type=int, default=100, help="Maximum number of commits to display in the graph (default: 100)")
 
     # ── audit ────────────────────────────────────────────────────────
     p_audit = sub.add_parser(
         "audit",
-        help="Show security audit logs",
-        description="Access logs detailing security-relevant actions within the repository.",
+        help="Show security and action audit logs",
+        description="Access detailed logs recording security-sensitive actions and administrative changes within the repository.",
         epilog="""
 Examples:
-  deep audit                 # Show recent security events
+  deep audit show            # Display recent security events in the terminal
+  deep audit report          # Generate a comprehensive security audit report
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_audit.add_argument("audit_command", choices=["show", "report"], nargs="?", default="show", help="Audit action")
+    p_audit.add_argument("audit_command", choices=["show", "report"], nargs="?", default="show", help="The audit action to perform (default: show)")
 
     # ── verify ───────────────────────────────────────────────────────
     p_verify = sub.add_parser(
         "verify",
-        help="Verify repository integrity",
-        description="Cryptographically verify the integrity of all stored objects.",
+        help="Verify repository object integrity",
+        description="Cryptographically verify the integrity of all stored objects (commits, trees, blobs) using their SHA-1 hashes.",
         epilog="""
 Examples:
-  deep verify                # Run full integrity check
+  deep verify                # Run a full integrity check on all reachable objects
+  deep verify --all          # Verify every object in the database, including unreachable ones
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_verify.add_argument("--all", action="store_true", help="Verify all objects")
-    p_verify.add_argument("--verbose", action="store_true", help="Detailed check progress")
+    p_verify.add_argument("--all", action="store_true", help="Verify all objects in the database, not justreachable ones")
+    p_verify.add_argument("--verbose", action="store_true", help="Display detailed progress during the verification process")
 
     # ── fsck ─────────────────────────────────────────────────────────
     p_fsck = sub.add_parser(
         "fsck",
-        help="Verify connectivity and validity of objects",
-        description="Verify the integrity of the commit graph, trees, and blobs.",
+        help="Verify object connectivity and validity",
+        description="Check the internal consistency and connectivity of the commit graph, tree structures, and data blobs.",
         epilog="""
 Examples:
-  deep fsck                  # Check repository health
+  deep fsck                  # Perform a comprehensive repository consistency check
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -646,39 +683,42 @@ Examples:
     # ── sandbox ──────────────────────────────────────────────────────
     p_sandbox = sub.add_parser(
         "sandbox",
-        help="Secure command execution",
-        description="Execute commands within an isolated, restricted sandbox environment.",
+        help="Execute commands in a secure environment",
+        description="Execute potentially unsafe commands within an isolated and restricted sandbox environment for safety.",
         epilog="""
 Examples:
-  deep sandbox run "ls"      # Execute 'ls' inside the sandbox
+  deep sandbox run "ls -R"   # Execute the 'ls -R' command inside the secure sandbox
+  deep sandbox init          # Initialize the sandbox environment for the first time
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_sandbox.add_argument("sandbox_command", choices=["run", "init"], help="Sandbox action")
-    p_sandbox.add_argument("cmd", nargs="?", help="Shell command to execute")
+    p_sandbox.add_argument("sandbox_command", choices=["run", "init"], help="The sandbox action to perform")
+    p_sandbox.add_argument("cmd", nargs="?", help="The shell command string to execute within the sandbox")
 
     # ── rollback ─────────────────────────────────────────────────────
     p_rollback = sub.add_parser(
         "rollback",
-        help="Undo the last transaction",
-        description="Roll back the repository state to before the last transaction via WAL.",
+        help="Undo the most recent transaction",
+        description="Roll back the repository state to its condition prior to the last transaction using the Write-Ahead Log (WAL).",
         epilog="""
 Examples:
-  deep rollback              # Revert the most recent change
+  deep rollback              # Restore the repository to its state before the last successful operation
+  deep rollback --verify     # Verify the WAL integrity before performing the rollback
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_rollback.add_argument("--verify", action="store_true", help="Verify WAL state before rollback")
+    p_rollback.add_argument("--verify", action="store_true", help="Perform a verification check on the WAL state before rolling back")
 
     # ── ai ──────────────────────────────────────────────────────────
     p_ai = sub.add_parser(
         "ai", 
-        help="DeepGit AI assistant tools",
-        description="Harness AI power for commit messages, code reviews, and predictions.",
+        help="DeepBridge AI assistant tools",
+        description="Harness the power of AI for generating commit messages, performing code reviews, and predicting merge outcomes.",
         epilog="""
 Examples:
-  deep ai suggest            # Suggest a commit message based on changes
-  deep ai explain            # Explain changes in plain English
+  deep ai suggest            # Generate a suggested commit message based on staged changes
+  deep ai explain            # Provide a natural language explanation of the recent changes
+  deep ai review             # Perform an automated AI code review of current changes
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -687,75 +727,81 @@ Examples:
         "predict-merge", "predict-push", "cross-repo", 
         "refactor", "cleanup", "interactive", "assistant"
     ]
-    p_ai.add_argument("ai_command", choices=ai_choices, nargs="?", default="suggest", help="AI tool to use")
-    p_ai.add_argument("target", nargs="?", help="Target file/branch/commit")
-    p_ai.add_argument("--description", help="Prompt or description for the AI")
-    p_ai.add_argument("--source", help="Source branch for prediction")
-    p_ai.add_argument("--branch", help="Target branch for prediction")
+    p_ai.add_argument("ai_command", choices=ai_choices, nargs="?", default="suggest", help="The DeepBridge AI tool to invoke (default: suggest)")
+    p_ai.add_argument("target", nargs="?", help="The target file, branch, or commit SHA for the AI tool")
+    p_ai.add_argument("--description", help="Provide an additional prompt or description to guide the AI")
+    p_ai.add_argument("--source", help="The source branch for predictive merge analysis")
+    p_ai.add_argument("--branch", help="The target branch for predictive merge analysis")
 
     # ── ultra ────────────────────────────────────────────────────────
     p_ultra = sub.add_parser(
         "ultra",
-        help="Advanced AI refactoring tools",
-        description="Deep VCS 'Ultra' AI tools for advanced code optimization and refactoring.",
+        help="Advanced AI code optimization tools",
+        description="Access 'Ultra' level AI tools for high-end code refactoring, optimization, and structural analysis.",
         epilog="""
 Examples:
-  deep ultra optimize        # Apply AI-powered code optimizations
+  deep ultra optimize        # Apply AI-powered performance optimizations to the codebase
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_ultra.add_argument("ultra_command", help="Ultra-command to execute")
+    p_ultra.add_argument("ultra_command", help="The Ultra AI command to execute")
 
     # ── batch ────────────────────────────────────────────────────────
     p_batch = sub.add_parser(
         "batch",
-        help="Run atomic batch operations",
-        description="Execute a series of VCS operations as a single atomic unit.",
+        help="Execute atomic batch VCS operations",
+        description="Run a sequence of DeepBridge operations defined in a script as a single atomic transaction.",
         epilog="""
 Examples:
-  deep batch script.deep     # Execute commands from a script file
+  deep batch script.deep     # Execute the sequence of commands defined in 'script.deep'
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_batch.add_argument("script", help="Path to the batch script")
+    p_batch.add_argument("script", help="The filesystem path to the batch operation script file")
 
     # ── search ───────────────────────────────────────────────────────
     p_search = sub.add_parser(
         "search",
-        help="Search in repository history",
-        description="Search for text patterns across the entire commit history.",
+        help="Search through repository history",
+        description="Locate text patterns or regular expressions across the entire commit history and all tree objects.",
         epilog="""
 Examples:
-  deep search "TODO"        # Search for fixed strings
+  deep search "TODO"        # Search for the literal string "TODO" in all historical versions
+  deep search "^fixed:"     # Search using a regular expression
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_search.add_argument("query", help="Text or regex to search for")
+    p_search.add_argument("query", help="The text string or regular expression to search for")
 
     # ── gc ───────────────────────────────────────────────────────────
     p_gc = sub.add_parser(
         "gc",
-        help="Run garbage collection",
-        description="Cleanup unreachable objects and optimize the internal database.",
+        help="Run repository garbage collection",
+        description="Clean up unreachable objects and optimize the internal object database to reclaim storage space.",
         epilog="""
 Examples:
-  deep gc                    # Clean up and optimize storage
+  deep gc                    # Execute garbage collection and database optimization
+  deep gc --dry-run          # List objects that would be removed without deleting them
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_gc.add_argument("--dry-run", action="store_true", help="Show what would be removed")
-    p_gc.add_argument("-v", "--verbose", action="store_true", help="Show detailed optimization info")
+    p_gc.add_argument("--dry-run", action="store_true", help="Display what would be cleaned up without making changes")
+    p_gc.add_argument("-v", "--verbose", action="store_true", help="Display detailed information during the optimization process")
 
-    sub.add_parser("version", help="Show DeepGit version information")
+    sub.add_parser("version", help="Show DeepBridge version information")
 
     # ── debug-tree (Diagnostics) ────────────────────────────────────
     p_debug = sub.add_parser(
         "debug-tree",
         help="Inspect tree contents with hidden character visibility",
-        description="Forensic tool to inspect DeepGit tree objects. Uses repr() to reveal hidden characters.",
+        description="Forensic tool to inspect DeepBridge tree objects. Uses repr() to reveal hidden characters for debugging purposes.",
+        epilog="""
+Examples:
+  deep debug-tree <sha>      # Reveal hidden characters in the specified tree or commit object
+""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_debug.add_argument("sha", nargs="?", help="Tree or Commit SHA to inspect")
+    p_debug.add_argument("sha", nargs="?", help="The SHA-1 hash of the tree or commit object to inspect")
 
     # ── help ──────────────────────────────────────────────────────────
     sub.add_parser("help", help="Show this help message and exit")
@@ -791,7 +837,7 @@ def main(argv: list[str] | None = None) -> None:
             from rich.console import Console
             from rich.panel import Panel
             console = Console()
-            console.print(Panel("[bold cyan]DEEP VCS[/bold cyan] — Next-generation Distributed VCS", expand=False))
+            console.print(Panel("[bold cyan]DeepBridge[/bold cyan] — Next-generation Distributed VCS", expand=False))
             parser.print_help()
         except ImportError:
             parser.print_help()
@@ -899,15 +945,15 @@ def main(argv: list[str] | None = None) -> None:
         from deep.cli.main import VERSION
         try:
             from rich.console import Console
-            Console().print(f"[bold green]Deep VCS[/bold green] version [cyan]{VERSION}[/cyan]")
+            Console().print(f"[bold green]DeepBridge[/bold green] version [cyan]{VERSION}[/cyan]")
         except ImportError:
-            print(f"Deep VCS version {VERSION}")
+            print(f"DeepBridge version {VERSION}")
         return
     elif args.command == "help":
         try:
             from rich.console import Console
             from rich.panel import Panel
-            Console().print(Panel("[bold cyan]DEEP help[/bold cyan]", expand=False))
+            Console().print(Panel("[bold cyan]DeepBridge Help[/bold cyan]", expand=False))
             parser.print_help()
         except ImportError:
             parser.print_help()
@@ -977,5 +1023,5 @@ if __name__ == "__main__":
     main()
 
 def legacy_main(argv: list[str] | None = None) -> None:
-    print("This command has been renamed to 'deep'. Please use `deep`.", file=sys.stderr)
+    print("This command has been renamed to 'deep' (DeepBridge). Please use `deep`.", file=sys.stderr)
     sys.exit(1)

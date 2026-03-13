@@ -108,6 +108,17 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
             print("DeepBridge: skipping GC — could not acquire repository lock.")
         return 0, 0
     
+    # Identify ALL loose objects on disk BEFORE packing/unlinking
+    all_loose_shas: Set[str] = set()
+    for root, dirs, files in os.walk(objects_dir):
+        # Skip pack directory using a more robust check
+        if "pack" in Path(root).parts:
+            continue
+        for f in files:
+            # Expecting objects/aa/bb...
+            if len(Path(root).name) == 2 and len(f) == 38:
+                all_loose_shas.add(Path(root).name + f)
+
     # Perform Marking
     marked = mark_reachable(dg_dir)
     
@@ -125,18 +136,7 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
             if loose_path.exists():
                 loose_path.unlink()
 
-    # Identify ALL objects on disk (remaining loose ones)
-    all_shas: Set[str] = set()
-    for root, dirs, files in os.walk(objects_dir):
-        # Skip pack directory
-        if "pack" in root:
-            continue
-        for f in files:
-            # Expecting objects/aa/bb...
-            if len(Path(root).name) == 2 and len(f) == 38:
-                all_shas.add(Path(root).name + f)
-    
-    unreachable = all_shas - marked
+    unreachable = all_loose_shas - marked
     
     if not dry_run and unreachable:
         # Create quarantine dir
@@ -146,10 +146,13 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
         
         for sha in unreachable:
             src = objects_dir / sha[:2] / sha[2:]
-            dst = quarantine_dir / sha
-            shutil.move(src, dst)
-            if verbose:
-                print(f"Quarantined: {sha}")
+            # It's possible an object marked for packing wasn't in the loose set (already packed)
+            # but 'unreachable' is (all_loose - marked), so src should exist.
+            if src.exists():
+                dst = quarantine_dir / sha
+                shutil.move(src, dst)
+                if verbose:
+                    print(f"Quarantined: {sha}")
                 
         # Cleanup empty directories in objects
         for root, dirs, files in os.walk(objects_dir, topdown=False):
@@ -163,4 +166,6 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
             print(f"Would quarantine: {sha}")
 
     repo_lock.release()
-    return len(unreachable), len(all_shas)
+    # Total count = objects that were loose initially.
+    # We don't delve into existing packs for the 'count_total' in this simple GC.
+    return len(unreachable), len(all_loose_shas)

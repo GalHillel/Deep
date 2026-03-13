@@ -3,6 +3,10 @@ import os
 import pathlib
 import sys
 
+from deep.cli.main import main
+from deep.core.repository import DEEP_DIR
+from deep.core.refs import resolve_head
+
 def audit_security(root_dir):
     print("--- PHASE 8 & 9: SECURITY, NETWORKING, AI AUDIT ---")
     
@@ -36,7 +40,11 @@ def audit_security(root_dir):
                 elif isinstance(node.func, ast.Name):
                     if node.func.id in unsafe_modules:
                         suspicious_calls.append((pyfile, node.lineno, node.func.id))
-                        
+    dg_dir = pathlib.Path(root_dir) / DEEP_DIR
+    if not dg_dir.exists():
+        print(f"ERROR: {DEEP_DIR} not found")
+        sys.exit(1)
+    
     if suspicious_calls:
         print("WARNING: Found potentially unsafe calls:")
         for fname, line, call in suspicious_calls:
@@ -49,4 +57,6 @@ def audit_security(root_dir):
     print("--- Security Audit PASSED ---")
 
 if __name__ == "__main__":
-    audit_security(r"c:\Users\galh2\Desktop\DeepGit\src\deep")
+    # Target the src/deep directory relative to the project root
+    target_dir = Path(__file__).parent.parent / "src" / "deep"
+    audit_security(target_dir)

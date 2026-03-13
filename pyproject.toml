@@ -39,3 +39,7 @@ pythonpath = ["src"]
 filterwarnings = [
     "ignore:Event loop stopped before Future completed:pytest.PytestUnhandledThreadExceptionWarning",
 ]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "benchmark: marks tests as benchmarks",
+]

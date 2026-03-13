@@ -1,8 +1,8 @@
 from pathlib import Path
 import os
 import shutil
-from deep_git.core.index import read_index, write_index, IndexEntry, Index
-from deep_git.core.repository import DEEP_GIT_DIR
+from deep.storage.index import read_index, write_index, IndexEntry, Index
+from deep.core.repository import DEEP_DIR
 
 def test_binary_index_migration():
     # Setup temp repo
@@ -11,7 +11,7 @@ def test_binary_index_migration():
         shutil.rmtree(tmp_path)
     tmp_path.mkdir()
     
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     dg_dir.mkdir()
     
     # 1. Create a JSON index (old format)

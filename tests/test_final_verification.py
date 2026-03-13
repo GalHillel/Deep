@@ -1,8 +1,11 @@
 import subprocess
+import sys
 from pathlib import Path
+from deep.cli.main import main
+from deep.core.repository import DEEP_DIR
 
-REPO_DIR = Path(r"c:\Users\galh2\Documents\GitHub\deep-using-git\deep-test")
-DEEP_EXE = ["python", "-m", "deep.cli.main"]
+REPO_DIR = Path(".").resolve() / "deep-test"
+DEEP_EXE = [sys.executable, "-m", "deep.cli.main"]
 
 def run_deep(args, check=True):
     res = subprocess.run(DEEP_EXE + args, cwd=REPO_DIR, capture_output=True, text=True)
