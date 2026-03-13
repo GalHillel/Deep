@@ -291,7 +291,7 @@ class TransactionLog:
         """Restore the working directory to the state of the given commit."""
         from deep.storage.objects import read_object, Commit
         from deep.storage.index import Index, IndexEntry, write_index
-        from deep.commands.checkout_cmd import _get_tree_files
+        from deep.core.repository import _get_tree_files
 
         dg_dir = self.log_path.parent
         repo_root = dg_dir.parent

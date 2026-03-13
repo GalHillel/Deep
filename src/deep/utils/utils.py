@@ -20,6 +20,11 @@ from pathlib import Path
 from typing import Optional, Union
 
 
+class DeepError(Exception):
+    """Base exception for all DeepBridge errors."""
+    pass
+
+
 def hash_bytes(data: bytes) -> str:
     """Return the hex-encoded SHA-1 hash of *data*.
 

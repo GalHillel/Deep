@@ -165,7 +165,6 @@ Examples:
     p_branch.add_argument("-d", "--delete", action="store_true", help="Delete the specified branch name")
     p_branch.add_argument("start_point", nargs="?", default="HEAD", help="The commit or branch name to start the new branch from (default: HEAD)")
 
-    # ── checkout ─────────────────────────────────────────────────────
     p_checkout = sub.add_parser(
         "checkout",
         help="Switch branches or restore files",
@@ -180,7 +179,7 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_checkout.add_argument("-f", "--force", action="store_true", help="Force branch switching even if there are uncommitted local changes")
-    p_checkout.add_argument("-b", "--branch", help="Create a new branch with this name and switch to it")
+    p_checkout.add_argument("-b", "--branch", action="store_true", help="Create a new branch")
     p_checkout.add_argument("target", help="The branch name or commit SHA to switch to")
 
     # ── merge ───────────────────────────────────────────────────────
