@@ -4,7 +4,7 @@ import subprocess, sys, os
 import pytest
 
 from deep.network.sync import SyncEngine, SyncEvent
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def test_sync_event_serialization():
 
 
 def test_sync_broadcast(sync_repo):
-    engine = SyncEngine(sync_repo / DEEP_GIT_DIR)
+    engine = SyncEngine(sync_repo / DEEP_DIR)
     received = []
     engine.register_listener(lambda e: received.append(e))
     engine.record_ref_update("refs/heads/main", "aaa", "bbb", "alice")
@@ -36,9 +36,9 @@ def test_sync_broadcast(sync_repo):
 
 
 def test_sync_conflict_detection(sync_repo):
-    engine = SyncEngine(sync_repo / DEEP_GIT_DIR)
+    engine = SyncEngine(sync_repo / DEEP_DIR)
     from deep.core.refs import resolve_head
-    head = resolve_head(sync_repo / DEEP_GIT_DIR)
+    head = resolve_head(sync_repo / DEEP_DIR)
     # No conflict if expected matches
     conflict = engine.detect_conflict("refs/heads/main", head, "new_sha")
     assert conflict is None
@@ -50,7 +50,7 @@ def test_sync_conflict_detection(sync_repo):
 
 def test_sync_events_since(sync_repo):
     import time
-    engine = SyncEngine(sync_repo / DEEP_GIT_DIR)
+    engine = SyncEngine(sync_repo / DEEP_DIR)
     t0 = time.time() - 1
     engine.record_ref_update("refs/heads/main", "a", "b")
     events = engine.get_events_since(t0)

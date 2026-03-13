@@ -1,7 +1,7 @@
 """
 deep.core.pipeline
 ~~~~~~~~~~~~~~~~~~~~~~
-CI/CD Pipeline runner for Deep Git.
+CI/CD Pipeline runner for DeepBridge.
 
 Loads pipeline definitions from `.deep_git/pipelines/*.json` or `.deep_git/pipeline.json`
 and executes them sequentially or in parallel.
@@ -17,6 +17,7 @@ import threading
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
+from deep.core.repository import DEEP_GIT_DIR
 from typing import Dict, List, Optional, Any
 
 
@@ -191,13 +192,18 @@ except Exception as e:
         cascaded = []
         for sibling in parent_dir.iterdir():
             if sibling.is_dir() and sibling.name != repo_name:
-                sib_dg = sibling / ".deep_git"
+                sib_dg = sibling / DEEP_GIT_DIR
                 if sib_dg.exists():
                     sib_runner = PipelineRunner(sib_dg)
                     sib_config = sib_runner.load_config()
                     # Check if sibling depends on us (simulated check)
                     # In a real system, pipeline.json would have "depends_on": ["repo_name"]
-                    if any(dep.get("repo") == repo_name for dep in sib_config.get("dependencies", [])):
+                    if isinstance(sib_config, dict):
+                        deps = sib_config.get("dependencies", [])
+                    else:
+                        deps = [] # fallback if list
+                        
+                    if any(dep.get("repo") == repo_name for dep in deps):
                         run = sib_runner.create_run(f"cascade_from_{repo_name}_{commit_sha[:7]}")
                         threading.Thread(target=sib_runner.run_pipeline, args=(run,), daemon=True).start()
                         cascaded.append(sibling.name)

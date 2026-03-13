@@ -17,7 +17,7 @@ from urllib.request import urlopen
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 def get_free_port():

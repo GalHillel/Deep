@@ -4,7 +4,7 @@ import subprocess, sys, os
 import pytest
 
 from deep.storage.txlog import TransactionLog
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def recovery_repo(tmp_path):
 def test_doctor_detects_txlog_issues(recovery_repo):
     """Doctor should detect incomplete transactions."""
     repo, env = recovery_repo
-    txlog = TransactionLog(repo / DEEP_GIT_DIR)
+    txlog = TransactionLog(repo / DEEP_DIR)
     txlog.begin("commit", "orphan tx")
     # Doctor should detect
     result = subprocess.run(
@@ -35,7 +35,7 @@ def test_doctor_detects_txlog_issues(recovery_repo):
 def test_manual_recovery(recovery_repo):
     """Manually recover from incomplete txlog."""
     repo, _ = recovery_repo
-    txlog = TransactionLog(repo / DEEP_GIT_DIR)
+    txlog = TransactionLog(repo / DEEP_DIR)
     tx1 = txlog.begin("push", "simulated crash")
     tx2 = txlog.begin("merge", "simulated crash 2")
     assert txlog.needs_recovery()
@@ -47,7 +47,7 @@ def test_manual_recovery(recovery_repo):
 def test_recovery_preserves_committed_tx(recovery_repo):
     """Recovery should not affect committed transactions."""
     repo, _ = recovery_repo
-    txlog = TransactionLog(repo / DEEP_GIT_DIR)
+    txlog = TransactionLog(repo / DEEP_DIR)
     tx1 = txlog.begin("commit")
     txlog.commit(tx1)
     tx2 = txlog.begin("push")  # incomplete

@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os, json, time
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.refs import resolve_head, list_branches, list_tags
 from deep.storage.txlog import TransactionLog
 from deep.core.telemetry import TelemetryCollector
@@ -29,15 +29,15 @@ def test_rapid_commits(stress_repo):
                        cwd=repo, env=env, check=True)
 
     # Verify txlog
-    txlog = TransactionLog(repo / DEEP_GIT_DIR)
+    txlog = TransactionLog(repo / DEEP_DIR)
     assert not txlog.needs_recovery()
 
     # Verify telemetry
-    metrics = json.loads((repo / DEEP_GIT_DIR / "metrics.json").read_text())
+    metrics = json.loads((repo / DEEP_DIR / "metrics.json").read_text())
     assert metrics["counters"]["commit"] == 50
 
     # Verify audit
-    audit = AuditLog(repo / DEEP_GIT_DIR)
+    audit = AuditLog(repo / DEEP_DIR)
     commits = audit.read_by_action("commit")
     assert len(commits) == 50
 
@@ -53,7 +53,7 @@ def test_multi_branch_stress(stress_repo):
         subprocess.run([sys.executable, "-m", "deep.main", "branch", f"feat-{i}"],
                        cwd=repo, env=env, check=True)
 
-    branches = list_branches(repo / DEEP_GIT_DIR)
+    branches = list_branches(repo / DEEP_DIR)
     assert len(branches) >= 11  # main + 10
 
 
@@ -80,7 +80,7 @@ def test_telemetry_summary_after_stress(stress_repo):
         subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", f"s{i}"],
                        cwd=repo, env=env, check=True)
 
-    metrics_path = repo / DEEP_GIT_DIR / "metrics.json"
+    metrics_path = repo / DEEP_DIR / "metrics.json"
     assert metrics_path.exists()
     data = json.loads(metrics_path.read_text())
     assert data["counters"].get("commit", 0) >= 10

@@ -9,7 +9,7 @@ import shutil
 import subprocess
 from pathlib import Path
 import pytest
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo,DEEP_DIR
 
 import sys
 

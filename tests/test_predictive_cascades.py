@@ -8,7 +8,7 @@ import pytest
 import json
 import time
 from pathlib import Path
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo,DEEP_DIR
 from deep.core.pipeline import PipelineRunner
 
 
@@ -27,7 +27,7 @@ def cascade_env(tmp_path):
         "dependencies": [{"repo": "upstream"}],
         "jobs": [{"name": "integration-test", "command": "echo 'running integration tests'"}]
     }
-    (downstream / DEEP_GIT_DIR / "pipeline.json").write_text(json.dumps(config))
+    (downstream / DEEP_DIR / "pipeline.json").write_text(json.dumps(config))
     
     return upstream, downstream
 
@@ -35,7 +35,7 @@ def cascade_env(tmp_path):
 def test_cross_repo_cascade_trigger(cascade_env):
     upstream, downstream = cascade_env
     
-    runner = PipelineRunner(upstream / DEEP_GIT_DIR)
+    runner = PipelineRunner(upstream / DEEP_DIR)
     
     # 1. Trigger cascade from upstream
     cascaded = runner.cascade_to_dependents("abc1234")
@@ -44,7 +44,7 @@ def test_cross_repo_cascade_trigger(cascade_env):
     
     # 2. Verify downstream has a new run
     time.sleep(1.0) # wait for thread start
-    ds_runner = PipelineRunner(downstream / DEEP_GIT_DIR)
+    ds_runner = PipelineRunner(downstream / DEEP_DIR)
     runs = ds_runner.list_runs()
     
     assert len(runs) > 0

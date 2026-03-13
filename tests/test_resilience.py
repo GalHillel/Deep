@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os, zlib
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.utils.utils import hash_bytes
 
 
@@ -25,7 +25,7 @@ def test_object_quarantine(resilience_repo):
     # Identify the blob SHA
     from deep.core.refs import resolve_head
     from deep.storage.objects import read_object, Commit
-    dg_dir = repo / DEEP_GIT_DIR
+    dg_dir = repo / DEEP_DIR
     sha = resolve_head(dg_dir)
     commit = read_object(dg_dir / "objects", sha)
     from deep.web.dashboard import _tree_entries_flat

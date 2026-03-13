@@ -36,30 +36,34 @@ class TestCheckout:
         self._make_commit(repo, "f.txt", "v2", "c2")
         # Checkout dev (which points to c1).
         main(["checkout", "dev"])
-        assert get_current_branch(repo / ".deep_git") == "dev"
+        assert get_current_branch(repo / ".deep") == "dev"
         assert (repo / "f.txt").read_text() == "v1"
 
     def test_checkout_detached(self, repo: Path) -> None:
         self._make_commit(repo, "f.txt", "data", "c1")
-        sha = resolve_head(repo / ".deep_git")
+        sha = resolve_head(repo / ".deep")
         self._make_commit(repo, "f.txt", "data2", "c2")
         main(["checkout", sha])
-        assert get_current_branch(repo / ".deep_git") is None
+        assert get_current_branch(repo / ".deep") is None
         assert (repo / "f.txt").read_text() == "data"
 
     def test_checkout_refuses_with_uncommitted(self, repo: Path) -> None:
         self._make_commit(repo, "f.txt", "v1", "c1")
         main(["branch", "dev"])
+        main(["checkout", "dev"])
+        self._make_commit(repo, "f.txt", "v-dev", "c-dev")
+        main(["checkout", "main"]) # Back to main (f.txt=v1)
+        
         (repo / "f.txt").write_text("dirty")
         with pytest.raises(SystemExit):
-            main(["checkout", "dev"])
+            main(["checkout", "dev"]) # Should fail because dev has v-dev, we have dirty v1
 
     def test_checkout_updates_index(self, repo: Path) -> None:
         self._make_commit(repo, "a.txt", "aaa", "c1")
         main(["branch", "alt"])
         self._make_commit(repo, "b.txt", "bbb", "c2")
         main(["checkout", "alt"])
-        idx = read_index(repo / ".deep_git")
+        idx = read_index(repo / ".deep")
         assert "a.txt" in idx.entries
         assert "b.txt" not in idx.entries
 

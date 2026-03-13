@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os, json
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.pipeline import PipelineRunner, PipelineRun, PipelineJob
 
 
@@ -23,17 +23,17 @@ def pipeline_repo(tmp_path):
         {"name": "test-success", "command": "echo 'success'"},
         {"name": "test-fail", "command": "exit 1"}
     ]
-    (tmp_path / DEEP_GIT_DIR / "pipeline.json").write_text(json.dumps(config))
+    (tmp_path / DEEP_DIR / "pipeline.json").write_text(json.dumps(config))
     
     return tmp_path, env
 
 
 def test_pipeline_creation(pipeline_repo):
     repo, env = pipeline_repo
-    runner = PipelineRunner(repo / DEEP_GIT_DIR)
+    runner = PipelineRunner(repo / DEEP_DIR)
     
     from deep.core.refs import resolve_head
-    sha = resolve_head(repo / DEEP_GIT_DIR)
+    sha = resolve_head(repo / DEEP_DIR)
     
     run = runner.create_run(sha)
     assert run.commit_sha == sha
@@ -43,10 +43,10 @@ def test_pipeline_creation(pipeline_repo):
 
 def test_pipeline_execution(pipeline_repo):
     repo, env = pipeline_repo
-    runner = PipelineRunner(repo / DEEP_GIT_DIR)
+    runner = PipelineRunner(repo / DEEP_DIR)
     
     from deep.core.refs import resolve_head
-    sha = resolve_head(repo / DEEP_GIT_DIR)
+    sha = resolve_head(repo / DEEP_DIR)
     
     run = runner.create_run(sha)
     runner.run_pipeline(run, env=env)

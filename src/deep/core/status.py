@@ -103,6 +103,9 @@ from concurrent.futures import ThreadPoolExecutor
 def _check_file_status(repo_root: Path, path: str, index_sha: str, index_mtime: float, index_size: int) -> tuple[str, bool]:
     """Check if a file is modified. Returns (path, is_modified)."""
     full_path = repo_root / path
+    if not full_path.exists():
+        return path, True 
+        
     try:
         stat = full_path.stat()
         # Optimization: Skip hashing if mtime and size haven't changed
@@ -113,7 +116,7 @@ def _check_file_status(repo_root: Path, path: str, index_sha: str, index_mtime: 
         wd_sha = _blob_sha_for_file(full_path)
         return path, wd_sha != index_sha
     except (FileNotFoundError, PermissionError):
-        return path, True # Treat as modified if we can't read it (handled in main loop)
+        return path, True
 
 
 def compute_status(repo_root: Path) -> StatusResult:

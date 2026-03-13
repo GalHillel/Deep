@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.storage.objects import read_object, Blob, Commit
 from deep.cli.main import main
 from deep.network.daemon import DeepGitDaemon
@@ -53,7 +53,7 @@ def daemon(remote_repo: Path):
         asyncio.set_event_loop(loop)
         try:
             loop.run_until_complete(d.start())
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, RuntimeError):
             pass
         
     t = threading.Thread(target=run_daemon, daemon=True)
@@ -64,7 +64,11 @@ def daemon(remote_repo: Path):
     
     # Shutdown
     loop.call_soon_threadsafe(loop.stop)
-    t.join(timeout=2)
+    t.join(timeout=5)
+    if loop.is_running():
+        loop.stop()
+    if not loop.is_closed():
+        loop.close()
 
 def test_shallow_clone(remote_repo: Path, daemon: tuple[DeepGitDaemon, int], tmp_path: Path):
     d, port = daemon
@@ -74,7 +78,7 @@ def test_shallow_clone(remote_repo: Path, daemon: tuple[DeepGitDaemon, int], tmp
     # Depth 1 clone
     main(["clone", f"127.0.0.1:{port}", str(clone_dir), "--depth", "1"])
     
-    dg_dir = clone_dir / DEEP_GIT_DIR
+    dg_dir = clone_dir / DEEP_DIR
     obj_dir = dg_dir / "objects"
     
     # Let's check objects in clone
@@ -87,13 +91,13 @@ def test_shallow_clone(remote_repo: Path, daemon: tuple[DeepGitDaemon, int], tmp
     
     # Find the latest commit SHA in remote
     from deep.core.refs import resolve_head
-    latest_sha = resolve_head(remote_repo / DEEP_GIT_DIR)
+    latest_sha = resolve_head(remote_repo / DEEP_DIR)
     
     # The clone should have the latest commit
     assert latest_sha in shas
     
     # Get parent of latest commit
-    latest_obj = read_object(remote_repo / DEEP_GIT_DIR / "objects", latest_sha)
+    latest_obj = read_object(remote_repo / DEEP_DIR / "objects", latest_sha)
     assert isinstance(latest_obj, Commit)
     parent_sha = latest_obj.parent_shas[0] if latest_obj.parent_shas else None
     
@@ -109,7 +113,7 @@ def test_partial_clone_blobless(remote_repo: Path, daemon: tuple[DeepGitDaemon, 
     # Blobless clone
     main(["clone", f"127.0.0.1:{port}", str(clone_dir), "--filter", "blob:none"])
     
-    dg_dir = clone_dir / DEEP_GIT_DIR
+    dg_dir = clone_dir / DEEP_DIR
     obj_dir = dg_dir / "objects"
     
     shas = []
@@ -135,5 +139,5 @@ def test_partial_clone_blobless(remote_repo: Path, daemon: tuple[DeepGitDaemon, 
     
     # Should still have the commit
     from deep.core.refs import resolve_head
-    latest_sha = resolve_head(remote_repo / DEEP_GIT_DIR)
+    latest_sha = resolve_head(remote_repo / DEEP_DIR)
     assert latest_sha in shas

@@ -4,7 +4,7 @@ import subprocess, sys, os
 import pytest
 
 from deep.network.offline_queue import OfflineQueue
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -16,7 +16,7 @@ def queue_repo(tmp_path):
 
 
 def test_enqueue_and_retrieve(queue_repo):
-    q = OfflineQueue(queue_repo / DEEP_GIT_DIR)
+    q = OfflineQueue(queue_repo / DEEP_DIR)
     q.enqueue("push", "127.0.0.1:8888", "refs/heads/main", "abc123")
     pending = q.get_pending()
     assert len(pending) == 1
@@ -24,14 +24,14 @@ def test_enqueue_and_retrieve(queue_repo):
 
 
 def test_mark_completed(queue_repo):
-    q = OfflineQueue(queue_repo / DEEP_GIT_DIR)
+    q = OfflineQueue(queue_repo / DEEP_DIR)
     q.enqueue("fetch", "127.0.0.1:8888", "refs/heads/main", "abc123")
     q.mark_completed(0)
     assert len(q.get_pending()) == 0
 
 
 def test_mark_failed(queue_repo):
-    q = OfflineQueue(queue_repo / DEEP_GIT_DIR)
+    q = OfflineQueue(queue_repo / DEEP_DIR)
     q.enqueue("push", "127.0.0.1:8888", "refs/heads/main", "abc123")
     q.mark_failed(0, "connection refused")
     pending = q.get_pending()
@@ -39,7 +39,7 @@ def test_mark_failed(queue_repo):
 
 
 def test_reconcile_with_callback(queue_repo):
-    q = OfflineQueue(queue_repo / DEEP_GIT_DIR)
+    q = OfflineQueue(queue_repo / DEEP_DIR)
     q.enqueue("push", "127.0.0.1:8888", "refs/heads/main", "abc123")
     executed = []
     def mock_push(url, ref, sha):
@@ -50,7 +50,7 @@ def test_reconcile_with_callback(queue_repo):
 
 
 def test_persistence(queue_repo):
-    dg_dir = queue_repo / DEEP_GIT_DIR
+    dg_dir = queue_repo / DEEP_DIR
     q1 = OfflineQueue(dg_dir)
     q1.enqueue("push", "host:8888", "refs/heads/main", "sha1")
     q2 = OfflineQueue(dg_dir)
@@ -58,7 +58,7 @@ def test_persistence(queue_repo):
 
 
 def test_clear_completed(queue_repo):
-    q = OfflineQueue(queue_repo / DEEP_GIT_DIR)
+    q = OfflineQueue(queue_repo / DEEP_DIR)
     q.enqueue("push", "host:8888", "main", "sha1")
     q.enqueue("fetch", "host:8888", "main", "sha2")
     q.mark_completed(0)

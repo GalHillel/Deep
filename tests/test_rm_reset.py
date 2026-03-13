@@ -27,7 +27,7 @@ def _commit(repo: Path, filename: str, content: str, msg: str) -> str:
     f.write_text(content)
     main(["add", str(f)])
     main(["commit", "-m", msg])
-    return resolve_head(repo / ".deep_git")
+    return resolve_head(repo / ".deep")
 
 
 # ── rm tests ─────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ class TestRm:
         main(["add", str(f)])
         main(["rm", str(f)])
         assert not f.exists()
-        idx = read_index(repo / ".deep_git")
+        idx = read_index(repo / ".deep")
         assert "a.txt" not in idx.entries
 
     def test_rm_untracked_fails(self, repo: Path) -> None:
@@ -57,7 +57,7 @@ class TestRm:
         main(["rm", str(a), str(b)])
         assert not a.exists()
         assert not b.exists()
-        idx = read_index(repo / ".deep_git")
+        idx = read_index(repo / ".deep")
         assert len(idx.entries) == 0
 
     def test_rm_already_deleted_file(self, repo: Path) -> None:
@@ -67,7 +67,7 @@ class TestRm:
         main(["add", str(f)])
         f.unlink()  # manually delete
         main(["rm", str(f)])  # should not error
-        idx = read_index(repo / ".deep_git")
+        idx = read_index(repo / ".deep")
         assert "del.txt" not in idx.entries
 
 
@@ -78,7 +78,7 @@ class TestReset:
         c1 = _commit(repo, "f.txt", "v1", "c1")
         c2 = _commit(repo, "f.txt", "v2", "c2")
         main(["reset", c1])
-        assert resolve_head(repo / ".deep_git") == c1
+        assert resolve_head(repo / ".deep") == c1
         # Working dir should NOT be changed (soft reset).
         assert (repo / "f.txt").read_text() == "v2"
 
@@ -86,14 +86,14 @@ class TestReset:
         c1 = _commit(repo, "f.txt", "v1", "c1")
         _commit(repo, "f.txt", "v2", "c2")
         main(["reset", "--hard", c1])
-        assert resolve_head(repo / ".deep_git") == c1
+        assert resolve_head(repo / ".deep") == c1
         assert (repo / "f.txt").read_text() == "v1"
 
     def test_hard_reset_updates_index(self, repo: Path) -> None:
         c1 = _commit(repo, "f.txt", "v1", "c1")
         _commit(repo, "g.txt", "new", "c2")
         main(["reset", "--hard", c1])
-        idx = read_index(repo / ".deep_git")
+        idx = read_index(repo / ".deep")
         assert "g.txt" not in idx.entries
 
     def test_reset_invalid_sha(self, repo: Path) -> None:

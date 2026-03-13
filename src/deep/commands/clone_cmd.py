@@ -71,8 +71,14 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         config = Config(target_dir)
         config.set_local("remote.origin.url", url)
         
-        # Checkout files
-        checkout_cmd.run(argparse.Namespace(target="main", force=True, branch=None))
+        # Checkout files (may fail if partial clone)
+        try:
+            checkout_cmd.run(argparse.Namespace(target="main", force=True, branch=None))
+        except (FileNotFoundError, ValueError) as e:
+            if getattr(args, "filter", None):
+                print(f"Partial clone: skipping initial checkout (some objects missing: {e})")
+            else:
+                raise
         
         print("Done.")
         

@@ -254,7 +254,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
             self._json_response(_object_detail(dg, sha))
         elif self.path == "/api/repos":
-            from deep.core.platform import PlatformManager
+            from deep.platform.platform import PlatformManager
             manager = PlatformManager(self.repo_root)
             repos = manager.list_repos()
             res = []
@@ -271,14 +271,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
             from deep.core.issue import IssueManager
             im = IssueManager(dg)
-            self._json_response([asdict_deep(is_) for is_ in im.list_issues()])
+            self._json_response([{"id": i.id, "title": i.title} for i in im.list_issues()])
         elif self.path.startswith("/api/prs"):
             from urllib.parse import urlparse, parse_qs
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
             dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
             from deep.core.pr import PRManager
             prm = PRManager(dg)
-            self._json_response([asdict_deep(pr) for pr in prm.list_prs()])
+            self._json_response([{"id": p.id, "title": p.title} for p in prm.list_prs()])
 
         elif self.path == "/api/multi-repo":
             self._json_response(_gather_multi_repo_data(self.repo_root))

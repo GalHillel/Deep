@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os, time
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def blame_repo(tmp_path):
 def test_blame_attribution(blame_repo):
     from deep.core.blame import get_blame
     repo, env = blame_repo
-    dg_dir = repo / DEEP_GIT_DIR
+    dg_dir = repo / DEEP_DIR
     
     hunks = get_blame(dg_dir, "f.txt")
     assert len(hunks) >= 1
@@ -46,7 +46,7 @@ def test_blame_attribution(blame_repo):
 def test_heatmap_calculation(blame_repo):
     from deep.web.dashboard import DashboardHandler
     repo, env = blame_repo
-    dg_dir = repo / DEEP_GIT_DIR
+    dg_dir = repo / DEEP_DIR
     
     # Mocking self with an object that has dg_dir
     class MockHandler:

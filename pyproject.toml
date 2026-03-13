@@ -36,3 +36,6 @@ include = ["deep*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+filterwarnings = [
+    "ignore:Event loop stopped before Future completed:pytest.PytestUnhandledThreadExceptionWarning",
+]

@@ -8,7 +8,7 @@ import pytest
 import time
 import zlib
 from pathlib import Path
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo,DEEP_DIR
 from deep.storage.objects import Blob, read_object_safe
 
 
@@ -26,17 +26,17 @@ def test_p2p_auto_heal(healing_env):
     # 1. Create a valid object in both repos
     data = b"stable content"
     b1 = Blob(data=data)
-    sha = b1.write(r1 / DEEP_GIT_DIR / "objects")
+    sha = b1.write(r1 / DEEP_DIR / "objects")
     b2 = Blob(data=data)
-    b2.write(r2 / DEEP_GIT_DIR / "objects")
+    b2.write(r2 / DEEP_DIR / "objects")
     
     # 2. Corrupt the object in r2
-    obj_path = r2 / DEEP_GIT_DIR / "objects" / sha[:2] / sha[2:]
+    obj_path = r2 / DEEP_DIR / "objects" / sha[:2] / sha[2:]
     obj_path.write_bytes(zlib.compress(b"CORRUPT DATA"))
     
     # 3. Setup P2P discovery so r2 knows about r1
     from deep.network.p2p import P2PEngine, PeerNode
-    e2 = P2PEngine(r2 / DEEP_GIT_DIR)
+    e2 = P2PEngine(r2 / DEEP_DIR)
     # Manually seed r1 as a peer of r2
     e2.peers["node_1"] = PeerNode(
         node_id="node_1",
@@ -60,7 +60,7 @@ def test_p2p_auto_heal(healing_env):
     try:
         # 4. Attempt to read the corrupt object in r2
         # It should trigger healing and succeed
-        obj = read_object_safe(r2 / DEEP_GIT_DIR / "objects", sha)
+        obj = read_object_safe(r2 / DEEP_DIR / "objects", sha)
         assert obj.data == data
         
         # 5. Verify it's actually fixed on disk

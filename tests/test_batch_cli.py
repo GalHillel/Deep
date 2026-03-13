@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture

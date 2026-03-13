@@ -4,7 +4,7 @@ import subprocess, sys, os, time
 import pytest
 
 from deep.core.telemetry import TelemetryCollector, Timer
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -16,7 +16,7 @@ def telem_repo(tmp_path):
 
 
 def test_telemetry_record(telem_repo):
-    tc = TelemetryCollector(telem_repo / DEEP_GIT_DIR)
+    tc = TelemetryCollector(telem_repo / DEEP_DIR)
     tc.record("commit", 12.5, "test commit")
     tc.record("commit", 8.3)
     tc.record("push", 45.0)
@@ -27,7 +27,7 @@ def test_telemetry_record(telem_repo):
 
 
 def test_telemetry_timer(telem_repo):
-    tc = TelemetryCollector(telem_repo / DEEP_GIT_DIR)
+    tc = TelemetryCollector(telem_repo / DEEP_DIR)
     with Timer(tc, "sleep"):
         time.sleep(0.01)
     summary = tc.summary()
@@ -36,7 +36,7 @@ def test_telemetry_timer(telem_repo):
 
 
 def test_telemetry_persistence(telem_repo):
-    dg_dir = telem_repo / DEEP_GIT_DIR
+    dg_dir = telem_repo / DEEP_DIR
     tc1 = TelemetryCollector(dg_dir)
     tc1.record("gc", 100.0)
     # Check file exists
@@ -44,7 +44,7 @@ def test_telemetry_persistence(telem_repo):
 
 
 def test_telemetry_export(telem_repo):
-    tc = TelemetryCollector(telem_repo / DEEP_GIT_DIR)
+    tc = TelemetryCollector(telem_repo / DEEP_DIR)
     tc.record("fetch", 50.0)
     export = tc.get_export()
     assert "counters" in export

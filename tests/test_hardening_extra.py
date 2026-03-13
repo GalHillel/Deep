@@ -12,7 +12,7 @@ import pytest
 from deep.core.refs import update_branch, _validate_ref_name
 from deep.commands import init_cmd, add_cmd, commit_cmd, merge_cmd
 from argparse import Namespace
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 def test_invalid_ref_names():
     """Verify that invalid branch names are rejected."""
@@ -31,13 +31,13 @@ def test_merge_conflict_detection(tmp_path: Path, monkeypatch):
     """Verify that conflicting changes are detected and merge is aborted."""
     monkeypatch.chdir(tmp_path)
     init_cmd.run(Namespace(path=None))
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     
     # 1. Base commit
     (tmp_path / "conflict.txt").write_text("base content")
     add_cmd.run(Namespace(files=["conflict.txt"], all=False))
     commit_cmd.run(Namespace(message="base", sign=False))
-    base_sha = (tmp_path / ".deep_git" / "refs" / "heads" / "main").read_text().strip()
+    base_sha = (tmp_path / ".deep" / "refs" / "heads" / "main").read_text().strip()
     
     # 2. Branch 'ours'
     (tmp_path / "conflict.txt").write_text("our content")
@@ -71,7 +71,7 @@ def test_missing_pack_index_resilience(tmp_path: Path, monkeypatch):
     """Verify that DeepGit doesn't crash if a .idx file is missing or corrupt."""
     monkeypatch.chdir(tmp_path)
     init_cmd.run(Namespace(path=None))
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     
     # Create some objects and pack them
     (tmp_path / "f1.txt").write_text("hello")

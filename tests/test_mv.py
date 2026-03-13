@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from deep.storage.index import read_index
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.cli.main import main
 
 
@@ -29,7 +29,7 @@ def test_mv_file(repo: Path) -> None:
     file1.write_text("hello 1")
     main(["add", "file1.txt"])
 
-    index_entries = read_index(repo / DEEP_GIT_DIR).entries
+    index_entries = read_index(repo / DEEP_DIR).entries
     assert "file1.txt" in index_entries
 
     # 2. Rename file
@@ -41,7 +41,7 @@ def test_mv_file(repo: Path) -> None:
     assert (repo / "file2.txt").read_text() == "hello 1"
 
     # 4. Assert in index
-    index_entries_after = read_index(repo / DEEP_GIT_DIR).entries
+    index_entries_after = read_index(repo / DEEP_DIR).entries
     assert "file1.txt" not in index_entries_after
     assert "file2.txt" in index_entries_after
 
@@ -52,7 +52,7 @@ def test_mv_directory(repo: Path) -> None:
     (dir1 / "file.txt").write_text("dir file")
     main(["add", "."])
 
-    index_entries = read_index(repo / DEEP_GIT_DIR).entries
+    index_entries = read_index(repo / DEEP_DIR).entries
     assert "dir1/file.txt" in index_entries
 
     # 2. Move directory
@@ -63,6 +63,6 @@ def test_mv_directory(repo: Path) -> None:
     assert (repo / "dir2" / "file.txt").exists()
 
     # 4. Assert in index
-    index_entries_after = read_index(repo / DEEP_GIT_DIR).entries
+    index_entries_after = read_index(repo / DEEP_DIR).entries
     assert "dir1/file.txt" not in index_entries_after
     assert "dir2/file.txt" in index_entries_after

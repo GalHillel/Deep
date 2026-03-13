@@ -41,14 +41,14 @@ def test_deep_add_sanitization(tmp_path, monkeypatch):
     
     # Verify index contains sanitized name
     from deep.storage.index import read_index
-    index = read_index(tmp_path / ".deep_git")
+    index = read_index(tmp_path / ".deep")
     assert "test_file.txt" in index.entries
     assert "test:file.txt" not in index.entries
 
 def test_sanitize_history(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     main(["init"])
-    dg_dir = tmp_path / ".deep_git"
+    dg_dir = tmp_path / ".deep"
     objects_dir = dg_dir / "objects"
     
     # Manually create a tree with an illegal name (simulating historical corruption)
@@ -71,7 +71,7 @@ def test_sanitize_history(tmp_path, monkeypatch):
 def test_checkout_sanitization_cr(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     main(["init"])
-    dg_dir = tmp_path / ".deep_git"
+    dg_dir = tmp_path / ".deep"
     objects_dir = dg_dir / "objects"
     
     # Manually create a tree with \r (simulating a repo from Linux)

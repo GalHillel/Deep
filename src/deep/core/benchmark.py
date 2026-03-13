@@ -1,7 +1,7 @@
 """
 deep.core.benchmark
 ~~~~~~~~~~~~~~~~~~~~~~~~
-Internal benchmarking engine for Deep Git.
+Internal benchmarking engine for DeepBridge.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ def run_benchmarks(verbose: bool = False, compare_git: bool = False) -> Dict[str
     """Run a suite of performance benchmarks and return results."""
     results: Dict[str, Any] = {}
     
-    # Deep Git Benchmarks
+    # DeepBridge Benchmarks
     temp_repo_root = Path(tempfile.mkdtemp(prefix="deep_bench_"))
     try:
         init_repo(temp_repo_root)
@@ -55,39 +55,4 @@ def run_benchmarks(verbose: bool = False, compare_git: bool = False) -> Dict[str
     finally:
         shutil.rmtree(temp_repo_root)
 
-    def robust_rmtree(path: Path):
-        import shutil
-        import stat
-        def on_rm_error(func, p, exc_info):
-            # p is the path, func is os.unlink or os.rmdir
-            os.chmod(p, stat.S_IWRITE)
-            func(p)
-        shutil.rmtree(path, onerror=on_rm_error)
-
-    if compare_git:
-        import subprocess
-        git_results = {}
-        git_repo = Path(tempfile.mkdtemp(prefix="git_bench_"))
-        try:
-            # Git Init
-            start = time.perf_counter()
-            subprocess.run(["git", "init"], cwd=git_repo, capture_output=True, check=True)
-            git_results["init_time"] = time.perf_counter() - start
-            
-            # Git Commit Bench
-            start = time.perf_counter()
-            for i in range(commit_count):
-                f = git_repo / "f.txt"
-                f.write_text(f"content {i}")
-                subprocess.run(["git", "add", "f.txt"], cwd=git_repo, capture_output=True, check=True)
-                subprocess.run(["git", "commit", "-m", f"bench {i}"], cwd=git_repo, capture_output=True, check=True)
-            git_results["commit_total_time"] = time.perf_counter() - start
-            git_results["commit_avg_time"] = git_results["commit_total_time"] / commit_count
-            
-            results["git"] = git_results
-        except Exception as e:
-            results["git_error"] = str(e)
-        finally:
-            robust_rmtree(git_repo)
-            
     return results

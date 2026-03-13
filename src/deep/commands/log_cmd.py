@@ -1,7 +1,7 @@
 """
 deep.commands.log_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-``deep-git log`` command implementation.
+DeepBridge ``log`` command implementation.
 """
 
 from __future__ import annotations

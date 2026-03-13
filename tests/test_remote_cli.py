@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.refs import resolve_head
 
 
@@ -43,7 +43,7 @@ def test_distributed_workflow(tmp_path: Path, env: dict[str, str]):
     (server_root / "README.md").write_text("Server Repo")
     subprocess.run([sys.executable, "-m", "deep.main", "add", "README.md"], cwd=server_root, env=env, check=True)
     subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "server init"], cwd=server_root, env=env, check=True)
-    server_head = resolve_head(server_root / DEEP_GIT_DIR)
+    server_head = resolve_head(server_root / DEEP_DIR)
     
     # 2. Start Server Daemon
     port = get_free_port()
@@ -66,7 +66,7 @@ def test_distributed_workflow(tmp_path: Path, env: dict[str, str]):
         subprocess.run([sys.executable, "-m", "deep.main", "clone", f"127.0.0.1:{port}", str(client1_root)], env=env, check=True)
         
         # Verify client1 init worked
-        assert (client1_root / DEEP_GIT_DIR).exists()
+        assert (client1_root / DEEP_DIR).exists()
         
         # 4. Client 1 makes changes and Pushes
         # We need to manually set up a commit in client1 for now because clone is a bit of a stub
@@ -74,13 +74,13 @@ def test_distributed_workflow(tmp_path: Path, env: dict[str, str]):
         (client1_root / "feature.txt").write_text("new feature")
         subprocess.run([sys.executable, "-m", "deep.main", "add", "feature.txt"], cwd=client1_root, env=env, check=True)
         subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "feat commit"], cwd=client1_root, env=env, check=True)
-        client1_head = resolve_head(client1_root / DEEP_GIT_DIR)
+        client1_head = resolve_head(client1_root / DEEP_DIR)
         
         # Push to server
         subprocess.run([sys.executable, "-m", "deep.main", "push", f"127.0.0.1:{port}", "main"], cwd=client1_root, env=env, check=True)
         
         # 5. Verify Server updated
-        server_head_after = resolve_head(server_root / DEEP_GIT_DIR)
+        server_head_after = resolve_head(server_root / DEEP_DIR)
         assert server_head_after == client1_head
         
         # 6. Client 2 Clones (or Fetches)
@@ -92,7 +92,7 @@ def test_distributed_workflow(tmp_path: Path, env: dict[str, str]):
         
         # Verify client2 has the object
         from deep.storage.objects import read_object
-        obj = read_object(client2_root / DEEP_GIT_DIR / "objects", client1_head)
+        obj = read_object(client2_root / DEEP_DIR / "objects", client1_head)
         assert obj.sha == client1_head
         
     finally:

@@ -99,9 +99,18 @@ venv.bak/
 .mypy_cache/
 
 # Deep specific
+.tmp_out/
 tmp/
 sandbox/
 debug/
 test_outputs/
 local_validation/
 VERSION
+
+# ignore deep-test folder
+deep-test/  
+
+# ignore agents
+.agents/
+.cursor/
+.test_fetch/

@@ -44,7 +44,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     if args.message:
         # Annotated tag
         config = Config(repo_root)
-        author_name = config.get("user.name", "Deep Git User")
+        author_name = config.get("user.name", "DeepBridge User")
         author_email = config.get("user.email", "user@deep")
         tagger_str = f"{author_name} <{author_email}>"
 

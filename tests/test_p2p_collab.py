@@ -23,8 +23,8 @@ def p2p_repos(tmp_path):
 
 def test_p2p_presence_propagation(p2p_repos):
     r1, r2 = p2p_repos
-    e1 = P2PEngine(r1 / ".deep_git")
-    e2 = P2PEngine(r2 / ".deep_git")
+    e1 = P2PEngine(r1 / ".deep")
+    e2 = P2PEngine(r2 / ".deep")
     
     e1.start()
     e2.start()
@@ -72,11 +72,11 @@ def test_p2p_tunnel_simulation(p2p_repos):
     run_commit(commit_args)
     
     from deep.core.refs import resolve_head
-    head_sha = resolve_head(r1 / ".deep_git")
+    head_sha = resolve_head(r1 / ".deep")
     os.chdir(old_cwd)
     
-    e1 = P2PEngine(r1 / ".deep_git")
-    e2 = P2PEngine(r2 / ".deep_git")
+    e1 = P2PEngine(r1 / ".deep")
+    e2 = P2PEngine(r2 / ".deep")
     
     # Manually add e1 to e2's peers to avoid waiting for beacon
     from deep.network.p2p import PeerNode

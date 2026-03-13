@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from deep.storage.txlog import TransactionLog
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.cli.main import main
 
 
@@ -25,7 +25,7 @@ def repo(tmp_path: Path):
 
 class TestTxLogBasics:
     def test_begin_commit(self, repo):
-        txlog = TransactionLog(repo / DEEP_GIT_DIR)
+        txlog = TransactionLog(repo / DEEP_DIR)
         tx_id = txlog.begin("test-op", "details")
         assert tx_id
         txlog.commit(tx_id)
@@ -34,7 +34,7 @@ class TestTxLogBasics:
         assert statuses[tx_id] == "COMMIT"
 
     def test_begin_rollback(self, repo):
-        txlog = TransactionLog(repo / DEEP_GIT_DIR)
+        txlog = TransactionLog(repo / DEEP_DIR)
         tx_id = txlog.begin("test-op", "will rollback")
         txlog.rollback(tx_id, "test reason")
         records = txlog.read_all()
@@ -42,7 +42,7 @@ class TestTxLogBasics:
         assert statuses[tx_id] == "ROLLBACK"
 
     def test_multiple_transactions(self, repo):
-        txlog = TransactionLog(repo / DEEP_GIT_DIR)
+        txlog = TransactionLog(repo / DEEP_DIR)
         tx1 = txlog.begin("op1")
         tx2 = txlog.begin("op2")
         txlog.commit(tx1)
@@ -55,7 +55,7 @@ class TestTxLogBasics:
 
 class TestIncompleteDetection:
     def test_incomplete_transaction(self, repo):
-        txlog = TransactionLog(repo / DEEP_GIT_DIR)
+        txlog = TransactionLog(repo / DEEP_DIR)
         tx_id = txlog.begin("incomplete-op", "left hanging")
         # Don't commit or rollback
         incomplete = txlog.get_incomplete()
@@ -63,7 +63,7 @@ class TestIncompleteDetection:
         assert txlog.needs_recovery()
 
     def test_no_incomplete_when_all_committed(self, repo):
-        txlog = TransactionLog(repo / DEEP_GIT_DIR)
+        txlog = TransactionLog(repo / DEEP_DIR)
         tx = txlog.begin("done-op")
         txlog.commit(tx)
         assert not txlog.needs_recovery()
@@ -71,7 +71,7 @@ class TestIncompleteDetection:
 
 class TestRecovery:
     def test_recover_rolls_back_incomplete(self, repo):
-        txlog = TransactionLog(repo / DEEP_GIT_DIR)
+        txlog = TransactionLog(repo / DEEP_DIR)
         tx_id = txlog.begin("crash-op", "simulated crash")
         # Simulate crash by not committing
         assert txlog.needs_recovery()

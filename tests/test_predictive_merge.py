@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os, json
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ def test_predict_merge_no_conflict(merge_env):
 
 def test_predict_merge_conflict(merge_env):
     repo, env = merge_env
-    dg_dir = repo / DEEP_GIT_DIR
+    dg_dir = repo / DEEP_DIR
     
     # Branch 'main' already modifies common.txt in merge_env.
     # We want to create a 'feature' branch that also modifies common.txt.

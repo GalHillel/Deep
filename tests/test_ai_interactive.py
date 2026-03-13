@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.cli.main import main
 from deep.ai.assistant import DeepGitAI
 
@@ -38,9 +38,9 @@ def test_ai_commit_suggestion(repo: Path):
     # Verify commit exists and has a message
     from deep.core.refs import resolve_head
     from deep.storage.objects import read_object, Commit
-    sha = resolve_head(repo / DEEP_GIT_DIR)
+    sha = resolve_head(repo / DEEP_DIR)
     assert sha is not None
-    commit = read_object(repo / DEEP_GIT_DIR / "objects", sha)
+    commit = read_object(repo / DEEP_DIR / "objects", sha)
     assert isinstance(commit, Commit)
     assert "security" in commit.message or "auth" in commit.message.lower()
 

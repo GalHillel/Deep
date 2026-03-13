@@ -13,7 +13,7 @@ import sys
 import shutil
 from pathlib import Path
 
-from deep.storage.index import remove_index_entry, update_index_entry
+from deep.storage.index import read_index, remove_index_entry, update_index_entry
 from deep.storage.objects import Blob
 from deep.core.repository import DEEP_GIT_DIR, find_repo
 
@@ -54,56 +54,41 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     shutil.move(str(src_path), str(dest_path))
 
     # 2. Update index
-    if src_path.is_file() or dest_path.is_file():
-        # Remove old entry if tracked
-        try:
-            remove_index_entry(dg_dir, rel_src)
-        except KeyError:
-            pass # Source was not tracked
+    from deep.storage.index import _lock_path, _read_index_no_lock, _write_index_no_lock, IndexEntry
+    from filelock import FileLock
+    
+    lock = FileLock(str(_lock_path(dg_dir)))
+    with lock:
+        index = _read_index_no_lock(dg_dir)
+        to_remove = []
+        to_update = {} # path -> entry
+        
+        if rel_src in index.entries:
+            # Single file move
+            entry = index.entries[rel_src]
+            to_remove.append(rel_src)
+            # Re-stat the moved file
+            stat = dest_path.stat()
+            to_update[rel_dest] = IndexEntry(sha=entry.sha, size=stat.st_size, mtime=stat.st_mtime)
+        else:
+            # Directory move (look for prefix)
+            prefix = rel_src + "/"
+            for path, entry in index.entries.items():
+                if path.startswith(prefix):
+                    new_path = rel_dest + path[len(rel_src):]
+                    to_remove.append(path)
+                    try:
+                        stat = (repo_root / new_path).stat()
+                        to_update[new_path] = IndexEntry(sha=entry.sha, size=stat.st_size, mtime=stat.st_mtime)
+                    except FileNotFoundError:
+                        pass
 
-        # Add new entry
-        data = dest_path.read_bytes()
-        blob = Blob(data=data)
-        sha = blob.write(objects_dir)
-
-        stat = dest_path.stat()
-        update_index_entry(
-            dg_dir,
-            rel_path=rel_dest,
-            sha=sha,
-            size=stat.st_size,
-            mtime=stat.st_mtime,
-        )
-    elif dest_path.is_dir():
-        # Move directory recursively
-        # Since we just moved the dir, we need to iterate over the new directory
-        for dirpath, dirnames, filenames in os.walk(dest_path):
-            rel_dir = Path(dirpath).relative_to(repo_root).as_posix()
-            old_rel_dir = rel_src + rel_dir[len(rel_dest):]
+        for p in to_remove:
+            if p in index.entries:
+                del index.entries[p]
+        for p, e in to_update.items():
+            index.entries[p] = e
             
-            for f in filenames:
-                f_new = f"{rel_dir}/{f}" if rel_dir != "." else f
-                f_old = f"{old_rel_dir}/{f}" if old_rel_dir != "." else f
-                
-                # Remove old entry
-                try:
-                    remove_index_entry(dg_dir, f_old)
-                except KeyError:
-                    pass
-                
-                # Add new entry
-                child_dest = Path(dirpath) / f
-                data = child_dest.read_bytes()
-                blob = Blob(data=data)
-                sha = blob.write(objects_dir)
-
-                stat = child_dest.stat()
-                update_index_entry(
-                    dg_dir,
-                    rel_path=f_new,
-                    sha=sha,
-                    size=stat.st_size,
-                    mtime=stat.st_mtime,
-                )
+        _write_index_no_lock(dg_dir, index)
 
     print(f"Renamed {rel_src} -> {rel_dest}")

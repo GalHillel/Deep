@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.storage.objects import Blob
 from deep.cli.main import main
 
@@ -31,7 +31,7 @@ def clean_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_doctor_detects_dangling(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    dg_dir = clean_repo / DEEP_GIT_DIR
+    dg_dir = clean_repo / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
     # Create a dangling blob manually
@@ -46,7 +46,7 @@ def test_doctor_detects_dangling(clean_repo: Path, capsys: pytest.CaptureFixture
 
 
 def test_doctor_fix_quarantines_dangling(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    dg_dir = clean_repo / DEEP_GIT_DIR
+    dg_dir = clean_repo / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
     # Create a dangling blob manually
@@ -71,7 +71,7 @@ def test_doctor_fix_quarantines_dangling(clean_repo: Path, capsys: pytest.Captur
 
 
 def test_doctor_fix_quarantines_corrupt(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    dg_dir = clean_repo / DEEP_GIT_DIR
+    dg_dir = clean_repo / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
     # Create a dangling blob manually, and corrupt it

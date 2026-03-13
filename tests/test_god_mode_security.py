@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ def god_repo(tmp_path):
     env["PYTHONPATH"] = str(Path.cwd())
     subprocess.run([sys.executable, "-m", "deep.main", "init"],
                    cwd=tmp_path, env=env, check=True)
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     return tmp_path, dg_dir, env
 
 

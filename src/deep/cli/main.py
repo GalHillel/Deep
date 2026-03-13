@@ -401,7 +401,7 @@ Examples:
     # ── daemon ───────────────────────────────────────────────────────
     p_daemon = sub.add_parser(
         "daemon",
-        help="Start the Deep Git network daemon",
+        help="Start the DeepBridge network daemon",
         description="Launches a daemon to serve the current repository over the network.",
         epilog="""
 Examples:
@@ -443,8 +443,8 @@ Examples:
     # ── server ───────────────────────────────────────────────────────
     p_server = sub.add_parser(
         "server",
-        help="Manage the Deep Git platform server",
-        description="Control the lifecycle of the Deep Git platform server process.",
+        help="Manage the DeepBridge platform server",
+        description="Control the lifecycle of the DeepBridge platform server process.",
         epilog="""
 Examples:
   deep server start          # Start the background server
@@ -458,7 +458,7 @@ Examples:
     p_repo = sub.add_parser(
         "repo",
         help="Manage platform-hosted repositories",
-        description="Interface with repositories hosted on the Deep Git platform.",
+        description="Interface with repositories hosted on the DeepBridge platform.",
         epilog="""
 Examples:
   deep repo create my-app    # Create a new repo on the platform
@@ -476,7 +476,7 @@ Examples:
     p_user = sub.add_parser(
         "user",
         help="Manage platform user accounts",
-        description="Manage user profiles and accounts on the Deep Git platform.",
+        description="Manage user profiles and accounts on the DeepBridge platform.",
         epilog="""
 Examples:
   deep user create bob       # Create a new user profile
@@ -490,7 +490,7 @@ Examples:
     p_auth = sub.add_parser(
         "auth",
         help="Platform authentication management",
-        description="Manage session tokens and login status for the Deep Git platform.",
+        description="Manage session tokens and login status for the DeepBridge platform.",
         epilog="""
 Examples:
   deep auth login            # Authenticate with the platform
@@ -504,7 +504,7 @@ Examples:
     p_pr = sub.add_parser(
         "pr",
         help="Manage platform Pull Requests",
-        description="Create and interact with Pull Requests on the Deep Git platform.",
+        description="Create and interact with Pull Requests on the DeepBridge platform.",
         epilog="""
 Examples:
   deep pr create             # Open a new PR for current branch
@@ -822,7 +822,6 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands import inspect_tree_cmd
         inspect_tree_cmd.run(args)
     elif args.command == "fsck":
-        from deep.commands.fsck_cmd import run
         from deep.commands.fsck_cmd import run
     elif args.command == "rm":
         from deep.commands.rm_cmd import run

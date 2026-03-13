@@ -124,6 +124,62 @@ def diff_blobs(
         return None
 
 
+def _get_tree_entries_recursive(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
+    """Recursively collect all {rel_path: sha} from a tree."""
+    from deep.storage.objects import Tree, read_object
+    files = {}
+    try:
+        obj = read_object(objects_dir, tree_sha)
+        if not isinstance(obj, Tree):
+            return {}
+        for entry in obj.entries:
+            rel_path = f"{prefix}/{entry.name}" if prefix else entry.name
+            if entry.mode == "40000":
+                files.update(_get_tree_entries_recursive(objects_dir, entry.sha, rel_path))
+            else:
+                files[rel_path] = entry.sha
+    except Exception:
+        pass
+    return files
+
+
+def diff_trees(dg_dir: Path, sha1: str, sha2: str) -> list[tuple[str, str]]:
+    """Compute diffs between two tree/commit SHAs.
+
+    Args:
+        dg_dir: Path to .deep_git
+        sha1:   Old tree/commit SHA
+        sha2:   New tree/commit SHA
+
+    Returns:
+        List of (rel_path, diff_text)
+    """
+    from deep.storage.objects import Commit, read_object
+    objs_dir = dg_dir / "objects"
+    
+    def get_tree(s):
+        o = read_object(objs_dir, s)
+        return o.tree_sha if isinstance(o, Commit) else s
+
+    t1 = get_tree(sha1)
+    t2 = get_tree(sha2)
+    
+    files1 = _get_tree_entries_recursive(objs_dir, t1)
+    files2 = _get_tree_entries_recursive(objs_dir, t2)
+    
+    all_paths = sorted(set(files1.keys()) | set(files2.keys()))
+    diffs = []
+    
+    for path in all_paths:
+        s1 = files1.get(path)
+        s2 = files2.get(path)
+        if s1 != s2:
+            res = diff_blobs(objs_dir, s1, s2, path)
+            if res:
+                diffs.append((path, res))
+    return diffs
+
+
 def diff_working_tree(repo_root: Path) -> list[tuple[str, str]]:
     """Compute diffs for all tracked files that differ from the index.
 
@@ -133,14 +189,15 @@ def diff_working_tree(repo_root: Path) -> list[tuple[str, str]]:
     Returns:
         List of ``(rel_path, diff_text)`` tuples for files that differ.
     """
+    from deep.core.repository import DEEP_GIT_DIR
     dg_dir = repo_root / DEEP_GIT_DIR
-    objects_dir = dg_dir / "objects"
+    objs_dir = dg_dir / "objects"
     index = read_index(dg_dir)
 
     diffs: list[tuple[str, str]] = []
     for rel_path, entry in sorted(index.entries.items()):
         file_path = repo_root / rel_path
-        result = diff_blob_vs_file(objects_dir, entry.sha, file_path, rel_path)
+        result = diff_blob_vs_file(objs_dir, entry.sha, file_path, rel_path)
         if result is not None:
             diffs.append((rel_path, result))
 

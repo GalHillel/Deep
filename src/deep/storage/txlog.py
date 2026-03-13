@@ -205,7 +205,7 @@ class TransactionLog:
         if not incomplete:
             return
 
-        from deep.core.refs import get_branch, update_branch
+        from deep.core.refs import get_branch, update_branch, update_head
         from deep.storage.objects import read_object_safe
 
         for record in incomplete:
@@ -214,36 +214,104 @@ class TransactionLog:
                 self.rollback(record.tx_id, "Crash recovery: WAL signature verification failed")
                 continue
 
-            # If a commit crashed mid-flight, we need to restore the branch pointer
-            # to its previous state. The objects written are content-addressable and 
-            # won't cause corruption if left dangling.
-            if record.operation == "commit" and record.branch_ref:
-                # We attempt to rollback the branch to `previous_commit_sha`
-                # Only if the database doesn't actually contain the `target_object_id`
-                # If it DOES contain the target_object_id, maybe the branch update DID succeed 
-                # but the txlog COMMIT write failed.
+            # If an operation crashed mid-flight, we need to ensure the branch pointer
+            # is consistent (either rolled back to previous or forward to target).
+            supported_ops = (
+                "commit", "checkout", "merge", "merge-ff", "merge-3way",
+                "reset-hard", "reset-soft", "reset-mixed", "stash-save"
+            )
+            
+            if record.operation in supported_ops and record.branch_ref:
                 objects_dir = self.log_path.parent / "objects"
-                commit_fully_written = False
+                target_fully_written = False
                 
                 if record.target_object_id:
                     try:
+                        # For commits/merges, ensure the commit object exists.
+                        # For checkout/reset, ensure the target commit exists.
                         read_object_safe(objects_dir, record.target_object_id)
-                        commit_fully_written = True
+                        target_fully_written = True
                     except (FileNotFoundError, ValueError):
                         pass
 
-                if commit_fully_written:
-                    # The commit objects made it to disk. 
-                    # We ensure the branch points to it, effectively rolling *forward*.
-                    update_branch(self.log_path.parent, record.branch_ref, record.target_object_id)
+                # If the target object is on disk, we can potentially roll forward the ref.
+                # However, for checkout/reset-hard, rolling forward also implies WD update.
+                # For safety, we only roll forward the ref if it was most likely the last step.
+                
+                current_ref_sha = None
+                try:
+                    from deep.core.refs import resolve_head, get_branch
+                    if record.branch_ref == "HEAD":
+                        current_ref_sha = resolve_head(self.log_path.parent)
+                    elif record.branch_ref.startswith("refs/heads/"):
+                        current_ref_sha = get_branch(self.log_path.parent, record.branch_ref[len("refs/heads/"):])
+                except Exception:
+                    pass
+
+                if current_ref_sha == record.target_object_id:
+                    # Pointer already updated! Just commit the WAL entry.
+                    self.commit(record.tx_id)
+                elif target_fully_written and record.operation in (
+                    "commit", "merge", "merge-3way", "merge-ff", "checkout", 
+                    "reset-hard", "reset-mixed", "reset-soft"
+                ):
+                    # Roll forward is safe for these if the target object is fully available.
+                    
+                    # For operations that modify the WD, we MUST restore the WD too.
+                    if record.operation in ("checkout", "reset-hard", "merge", "merge-3way", "merge-ff"):
+                        self._restore_workdir(record.target_object_id)
+
+                    if record.branch_ref == "HEAD":
+                        update_head(self.log_path.parent, record.target_object_id)
+                    else:
+                        branch_name = record.branch_ref
+                        if branch_name.startswith("refs/heads/"):
+                            branch_name = branch_name[len("refs/heads/"):]
+                        update_branch(self.log_path.parent, branch_name, record.target_object_id)
                     self.commit(record.tx_id)
                 elif record.previous_commit_sha:
-                    # Rollback the branch to the previous state.
-                    update_branch(self.log_path.parent, record.branch_ref, record.previous_commit_sha)
-                    self.rollback(record.tx_id, "Crash recovery: rolled back branch pointer")
+                    # Rollback the pointer to the previous state for safety.
+                    
+                    # If we are rolling back a WD-modifying op, should we restore old WD?
+                    # For now, rolling back mostly happens if target commit is missing.
+                    if record.branch_ref == "HEAD":
+                        update_head(self.log_path.parent, record.previous_commit_sha)
+                    else:
+                        branch_name = record.branch_ref
+                        if branch_name.startswith("refs/heads/"):
+                            branch_name = branch_name[len("refs/heads/"):]
+                        update_branch(self.log_path.parent, branch_name, record.previous_commit_sha)
+                    self.rollback(record.tx_id, "Crash recovery: rolled back pointer")
                 else:
-                    # It was a detached HEAD or first commit, we can't cleanly restore a branch ref
-                    # but we mark it rolled back so it isn't repeatedly retried.
                     self.rollback(record.tx_id, "Crash recovery: aborted incomplete transaction")
             else:
-                self.rollback(record.tx_id, "Crash recovery: unknown operation aborted")
+                self.rollback(record.tx_id, f"Crash recovery: operation '{record.operation}' aborted")
+
+    def _restore_workdir(self, commit_sha: str):
+        """Restore the working directory to the state of the given commit."""
+        from deep.storage.objects import read_object, Commit
+        from deep.storage.index import Index, IndexEntry, write_index
+        from deep.commands.checkout_cmd import _get_tree_files
+
+        dg_dir = self.log_path.parent
+        repo_root = dg_dir.parent
+        objects_dir = dg_dir / "objects"
+
+        commit = read_object(objects_dir, commit_sha)
+        if not isinstance(commit, Commit):
+            return
+
+        target_files = _get_tree_files(objects_dir, commit.tree_sha)
+        
+        # Simple/brazen restoration: wipe and rewrite
+        # In a real system we'd be more careful, but for recovery this is the safest way to ensure consistency.
+        new_index = Index()
+        for p, sha in target_files.items():
+            full = repo_root / p
+            full.parent.mkdir(parents=True, exist_ok=True)
+            obj = read_object(objects_dir, sha)
+            full.write_bytes(obj.serialize_content())
+            stat = full.stat()
+            new_index.entries[p] = IndexEntry(sha=sha, size=stat.st_size, mtime=stat.st_mtime)
+        
+        write_index(dg_dir, new_index)

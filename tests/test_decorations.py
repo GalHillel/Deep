@@ -44,7 +44,7 @@ def test_status_detached_head(repo: Path, capsys: pytest.CaptureFixture[str]) ->
     main(["add", str(f)])
     main(["commit", "-m", "c1"])
     
-    head_sha = resolve_head(repo / ".deep_git")
+    head_sha = resolve_head(repo / ".deep")
     assert head_sha is not None
     
     main(["checkout", head_sha])
@@ -62,7 +62,7 @@ def test_log_detached_head_decoration(repo: Path, capsys: pytest.CaptureFixture[
     main(["add", str(f)])
     main(["commit", "-m", "c1"])
     
-    head_sha = resolve_head(repo / ".deep_git")
+    head_sha = resolve_head(repo / ".deep")
     assert head_sha is not None
     
     # Detach HEAD

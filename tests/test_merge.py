@@ -14,7 +14,7 @@ from deep.core.merge import find_lca, three_way_merge
 from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import resolve_head, get_branch
 from deep.cli.main import main
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo, DEEP_DIR
 
 
 @pytest.fixture()
@@ -35,7 +35,7 @@ def _commit(repo: Path, filename: str, content: str, msg: str) -> None:
 
 class TestFindLCA:
     def test_linear_lca(self, repo: Path) -> None:
-        dg = repo / DEEP_GIT_DIR
+        dg = repo / DEEP_DIR
         _commit(repo, "f.txt", "v1", "c1")
         c1 = resolve_head(dg)
         _commit(repo, "f.txt", "v2", "c2")
@@ -44,7 +44,7 @@ class TestFindLCA:
         assert lca == c1
 
     def test_diverged_lca(self, repo: Path) -> None:
-        dg = repo / DEEP_GIT_DIR
+        dg = repo / DEEP_DIR
         _commit(repo, "f.txt", "base", "base")
         base = resolve_head(dg)
         main(["branch", "feature"])
@@ -84,7 +84,7 @@ class TestMerge:
         assert (repo / "g.txt").read_text() == "new"
 
     def test_fast_forward_updates_branch(self, repo: Path) -> None:
-        dg = repo / DEEP_GIT_DIR
+        dg = repo / DEEP_DIR
         _commit(repo, "f.txt", "v1", "c1")
         main(["branch", "feature"])
         main(["checkout", "feature"])
@@ -106,7 +106,7 @@ class TestMerge:
         capsys.readouterr()
         main(["merge", "feature"])
         out = capsys.readouterr().out
-        assert "Merge made" in out
+        assert "merge made" in out.lower()
         # Both files should exist.
         assert (repo / "f.txt").read_text() == "main_change"
         assert (repo / "g.txt").read_text() == "feat_new"

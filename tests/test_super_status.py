@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.cli.main import main
 from deep.core.status import compute_status
 from deep.core.refs import update_remote_ref, update_branch
@@ -56,7 +56,7 @@ def test_ahead_behind_metrics(tmp_path: Path):
     os.chdir(repo)
     main(["init"])
     
-    dg_dir = repo / DEEP_GIT_DIR
+    dg_dir = repo / DEEP_DIR
     
     # Setup: initial commit
     (repo / "f.txt").write_text("v1")

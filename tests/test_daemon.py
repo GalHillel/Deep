@@ -16,7 +16,7 @@ import pytest
 
 from deep.storage.objects import Blob, read_object
 from deep.storage.pack import create_pack
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.network.daemon import DeepGitDaemon
 from deep.network.protocol import encode_pkt, decode_pkt
 from deep.cli.main import main
@@ -88,15 +88,15 @@ def test_daemon_push_sync(tmp_path):
     subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "first commit"], check=True)
     
     from deep.core.refs import resolve_head
-    new_sha = resolve_head(client_root / DEEP_GIT_DIR)
+    new_sha = resolve_head(client_root / DEEP_DIR)
     from deep.storage.objects import Commit, read_object, Tree
-    commit_obj = read_object(client_root / DEEP_GIT_DIR / "objects", new_sha)
+    commit_obj = read_object(client_root / DEEP_DIR / "objects", new_sha)
     tree_sha = commit_obj.tree_sha
-    tree_obj = read_object(client_root / DEEP_GIT_DIR / "objects", tree_sha)
+    tree_obj = read_object(client_root / DEEP_DIR / "objects", tree_sha)
     blob_sha = tree_obj.entries[0].sha
     
     shas_to_pack = [new_sha, tree_sha, blob_sha]
-    pack_data = create_pack(client_root / DEEP_GIT_DIR / "objects", shas_to_pack)
+    pack_data = create_pack(client_root / DEEP_DIR / "objects", shas_to_pack)
     
     # Start server
     port = get_free_port()
@@ -149,11 +149,11 @@ def test_daemon_push_sync(tmp_path):
             assert b"ok" in all_data or b"push" in all_data or len(all_data) > 0
         
         # Verify server has the object
-        server_obj = read_object(server_root / DEEP_GIT_DIR / "objects", new_sha)
+        server_obj = read_object(server_root / DEEP_DIR / "objects", new_sha)
         assert isinstance(server_obj, Commit)
         
         # Verify server branch updated
-        server_head = resolve_head(server_root / DEEP_GIT_DIR)
+        server_head = resolve_head(server_root / DEEP_DIR)
         assert server_head == new_sha
         
     finally:

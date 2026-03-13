@@ -1,7 +1,7 @@
 """
 deep.commands.branch_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-``deep-git branch [name]`` command implementation.
+DeepBridge ``branch`` command implementation.
 """
 
 from __future__ import annotations
@@ -29,8 +29,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
     dg_dir = repo_root / DEEP_GIT_DIR
 
-    if args.name is None:
-        # List branches.
+    # 1. List branches
+    if args.name is None and not getattr(args, "list", False):
         current = get_current_branch(dg_dir)
         branches = list_branches(dg_dir)
         if not branches:
@@ -43,7 +43,51 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 print(f"  {b}")
         return
 
-    # Create a new branch.
+    # 2. Delete branch
+    if getattr(args, "delete", False):
+        from deep.core.refs import delete_branch
+        try:
+            delete_branch(dg_dir, args.name)
+            print(f"Deleted branch '{args.name}'.")
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        return
+
+    # 3. Rename branch
+    if getattr(args, "rename", None):
+        from deep.core.refs import delete_branch
+        old_name = args.rename
+        new_name = args.name
+        sha = resolve_head(dg_dir) # Default to HEAD if no start_point
+        if hasattr(args, "start_point") and args.start_point:
+            from deep.core.refs import resolve_revision
+            sha = resolve_revision(dg_dir, args.start_point)
+        
+        # If we are renaming the branch we are currently on, we need special care?
+        # Standard git -m allows renaming current branch.
+        # deep.core.refs.delete_branch refuses to delete current branch.
+        target_sha = resolve_head(dg_dir) if old_name == get_current_branch(dg_dir) else None
+        
+        # Get the actual SHA of the old branch
+        from deep.core.refs import get_branch
+        old_sha = get_branch(dg_dir, old_name)
+        if not old_sha:
+            print(f"Error: branch '{old_name}' not found.", file=sys.stderr)
+            sys.exit(1)
+            
+        update_branch(dg_dir, new_name, old_sha)
+        
+        # If it was current branch, we need to update HEAD to point to the new name
+        if old_name == get_current_branch(dg_dir):
+            from deep.core.refs import update_head
+            update_head(dg_dir, f"ref: refs/heads/{new_name}")
+            
+        delete_branch(dg_dir, old_name)
+        print(f"Renamed branch '{old_name}' to '{new_name}'.")
+        return
+
+    # 4. Create a new branch.
     from deep.core.refs import resolve_revision
     start_point = args.start_point if hasattr(args, "start_point") else "HEAD"
     target_sha = resolve_revision(dg_dir, start_point)

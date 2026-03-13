@@ -1,7 +1,7 @@
 """
 deep.core.pack
 ~~~~~~~~~~~~~~~~~~~
-Packfile implementation for Deep Git.
+Packfile implementation for DeepBridge.
 
 A packfile stores multiple objects in a single file, optimized for 
 concurrency and storage efficiency using delta compression.
@@ -49,7 +49,7 @@ class PackWriter:
             
             # Pack format for each object:
             # <type_int:1B><size:8B><compressed_data>
-            type_map = {"blob": 1, "tree": 2, "commit": 3, "tag": 4}
+            type_map = {"blob": 1, "tree": 2, "commit": 3, "tag": 4, "chunk": 5, "chunked_blob": 6}
             type_id = type_map.get(obj.OBJ_TYPE, 0)
             
             content = obj.full_serialize()

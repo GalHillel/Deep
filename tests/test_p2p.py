@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os, time
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def test_p2p_discovery(p2p_repo):
     # We can't really test multicast easily in a CI environment without 
     # complex networking setup, but we can verify the Engine starts and 
     # doesn't crash.
-    e = P2PEngine(repo / DEEP_GIT_DIR, listen_port=9001)
+    e = P2PEngine(repo / DEEP_DIR, listen_port=9001)
     e.start()
     time.sleep(2)
     peers = e.get_peers()
@@ -54,7 +54,7 @@ def test_p2p_node_state_exchange(p2p_repo):
     # Create a branch
     subprocess.run([sys.executable, "-m", "deep.main", "branch", "feat-p2p"], cwd=repo, env=env, check=True)
     
-    e = P2PEngine(repo / DEEP_GIT_DIR)
+    e = P2PEngine(repo / DEEP_DIR)
     state = e._get_local_state()
     assert "feat-p2p" in state
     assert len(state["feat-p2p"]) == 40

@@ -372,7 +372,7 @@ class DeepGitAI:
             parent = self.repo_root.parent
             for path in parent.iterdir():
                 if path.is_dir() and path != self.repo_root:
-                    if (path / ".deep_git").exists():
+                    if (path / DEEP_GIT_DIR).exists():
                         findings.append(f"Dependency Correlation: Found sibling repo '{path.name}'")
                         # Heuristic: Check for common package files
                         if (path / "package.json").exists() and (self.repo_root / "package.json").exists():

@@ -21,6 +21,7 @@ import re
 import os
 import sys
 import time
+import threading
 import zlib
 from collections import deque
 from dataclasses import dataclass, field
@@ -30,6 +31,13 @@ from typing import List, Optional, Union
 from deep.utils.utils import AtomicWriter, get_local_timezone_offset, hash_bytes
 
 _SHA_RE = re.compile(r'^[0-9a-f]{40}$')
+
+# Maximum delta-chain depth before aborting reconstruction.
+# Prevents memory overflow from pathological or cyclic delta chains.
+MAX_DELTA_CHAIN_DEPTH = 50
+
+# Thread-local storage for tracking delta-chain depth during read_object.
+_delta_depth = threading.local()
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -188,7 +196,12 @@ class Tree(GitObject):
         # (e.g. during initial construction before writing).
         # But for 'write()', we always have objects_dir.
         
-        for entry in sorted(self.entries, key=lambda e: e.name):
+        def sort_key(e: TreeEntry) -> str:
+            if e.mode == "40000":
+                return e.name + "/"
+            return e.name
+
+        for entry in sorted(self.entries, key=sort_key):
             # 1. Validate
             assert "\x00" not in entry.name, f"Null byte in filename: {repr(entry.name)}"
             
@@ -228,8 +241,8 @@ class Commit(GitObject):
     OBJ_TYPE: str = field(init=False, default="commit", repr=False)
     tree_sha: str = ""
     parent_shas: List[str] = field(default_factory=list)
-    author: str = "Deep Git User <user@deep>"
-    committer: str = "Deep Git User <user@deep>"
+    author: str = "DeepBridge User <user@deep>"
+    committer: str = "DeepBridge User <user@deep>"
     message: str = ""
     timestamp: int = field(default_factory=lambda: int(time.time()))
     timezone: str = field(default_factory=lambda: get_local_timezone_offset())
@@ -509,12 +522,35 @@ def read_object(objects_dir: Path, sha: str) -> GitObject:
         return Tag.from_content(content)
     elif obj_type == "delta":
         delta_obj = DeltaObject.from_content(content)
-        # Resolve base
-        from deep.storage.delta import apply_delta
-        base_obj = read_object(objects_dir, delta_obj.base_sha)
-        base_content = base_obj.serialize_content()
-        target_content = apply_delta(base_content, delta_obj.delta_data)
-        return Blob(data=target_content)
+        # Track delta-chain depth to prevent runaway recursion
+        depth = getattr(_delta_depth, 'value', 0)
+        if depth >= MAX_DELTA_CHAIN_DEPTH:
+            raise ValueError(
+                f"DeepBridge: delta-chain depth exceeded ({MAX_DELTA_CHAIN_DEPTH}). "
+                f"Object {sha} may be part of a cyclic or pathologically deep delta chain."
+            )
+        _delta_depth.value = depth + 1
+        try:
+            # Resolve base
+            from deep.storage.delta import apply_delta
+            base_obj = read_object(objects_dir, delta_obj.base_sha)
+            base_content = base_obj.serialize_content()
+            target_content = apply_delta(base_content, delta_obj.delta_data)
+            
+            # If target_content starts with a known object type header, re-parse it.
+            # Otherwise, assume it's a blob.
+            try:
+                t_obj_type, t_content = _deserialize(target_content)
+                if t_obj_type == "blob": return Blob(data=t_content)
+                if t_obj_type == "tree": return Tree.from_content(t_content)
+                if t_obj_type == "commit": return Commit.from_content(t_content)
+                if t_obj_type == "tag": return Tag.from_content(t_content)
+                return Blob(data=t_content)
+            except (ValueError, IndexError):
+                # Fallback: if it doesn't look like a serialized object, it's raw data
+                return Blob(data=target_content)
+        finally:
+            _delta_depth.value = max(0, getattr(_delta_depth, 'value', 1) - 1)
     elif obj_type == "chunked_blob":
         cb_obj = ChunkedBlob.from_content(content)
         # Reassemble chunks
@@ -576,31 +612,48 @@ def read_object_safe(objects_dir: Path, sha: str) -> GitObject:
         "tree": Tree,
         "commit": Commit,
         "tag": Tag,
+        "chunk": Chunk,
+        "chunked_blob": ChunkedBlob,
+        "delta": DeltaObject,
     }.get(obj_type)
     
     if cls is None:
+        if obj_type == "delta":
+            return read_object(objects_dir, sha)
         raise ValueError(f"Unknown object type: {obj_type}")
         
     return cls.from_content(content)
 
 
-def _attempt_p2p_heal(dg_dir: Path, sha: str) -> Optional[bytes]:
-    """Attempt to fetch a valid object from P2P peers."""
+def _attempt_p2p_heal(dg_dir: Path, sha: str, timeout: float = 5.0) -> Optional[bytes]:
+    """Attempt to fetch a valid object from P2P peers.
+
+    Uses a configurable timeout to prevent blocking local operations
+    if peers are unreachable or slow.
+    """
+    import concurrent.futures
+
+    def _do_heal() -> Optional[bytes]:
+        try:
+            from deep.network.p2p import P2PEngine
+            engine = P2PEngine(dg_dir)
+            peers = engine.get_peers()
+            for p in peers:
+                data = engine.request_tunnel_data(p.node_id, sha)
+                if data:
+                    # Verify healed data before returning
+                    if hash_bytes(data) == sha:
+                        return data
+        except Exception:
+            pass
+        return None
+
     try:
-        from deep.network.p2p import P2PEngine
-        engine = P2PEngine(dg_dir)
-        # In a real scenario, this would already be running and have peers.
-        # For simulation/tests, we might need a way to pass an existing engine.
-        peers = engine.get_peers()
-        for p in peers:
-            data = engine.request_tunnel_data(p.node_id, sha)
-            if data:
-                # Verify healed data before returning
-                if hash_bytes(data) == sha:
-                    return data
-    except Exception:
-        pass
-    return None
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_do_heal)
+            return future.result(timeout=timeout)
+    except (concurrent.futures.TimeoutError, Exception):
+        return None
 
 def get_reachable_objects(objects_dir: Path, shas: list[str], max_depth: int | None = None, filter_spec: str | None = None) -> list[str]:
     """Return all objects reachable from the given SHAs (commits, trees, blobs), supporting depth and filters."""

@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os, json
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def integrated_repo(tmp_path):
 
 def test_commit_creates_txlog(integrated_repo):
     repo, env = integrated_repo
-    txlog = repo / DEEP_GIT_DIR / "txlog"
+    txlog = repo / DEEP_DIR / "txlog"
     assert txlog.exists()
     content = txlog.read_text()
     assert '"commit"' in content
@@ -28,7 +28,7 @@ def test_commit_creates_txlog(integrated_repo):
 
 def test_commit_creates_telemetry(integrated_repo):
     repo, env = integrated_repo
-    metrics = repo / DEEP_GIT_DIR / "metrics.json"
+    metrics = repo / DEEP_DIR / "metrics.json"
     assert metrics.exists()
     data = json.loads(metrics.read_text())
     assert "counters" in data
@@ -37,7 +37,7 @@ def test_commit_creates_telemetry(integrated_repo):
 
 def test_commit_creates_audit_log(integrated_repo):
     repo, env = integrated_repo
-    audit = repo / DEEP_GIT_DIR / "audit.log"
+    audit = repo / DEEP_DIR / "audit.log"
     assert audit.exists()
     content = audit.read_text()
     assert '"commit"' in content
@@ -50,11 +50,11 @@ def test_multiple_commits_tracked(integrated_repo):
         subprocess.run([sys.executable, "-m", "deep.main", "add", f"file_{i}.txt"], cwd=repo, env=env, check=True)
         subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", f"commit {i}"], cwd=repo, env=env, check=True)
 
-    metrics = json.loads((repo / DEEP_GIT_DIR / "metrics.json").read_text())
+    metrics = json.loads((repo / DEEP_DIR / "metrics.json").read_text())
     assert metrics["counters"]["commit"] >= 4  # initial + 3 more
 
     from deep.storage.txlog import TransactionLog
-    txlog = TransactionLog(repo / DEEP_GIT_DIR)
+    txlog = TransactionLog(repo / DEEP_DIR)
     assert not txlog.needs_recovery()
 
 
@@ -69,8 +69,8 @@ def test_merge_creates_txlog_and_audit(integrated_repo):
     subprocess.run([sys.executable, "-m", "deep.main", "checkout", "main"], cwd=repo, env=env, check=True)
     subprocess.run([sys.executable, "-m", "deep.main", "merge", "feature"], cwd=repo, env=env, check=True)
 
-    txlog_content = (repo / DEEP_GIT_DIR / "txlog").read_text()
+    txlog_content = (repo / DEEP_DIR / "txlog").read_text()
     assert '"merge"' in txlog_content
 
-    audit_content = (repo / DEEP_GIT_DIR / "audit.log").read_text()
+    audit_content = (repo / DEEP_DIR / "audit.log").read_text()
     assert '"merge"' in audit_content

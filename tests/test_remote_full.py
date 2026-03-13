@@ -17,7 +17,7 @@ from multiprocessing import Process
 import pytest
 
 from deep.cli.main import main
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.refs import resolve_head
 from deep.core.config import Config
 

@@ -41,7 +41,7 @@ def test_full_local_workflow(tmp_path: Path, monkeypatch, run_cli):
     
     # 1. INIT
     run_cli("init")
-    assert (tmp_path / ".deep_git").exists()
+    assert (tmp_path / ".deep").exists()
     
     # 2. Add first file on main
     (tmp_path / "hello.txt").write_text("Hello, World!")

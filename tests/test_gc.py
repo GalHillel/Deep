@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.refs import delete_branch
 from deep.cli.main import main
 
@@ -36,18 +36,18 @@ def repo_with_orphan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[P
     main(["add", "orphan.txt"])
     main(["commit", "-m", "orphan commit"])
     
-    orphan_sha = (tmp_path / DEEP_GIT_DIR / "refs" / "heads" / "orphan-branch").read_text().strip()
+    orphan_sha = (tmp_path / DEEP_DIR / "refs" / "heads" / "orphan-branch").read_text().strip()
     
     # Checkout main and delete orphan-branch
     main(["checkout", "main"])
-    delete_branch(tmp_path / DEEP_GIT_DIR, "orphan-branch")
+    delete_branch(tmp_path / DEEP_DIR, "orphan-branch")
     
     return tmp_path, orphan_sha
 
 
 def test_gc_collects_orphan(repo_with_orphan: tuple[Path, str], capsys: pytest.CaptureFixture[str]) -> None:
     repo_root, orphan_sha = repo_with_orphan
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
     # Verify orphan object exists
@@ -72,7 +72,7 @@ def test_gc_collects_orphan(repo_with_orphan: tuple[Path, str], capsys: pytest.C
 
 def test_gc_dry_run(repo_with_orphan: tuple[Path, str], capsys: pytest.CaptureFixture[str]) -> None:
     repo_root, orphan_sha = repo_with_orphan
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
     orphan_path = objects_dir / orphan_sha[:2] / orphan_sha[2:]
@@ -90,7 +90,7 @@ def test_gc_dry_run(repo_with_orphan: tuple[Path, str], capsys: pytest.CaptureFi
 
 def test_gc_preserves_reachable(repo_with_orphan: tuple[Path, str], capsys: pytest.CaptureFixture[str]) -> None:
     repo_root, _ = repo_with_orphan
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     
     # Tag a new commit so it's reachable only via tag
     (repo_root / "tag.txt").write_text("tagged")
@@ -128,7 +128,7 @@ def test_gc_preserves_stash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cap
     main(["stash", "save"])
     
     from deep.core.stash import get_stash_list
-    stashes = get_stash_list(tmp_path / DEEP_GIT_DIR)
+    stashes = get_stash_list(tmp_path / DEEP_DIR)
     assert stashes
     stash_sha = stashes[0]
     
@@ -136,7 +136,7 @@ def test_gc_preserves_stash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cap
     main(["gc"])
     
     # Verify stash object is still readable (may be in packfile after GC)
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     objects_dir = dg_dir / "objects"
     from deep.storage.objects import read_object
     obj = read_object(objects_dir, stash_sha)

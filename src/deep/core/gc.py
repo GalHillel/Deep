@@ -1,7 +1,7 @@
 """
 deep.core.gc
 ~~~~~~~~~~~~~~~~~
-Mark-and-sweep garbage collection for Deep Git.
+Mark-and-sweep garbage collection for DeepBridge.
 """
 
 from __future__ import annotations
@@ -90,6 +90,24 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
     if not objects_dir.exists():
         return 0, 0
     
+    # Safety: Check for active WAL transactions before GC
+    from deep.storage.txlog import TransactionLog
+    txlog = TransactionLog(dg_dir)
+    if txlog.log_path.exists() and txlog.needs_recovery():
+        if verbose:
+            print("DeepBridge: skipping GC — active WAL transaction detected. Run recovery first.")
+        return 0, 0
+
+    # Safety: Acquire repository lock to prevent concurrent operations during GC
+    from deep.core.locks import RepositoryLock
+    repo_lock = RepositoryLock(dg_dir, timeout=10.0)
+    try:
+        repo_lock.acquire()
+    except TimeoutError:
+        if verbose:
+            print("DeepBridge: skipping GC — could not acquire repository lock.")
+        return 0, 0
+    
     # Perform Marking
     marked = mark_reachable(dg_dir)
     
@@ -144,4 +162,5 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
         for sha in unreachable:
             print(f"Would quarantine: {sha}")
 
+    repo_lock.release()
     return len(unreachable), len(all_shas)

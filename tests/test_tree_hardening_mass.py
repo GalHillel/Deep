@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from deep.cli.main import main
 from deep.storage.objects import read_object, Tree, Commit, Blob
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.refs import resolve_head
 
 def random_name(length=8):
@@ -67,7 +67,7 @@ def test_mass_scenarios(tmp_path: Path, monkeypatch):
     """Run 100 scenario iterations."""
     monkeypatch.chdir(tmp_path)
     main(["init"])
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     
     # We'll do 100 iterations of random changes + commit + merge
     for i in range(100):

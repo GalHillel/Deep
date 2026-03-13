@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import pytest
 from deep.cli.main import main
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 def test_full_lifecycle_stress(tmp_path: Path):
     repo1 = tmp_path / "repo1"
@@ -17,7 +17,7 @@ def test_full_lifecycle_stress(tmp_path: Path):
     
     # 1. Init
     main(["init"])
-    assert (repo1 / DEEP_GIT_DIR).exists()
+    assert (repo1 / DEEP_DIR).exists()
     
     # 2. Parallel Staging (simulated by multiple add commands)
     for i in range(20):

@@ -15,6 +15,7 @@ from __future__ import annotations
 import mmap
 import os
 import struct
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional
@@ -147,10 +148,14 @@ def _read_index_no_lock(dg_dir: Path) -> Index:
             return Index()
         return Index.from_binary(data)
     except Exception as e:
-        # If the index is totally corrupted, return an empty index
+        # If the index is totally corrupted, return an empty index.
         # A more advanced recovery could be implemented, but an empty index
-        # is safe because `deep status` will just show everything as deleted/new.
-        print(f"Warning: Index corrupted, resetting to empty. Error: {e}")
+        # is safe because status will just show everything as deleted/new.
+        logging.getLogger("DeepBridge").warning(
+            "DeepBridge: index corrupted at %s, resetting to empty. Error: %s",
+            path,
+            e,
+        )
         return Index()
 
 
@@ -196,22 +201,7 @@ def update_multiple_index_entries(
     lock = FileLock(str(_lock_path(dg_dir)))
     with lock:
         index = _read_index_no_lock(dg_dir)
-        from deep.core.reconcile import sanitize_path
-        
         for rel_path, sha, size, mtime in updates:
-            # Defensive check: ensure no illegal characters in path
-            # Even though add_cmd should sanitize, we guard here too.
-            sanitized_parts = []
-            path_changed = False
-            for part in rel_path.split('/'):
-                s_part, changed = sanitize_path(part)
-                sanitized_parts.append(s_part)
-                if changed:
-                    path_changed = True
-            
-            if path_changed:
-                rel_path = "/".join(sanitized_parts)
-            
             index.entries[rel_path] = IndexEntry(sha=sha, size=size, mtime=mtime)
         _write_index_no_lock(dg_dir, index)
 

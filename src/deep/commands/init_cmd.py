@@ -1,7 +1,7 @@
 """
 deep.commands.init_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-``deep-git init`` command implementation.
+DeepBridge ``init`` command implementation.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     path = Path(args.path) if args.path else Path.cwd()
     try:
         dg = init_repo(path)
-        print(f"Initialized empty Deep Git repository in {dg}")
+        print(f"DeepBridge: initialized empty repository in {dg}")
     except FileExistsError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepBridge: error: {exc}", file=sys.stderr)
         sys.exit(1)

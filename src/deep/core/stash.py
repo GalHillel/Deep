@@ -80,8 +80,8 @@ def save_stash(repo_root: Path) -> Optional[str]:
     commit = Commit(
         tree_sha=tree_sha,
         parent_shas=[head_sha] if head_sha else [],
-        author="Deep Git Stash <stash@deep>",
-        committer="Deep Git Stash <stash@deep>",
+        author="DeepBridge Stash <stash@deep>",
+        committer="DeepBridge Stash <stash@deep>",
         message=f"WIP on {branch_name}: {short_head}",
         timestamp=int(time.time()),
     )

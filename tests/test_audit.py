@@ -5,7 +5,7 @@ import pytest
 
 from deep.core.audit import AuditLog
 from deep.core.auth import AuthManager
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def enterprise_repo(tmp_path):
 
 # ── Audit Log Tests ──
 def test_audit_record_and_read(enterprise_repo):
-    log = AuditLog(enterprise_repo / DEEP_GIT_DIR)
+    log = AuditLog(enterprise_repo / DEEP_DIR)
     log.record("alice", "commit", ref="refs/heads/main", sha="abc123")
     log.record("bob", "push", ref="refs/heads/main", sha="def456")
     entries = log.read_all()
@@ -28,7 +28,7 @@ def test_audit_record_and_read(enterprise_repo):
 
 
 def test_audit_filter_by_user(enterprise_repo):
-    log = AuditLog(enterprise_repo / DEEP_GIT_DIR)
+    log = AuditLog(enterprise_repo / DEEP_DIR)
     log.record("alice", "commit")
     log.record("bob", "push")
     log.record("alice", "merge")
@@ -36,7 +36,7 @@ def test_audit_filter_by_user(enterprise_repo):
 
 
 def test_audit_filter_by_action(enterprise_repo):
-    log = AuditLog(enterprise_repo / DEEP_GIT_DIR)
+    log = AuditLog(enterprise_repo / DEEP_DIR)
     log.record("alice", "commit")
     log.record("bob", "commit")
     log.record("alice", "push")
@@ -45,7 +45,7 @@ def test_audit_filter_by_action(enterprise_repo):
 
 # ── Auth Tests ──
 def test_auth_add_and_get_user(enterprise_repo):
-    auth = AuthManager(enterprise_repo / DEEP_GIT_DIR)
+    auth = AuthManager(enterprise_repo / DEEP_DIR)
     auth.add_user("alice", "admin")
     auth.add_user("bob", "write")
     auth.add_user("charlie", "read")
@@ -54,7 +54,7 @@ def test_auth_add_and_get_user(enterprise_repo):
 
 
 def test_auth_admin_can_do_everything(enterprise_repo):
-    auth = AuthManager(enterprise_repo / DEEP_GIT_DIR)
+    auth = AuthManager(enterprise_repo / DEEP_DIR)
     auth.add_user("admin", "admin")
     assert auth.check_permission("admin", "push", "main") is True
     assert auth.check_permission("admin", "delete_branch", "main") is True
@@ -62,21 +62,21 @@ def test_auth_admin_can_do_everything(enterprise_repo):
 
 
 def test_auth_read_user_cannot_push(enterprise_repo):
-    auth = AuthManager(enterprise_repo / DEEP_GIT_DIR)
+    auth = AuthManager(enterprise_repo / DEEP_DIR)
     auth.add_user("reader", "read")
     assert auth.check_permission("reader", "push", "main") is False
     assert auth.check_permission("reader", "fetch") is True
 
 
 def test_auth_write_user_branch_restriction(enterprise_repo):
-    auth = AuthManager(enterprise_repo / DEEP_GIT_DIR)
+    auth = AuthManager(enterprise_repo / DEEP_DIR)
     auth.add_user("dev", "write", branches=["feature"])
     assert auth.check_permission("dev", "push", "feature") is True
     assert auth.check_permission("dev", "push", "main") is False
 
 
 def test_auth_persistence(enterprise_repo):
-    dg_dir = enterprise_repo / DEEP_GIT_DIR
+    dg_dir = enterprise_repo / DEEP_DIR
     auth1 = AuthManager(dg_dir)
     auth1.add_user("alice", "admin")
     # Reload from disk
@@ -85,5 +85,5 @@ def test_auth_persistence(enterprise_repo):
 
 
 def test_auth_unknown_user(enterprise_repo):
-    auth = AuthManager(enterprise_repo / DEEP_GIT_DIR)
+    auth = AuthManager(enterprise_repo / DEEP_DIR)
     assert auth.check_permission("unknown", "read") is False

@@ -33,8 +33,8 @@ def test_benchmark_no_side_effects(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     main(["init"])
     
     # Track initial object count
-    from deep.core.repository import DEEP_GIT_DIR
-    objects_dir = tmp_path / DEEP_GIT_DIR / "objects"
+    from deep.core.repository import DEEP_DIR
+    objects_dir = tmp_path / DEEP_DIR / "objects"
     initial_objects = list(objects_dir.glob("??/*"))
     
     # Run benchmark

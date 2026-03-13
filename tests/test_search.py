@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os, json
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -47,7 +47,7 @@ def test_search_history_no_hits(search_repo):
 def test_semantic_blame(search_repo):
     from deep.core.blame import semantic_blame
     repo, env = search_repo
-    dg_dir = repo / DEEP_GIT_DIR
+    dg_dir = repo / DEEP_DIR
     
     # Add a function
     (repo / "code.py").write_text("def my_func():\n    pass")

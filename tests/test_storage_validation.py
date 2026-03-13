@@ -18,7 +18,7 @@ from deep.storage.objects import (
     read_object, hash_bytes, _serialize, _object_path,
 )
 from deep.storage.pack import create_pack, unpack
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.cli.main import main
 import os
 
@@ -67,7 +67,7 @@ class TestCompression:
     """Objects should be stored compressed."""
 
     def test_written_object_is_compressed(self, repo):
-        objects_dir = repo / DEEP_GIT_DIR / "objects"
+        objects_dir = repo / DEEP_DIR / "objects"
         b = Blob(data=b"test compression data " * 100)
         sha = b.write(objects_dir)
         path = _object_path(objects_dir, sha)
@@ -77,7 +77,7 @@ class TestCompression:
         assert b"blob " in decompressed
 
     def test_compressed_smaller_than_raw(self, repo):
-        objects_dir = repo / DEEP_GIT_DIR / "objects"
+        objects_dir = repo / DEEP_DIR / "objects"
         data = b"repetitive data " * 500
         b = Blob(data=data)
         sha = b.write(objects_dir)
@@ -89,7 +89,7 @@ class TestIntegrity:
     """Written objects must be readable and match their SHA."""
 
     def test_write_read_roundtrip_blob(self, repo):
-        objects_dir = repo / DEEP_GIT_DIR / "objects"
+        objects_dir = repo / DEEP_DIR / "objects"
         original = Blob(data=b"integrity test")
         sha = original.write(objects_dir)
         recovered = read_object(objects_dir, sha)
@@ -97,7 +97,7 @@ class TestIntegrity:
         assert recovered.data == original.data
 
     def test_write_read_roundtrip_tree(self, repo):
-        objects_dir = repo / DEEP_GIT_DIR / "objects"
+        objects_dir = repo / DEEP_DIR / "objects"
         blob = Blob(data=b"file content")
         blob_sha = blob.write(objects_dir)
         tree = Tree(entries=[TreeEntry(mode="100644", name="file.txt", sha=blob_sha)])
@@ -108,7 +108,7 @@ class TestIntegrity:
         assert recovered.entries[0].name == "file.txt"
 
     def test_write_read_roundtrip_commit(self, repo):
-        objects_dir = repo / DEEP_GIT_DIR / "objects"
+        objects_dir = repo / DEEP_DIR / "objects"
         c = Commit(tree_sha="a" * 40, message="test commit", timestamp=1000, timezone="+0000")
         sha = c.write(objects_dir)
         recovered = read_object(objects_dir, sha)
@@ -121,7 +121,7 @@ class TestContentAddressability:
     """Two identical objects must share the same storage location."""
 
     def test_duplicate_blob_no_double_write(self, repo):
-        objects_dir = repo / DEEP_GIT_DIR / "objects"
+        objects_dir = repo / DEEP_DIR / "objects"
         b1 = Blob(data=b"duplicate")
         sha1 = b1.write(objects_dir)
         path = _object_path(objects_dir, sha1)
@@ -134,7 +134,7 @@ class TestContentAddressability:
         assert path.stat().st_mtime == mtime_before
 
     def test_different_content_different_sha(self, repo):
-        objects_dir = repo / DEEP_GIT_DIR / "objects"
+        objects_dir = repo / DEEP_DIR / "objects"
         sha1 = Blob(data=b"alpha").write(objects_dir)
         sha2 = Blob(data=b"beta").write(objects_dir)
         assert sha1 != sha2
@@ -144,7 +144,7 @@ class TestPackfileIntegrity:
     """Packfiles must preserve all objects perfectly."""
 
     def test_pack_unpack_roundtrip(self, repo):
-        objects_dir = repo / DEEP_GIT_DIR / "objects"
+        objects_dir = repo / DEEP_DIR / "objects"
         shas = []
         for i in range(5):
             b = Blob(data=f"pack test {i}".encode())

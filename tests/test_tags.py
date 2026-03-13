@@ -55,7 +55,7 @@ def test_annotated_tag(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert "tag: v2.0" in out
     
     # Verify the object is a Tag object
-    dg_dir = repo / ".deep_git"
+    dg_dir = repo / ".deep"
     tag_sha = get_tag(dg_dir, "v2.0")
     assert tag_sha is not None
     

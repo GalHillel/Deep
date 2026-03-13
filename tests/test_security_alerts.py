@@ -4,7 +4,7 @@ import subprocess, sys, os
 import pytest
 
 from deep.core.audit import AuditLog
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def security_repo(tmp_path):
 
 def test_alert_large_deletion(security_repo):
     """Detect alert when many files are deleted."""
-    log = AuditLog(security_repo / DEEP_GIT_DIR)
+    log = AuditLog(security_repo / DEEP_DIR)
     # Simulate many delete operations
     for i in range(20):
         log.record("mallory", "delete", ref="main", details=f"file_{i}.txt")
@@ -30,7 +30,7 @@ def test_alert_large_deletion(security_repo):
 
 def test_alert_force_push(security_repo):
     """Track force push events."""
-    log = AuditLog(security_repo / DEEP_GIT_DIR)
+    log = AuditLog(security_repo / DEEP_DIR)
     log.record("attacker", "force_push", ref="main", sha="abc123", details="force")
     force_pushes = log.read_by_action("force_push")
     assert len(force_pushes) == 1
@@ -38,7 +38,7 @@ def test_alert_force_push(security_repo):
 
 def test_compliance_report_generation(security_repo):
     """Generate a compliance summary from audit log."""
-    log = AuditLog(security_repo / DEEP_GIT_DIR)
+    log = AuditLog(security_repo / DEEP_DIR)
     log.record("alice", "commit", sha="aaa")
     log.record("bob", "push", sha="bbb")
     log.record("alice", "merge", sha="ccc")
@@ -54,7 +54,7 @@ def test_compliance_report_generation(security_repo):
 
 def test_audit_tamper_detection(security_repo):
     """Audit log should be append-only and preserve all entries."""
-    log = AuditLog(security_repo / DEEP_GIT_DIR)
+    log = AuditLog(security_repo / DEEP_DIR)
     log.record("alice", "commit")
     count1 = len(log.read_all())
     log.record("bob", "push")

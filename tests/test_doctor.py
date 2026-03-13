@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.refs import update_branch, update_head
 from deep.cli.main import main
 
@@ -42,7 +42,7 @@ def test_doctor_clean(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> N
 
 
 def test_doctor_corrupt_object(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    dg_dir = clean_repo / DEEP_GIT_DIR
+    dg_dir = clean_repo / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
     # Find any object file
@@ -64,7 +64,7 @@ def test_doctor_corrupt_object(clean_repo: Path, capsys: pytest.CaptureFixture[s
 
 
 def test_doctor_missing_ref_target(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    dg_dir = clean_repo / DEEP_GIT_DIR
+    dg_dir = clean_repo / DEEP_DIR
     
     # Make a branch pointing to nowhere
     fake_sha = "1" * 40
@@ -80,7 +80,7 @@ def test_doctor_missing_ref_target(clean_repo: Path, capsys: pytest.CaptureFixtu
 
 
 def test_doctor_missing_head(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    dg_dir = clean_repo / DEEP_GIT_DIR
+    dg_dir = clean_repo / DEEP_DIR
     
     # Point head to nowhere
     fake_sha = "2" * 40

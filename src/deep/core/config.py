@@ -1,7 +1,7 @@
 """
 deep.core.config
 ~~~~~~~~~~~~~~~~~~~~~
-Configuration system for Deep Git.
+Configuration system for DeepBridge.
 
 Hierarchy:
 1. Local: `.deep_git/config`

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.storage.objects import read_object, Commit
 from deep.cli.main import main
 from deep.network.daemon import DeepGitDaemon
@@ -70,12 +70,12 @@ def test_p2p_discovery_and_sync(repo_a: Path, repo_b: Path):
     time.sleep(1) # Wait for daemon A
     
     # Start P2P Engine on A
-    engine_a = P2PEngine(repo_a / DEEP_GIT_DIR, listen_port=port_a)
+    engine_a = P2PEngine(repo_a / DEEP_DIR, listen_port=port_a)
     engine_a.start()
     
     try:
         # Start P2P Engine on B
-        engine_b = P2PEngine(repo_b / DEEP_GIT_DIR, listen_port=0)
+        engine_b = P2PEngine(repo_b / DEEP_DIR, listen_port=0)
         engine_b.start()
         
         print("Waiting for P2P discovery...")
@@ -93,7 +93,7 @@ def test_p2p_discovery_and_sync(repo_a: Path, repo_b: Path):
             print("Multicast discovery failed, attempting manual peer injection for test...")
             from deep.network.p2p import PeerNode
             from deep.core.refs import resolve_head
-            sha_a = resolve_head(repo_a / DEEP_GIT_DIR)
+            sha_a = resolve_head(repo_a / DEEP_DIR)
             mock_peer = PeerNode(
                 node_id="mock_a",
                 host="127.0.0.1",
@@ -121,13 +121,13 @@ def test_p2p_discovery_and_sync(repo_a: Path, repo_b: Path):
         
         # Verify repo_b has the commit from repo_a
         from deep.core.refs import resolve_head
-        sha_a = resolve_head(repo_a / DEEP_GIT_DIR)
-        sha_b = resolve_head(repo_b / DEEP_GIT_DIR)
+        sha_a = resolve_head(repo_a / DEEP_DIR)
+        sha_b = resolve_head(repo_b / DEEP_DIR)
         
         assert sha_a == sha_b
         
         # Verify object exists in B
-        obj_b = read_object(repo_b / DEEP_GIT_DIR / "objects", sha_b)
+        obj_b = read_object(repo_b / DEEP_DIR / "objects", sha_b)
         assert isinstance(obj_b, Commit)
         assert obj_b.message == "commit from A"
         

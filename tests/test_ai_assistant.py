@@ -7,7 +7,7 @@ from deep.ai.assistant import DeepGitAI
 from deep.ai.analyzer import (
     analyze_diff_text, classify_change, extract_keywords, score_complexity
 )
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture

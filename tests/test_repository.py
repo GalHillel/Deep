@@ -6,12 +6,12 @@ Unit tests for :mod:`deep.core.repository`.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR, find_repo, init_repo
+from deep.core.repository import DEEP_DIR, find_repo, init_repo
+from deep.storage.index import Index
 
 
 class TestInitRepo:
@@ -19,7 +19,7 @@ class TestInitRepo:
 
     def test_creates_directory_structure(self, tmp_path: Path) -> None:
         dg = init_repo(tmp_path)
-        assert dg == tmp_path / DEEP_GIT_DIR
+        assert dg == tmp_path / DEEP_DIR
         assert (dg / "objects").is_dir()
         assert (dg / "refs" / "heads").is_dir()
         assert (dg / "HEAD").is_file()
@@ -30,16 +30,17 @@ class TestInitRepo:
         head = (dg / "HEAD").read_text()
         assert head.strip() == "ref: refs/heads/main"
 
-    def test_index_is_valid_json(self, tmp_path: Path) -> None:
+    def test_index_is_valid_binary_index(self, tmp_path: Path) -> None:
         dg = init_repo(tmp_path)
-        data = json.loads((dg / "index").read_text())
-        assert "entries" in data
-        assert data["entries"] == {}
+        raw = (dg / "index").read_bytes()
+        index = Index.from_binary(raw)
+        assert isinstance(index, Index)
+        assert index.entries == {}
 
-    def test_raises_if_already_exists(self, tmp_path: Path) -> None:
-        init_repo(tmp_path)
-        with pytest.raises(FileExistsError):
-            init_repo(tmp_path)
+    def test_init_is_idempotent(self, tmp_path: Path) -> None:
+        dg1 = init_repo(tmp_path)
+        dg2 = init_repo(tmp_path)
+        assert dg1 == dg2
 
     def test_creates_repo_root_if_needed(self, tmp_path: Path) -> None:
         new_dir = tmp_path / "brand_new"

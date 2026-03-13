@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 from deep.commands.commit_cmd import run as commit_run
-from deep.core.repository import DEEP_GIT_DIR, init_repo
+from deep.core.repository import DEEP_DIR, init_repo
 from deep.storage.txlog import TransactionLog
 
 

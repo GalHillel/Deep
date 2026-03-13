@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from deep.cli.main import main
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 @pytest.fixture()
@@ -29,19 +29,19 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 # ── init ─────────────────────────────────────────────────────────────
 
 class TestInitCLI:
-    def test_init_creates_deep_git_dir(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_init_createsDEEP_DIR(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
         main(["init"])
-        assert (tmp_path / DEEP_GIT_DIR).is_dir()
+        assert (tmp_path / DEEP_DIR).is_dir()
 
     def test_init_with_path(self, tmp_path: Path) -> None:
         target = tmp_path / "my_repo"
         main(["init", str(target)])
-        assert (target / DEEP_GIT_DIR).is_dir()
+        assert (target / DEEP_DIR).is_dir()
 
-    def test_init_twice_fails(self, repo: Path) -> None:
-        with pytest.raises(SystemExit):
-            main(["init"])
+    def test_init_twice_is_idempotent(self, repo: Path) -> None:
+        # Running init a second time on the same path should be a no-op and not exit.
+        main(["init"])
 
 
 # ── add ──────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ class TestAddCLI:
         main(["add", str(f)])
         # Verify the index has the entry.
         from deep.storage.index import read_index
-        idx = read_index(repo / DEEP_GIT_DIR)
+        idx = read_index(repo / DEEP_DIR)
         assert "hello.txt" in idx.entries
 
     def test_add_multiple_files(self, repo: Path) -> None:
@@ -63,7 +63,7 @@ class TestAddCLI:
         b.write_text("bbb")
         main(["add", str(a), str(b)])
         from deep.storage.index import read_index
-        idx = read_index(repo / DEEP_GIT_DIR)
+        idx = read_index(repo / DEEP_DIR)
         assert "a.txt" in idx.entries
         assert "b.txt" in idx.entries
 
@@ -82,7 +82,7 @@ class TestCommitCLI:
         main(["commit", "-m", "initial commit"])
         # HEAD should now resolve to a commit.
         from deep.core.refs import resolve_head
-        sha = resolve_head(repo / DEEP_GIT_DIR)
+        sha = resolve_head(repo / DEEP_DIR)
         assert sha is not None and len(sha) == 40
 
     def test_commit_empty_index_fails(self, repo: Path) -> None:
@@ -100,7 +100,7 @@ class TestCommitCLI:
         main(["commit", "-m", "second"])
 
         from deep.core.refs import log_history
-        history = log_history(repo / DEEP_GIT_DIR)
+        history = log_history(repo / DEEP_DIR)
         assert len(history) == 2
 
 

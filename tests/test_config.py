@@ -1,7 +1,7 @@
 """
 tests.test_config
 ~~~~~~~~~~~~~~~~~~
-Tests for the configuration system (`.deepconfig` / `.deep_git/config`).
+Tests for the configuration system (`.deepconfig` / `.deep/config`).
 """
 
 from __future__ import annotations

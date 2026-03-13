@@ -1,7 +1,7 @@
 """
 deep.commands.add_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-``deep-git add <file>`` command implementation.
+DeepBridge ``add`` command implementation.
 """
 
 from __future__ import annotations
@@ -11,7 +11,8 @@ import sys
 from pathlib import Path
 
 from deep.core.ignore import IgnoreEngine
-from deep.storage.index import update_multiple_index_entries
+from deep.core.reconcile import sanitize_path
+from deep.storage.index import update_multiple_index_entries, remove_index_entry
 from deep.storage.objects import Blob, write_object
 from deep.core.repository import DEEP_GIT_DIR, find_repo
 from deep.utils.ux import ProgressBar
@@ -22,37 +23,22 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sha: Optional[str] = None) -> tuple[str, str, int, float]:
     """Worker function to process a single file. (Must be top-level for pickling)"""
     from deep.storage.objects import Blob, write_object, write_delta_object, write_large_blob
-    from deep.core.reconcile import sanitize_path
     from deep.utils.ux import Color
+    from deep.core.reconcile import sanitize_path
     
     rel_path = file_path.relative_to(repo_root).as_posix()
+    rel_path, _ = sanitize_path(rel_path)
     
-    # Path Sanitization for Windows compatibility
-    path_parts = rel_path.split('/')
-    sanitized_parts = []
-    path_changed = False
-    for part in path_parts:
-        try:
-            s_part, changed = sanitize_path(part)
-            sanitized_parts.append(s_part)
-            if changed:
-                path_changed = True
-        except Exception as e:
-            print(f"  [Warning] Failed to sanitize path part {repr(part)}: {e}")
-            # Fallback to extreme sanitization
-            s_part = "".join(c if ord(c) >= 32 and c not in '?*<>|:"' else "_" for c in part)
-            sanitized_parts.append(s_part)
-            path_changed = True
-            
-    if path_changed:
-        old_rel_path = rel_path
-        rel_path = "/".join(sanitized_parts)
-        # Using a simple print as Color is imported inside the worker
-        print(f"  [Sanitized] {old_rel_path} -> {rel_path}")
-
+    # Check if file actually changed before doing heavy work
     data = file_path.read_bytes()
+    sha = Blob(data).sha
     stat = file_path.stat()
-    
+
+    if sha == previous_sha:
+        # Content hasn't changed, just return the existing info with updated stat
+        return rel_path, sha, stat.st_size, stat.st_mtime
+
+    # Content changed, write new object
     objects_dir = dg_dir / "objects"
     
     # Phase 2: Content Deduplication
@@ -73,20 +59,37 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepBridge: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_GIT_DIR
     objects_dir = dg_dir / "objects"
 
+    from deep.storage.index import read_index
+    index = read_index(dg_dir)
     ignore_engine = IgnoreEngine(repo_root)
+    
     files_to_add: list[Path] = []
 
     for file_path_str in args.files:
-        path = Path(file_path_str).resolve()
+        path = Path(file_path_str).absolute()
         if not path.exists():
-            print(f"Error: {file_path_str} does not exist", file=sys.stderr)
-            sys.exit(1)
+            # Handle staging of deletions
+            try:
+                rel_path = path.relative_to(repo_root).as_posix()
+                rel_path, _ = sanitize_path(rel_path)
+            except ValueError:
+                # Path is outside repo
+                print(f"DeepBridge: error: {file_path_str} is outside repository", file=sys.stderr)
+                sys.exit(1)
+                
+            if rel_path in index.entries:
+                remove_index_entry(dg_dir, rel_path)
+                print(f"DeepBridge: staged deletion: {rel_path}")
+                continue
+            else:
+                print(f"DeepBridge: error: {file_path_str} does not exist", file=sys.stderr)
+                sys.exit(1)
             
         if path.is_file():
             files_to_add.append(path)
@@ -112,15 +115,14 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         return
 
     # Phase 1: Parallel Processing
-    from deep.storage.index import read_index
-    index = read_index(dg_dir)
+    # No need to re-read index here
     
     index_updates = []
     
     # We'll use more workers for large sets
     max_workers = min(os.cpu_count() or 4, len(files_to_add))
     
-    print(f"Staging {len(files_to_add)} files using {max_workers} cores...")
+    print(f"DeepBridge: staging {len(files_to_add)} files using {max_workers} workers...")
     
     results = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -145,4 +147,4 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         
     if results:
         update_multiple_index_entries(dg_dir, results)
-        print(f"Added {len(results)} files.")
+        print(f"DeepBridge: added {len(results)} files to the index.")

@@ -336,8 +336,8 @@ def log_history(
 ) -> list[str]:
     """Walk the commit DAG backwards from *start_sha* (default: HEAD).
 
-    Returns a list of commit SHA-1 hex digests from newest to oldest.
-    Follows only the first parent for simplicity.
+    Returns a list of commit SHA-1 hex digests.
+    By default, it follows all parents (merges) in a de-duplicated traversal.
 
     Args:
         dg_dir:    Path to ``.deep_git``.
@@ -347,25 +347,37 @@ def log_history(
     Returns:
         Ordered list of commit SHA hex strings.
     """
-    from deep.storage.objects import Commit, read_object  # avoid circular
+    from deep.storage.objects import Commit, read_object  # avoid circular imports
 
     if start_sha is None:
         start_sha = resolve_head(dg_dir)
     if start_sha is None:
         return []
 
-    result: list[str] = []
-    current: Optional[str] = start_sha
     objects_dir = dg_dir / "objects"
+    result: list[str] = []
+    
+    # Breadth-first traversal with de-duplication
+    queue = deque([start_sha])
+    visited = {start_sha}
 
-    while current is not None:
+    while queue:
         if max_count is not None and len(result) >= max_count:
             break
+            
+        current = queue.popleft()
         result.append(current)
-        obj = read_object(objects_dir, current)
-        if not isinstance(obj, Commit):
-            break
-        current = obj.parent_shas[0] if obj.parent_shas else None
+        
+        try:
+            obj = read_object(objects_dir, current)
+            if isinstance(obj, Commit):
+                for p in obj.parent_shas:
+                    if p and p not in visited:
+                        visited.add(p)
+                        queue.append(p)
+        except Exception:
+            # Handle broken objects gracefully in log
+            continue
 
     return result
 

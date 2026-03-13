@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os, socket, time
 import pytest
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.refs import resolve_head
 
 
@@ -30,9 +30,9 @@ def test_divergent_push_detection(tmp_path, env):
     (repo / "a.txt").write_text("init")
     subprocess.run([sys.executable, "-m", "deep.main", "add", "a.txt"], cwd=repo, env=env, check=True)
     subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "init"], cwd=repo, env=env, check=True)
-    head = resolve_head(repo / DEEP_GIT_DIR)
+    head = resolve_head(repo / DEEP_DIR)
 
-    engine = SyncEngine(repo / DEEP_GIT_DIR)
+    engine = SyncEngine(repo / DEEP_DIR)
     # Simulate: correct old_sha → no conflict
     assert engine.detect_conflict("refs/heads/main", head, "new1") is None
     # Simulate: wrong old_sha → conflict
@@ -46,7 +46,7 @@ def test_shallow_clone_init(tmp_path, env):
     repo = tmp_path / "shallow"
     repo.mkdir()
     subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=repo, env=env, check=True)
-    assert (repo / DEEP_GIT_DIR / "HEAD").exists()
+    assert (repo / DEEP_DIR / "HEAD").exists()
 
 
 def test_incremental_push_sync(tmp_path, env):
@@ -59,7 +59,7 @@ def test_incremental_push_sync(tmp_path, env):
     subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "v1"], cwd=server, env=env, check=True)
 
     # Count objects initially
-    objects_dir = server / DEEP_GIT_DIR / "objects"
+    objects_dir = server / DEEP_DIR / "objects"
     initial_count = sum(1 for d in objects_dir.iterdir() if d.is_dir() and len(d.name) == 2
                         for _ in d.iterdir())
 

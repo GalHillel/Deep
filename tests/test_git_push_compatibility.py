@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 import pytest
 from deep.cli.main import main
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.network.client import GitBridge
 
 def test_git_push_compatibility(tmp_path: Path, monkeypatch):
@@ -48,7 +48,7 @@ def test_git_push_compatibility(tmp_path: Path, monkeypatch):
     
     # 3. Push via GitBridge
     # We'll use the GitBridge logic to push from deep_repo to git_remote
-    dg_dir = deep_repo / DEEP_GIT_DIR
+    dg_dir = deep_repo / DEEP_DIR
     bridge = GitBridge(dg_dir)
     
     # We need to set up the remote in DeepGit first

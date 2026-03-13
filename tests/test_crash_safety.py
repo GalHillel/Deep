@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from deep.storage.txlog import TransactionLog, TxRecord
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.refs import update_branch, get_branch
 from deep.cli.main import main
 
@@ -28,7 +28,7 @@ def test_recovery_on_interrupted_commit(tmp_path: Path, monkeypatch, capsys):
     from deep.commands import init_cmd, add_cmd, commit_cmd
     from argparse import Namespace
     init_cmd.run(Namespace(path=None))
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     
     # Create first commit normally
     (tmp_path / "a.txt").write_text("a")
@@ -82,7 +82,7 @@ def test_recovery_roll_forward(tmp_path: Path, monkeypatch, capsys):
     from deep.commands import init_cmd, add_cmd, commit_cmd
     from argparse import Namespace
     init_cmd.run(Namespace(path=None))
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     
     # Create first commit
     (tmp_path / "a.txt").write_text("a")

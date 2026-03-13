@@ -1,20 +1,21 @@
 """
 deep.commands.commit_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-``deep-git commit -m <msg>`` command implementation.
+DeepBridge ``commit -m <msg>`` command implementation.
 
 GOD MODE: Real ECDSA/HMAC commit signing replaces mocked signatures.
 """
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from pathlib import Path
 
 from deep.core.config import Config
 from deep.storage.index import read_index
-from deep.storage.objects import Blob, Commit, Tree, TreeEntry
+from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import get_current_branch, resolve_head, update_branch
 from deep.core.repository import DEEP_GIT_DIR, find_repo
 
@@ -51,11 +52,14 @@ def _build_tree_recursive(objects_dir: Path, files: dict[str, str]) -> str:
     return tree.write(objects_dir)
 
 
-def _build_tree_from_index(dg_dir: Path) -> str:
-    """Read the index and build a proper recursive Tree object."""
+def _build_tree_from_index(dg_dir: Path, allow_empty: bool = False) -> str:
+    """Read the index and build a proper recursive Tree object.
+
+    If the index is empty and ``allow_empty`` is False, abort the commit.
+    """
     index = read_index(dg_dir)
-    if not index.entries:
-        print("Error: nothing to commit (empty index)", file=sys.stderr)
+    if not index.entries and not allow_empty:
+        print("DeepBridge: error: nothing to commit (no staged changes).", file=sys.stderr)
         sys.exit(1)
 
     objects_dir = dg_dir / "objects"
@@ -81,10 +85,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         ai = DeepGitAI(repo_root)
         suggestion = ai.suggest_commit_message()
         message = suggestion.text
-        print(f"💡 AI Suggestion: {message}")
+        print(f"DeepBridge: AI suggestion: {message}")
     
     if not message:
-        print("Error: must provide a commit message (-m) or use --ai.", file=sys.stderr)
+        print("DeepBridge: error: must provide a commit message (-m) or use --ai.", file=sys.stderr)
         sys.exit(1)
 
     from deep.storage.txlog import TransactionLog
@@ -113,19 +117,20 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
     try:
         with Timer(telemetry, "commit"):
-            tree_sha = _build_tree_from_index(dg_dir)
+            allow_empty = getattr(args, "allow_empty", False)
+            tree_sha = _build_tree_from_index(dg_dir, allow_empty=allow_empty)
 
             parent_sha = resolve_head(dg_dir)
             parent_shas = [parent_sha] if parent_sha else []
 
             config = Config(repo_root)
-            author_name = config.get("user.name", "Deep Git User")
+            author_name = config.get("user.name", "DeepBridge User")
             author_email = config.get("user.email", "user@deep")
             author_str = f"{author_name} <{author_email}>"
 
-            timestamp = int(time.time())
+            timestamp = int(os.environ.get("DEEP_COMMIT_TIMESTAMP", time.time()))
             from deep.utils.utils import get_local_timezone_offset
-            timezone = get_local_timezone_offset()
+            timezone = os.environ.get("DEEP_COMMIT_TIMEZONE", get_local_timezone_offset())
 
             # GOD MODE: Real cryptographic signing
             signature = None
@@ -156,6 +161,14 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     # Fallback to legacy mocked signature
                     signature = "MOCKED_GPG_SIGNATURE"
 
+            # Verify parent SHAs exist
+            for p_sha in parent_shas:
+                try:
+                    read_object(objects_dir, p_sha)
+                except FileNotFoundError:
+                    print(f"Error: parent commit {p_sha} not found.", file=sys.stderr)
+                    sys.exit(1)
+
             commit = Commit(
                 tree_sha=tree_sha,
                 parent_shas=parent_shas,
@@ -170,7 +183,12 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             # or during the transaction. If the transaction fails, they just become orphaned.
             commit_sha = commit.write(objects_dir)
 
+            # Crash hook: after writing commit object but before WAL begin.
+            if os.environ.get("DEEP_CRASH_TEST") == "BEFORE_REF_UPDATE":
+                raise RuntimeError("DeepBridge: simulated crash before ref update")
+
             branch = get_current_branch(dg_dir)
+            logical_ref = branch if branch else "HEAD"
             
             # Acquire branch lock if we are on a branch
             branch_lock = BranchLock(dg_dir, branch) if branch else None
@@ -187,9 +205,13 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     operation="commit", 
                     details=message,
                     target_object_id=commit_sha,
-                    branch_ref=branch or "",
+                    branch_ref=logical_ref,
                     previous_commit_sha=parent_sha or ""
                 )
+
+                # Crash hook: after WAL begin, before ref update.
+                if os.environ.get("DEEP_CRASH_TEST") == "AFTER_BEGIN_BEFORE_REF":
+                    raise RuntimeError("DeepBridge: simulated crash after WAL begin")
 
                 try:
                     if branch:

@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import pytest
 from deep.cli.main import main
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 def test_plugin_discovery_and_command(tmp_path: Path):
     repo = tmp_path / "repo"
@@ -22,7 +22,7 @@ def test_plugin_discovery_and_command(tmp_path: Path):
     main(["init"])
     
     # Create a plugin
-    plugin_dir = repo / DEEP_GIT_DIR / "plugins"
+    plugin_dir = repo / DEEP_DIR / "plugins"
     plugin_dir.mkdir()
     
     plugin_code = """
@@ -55,7 +55,7 @@ def test_plugin_hooks(tmp_path: Path):
     os.chdir(repo)
     main(["init"])
     
-    plugin_dir = repo / DEEP_GIT_DIR / "plugins"
+    plugin_dir = repo / DEEP_DIR / "plugins"
     plugin_dir.mkdir()
     
     log_file = repo / "hook_log.txt"
