@@ -101,16 +101,7 @@ def find_repo(start: Union[str, Path] | None = None) -> Path:
 
 
 def checkout(repo_root: Path, target: str, create_branch: bool = False, force: bool = False) -> None:
-    """Check out a branch or commit with strict atomicity and state transition invariants.
-    
-    Order of operations:
-    1. Acquire RepositoryLock.
-    2. Validate branch existence/non-existence.
-    3. Check for dirty working directory (unless force=True).
-    4. Update Working Directory files.
-    5. Update Index.
-    6. Atomic HEAD Ref update.
-    """
+    print(f"DEBUG: checkout({target}) starting")
     from deep.core.locks import RepositoryLock
     import os
     from deep.core.refs import (
@@ -121,13 +112,13 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
         resolve_revision,
     )
     from deep.core.status import compute_status
-    from deep.storage.index import Index, IndexEntry, read_index, write_index
+    from deep.storage.index import Index, IndexEntry, read_index_no_lock, write_index_no_lock
     from deep.storage.objects import Commit, Tree, read_object
     from deep.utils.utils import DeepError
 
     dg_dir = repo_root / DEEP_GIT_DIR
     objects_dir = dg_dir / "objects"
-
+    
     # 1. Acquire RepositoryLock
     with RepositoryLock(dg_dir):
         # 2. Validate
@@ -149,13 +140,15 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
             raise DeepError(f"{commit_sha} is not a commit")
 
         # 3. Check for dirty working directory (Dirty State Invariant)
+        # Use no-lock read because we ALREADY hold RepositoryLock (index.lock)
+        current_index = read_index_no_lock(dg_dir)
+
         if not force:
-            status = compute_status(repo_root)
+            status = compute_status(repo_root, index=current_index)
             if status.staged_new or status.staged_modified or status.staged_deleted:
                 raise DeepError("you have staged changes. Please commit or stash them before switching.")
             
             # Check for conflict between modified tracked files and target tree
-            current_index = read_index(dg_dir)
             target_files = _get_tree_files(objects_dir, commit_obj.tree_sha)
             
             conflicts = []
@@ -193,7 +186,6 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                 raise BaseException("DeepBridge: simulated crash before working directory update")
 
             # 4. Update Working Directory
-            current_index = read_index(dg_dir)
             target_files = _get_tree_files(objects_dir, commit_obj.tree_sha)
             
             # Files to remove: currently tracked but not in target
@@ -222,7 +214,7 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                 new_index.entries[p] = IndexEntry(sha=sha, size=stat.st_size, mtime=stat.st_mtime)
 
             # 5. Update Index
-            write_index(dg_dir, new_index)
+            write_index_no_lock(dg_dir, new_index)
 
             # 6. Atomic HEAD Ref update
             if create_branch:

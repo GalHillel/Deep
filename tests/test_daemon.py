@@ -78,6 +78,15 @@ def test_daemon_push_sync(tmp_path):
     os.chdir(server_root)
     subprocess.run([sys.executable, "-m", "deep.main", "init"], check=True)
     
+    # Allow anonymous write for test simplicity
+    from deep.core.user import UserManager
+    from deep.core.access import AccessManager
+    from deep.core.repository import DEEP_GIT_DIR
+    um = UserManager(server_root / DEEP_GIT_DIR)
+    um.add_user("anonymous", "test-key", "anon@example.com")
+    am = AccessManager(server_root / DEEP_GIT_DIR)
+    am.set_permission("anonymous", "contributor")
+    
     # Client repo
     client_root = tmp_path / "client"
     client_root.mkdir()

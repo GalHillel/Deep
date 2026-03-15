@@ -17,7 +17,7 @@ import sys
 import time
 from pathlib import Path
 
-from deep.storage.index import Index, IndexEntry, read_index, write_index
+from deep.storage.index import Index, IndexEntry, read_index, write_index, read_index_no_lock
 from deep.core.merge import find_lca, three_way_merge
 from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import (
@@ -176,7 +176,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
 
                     target_commit = read_object(objects_dir, target_sha)
                     target_files = _get_tree_files(objects_dir, target_commit.tree_sha)
-                    current_index = read_index(dg_dir)
+                    current_index = read_index_no_lock(dg_dir)
 
                     new_index = _apply_tree_to_workdir(repo_root, objects_dir, target_files, current_index)
                     write_index(dg_dir, new_index)
@@ -243,7 +243,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                     raise BaseException("DeepBridge: simulated crash before ref update")
 
                 target_files = _get_tree_files(objects_dir, merged_tree_sha)
-                current_index = read_index(dg_dir)
+                current_index = read_index_no_lock(dg_dir)
                 new_index = _apply_tree_to_workdir(repo_root, objects_dir, target_files, current_index)
                 write_index(dg_dir, new_index)
 

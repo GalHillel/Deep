@@ -214,6 +214,7 @@ class DeepGitAI:
         return AISuggestion("branch_name", msg, confidence, [], latency)
 
     def merge_hint(self, branch_a: str, branch_b: str) -> AISuggestion:
+        print(f"DEBUG: merge_hint({branch_a}, {branch_b})")
         """Predict merge outcomes by simulating a merge between two branches."""
         start = time.perf_counter()
         details = [f"Simulating merge: {branch_a} into {branch_b}"]

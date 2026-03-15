@@ -77,7 +77,10 @@ class DeepGitDaemon:
             # command_loop
             while True:
                 line = await stream.read_pkt()
-                if not line: break
+                if line is None: # Flush packet
+                    continue
+                if not line: # Empty packet or EOF (IncompleteReadError will be raised for real EOF)
+                    continue
                 
                 parts = line.decode("ascii").split()
                 if not parts: continue
@@ -110,7 +113,9 @@ class DeepGitDaemon:
                     if not access.has_permission(current_user, "write"):
                         await stream.write(f"error permission denied for {current_user}".encode("ascii"))
                         await stream.flush()
-                        continue
+                        # To avoid stream desync, we must close the connection on push permission error
+                        # as we don't want to consume a potentially huge packfile.
+                        break
                     await self.handle_push(stream, dg_dir, parts[1:])
                 
                 elif cmd == "fetch":
@@ -166,12 +171,10 @@ class DeepGitDaemon:
 
         ref_name, old_sha, new_sha = args[0], args[1], args[2]
         
-        # Skip any leading flush packets
-        next_pkt = None
-        for _ in range(5):
+        # 1. Expect packfile header (may follow a flush from some clients)
+        next_pkt = await stream.read_pkt()
+        while next_pkt is None: # Consume flushes
             next_pkt = await stream.read_pkt()
-            if next_pkt is not None:
-                break
 
         if not next_pkt or not next_pkt.startswith(b"packfile "):
             await stream.write(b"error expected packfile header")
@@ -191,7 +194,9 @@ class DeepGitDaemon:
             return
 
         # 1. Stream pack data to temporary file
-        with tempfile.NamedTemporaryFile(dir=str(dg_dir / "tmp"), delete=False) as tmp_pack:
+        tmp_dir = dg_dir / "tmp"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=str(tmp_dir), delete=False) as tmp_pack:
             tmp_pack_path = Path(tmp_pack.name)
             try:
                 bytes_left = pack_size

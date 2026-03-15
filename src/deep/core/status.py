@@ -119,8 +119,12 @@ def _check_file_status(repo_root: Path, path: str, index_sha: str, index_mtime: 
         return path, True
 
 
-def compute_status(repo_root: Path) -> StatusResult:
-    """Compute the full repository status concurrently."""
+def compute_status(repo_root: Path, index: Optional[Index] = None) -> StatusResult:
+    """Compute the full repository status concurrently.
+    
+    If *index* is provided, it is used directly without further locking.
+    Otherwise, the index is read from disk with an exclusive lock.
+    """
     dg_dir = repo_root / DEEP_GIT_DIR
     result = StatusResult()
 
@@ -128,7 +132,8 @@ def compute_status(repo_root: Path) -> StatusResult:
     head_entries = _get_head_tree_entries(dg_dir)
 
     # 2. Index
-    index = read_index(dg_dir)
+    if index is None:
+        index = read_index(dg_dir)
     
     # 3. Working dir
     working_files = _walk_working_dir(repo_root)
