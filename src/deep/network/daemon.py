@@ -139,9 +139,16 @@ class DeepGitDaemon:
                 print(f"Daemon Network Error: {e}", file=sys.stderr)
             # Treat as clean disconnect
         except Exception as e:
+            # Clean error response for client, full trace for server logs
             import traceback
             print(f"Daemon Error: {e}", file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
+            try:
+                if not writer.is_closing():
+                    await stream.write(f"error internal server error".encode("ascii"))
+                    await stream.flush()
+            except Exception:
+                pass
         finally:
             try:
                 writer.close()
@@ -150,10 +157,12 @@ class DeepGitDaemon:
                 # Ignore errors during final closure
                 pass
 
+    MAX_PACK_SIZE = 500 * 1024 * 1024 # 500MB Limit
+
     async def handle_push(self, stream: AsyncPktLineStream, dg_dir: Path, args: list[str]):
         """Handle a push request: updates and packfile."""
-        if not args:
-            await stream.write(b"error missing push instructions")
+        if len(args) < 3:
+            await stream.write(b"error invalid push arguments: missing ref, old_sha, or new_sha")
             await stream.flush()
             return
 
@@ -167,62 +176,85 @@ class DeepGitDaemon:
                 break
 
         if not next_pkt or not next_pkt.startswith(b"packfile "):
-            print(f"Daemon Error: Expected packfile header, got {next_pkt!r}", file=sys.stderr)
-            await stream.write(b"error expected packfile")
+            await stream.write(b"error expected packfile header")
             await stream.flush()
             return
             
         try:
             pack_size = int(next_pkt[9:].decode("ascii"))
         except (ValueError, UnicodeDecodeError):
-            print(f"Daemon Error: Malformed packfile header: {next_pkt!r}", file=sys.stderr)
+            await stream.write(b"error malformed packfile header")
+            await stream.flush()
             return
 
-        pack_data = await stream.reader.readexactly(pack_size)
-        
-        # 1. Quarantine Unpack
-        with tempfile.TemporaryDirectory(dir=str(dg_dir)) as tmp_dir:
-            tmp_path = Path(tmp_dir)
-            tmp_objects = tmp_path / "objects"
-            tmp_objects.mkdir()
-            
+        if pack_size > self.MAX_PACK_SIZE:
+            await stream.write(b"error packfile too large (max 500MB)")
+            await stream.flush()
+            return
+
+        # 1. Stream pack data to temporary file
+        with tempfile.NamedTemporaryFile(dir=str(dg_dir / "tmp"), delete=False) as tmp_pack:
+            tmp_pack_path = Path(tmp_pack.name)
             try:
-                unpack(pack_data, tmp_objects)
-                read_object(tmp_objects, new_sha)
-                
-                # 3. Atomically move objects to main store
-                moved_count = 0
-                for xx_dir in tmp_objects.iterdir():
-                    if not xx_dir.is_dir() or len(xx_dir.name) != 2:
-                        continue
-                    for yy_file in xx_dir.iterdir():
-                        sha = xx_dir.name + yy_file.name
-                        dest = dg_dir / "objects" / sha[:2] / sha[2:]
-                        if not dest.exists():
-                            dest.parent.mkdir(parents=True, exist_ok=True)
-                            shutil.move(str(yy_file), str(dest))
-                            moved_count += 1
-                
-                # 4. Update branch
-                branch_name = ref_name.rsplit("/", 1)[-1]
-                update_branch(dg_dir, branch_name, new_sha)
-                
-                # 5. Trigger CI/CD Pipeline
-                try:
-                    from deep.core.pipeline import PipelineRunner
-                    import threading
-                    runner = PipelineRunner(dg_dir)
-                    pipeline_run = runner.create_run(new_sha)
-                    if pipeline_run.jobs:
-                        threading.Thread(target=runner.run_pipeline, args=(pipeline_run,), daemon=True).start()
-                        msg = f"ok push successful: {moved_count} objects moved. CI run {pipeline_run.run_id} started."
-                    else:
-                        msg = f"ok push successful: {moved_count} objects moved. (no CI config)"
-                    await stream.write(msg.encode("ascii"))
-                except Exception as ci_err:
-                    await stream.write(f"ok push successful: {moved_count} objects moved. (CI trigger failed: {ci_err})".encode("ascii"))
-            except Exception as e:
-                await stream.write(f"error push failed: {e}".encode("ascii"))
+                bytes_left = pack_size
+                chunk_size = 64 * 1024 # 64KB
+                while bytes_left > 0:
+                    to_read = min(bytes_left, chunk_size)
+                    chunk = await stream.reader.readexactly(to_read)
+                    tmp_pack.write(chunk)
+                    bytes_left -= len(chunk)
+                tmp_pack.flush()
+                tmp_pack.close()
+
+                # 2. Quarantine Unpack from File
+                with tempfile.TemporaryDirectory(dir=str(dg_dir / "tmp")) as tmp_dir:
+                    tmp_path = Path(tmp_dir)
+                    tmp_objects = tmp_path / "objects"
+                    tmp_objects.mkdir()
+                    
+                    try:
+                        with open(tmp_pack_path, "rb") as f:
+                            unpack(f, tmp_objects)
+                        
+                        read_object(tmp_objects, new_sha)
+                        
+                        # 3. Atomically move objects to main store
+                        moved_count = 0
+                        for xx_dir in tmp_objects.iterdir():
+                            if not xx_dir.is_dir() or len(xx_dir.name) != 2:
+                                continue
+                            for yy_file in xx_dir.iterdir():
+                                sha = xx_dir.name + yy_file.name
+                                dest = dg_dir / "objects" / sha[:2] / sha[2:]
+                                if not dest.exists():
+                                    dest.parent.mkdir(parents=True, exist_ok=True)
+                                    shutil.move(str(yy_file), str(dest))
+                                    moved_count += 1
+                        
+                        # 4. Update branch
+                        branch_name = ref_name.rsplit("/", 1)[-1]
+                        update_branch(dg_dir, branch_name, new_sha)
+                        
+                        # 5. Trigger CI/CD Pipeline
+                        try:
+                            from deep.core.pipeline import PipelineRunner
+                            import threading
+                            runner = PipelineRunner(dg_dir)
+                            pipeline_run = runner.create_run(new_sha)
+                            if pipeline_run.jobs:
+                                threading.Thread(target=runner.run_pipeline, args=(pipeline_run,), daemon=True).start()
+                                msg = f"ok push successful: {moved_count} objects moved. CI run {pipeline_run.run_id} started."
+                            else:
+                                msg = f"ok push successful: {moved_count} objects moved. (no CI config)"
+                            await stream.write(msg.encode("ascii"))
+                        except Exception as ci_err:
+                            await stream.write(f"ok push successful: {moved_count} objects moved. (CI trigger failed)".encode("ascii"))
+                    except Exception as e:
+                        print(f"Daemon Push Error: {e}", file=sys.stderr)
+                        await stream.write(f"error push failed: processing error".encode("ascii"))
+            finally:
+                if tmp_pack_path.exists():
+                    tmp_pack_path.unlink()
         
         await stream.flush()
 

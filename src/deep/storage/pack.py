@@ -194,47 +194,59 @@ def create_pack(objects_dir: Path, shas: List[str]) -> bytes:
 
 from concurrent.futures import ThreadPoolExecutor
 
-def unpack(pack_data: bytes, objects_dir: Path) -> int:
-    """Extract objects from pack_data and write them as loose objects."""
+from deep.utils.utils import AtomicWriter, DeepError
+
+def unpack(stream_or_data: Union[bytes, BinaryIO], objects_dir: Path) -> int:
+    """Extract objects from pack data and write them as loose objects.
+    
+    Supports both raw bytes and file-like objects for streaming.
+    """
     import hashlib
+    import io
 
-    # 1. Validate trailer SHA-1 (last 20 bytes)
-    if len(pack_data) > 20:
-        stored_trailer = pack_data[-20:]
-        computed_trailer = hashlib.sha1(pack_data[:-20]).digest()
-        if stored_trailer != computed_trailer:
-            raise ValueError("trailer SHA-1 mismatch")
+    class _StreamWrapper:
+        def __init__(self, s: Union[bytes, BinaryIO]):
+            self.s = io.BytesIO(s) if isinstance(s, bytes) else s
+            self.hasher = hashlib.sha1()
+            self.total_read = 0
 
-    # 2. Validate signature
-    if not pack_data.startswith(PACK_SIGNATURE):
+        def read(self, n: int, hash_it: bool = True) -> bytes:
+            data = self.s.read(n)
+            if len(data) < n:
+                raise ValueError("Unexpected end of pack stream")
+            if hash_it:
+                self.hasher.update(data)
+            self.total_read += n
+            return data
+
+        def get_hash(self) -> bytes:
+            return self.hasher.digest()
+
+    sw = _StreamWrapper(stream_or_data)
+
+    # 1. Read and validate header
+    signature = sw.read(4)
+    if signature != PACK_SIGNATURE:
         raise ValueError("Invalid packfile signature")
     
-    if len(pack_data) < 12:
-        raise ValueError("Pack data too short")
+    version_bytes = sw.read(4)
+    version = struct.unpack(">I", version_bytes)[0]
     
-    version = struct.unpack(">I", pack_data[4:8])[0]
-    count = struct.unpack(">I", pack_data[8:12])[0]
+    count_bytes = sw.read(4)
+    count = struct.unpack(">I", count_bytes)[0]
     
-    offset = 12
     shas_to_write = []
-    # Remove the 20-byte trailer from the data boundary
-    data_end = len(pack_data) - 20 if len(pack_data) > 20 else len(pack_data)
-    
+
     for _ in range(count):
-        if offset + 9 > data_end:
-            raise ValueError("Pack data truncated: not enough bytes for entry header")
+        # 2. Read entry header: type_id (1B) and compressed_size (8B)
+        header = sw.read(9)
+        type_id, comp_size = struct.unpack(">BQ", header)
         
-        # Read the 1-byte type ID and 8-byte compressed size
-        type_id, comp_size = struct.unpack_from(">BQ", pack_data, offset)
-        offset += 9
+        # 3. Read compressed data in chunks to avoid memory spikes
+        # Although zlib.decompress expects the full block, we at least 
+        # only keep the compressed block + raw block in memory for one object at a time.
+        compressed = sw.read(comp_size)
         
-        if offset + comp_size > data_end:
-            raise ValueError(f"Pack data truncated: entry demands {comp_size} bytes but only {data_end - offset} available")
-            
-        compressed = pack_data[offset : offset + comp_size]
-        offset += comp_size
-        
-        # 3. Decompress and verify content integrity via SHA
         try:
             raw = zlib.decompress(compressed)
         except zlib.error:
@@ -243,14 +255,18 @@ def unpack(pack_data: bytes, objects_dir: Path) -> int:
         sha = hashlib.sha1(raw).hexdigest()
         shas_to_write.append((sha, compressed))
 
-    from deep.utils.utils import AtomicWriter
+    # 4. Validate trailer (next 20 bytes - NOT hashed into the content hash)
+    computed_trailer = sw.get_hash()
+    # Need to read 20 bytes without updating hasher
+    actual_trailer = sw.read(20, hash_it=False)
+    if computed_trailer != actual_trailer:
+        raise ValueError("trailer SHA-1 mismatch")
 
     def write_one(sha: str, comp: bytes):
         dest = objects_dir / sha[:2] / sha[2:]
         if dest.exists():
             return
             
-        # Write into temp file then rename (AtomicWriter handles this safely)
         with AtomicWriter(dest) as aw:
             aw.write(comp)
 
@@ -258,7 +274,6 @@ def unpack(pack_data: bytes, objects_dir: Path) -> int:
     if shas_to_write:
         max_workers = min(os.cpu_count() or 4, len(shas_to_write))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # We must exhaust the iterator to ensure exceptions are raised
             list(executor.map(lambda item: write_one(*item), shas_to_write))
                 
     return count
