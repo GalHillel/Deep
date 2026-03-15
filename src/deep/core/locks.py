@@ -49,116 +49,98 @@ def _is_process_alive(pid: int) -> bool:
 
 
 class BaseLock:
-    """A cross-platform process-level file lock using O_CREAT | O_EXCL.
-
-    Lock files contain JSON metadata with the owning PID and creation timestamp,
-    enabling stale lock detection and automatic cleanup.
+    """A cross-platform process-level file lock using native OS primitives.
+    
+    Uses msvcrt.locking on Windows and fcntl.flock on Unix.
     """
 
-    def __init__(self, lock_path: Path, timeout: float = 10.0):
+    def __init__(self, lock_path: Path, timeout: float = 60.0):
         self.lock_path = lock_path
         self.timeout = timeout
         self._fd: Optional[int] = None
+        self._file_handle = None
 
     def _write_metadata(self):
-        """Write PID and timestamp metadata into the lock file."""
-        if self._fd is not None:
-            metadata = json.dumps({
-                "pid": os.getpid(),
-                "timestamp": time.time(),
-                "hostname": os.environ.get("COMPUTERNAME", os.environ.get("HOSTNAME", "unknown")),
-            }).encode("utf-8")
-            try:
-                os.write(self._fd, metadata)
-            except OSError:
-                pass  # Lock file already created, metadata is best-effort
+        """Best-effort metadata update. Since we use advisory locks, 
+        the file stays on disk. We just overwrite the metadata.
+        """
+        try:
+            with open(self.lock_path, "w", encoding="utf-8") as f:
+                json.dump({
+                    "pid": os.getpid(),
+                    "timestamp": time.time(),
+                    "hostname": os.environ.get("COMPUTERNAME", os.environ.get("HOSTNAME", "unknown")),
+                }, f)
+        except OSError:
+            pass
 
     def _try_break_stale_lock(self) -> bool:
-        """Attempt to break a stale lock. Returns True if the lock was broken."""
-        try:
-            if not self.lock_path.exists():
-                return False
-            try:
-                data = self.lock_path.read_text(encoding="utf-8")
-            except (OSError, PermissionError):
-                # Sharing violation on Windows or other disk error
-                data = ""
-            
-            if not data.strip():
-                # Empty lock file — check age instead
-                age = time.time() - self.lock_path.stat().st_mtime
-                if age > STALE_LOCK_THRESHOLD_SECONDS:
-                    self.lock_path.unlink()
-                    return True
-                return False
-
-            meta = json.loads(data)
-            pid = meta.get("pid", 0)
-            ts = meta.get("timestamp", 0)
-
-            # If the PID is dead, break the lock
-            if pid and not _is_process_alive(pid):
-                self.lock_path.unlink()
-                return True
-
-            # If the lock is very old (even if PID still exists), break it
-            if ts and (time.time() - ts) > STALE_LOCK_THRESHOLD_SECONDS:
-                self.lock_path.unlink()
-                return True
-
-        except (OSError, json.JSONDecodeError, ValueError):
-            # If we can't read/parse the metadata, try age-based check
-            try:
-                age = time.time() - self.lock_path.stat().st_mtime
-                if age > STALE_LOCK_THRESHOLD_SECONDS:
-                    self.lock_path.unlink()
-                    return True
-            except OSError:
-                pass
+        """With native advisory locks, if the process dies, the OS 
+        automatically releases the lock. Stale lock breaking is handled 
+        by the OS. We keep this as a no-op for API compatibility.
+        """
         return False
 
     def acquire(self):
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        import sys
+        import time
+        import random
+
         start_time = time.time()
-        stale_check_done = False
-        while True:
-            try:
-                # O_CREAT | O_EXCL ensures atomic creation.
-                self._fd = os.open(str(self.lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                self._write_metadata()
-                return
-            except FileExistsError:
-                # Try to break stale lock once per acquire attempt
-                if not stale_check_done:
-                    stale_check_done = True
-                    if self._try_break_stale_lock():
-                        continue  # Retry immediately after breaking stale lock
+        
+        # Open the file for the duration of the lock
+        self._file_handle = open(self.lock_path, "a")
+        fd = self._file_handle.fileno()
 
-                if time.time() - start_time > self.timeout:
-                    raise TimeoutError(f"DeepBridge: failed to acquire lock {self.lock_path} within {self.timeout}s")
-                time.sleep(0.1)
-            except OSError as e:
-                # On Windows, PermissionError might be raised if another process is
-                # holding the file. Treat as contention if it exists.
-                if self.lock_path.exists():
-                    if not stale_check_done:
-                        stale_check_done = True
-                        if self._try_break_stale_lock():
-                            continue
-
+        if sys.platform == "win32":
+            import msvcrt
+            while True:
+                try:
+                    # LK_NBLCK: Non-blocking lock. If fail, we retry with our own timeout/jitter.
+                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                    self._write_metadata()
+                    return
+                except (BlockingIOError, PermissionError, OSError):
                     if time.time() - start_time > self.timeout:
+                        self._file_handle.close()
                         raise TimeoutError(f"DeepBridge: failed to acquire lock {self.lock_path} within {self.timeout}s")
-                    time.sleep(0.1)
-                else:
-                    raise e
+                    time.sleep(0.05 + random.random() * 0.1)
+        else:
+            import fcntl
+            while True:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    self._write_metadata()
+                    return
+                except (BlockingIOError, OSError):
+                    if time.time() - start_time > self.timeout:
+                        self._file_handle.close()
+                        raise TimeoutError(f"DeepBridge: failed to acquire lock {self.lock_path} within {self.timeout}s")
+                    time.sleep(0.05 + random.random() * 0.1)
 
     def release(self):
-        if self._fd is not None:
-            os.close(self._fd)
-            self._fd = None
+        if self._file_handle:
+            import sys
             try:
-                self.lock_path.unlink()
-            except OSError:
-                pass
+                fd = self._file_handle.fileno()
+                if sys.platform == "win32":
+                    import msvcrt
+                    try:
+                        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+                    except OSError:
+                        pass
+                else:
+                    import fcntl
+                    try:
+                        fcntl.flock(fd, fcntl.LOCK_UN)
+                    except OSError:
+                        pass
+            finally:
+                self._file_handle.close()
+                self._file_handle = None
+                # Optional: unlink if we are the only ones. 
+                # But for WAL/Index it's often better to just leave the empty file.
 
     def __enter__(self):
         self.acquire()

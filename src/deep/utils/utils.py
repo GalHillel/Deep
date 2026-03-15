@@ -76,6 +76,15 @@ class AtomicWriter:
 
     def __enter__(self) -> "AtomicWriter":
         self.target.parent.mkdir(parents=True, exist_ok=True)
+        
+        # If we are in append mode, we MUST use a lock to prevent the 
+        # read-copy-replace race condition during concurrent appends.
+        self._lock = None
+        if self._is_append:
+            from deep.core.locks import BaseLock
+            self._lock = BaseLock(self.target.with_suffix(".lock"))
+            self._lock.acquire()
+
         fd, tmp_name = tempfile.mkstemp(
             dir=str(self.target.parent),
             prefix=".tmp_deep_git_",
@@ -85,15 +94,15 @@ class AtomicWriter:
 
         if self._is_append and self.target.exists():
             with open(self.target, "rb") as src:
-                # Copy to the raw FD
+                # Copy current contents to the temp file
                 os.write(self._fd, src.read())
 
         self._file = os.fdopen(self._fd, self.mode)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[override]
-        if self._file:
-            try:
+        try:
+            if self._file:
                 if exc_type is not None:
                     self._file.close()
                     if self._tmp_path.exists():
@@ -104,19 +113,16 @@ class AtomicWriter:
                 try:
                     os.fsync(self._file.fileno())
                 except OSError:
-                    pass # Some systems don't support fsync on all files
+                    pass 
                 self._file.close()
                 self._file = None
                 
                 os.replace(str(self._tmp_path), str(self.target))
-            except Exception:
-                if self._file:
-                    try: self._file.close()
-                    except: pass
-                if self._tmp_path and self._tmp_path.exists():
-                    try: self._tmp_path.unlink()
-                    except: pass
-                raise
+        finally:
+            # Always ensure the lock is released if it was acquired
+            if hasattr(self, "_lock") and self._lock:
+                self._lock.release()
+                self._lock = None
         
         # Fsync the parent directory to ensure the directory entry is persisted
         try:

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import time
+import uuid
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
@@ -47,7 +48,8 @@ class TransactionLog:
 
         If signing_key_id is provided, the WAL entry is signed.
         """
-        tx_id = f"{operation}_{int(time.time() * 1000)}"
+        # Unique TxID: operation + timestamp_ms + 8-char UUID suffix
+        tx_id = f"{operation}_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
         record = TxRecord(
             tx_id=tx_id,
             operation=operation,
@@ -67,7 +69,12 @@ class TransactionLog:
 
     def commit(self, tx_id: str):
         """Mark a transaction as committed."""
-        self._write(TxRecord(tx_id, "", "COMMIT", time.time()))
+        self._write(TxRecord(
+            tx_id=tx_id, 
+            operation="", 
+            status="COMMIT", 
+            timestamp=time.time()
+        ))
 
     def rollback(self, tx_id: Optional[str] = None, reason: str = ""):
         """Mark a transaction as rolled back.
@@ -75,7 +82,13 @@ class TransactionLog:
         If tx_id is not provided, attempting to rollback the last successful commit.
         """
         if tx_id:
-            self._write(TxRecord(tx_id, "", "ROLLBACK", time.time(), reason))
+            self._write(TxRecord(
+                tx_id=tx_id, 
+                operation="", 
+                status="ROLLBACK", 
+                timestamp=time.time(), 
+                details=reason
+            ))
         else:
             # Revert the last committed transaction intentionally
             records = self.read_all()
@@ -103,7 +116,13 @@ class TransactionLog:
                     update_branch(self.log_path.parent, last_begin_record.branch_ref, last_begin_record.previous_commit_sha)
                 
                 # Append a new rollback record for the system
-                self._write(TxRecord(last_begin_record.tx_id, "manual_rollback", "ROLLBACK", time.time(), reason))
+                self._write(TxRecord(
+                    tx_id=last_begin_record.tx_id, 
+                    operation="manual_rollback", 
+                    status="ROLLBACK", 
+                    timestamp=time.time(), 
+                    details=reason
+                ))
                 return True
             return False
 
@@ -122,6 +141,7 @@ class TransactionLog:
         return record
 
     def _write(self, record: TxRecord):
+        # Use the thread-safe AtomicWriter (which uses locks for appends).
         from deep.utils.utils import AtomicWriter
         with AtomicWriter(self.log_path, mode="a") as aw:
             aw.write(json.dumps(asdict(record)) + "\n")
