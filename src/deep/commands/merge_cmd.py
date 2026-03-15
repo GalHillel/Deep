@@ -17,7 +17,7 @@ import sys
 import time
 from pathlib import Path
 
-from deep.storage.index import Index, IndexEntry, read_index, write_index, read_index_no_lock
+from deep.storage.index import Index, IndexEntry, read_index, write_index, read_index_no_lock, write_index_no_lock
 from deep.core.merge import find_lca, three_way_merge
 from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import (
@@ -179,7 +179,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                     current_index = read_index_no_lock(dg_dir)
 
                     new_index = _apply_tree_to_workdir(repo_root, objects_dir, target_files, current_index)
-                    write_index(dg_dir, new_index)
+                    write_index_no_lock(dg_dir, new_index)
 
                     # Crash hook: after index update, before ref update
                     if os.environ.get("DEEP_CRASH_TEST") == "MERGE_FF_AFTER_INDEX_UPDATE":
@@ -245,7 +245,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 target_files = _get_tree_files(objects_dir, merged_tree_sha)
                 current_index = read_index_no_lock(dg_dir)
                 new_index = _apply_tree_to_workdir(repo_root, objects_dir, target_files, current_index)
-                write_index(dg_dir, new_index)
+                write_index_no_lock(dg_dir, new_index)
 
                 if current_branch:
                     update_branch(dg_dir, current_branch, merge_commit_sha)
