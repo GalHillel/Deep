@@ -12,7 +12,7 @@ from pathlib import Path
 
 from deep.core.ignore import IgnoreEngine
 from deep.core.reconcile import sanitize_path
-from deep.storage.index import update_multiple_index_entries, remove_index_entry
+from deep.storage.index import update_multiple_index_entries, remove_multiple_index_entries
 from deep.storage.objects import Blob, write_object
 from deep.core.repository import DEEP_GIT_DIR, find_repo
 from deep.utils.ux import ProgressBar
@@ -75,6 +75,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     ignore_engine = IgnoreEngine(repo_root)
     
     files_to_add: list[Path] = []
+    paths_to_remove: list[str] = []
 
     for file_path_str in args.files:
         path = Path(file_path_str).absolute()
@@ -89,8 +90,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 sys.exit(1)
                 
             if rel_path in index.entries:
-                remove_index_entry(dg_dir, rel_path)
-                print(f"DeepBridge: staged deletion: {rel_path}")
+                paths_to_remove.append(rel_path)
                 continue
             else:
                 print(f"DeepBridge: error: {file_path_str} does not exist", file=sys.stderr)
@@ -115,6 +115,11 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                     f_rel = f"{rel_dir}/{f}" if rel_dir != "." else f
                     if not ignore_engine.is_ignored(f_rel, is_dir=False):
                         files_to_add.append(Path(dirpath) / f)
+
+    if paths_to_remove:
+        remove_multiple_index_entries(dg_dir, paths_to_remove)
+        for p in paths_to_remove:
+            print(f"DeepBridge: staged deletion: {p}")
 
     if not files_to_add:
         return

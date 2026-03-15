@@ -69,3 +69,5 @@ env.bak/
 venv.bak/
 /node_modules
 /deep-using-git
+
+verify_deep_git.py

@@ -142,12 +142,19 @@ def resolve_revision(dg_dir: Path, revision: str) -> Optional[str]:
             if len(revision) == 40: return revision
             # Short SHA lookup
             objs_dir = dg_dir / "objects"
-            for p in objs_dir.glob("**/*"):
-                if p.is_file() and p.name != "pack":
-                    # Reconstruct SHA from path: objects/XX/YYYY...
-                    sha_candidate = p.parent.name + p.name
-                    if sha_candidate.startswith(revision):
-                        return sha_candidate
+            bucket_name = revision[:2]
+            bucket_dir = objs_dir / bucket_name
+            
+            if bucket_dir.is_dir():
+                for p in bucket_dir.iterdir():
+                    if p.is_file():
+                        sha_candidate = bucket_name + p.name
+                        if sha_candidate.startswith(revision):
+                            return sha_candidate
+            else:
+                # Fallback if revision is < 2 chars or bucket doesn't exist
+                # git usually requires at least 4 chars for short SHA anyway.
+                pass
         except ValueError:
             pass
 

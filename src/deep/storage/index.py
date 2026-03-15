@@ -208,10 +208,22 @@ def update_multiple_index_entries(
 
 def remove_index_entry(dg_dir: Path, rel_path: str) -> None:
     """Atomically remove an entry from the index."""
+    remove_multiple_index_entries(dg_dir, [rel_path])
+
+
+def remove_multiple_index_entries(dg_dir: Path, rel_paths: list[str]) -> None:
+    """Atomically remove multiple entries from the index."""
+    if not rel_paths:
+        return
+
     lock = FileLock(str(_lock_path(dg_dir)))
     with lock:
         index = _read_index_no_lock(dg_dir)
-        if rel_path not in index.entries:
-            raise KeyError(f"{rel_path!r} is not in the index")
-        del index.entries[rel_path]
+        for rel_path in rel_paths:
+            if rel_path in index.entries:
+                del index.entries[rel_path]
+            else:
+                logging.getLogger("DeepBridge").warning(
+                    "Attempted to remove non-existent index entry: %s", rel_path
+                )
         _write_index_no_lock(dg_dir, index)
