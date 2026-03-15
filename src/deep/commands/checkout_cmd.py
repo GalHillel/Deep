@@ -30,10 +30,11 @@ def run(args: argparse.Namespace) -> None:
         repo_root = find_repo()
         
         target = args.target
-        create_branch = args.branch
+        create_branch = getattr(args, "branch", False)
+        force = getattr(args, "force", False)
         
         from deep.core.repository import checkout
-        checkout(repo_root, target, create_branch=create_branch, force=args.force)
+        checkout(repo_root, target, create_branch=create_branch, force=force)
         
         if create_branch:
             print(f"DeepBridge: switched to a new branch '{target}'")
@@ -44,7 +45,4 @@ def run(args: argparse.Namespace) -> None:
 
     except DeepError as exc:
         print(f"DeepError: {exc}", file=sys.stderr)
-        sys.exit(1)
-    except Exception as exc:
-        print(f"DeepBridge: error: {exc}", file=sys.stderr)
         sys.exit(1)
