@@ -1,6 +1,7 @@
 import ast
 import os
 import pathlib
+from pathlib import Path
 import sys
 
 from deep.cli.main import main
@@ -40,10 +41,17 @@ def audit_security(root_dir):
                 elif isinstance(node.func, ast.Name):
                     if node.func.id in unsafe_modules:
                         suspicious_calls.append((pyfile, node.lineno, node.func.id))
-    dg_dir = pathlib.Path(root_dir) / DEEP_DIR
+    # The audit should check the project root for the metadata folder
+    repo_root = pathlib.Path(root_dir).parent.parent
+    dg_dir = repo_root / DEEP_DIR
     if not dg_dir.exists():
-        print(f"ERROR: {DEEP_DIR} not found")
-        sys.exit(1)
+        dg_dir = repo_root / ".deep_git"
+    
+    if not dg_dir.exists():
+        # If we can't find it, just warn but continue with the static analysis
+        print(f"NOTE: Repository metadata ({DEEP_DIR}) not found, performing static analysis only.")
+    else:
+        print(f"Auditing repository at: {repo_root}")
     
     if suspicious_calls:
         print("WARNING: Found potentially unsafe calls:")

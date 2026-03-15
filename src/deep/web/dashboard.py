@@ -210,6 +210,23 @@ def _commit_diff(dg_dir: Path, sha: str) -> list[dict]:
 
 # ── HTTP Handler ─────────────────────────────────────────────────────
 
+def _get_repo_dg_dir(repo_root: Path, repo_name: Optional[str]) -> Path:
+    """Safely resolve repository DG_DIR and prevent path traversal."""
+    if not repo_name:
+        # Fallback to main repo if no repo parameter is provided
+        from deep.core.repository import DEEP_GIT_DIR
+        return repo_root / DEEP_GIT_DIR
+    
+    from deep.core.repository import DEEP_GIT_DIR
+    # Ensure relative path doesn't contain traversal
+    repos_base = (repo_root / "repos").resolve()
+    target_repo_dir = (repos_base / repo_name).resolve()
+    
+    if not target_repo_dir.is_relative_to(repos_base):
+        raise ValueError("Security Violation: Path traversal detected in repo parameter")
+    
+    return target_repo_dir / DEEP_GIT_DIR
+
 STATIC_DIR = Path(__file__).parent / "static"
 
 
@@ -239,19 +256,18 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         elif self.path.startswith("/api/log"):
             from urllib.parse import urlparse, parse_qs
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
+            dg = _get_repo_dg_dir(self.repo_root, repo_name)
             self._json_response(_gather_log(dg))
         elif self.path.startswith("/api/refs"):
             from urllib.parse import urlparse, parse_qs
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
+            dg = _get_repo_dg_dir(self.repo_root, repo_name)
             self._json_response(_gather_refs(dg))
         elif self.path.startswith("/api/object/"):
             sha = self.path.split("/")[-1]
-            # Multi-repo support: check for ?repo=name
             from urllib.parse import urlparse, parse_qs
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
+            dg = _get_repo_dg_dir(self.repo_root, repo_name)
             self._json_response(_object_detail(dg, sha))
         elif self.path == "/api/repos":
             from deep.platform.platform import PlatformManager
@@ -304,7 +320,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             sha = self.path.split("/")[-1].split("?")[0]
             from urllib.parse import urlparse, parse_qs
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
+            dg = _get_repo_dg_dir(self.repo_root, repo_name)
             self._json_response(_commit_diff(dg, sha))
 
         elif self.path.startswith("/api/history"):

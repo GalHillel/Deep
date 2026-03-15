@@ -46,9 +46,8 @@ class AccessManager:
         self._save()
 
     def get_role(self, username: str) -> str:
-        # Default to viewer or none?
-        # If it's a platform server, maybe we check if user is the one who created it.
-        return self._perms.get(username, "contributor")
+        # Unknown users default to 'viewer' (read-only) rather than 'contributor' (write)
+        return self._perms.get(username, "viewer")
 
     def has_permission(self, username: str, action: str) -> bool:
         role = self.get_role(username)

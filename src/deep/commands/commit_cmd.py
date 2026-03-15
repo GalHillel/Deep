@@ -150,9 +150,9 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     content = unsigned_commit.serialize_content()
                     sig_hex, key_id = signer.sign(content)
                     signature = f"SIG:{key_id}:{sig_hex}"
-                except Exception:
-                    # Fallback to legacy mocked signature
-                    signature = "MOCKED_GPG_SIGNATURE"
+                except Exception as e:
+                    print(f"DeepBridge: error: commit signing failed: {e}", file=sys.stderr)
+                    raise
 
             # Verify parent SHAs exist
             for p_sha in parent_shas:

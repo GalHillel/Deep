@@ -121,12 +121,15 @@ class PipelineRunner:
 import subprocess
 import sys
 import os
+import shlex
 
 cmd = {repr(job.command)}
 try:
-    # Run with shell=True to support pipes/redirects from .deepci.yml, 
-    # but the environment is restricted by the parent SandboxRunner.
-    res = subprocess.run(cmd, shell=True, capture_output=False)
+    # Use shlex.split and shell=False to prevent RCE.
+    # We no longer support shell features (pipes/redirects) directly in the command string
+    # for security reasons. Users should use scripts if they need complex logic.
+    parsed_cmd = shlex.split(cmd)
+    res = subprocess.run(parsed_cmd, shell=False, capture_output=False)
     sys.exit(res.returncode)
 except Exception as e:
     print(f"Pipeline Execution Error: {{e}}", file=sys.stderr)
