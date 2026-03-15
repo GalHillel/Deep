@@ -136,8 +136,10 @@ def _lock_path(dg_dir: Path) -> Path:
     return dg_dir / "index.lock"
 
 
-def _read_index_no_lock(dg_dir: Path) -> Index:
-    """Internal: read the index without acquiring a lock."""
+def read_index_no_lock(dg_dir: Path) -> Index:
+    """Internal: read the index without acquiring a lock. 
+    Use this only if you already hold the index lock.
+    """
     path = _index_path(dg_dir)
     if not path.exists():
         return Index()
@@ -149,8 +151,6 @@ def _read_index_no_lock(dg_dir: Path) -> Index:
         return Index.from_binary(data)
     except Exception as e:
         # If the index is totally corrupted, return an empty index.
-        # A more advanced recovery could be implemented, but an empty index
-        # is safe because status will just show everything as deleted/new.
         logging.getLogger("DeepBridge").warning(
             "DeepBridge: index corrupted at %s, resetting to empty. Error: %s",
             path,
@@ -163,11 +163,13 @@ def read_index(dg_dir: Path) -> Index:
     """Read the index file under an exclusive lock, using mmap for speed."""
     lock = FileLock(str(_lock_path(dg_dir)))
     with lock:
-        return _read_index_no_lock(dg_dir)
+        return read_index_no_lock(dg_dir)
 
 
-def _write_index_no_lock(dg_dir: Path, index: Index) -> None:
-    """Internal: write the index without acquiring a lock."""
+def write_index_no_lock(dg_dir: Path, index: Index) -> None:
+    """Internal: write the index without acquiring a lock.
+    Use this only if you already hold the index lock.
+    """
     with AtomicWriter(_index_path(dg_dir)) as aw:
         aw.write(index.to_binary())
 
@@ -176,7 +178,7 @@ def write_index(dg_dir: Path, index: Index) -> None:
     """Write the index file atomically in binary format."""
     lock = FileLock(str(_lock_path(dg_dir)))
     with lock:
-        _write_index_no_lock(dg_dir, index)
+        write_index_no_lock(dg_dir, index)
 
 
 def update_index_entry(
@@ -200,10 +202,10 @@ def update_multiple_index_entries(
         
     lock = FileLock(str(_lock_path(dg_dir)))
     with lock:
-        index = _read_index_no_lock(dg_dir)
+        index = read_index_no_lock(dg_dir)
         for rel_path, sha, size, mtime in updates:
             index.entries[rel_path] = IndexEntry(sha=sha, size=size, mtime=mtime)
-        _write_index_no_lock(dg_dir, index)
+        write_index_no_lock(dg_dir, index)
 
 
 def remove_index_entry(dg_dir: Path, rel_path: str) -> None:
@@ -218,7 +220,7 @@ def remove_multiple_index_entries(dg_dir: Path, rel_paths: list[str]) -> None:
 
     lock = FileLock(str(_lock_path(dg_dir)))
     with lock:
-        index = _read_index_no_lock(dg_dir)
+        index = read_index_no_lock(dg_dir)
         for rel_path in rel_paths:
             if rel_path in index.entries:
                 del index.entries[rel_path]
@@ -226,4 +228,4 @@ def remove_multiple_index_entries(dg_dir: Path, rel_paths: list[str]) -> None:
                 logging.getLogger("DeepBridge").warning(
                     "Attempted to remove non-existent index entry: %s", rel_path
                 )
-        _write_index_no_lock(dg_dir, index)
+        write_index_no_lock(dg_dir, index)

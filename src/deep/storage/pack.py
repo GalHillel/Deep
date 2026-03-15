@@ -9,6 +9,7 @@ concurrency and storage efficiency using delta compression.
 
 from __future__ import annotations
 import os
+import sys
 import struct
 import zlib
 from pathlib import Path
@@ -237,7 +238,7 @@ def unpack(stream_or_data: Union[bytes, BinaryIO], objects_dir: Path) -> int:
     
     shas_to_write = []
 
-    for _ in range(count):
+    for i in range(count):
         # 2. Read entry header: type_id (1B) and compressed_size (8B)
         header = sw.read(9)
         type_id, comp_size = struct.unpack(">BQ", header)
@@ -257,7 +258,6 @@ def unpack(stream_or_data: Union[bytes, BinaryIO], objects_dir: Path) -> int:
 
     # 4. Validate trailer (next 20 bytes - NOT hashed into the content hash)
     computed_trailer = sw.get_hash()
-    # Need to read 20 bytes without updating hasher
     actual_trailer = sw.read(20, hash_it=False)
     if computed_trailer != actual_trailer:
         raise ValueError("trailer SHA-1 mismatch")

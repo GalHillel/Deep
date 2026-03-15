@@ -161,6 +161,14 @@ def resolve_revision(dg_dir: Path, revision: str) -> Optional[str]:
     return None
 
 
+def update_head_no_lock(dg_dir: Path, value: str) -> None:
+    """Update HEAD without acquiring a lock. 
+    Caller MUST hold the repository lock.
+    """
+    with AtomicWriter(dg_dir / "HEAD", mode="w") as aw:
+        aw.write(value + "\n")
+
+
 def update_head(dg_dir: Path, value: str) -> None:
     """Atomically update HEAD.
 
@@ -170,8 +178,7 @@ def update_head(dg_dir: Path, value: str) -> None:
     """
     lock = FileLock(str(dg_dir / "HEAD.lock"))
     with lock:
-        with AtomicWriter(dg_dir / "HEAD", mode="w") as aw:
-            aw.write(value + "\n")
+        update_head_no_lock(dg_dir, value)
 
 
 # ── Branch helpers ───────────────────────────────────────────────────
@@ -257,6 +264,19 @@ def get_branch(dg_dir: Path, name: str) -> Optional[str]:
     return bp.read_text(encoding="utf-8").strip()
 
 
+def update_branch_no_lock(dg_dir: Path, name: str, commit_sha: str) -> None:
+    """Update a branch ref without acquiring a lock.
+    Caller MUST hold the branch lock.
+    """
+    if not name:
+        # Detached HEAD, nothing to update here
+        return
+    _validate_ref_name(name)
+    bp = _branch_path(dg_dir, name)
+    with AtomicWriter(bp, mode="w") as aw:
+        aw.write(commit_sha + "\n")
+
+
 def update_branch(dg_dir: Path, name: str, commit_sha: str) -> None:
     """Atomically create or update a branch ref.
 
@@ -269,8 +289,7 @@ def update_branch(dg_dir: Path, name: str, commit_sha: str) -> None:
     bp = _branch_path(dg_dir, name)
     lock = FileLock(str(bp) + ".lock")
     with lock:
-        with AtomicWriter(bp, mode="w") as aw:
-            aw.write(commit_sha + "\n")
+        update_branch_no_lock(dg_dir, name, commit_sha)
 
 
 def delete_branch(dg_dir: Path, name: str) -> None:

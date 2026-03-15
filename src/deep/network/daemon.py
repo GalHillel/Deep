@@ -82,8 +82,6 @@ class DeepGitDaemon:
                 parts = line.decode("ascii").split()
                 if not parts: continue
                 cmd = parts[0]
-                print(f"DEBUG daemon: received {cmd} from {stream.writer.get_extra_info('peername')}")
-
                 
                 if cmd == "select":
                     repo_name = parts[1]
@@ -200,9 +198,12 @@ class DeepGitDaemon:
                 chunk_size = 64 * 1024 # 64KB
                 while bytes_left > 0:
                     to_read = min(bytes_left, chunk_size)
-                    chunk = await stream.reader.readexactly(to_read)
+                    chunk = await stream.reader.read(to_read)
+                    if not chunk:
+                        raise asyncio.IncompleteReadError(chunk, pack_size - bytes_left)
                     tmp_pack.write(chunk)
                     bytes_left -= len(chunk)
+                    await asyncio.sleep(0.01) # Yield to event loop
                 tmp_pack.flush()
                 tmp_pack.close()
 
@@ -214,7 +215,8 @@ class DeepGitDaemon:
                     
                     try:
                         with open(tmp_pack_path, "rb") as f:
-                            unpack(f, tmp_objects)
+                            # Run synchronous unpack in a separate thread to avoid blocking the event loop
+                            await asyncio.to_thread(unpack, f, tmp_objects)
                         
                         read_object(tmp_objects, new_sha)
                         
@@ -233,7 +235,7 @@ class DeepGitDaemon:
                         
                         # 4. Update branch
                         branch_name = ref_name.rsplit("/", 1)[-1]
-                        update_branch(dg_dir, branch_name, new_sha)
+                        await asyncio.to_thread(update_branch, dg_dir, branch_name, new_sha)
                         
                         # 5. Trigger CI/CD Pipeline
                         try:
@@ -250,7 +252,6 @@ class DeepGitDaemon:
                         except Exception as ci_err:
                             await stream.write(f"ok push successful: {moved_count} objects moved. (CI trigger failed)".encode("ascii"))
                     except Exception as e:
-                        print(f"Daemon Push Error: {e}", file=sys.stderr)
                         await stream.write(f"error push failed: processing error".encode("ascii"))
             finally:
                 if tmp_pack_path.exists():
@@ -285,13 +286,10 @@ class DeepGitDaemon:
             # We must send all reachable objects (commit, trees, blobs)
             shas = get_reachable_objects(dg_dir / "objects", [target_sha], max_depth=max_depth, filter_spec=filter_spec)
             pack_data = create_pack(dg_dir / "objects", shas)
-            print(f"DEBUG daemon: sending packfile {len(pack_data)}")
             await stream.write(f"packfile {len(pack_data)}".encode("ascii"))
             stream.writer.write(pack_data)
             await stream.writer.drain()
-            print("DEBUG daemon: packfile sent")
         except Exception as e:
-            print(f"DEBUG daemon: fetch failed {e}")
             await stream.write(f"error fetch failed: {e}".encode("ascii"))
             await stream.flush()
 

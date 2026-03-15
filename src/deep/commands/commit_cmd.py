@@ -50,7 +50,8 @@ def _build_tree_from_index(dg_dir: Path, allow_empty: bool = False) -> str:
 
     If the index is empty and ``allow_empty`` is False, abort the commit.
     """
-    index = read_index(dg_dir)
+    from deep.storage.index import read_index_no_lock
+    index = read_index_no_lock(dg_dir)
     if not index.entries and not allow_empty:
         print("DeepBridge: error: nothing to commit (no staged changes).", file=sys.stderr)
         sys.exit(1)
@@ -208,10 +209,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
                 try:
                     if branch:
-                        update_branch(dg_dir, branch, commit_sha)
+                        from deep.core.refs import update_branch_no_lock
+                        update_branch_no_lock(dg_dir, branch, commit_sha)
                     else:
-                        from deep.core.refs import update_head
-                        update_head(dg_dir, commit_sha)
+                        from deep.core.refs import update_head_no_lock
+                        update_head_no_lock(dg_dir, commit_sha)
 
                     txlog.commit(tx_id)
                 except Exception as e:
