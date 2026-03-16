@@ -14,7 +14,7 @@ import time
 import uuid
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, cast
 
 
 @dataclass
@@ -49,7 +49,7 @@ class TransactionLog:
         If signing_key_id is provided, the WAL entry is signed.
         """
         # Unique TxID: operation + timestamp_ms + 8-char UUID suffix
-        tx_id = f"{operation}_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+        tx_id = f"{operation}_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}" # type: ignore
         record = TxRecord(
             tx_id=tx_id,
             operation=operation,
@@ -103,36 +103,41 @@ class TransactionLog:
             if not last_commit_record:
                 print("No committed transactions found to rollback.")
                 return False
-                
+            
+            # Explicitly cast to Any for subsequent comparisons
+            lcr_any = cast(Any, last_commit_record)
             for r in reversed(records):
-                if r.tx_id == last_commit_record.tx_id and r.status == "BEGIN":
+                r_any = cast(Any, r)
+                if r_any.tx_id == lcr_any.tx_id and r_any.status == "BEGIN":
                     last_begin_record = r
                     break
                     
-            if last_begin_record and last_begin_record.branch_ref:
-                from deep.core.refs import update_branch, update_head, resolve_head
-                # Restore the previous commit
-                if last_begin_record.previous_commit_sha:
-                    update_branch(self.log_path.parent, last_begin_record.branch_ref, last_begin_record.previous_commit_sha)
-                
-                # Append a new rollback record for the system
-                self._write(TxRecord(
-                    tx_id=last_begin_record.tx_id, 
-                    operation="manual_rollback", 
-                    status="ROLLBACK", 
-                    timestamp=time.time(), 
-                    details=reason
-                ))
-                return True
+            if last_begin_record:
+                lbr_any = cast(Any, last_begin_record)
+                if lbr_any.branch_ref:
+                    from deep.core.refs import update_branch, update_head, resolve_head # type: ignore
+                    # Restore the previous commit
+                    if lbr_any.previous_commit_sha:
+                        update_branch(self.log_path.parent, lbr_any.branch_ref, lbr_any.previous_commit_sha)
+                    
+                    # Append a new rollback record for the system
+                    self._write(TxRecord(
+                        tx_id=lbr_any.tx_id, 
+                        operation="manual_rollback", 
+                        status="ROLLBACK", 
+                        timestamp=time.time(), 
+                        details=reason
+                    ))
+                    return True
             return False
 
     def _sign_record(self, record: TxRecord, key_id: str) -> TxRecord:
         """Sign a WAL record using the specified key."""
         try:
-            from deep.core.security import KeyManager, CommitSigner
+            from deep.core.security import KeyManager, CommitSigner # type: ignore
             km = KeyManager(self.dg_dir)
             signer = CommitSigner(km)
-            data = json.dumps(asdict(record), sort_keys=True).encode("utf-8")
+            data = json.dumps(asdict(cast(Any, record)), sort_keys=True).encode("utf-8") # type: ignore
             sig_hex, used_key_id = signer.sign(data, key_id)
             record.signature = sig_hex
             record.signing_key_id = used_key_id
@@ -142,9 +147,9 @@ class TransactionLog:
 
     def _write(self, record: TxRecord):
         # Use the thread-safe AtomicWriter (which uses locks for appends).
-        from deep.utils.utils import AtomicWriter
+        from deep.utils.utils import AtomicWriter # type: ignore
         with AtomicWriter(self.log_path, mode="a") as aw:
-            aw.write(json.dumps(asdict(record)) + "\n")
+            aw.write(json.dumps(asdict(cast(Any, record))) + "\n") # type: ignore
 
     def read_all(self) -> list[TxRecord]:
         if not self.log_path.exists():
@@ -153,7 +158,7 @@ class TransactionLog:
         for line in self.log_path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 try:
-                    records.append(TxRecord(**json.loads(line)))
+                    records.append(TxRecord(**cast(dict, json.loads(line)))) # type: ignore
                 except Exception:
                     pass
         return records
@@ -184,7 +189,7 @@ class TransactionLog:
             return True  # Unsigned records pass (backward compat)
 
         try:
-            from deep.core.security import KeyManager, CommitSigner
+            from deep.core.security import KeyManager, CommitSigner # type: ignore
             km = KeyManager(self.dg_dir)
             signer = CommitSigner(km)
 
@@ -199,7 +204,7 @@ class TransactionLog:
                 branch_ref=record.branch_ref,
                 previous_commit_sha=record.previous_commit_sha,
             )
-            data = json.dumps(asdict(verify_record), sort_keys=True).encode("utf-8")
+            data = json.dumps(asdict(cast(Any, verify_record)), sort_keys=True).encode("utf-8") # type: ignore
             return signer.verify(data, record.signature, record.signing_key_id)
         except Exception:
             return False
@@ -225,8 +230,8 @@ class TransactionLog:
         if not incomplete:
             return
 
-        from deep.core.refs import get_branch, update_branch, update_head
-        from deep.storage.objects import read_object_safe
+        from deep.core.refs import get_branch, update_branch, update_head # type: ignore
+        from deep.storage.objects import read_object_safe # type: ignore
 
         for record in incomplete:
             # GOD MODE: Verify signature before trusting the WAL entry
@@ -260,11 +265,11 @@ class TransactionLog:
                 
                 current_ref_sha = None
                 try:
-                    from deep.core.refs import resolve_head, get_branch
+                    from deep.core.refs import resolve_head, get_branch # type: ignore
                     if record.branch_ref == "HEAD":
                         current_ref_sha = resolve_head(self.log_path.parent)
                     elif record.branch_ref.startswith("refs/heads/"):
-                        current_ref_sha = get_branch(self.log_path.parent, record.branch_ref[len("refs/heads/"):])
+                        current_ref_sha = get_branch(self.log_path.parent, record.branch_ref[len("refs/heads/"):]) # type: ignore
                 except Exception:
                     pass
 
@@ -286,7 +291,7 @@ class TransactionLog:
                     else:
                         branch_name = record.branch_ref
                         if branch_name.startswith("refs/heads/"):
-                            branch_name = branch_name[len("refs/heads/"):]
+                            branch_name = branch_name[len("refs/heads/"):] # type: ignore
                         update_branch(self.log_path.parent, branch_name, record.target_object_id)
                     self.commit(record.tx_id)
                 elif record.previous_commit_sha:
@@ -299,7 +304,7 @@ class TransactionLog:
                     else:
                         branch_name = record.branch_ref
                         if branch_name.startswith("refs/heads/"):
-                            branch_name = branch_name[len("refs/heads/"):]
+                            branch_name = branch_name[len("refs/heads/"):] # type: ignore
                         update_branch(self.log_path.parent, branch_name, record.previous_commit_sha)
                     self.rollback(record.tx_id, "Crash recovery: rolled back pointer")
                 else:
@@ -309,9 +314,9 @@ class TransactionLog:
 
     def _restore_workdir(self, commit_sha: str):
         """Restore the working directory to the state of the given commit."""
-        from deep.storage.objects import read_object, Commit
-        from deep.storage.index import Index, IndexEntry, write_index
-        from deep.core.repository import _get_tree_files
+        from deep.storage.objects import read_object, Commit # type: ignore
+        from deep.storage.index import Index, IndexEntry, write_index # type: ignore
+        from deep.core.repository import _get_tree_files # type: ignore
 
         dg_dir = self.log_path.parent
         repo_root = dg_dir.parent

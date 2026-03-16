@@ -44,10 +44,11 @@ def mark_reachable(dg_dir: Path) -> Set[str]:
     
     # HEAD
     head_sha = resolve_head(dg_dir)
-    if head_sha:
+    if head_sha and len(head_sha) == 40:
         starting_shas.add(head_sha)
 
-    queue = list(starting_shas)
+    # Filter all starting SHAs for 40-char length to avoid corrupt/lock content
+    queue = [s for s in starting_shas if len(s) == 40]
     
     # 2. Traverse the DAG
     while queue:

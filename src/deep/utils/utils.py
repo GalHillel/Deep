@@ -12,12 +12,17 @@ and consistent storage engine. All sensitive file writes should use
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import sys
 import tempfile
+import time
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union, IO, Any, TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from deep.core.locks import BaseLock # type: ignore[import]
 
 
 class DeepError(Exception):
@@ -61,10 +66,11 @@ class AtomicWriter:
     def __init__(self, target: Union[str, Path], mode: str = "wb") -> None:
         self.target = Path(target)
         self.mode = mode
-        self._fd: Optional[int] = None
         self._tmp_path: Optional[Path] = None
-        self._file = None
-        self._is_append = "a" in self.mode
+        self._file: Optional[IO[Any]] = None
+        self._fd: Optional[int] = None
+        self._is_append = "a" in mode
+        self._lock: Optional[BaseLock] = None
         if self._is_append:
             # If appending, we actually open the temp file in write mode
             # because we'll copy existing contents over first.
@@ -79,11 +85,11 @@ class AtomicWriter:
         
         # If we are in append mode, we MUST use a lock to prevent the 
         # read-copy-replace race condition during concurrent appends.
-        self._lock = None
         if self._is_append:
-            from deep.core.locks import BaseLock
+            from deep.core.locks import BaseLock # type: ignore[import]
             self._lock = BaseLock(self.target.with_suffix(".lock"))
-            self._lock.acquire()
+            if self._lock:
+                self._lock.acquire() # type: ignore
 
         fd, tmp_name = tempfile.mkstemp(
             dir=str(self.target.parent),
@@ -95,33 +101,39 @@ class AtomicWriter:
         if self._is_append and self.target.exists():
             with open(self.target, "rb") as src:
                 # Copy current contents to the temp file
-                os.write(self._fd, src.read())
+                if self._fd is None:
+                    raise DeepError("AtomicWriter: Cannot write to uninitialized file descriptor.")
+                os.write(cast(int, self._fd), src.read()) # type: ignore[arg-type]
 
-        self._file = os.fdopen(self._fd, self.mode)
+        if self._fd is None:
+            raise DeepError("AtomicWriter: Cannot open uninitialized file descriptor.")
+        self._file = os.fdopen(cast(int, self._fd), self.mode) # type: ignore[arg-type]
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[override]
         try:
             if self._file:
                 if exc_type is not None:
-                    self._file.close()
+                    cast(Any, self._file).close() # type: ignore
                     if self._tmp_path.exists():
-                        self._tmp_path.unlink()
+                        cast(Any, self._tmp_path).unlink() # type: ignore
                     return
 
-                self._file.flush()
-                try:
-                    os.fsync(self._file.fileno())
-                except OSError:
-                    pass 
-                self._file.close()
+                cast(Any, self._file).flush() # type: ignore
+                if self._fd is not None:
+                    try:
+                        os.fsync(cast(int, self._fd))
+                    except OSError:
+                        pass
+                self._file.close() # type: ignore
                 self._file = None
                 
-                os.replace(str(self._tmp_path), str(self.target))
+                if self._tmp_path is not None:
+                    os.replace(str(self._tmp_path), str(self.target))
         finally:
             # Always ensure the lock is released if it was acquired
             if hasattr(self, "_lock") and self._lock:
-                self._lock.release()
+                self._lock.release() # type: ignore
                 self._lock = None
         
         # Fsync the parent directory to ensure the directory entry is persisted
@@ -171,9 +183,9 @@ def format_git_date(timestamp: int, tz_offset_str: str) -> str:
     import time
     sign = 1 if tz_offset_str.startswith('+') else -1
     try:
-        hours = int(tz_offset_str[1:3])
-        minutes = int(tz_offset_str[3:5])
-        offset_seconds = sign * (hours * 3600 + minutes * 60)
+        hours = int(tz_offset_str[1:3]) # type: ignore
+        minutes = int(tz_offset_str[3:5]) # type: ignore
+        offset_seconds = sign * (hours * 3600 + minutes * 60) # type: ignore
     except (ValueError, IndexError):
         offset_seconds = 0
 

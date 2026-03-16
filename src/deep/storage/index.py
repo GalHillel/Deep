@@ -18,11 +18,11 @@ import struct
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, cast
 
-from filelock import FileLock
+from filelock import FileLock # type: ignore
 
-from deep.utils.utils import AtomicWriter
+from deep.utils.utils import AtomicWriter # type: ignore
 
 # ── Binary Format Constants ──────────────────────────────────────────
 # Header: 4B signature 'DEEP', 4B version (1)
@@ -96,7 +96,7 @@ class Index:
         if not data:
             return cls()
 
-        if data[:4] != INDEX_SIGNATURE:
+        if cast(Any, data)[:4] != INDEX_SIGNATURE: # type: ignore
             # Fallback to JSON migration if signature missing
             try:
                 import json
@@ -108,18 +108,18 @@ class Index:
             except Exception:
                 raise ValueError("Invalid index format: signature mismatch and JSON fallback failed.")
 
-        version = struct.unpack(">I", data[4:8])[0]
+        version = struct.unpack(">I", cast(Any, data)[4:8])[0] # type: ignore
         if version != INDEX_VERSION:
             raise ValueError(f"Unsupported index version: {version}")
 
-        entry_count = struct.unpack(">I", data[8:12])[0]
+        entry_count = struct.unpack(">I", cast(Any, data)[8:12])[0] # type: ignore
         entries: dict[str, IndexEntry] = {}
         offset = 12
 
         for _ in range(entry_count):
             path_len, sha_raw, size, mtime = struct.unpack_from(ENTRY_HEADER_FORMAT, data, offset)
             offset += ENTRY_HEADER_SIZE
-            path = data[offset : offset + path_len].decode("utf-8")
+            path = cast(Any, data)[offset : offset + path_len].decode("utf-8") # type: ignore
             offset += path_len
             entries[path] = IndexEntry(sha=sha_raw.hex(), size=size, mtime=mtime)
 
@@ -222,10 +222,7 @@ def remove_multiple_index_entries(dg_dir: Path, rel_paths: list[str]) -> None:
     with lock:
         index = read_index_no_lock(dg_dir)
         for rel_path in rel_paths:
-            if rel_path in index.entries:
-                del index.entries[rel_path]
-            else:
-                logging.getLogger("DeepBridge").warning(
-                    "Attempted to remove non-existent index entry: %s", rel_path
-                )
+            if rel_path not in index.entries:
+                raise KeyError(f"Index entry not found: {rel_path}")
+            del index.entries[rel_path] # type: ignore
         write_index_no_lock(dg_dir, index)

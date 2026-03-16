@@ -42,7 +42,7 @@ def test_daemon_handshake_sync(tmp_path):
     port = get_free_port()
     # Start daemon in Separate Process
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd())
+    env["PYTHONPATH"] = str(Path.cwd() / "src")
     env["PYTHONUNBUFFERED"] = "1"
     proc = subprocess.Popen(
         [sys.executable, "-m", "deep.main", "daemon", "--port", str(port)],
@@ -110,7 +110,7 @@ def test_daemon_push_sync(tmp_path):
     # Start server
     port = get_free_port()
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd())
+    env["PYTHONPATH"] = str(Path.cwd() / "src")
     env["PYTHONUNBUFFERED"] = "1"
     proc = subprocess.Popen(
         [sys.executable, "-m", "deep.main", "daemon", "--port", str(port)],

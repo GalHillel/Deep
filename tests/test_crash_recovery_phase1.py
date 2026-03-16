@@ -47,8 +47,8 @@ def test_crash_mid_commit_branch_recovery(tmp_path: Path):
         # so the txlog STAYS in the incomplete BEGIN state
         raise Exception("Simulated power loss during branch update!")
 
-    with mock.patch("deep.commands.commit_cmd.update_branch", side_effect=crashing_update_branch):
-        with mock.patch("deep.core.refs.update_head", side_effect=crashing_update_branch):
+    with mock.patch("deep.core.refs.update_branch_no_lock", side_effect=crashing_update_branch):
+        with mock.patch("deep.core.refs.update_head_no_lock", side_effect=crashing_update_branch):
             with mock.patch("deep.commands.add_cmd.find_repo", return_value=tmp_path):
                 with mock.patch("deep.commands.commit_cmd.find_repo", return_value=tmp_path):
                     with mock.patch.object(TransactionLog, "rollback"):  # Prevent the exception handler from cleaning up

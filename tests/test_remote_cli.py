@@ -44,6 +44,15 @@ def test_distributed_workflow(tmp_path: Path, env: dict[str, str]):
     subprocess.run([sys.executable, "-m", "deep.main", "add", "README.md"], cwd=server_root, env=env, check=True)
     subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "server init"], cwd=server_root, env=env, check=True)
     server_head = resolve_head(server_root / DEEP_DIR)
+
+    # 1.5 Setup Authorization (new security policy requires explicit write access)
+    from deep.core.user import UserManager
+    from deep.core.access import AccessManager
+    from deep.core.repository import DEEP_GIT_DIR
+    um = UserManager(server_root / DEEP_GIT_DIR)
+    um.add_user("anonymous", "test-key", "anon@example.com")
+    am = AccessManager(server_root / DEEP_GIT_DIR)
+    am.set_permission("anonymous", "contributor")
     
     # 2. Start Server Daemon
     port = get_free_port()

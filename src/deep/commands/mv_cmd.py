@@ -54,12 +54,12 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     shutil.move(str(src_path), str(dest_path))
 
     # 2. Update index
-    from deep.storage.index import _lock_path, _read_index_no_lock, _write_index_no_lock, IndexEntry
-    from filelock import FileLock
+    from deep.storage.index import read_index_no_lock, write_index_no_lock, IndexEntry
+    from deep.core.locks import RepositoryLock
     
-    lock = FileLock(str(_lock_path(dg_dir)))
-    with lock:
-        index = _read_index_no_lock(dg_dir)
+    repo_lock = RepositoryLock(dg_dir)
+    with repo_lock:
+        index = read_index_no_lock(dg_dir)
         to_remove = []
         to_update = {} # path -> entry
         
@@ -89,6 +89,6 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         for p, e in to_update.items():
             index.entries[p] = e
             
-        _write_index_no_lock(dg_dir, index)
+        write_index_no_lock(dg_dir, index)
 
     print(f"Renamed {rel_src} -> {rel_dest}")

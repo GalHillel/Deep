@@ -33,7 +33,7 @@ from deep.core.repository import DEEP_DIR
 def god_repo(tmp_path):
     """Initialize a DeepGit repo with a key and a signed commit."""
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd())
+    env["PYTHONPATH"] = str(Path.cwd() / "src")
     subprocess.run([sys.executable, "-m", "deep.main", "init"],
                    cwd=tmp_path, env=env, check=True)
     dg_dir = tmp_path / DEEP_DIR

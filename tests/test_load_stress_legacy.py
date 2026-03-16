@@ -15,7 +15,7 @@ def run_cmd(args, cwd=None, env=None):
 def stress_test(tmp_path):
     print(f"Starting stress test with {NUM_COMMITS} commits...")
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd())
+    env["PYTHONPATH"] = str(Path.cwd() / "src")
     env["PYTHONUNBUFFERED"] = "1"
     
     server_root = tmp_path / "server"

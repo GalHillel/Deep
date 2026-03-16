@@ -40,6 +40,17 @@ def remote_repo(tmp_path: Path) -> Path:
     (remote_dir / "file.txt").write_text("remote content")
     main(["add", "file.txt"])
     main(["commit", "-m", "Initial remote commit"])
+
+    # Setup Authorization for tests
+    from deep.core.user import UserManager
+    from deep.core.access import AccessManager
+    from deep.core.repository import DEEP_GIT_DIR
+    dg_dir = remote_dir / DEEP_GIT_DIR
+    um = UserManager(dg_dir)
+    um.add_user("anonymous", "test-key", "anon@example.com")
+    am = AccessManager(dg_dir)
+    am.set_permission("anonymous", "contributor")
+
     return remote_dir
 
 def test_full_remote_workflow(remote_repo: Path, tmp_path: Path) -> None:

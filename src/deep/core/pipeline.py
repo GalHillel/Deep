@@ -129,6 +129,14 @@ try:
     # We no longer support shell features (pipes/redirects) directly in the command string
     # for security reasons. Users should use scripts if they need complex logic.
     parsed_cmd = shlex.split(cmd)
+    
+    # On Windows, 'echo' and other built-ins are not executables. 
+    # To support them safely without shell=True for everything, 
+    # we prepend cmd /c if the executable is not found.
+    import shutil
+    if os.name == 'nt' and shutil.which(parsed_cmd[0]) is None:
+        parsed_cmd = ["cmd", "/c"] + parsed_cmd
+        
     res = subprocess.run(parsed_cmd, shell=False, capture_output=False)
     sys.exit(res.returncode)
 except Exception as e:

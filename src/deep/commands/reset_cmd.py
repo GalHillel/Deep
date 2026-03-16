@@ -14,7 +14,14 @@ import os
 import sys
 from pathlib import Path
 
-from deep.storage.index import Index, IndexEntry, read_index, write_index
+from deep.storage.index import (
+    Index,
+    IndexEntry,
+    read_index,
+    read_index_no_lock,
+    write_index,
+    write_index_no_lock,
+)
 from deep.storage.objects import Blob, Commit, Tree, read_object
 from deep.core.refs import get_current_branch, update_branch, update_head, resolve_revision
 from deep.core.repository import DEEP_GIT_DIR, find_repo
@@ -96,7 +103,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         try:
             if mode == "hard":
                 # 1. Clear current items in index from workdir
-                current_index = read_index(dg_dir)
+                current_index = read_index_no_lock(dg_dir)
                 for p in current_index.entries:
                     full = repo_root / p
                     if full.exists():
@@ -117,14 +124,14 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                     full.write_bytes(read_object(objects_dir, sha).serialize_content())
                     stat = full.stat()
                     new_index.entries[p] = IndexEntry(sha=sha, size=stat.st_size, mtime=stat.st_mtime)
-                write_index(dg_dir, new_index)
+                write_index_no_lock(dg_dir, new_index)
                 print(f"DeepBridge: HEAD is now at {target_sha[:7]} (hard reset)")
 
             elif mode == "mixed":
                 new_index = Index()
                 for p, sha in target_files.items():
                     new_index.entries[p] = IndexEntry(sha=sha, size=0, mtime=0.0)
-                write_index(dg_dir, new_index)
+                write_index_no_lock(dg_dir, new_index)
                 print(f"DeepBridge: HEAD is now at {target_sha[:7]} (mixed reset)")
 
             else:  # soft

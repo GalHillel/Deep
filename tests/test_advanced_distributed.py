@@ -16,7 +16,7 @@ def get_free_port():
 @pytest.fixture
 def env():
     e = os.environ.copy()
-    e["PYTHONPATH"] = str(Path.cwd())
+    e["PYTHONPATH"] = str(Path.cwd() / "src")
     e["PYTHONUNBUFFERED"] = "1"
     return e
 

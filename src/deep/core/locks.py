@@ -13,7 +13,14 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, cast, Union
+
+from deep.core.ignore import IgnoreEngine # type: ignore
+from deep.storage.index import read_index # type: ignore
+from deep.storage.objects import Blob, Commit, Tree, read_object # type: ignore
+from deep.core.refs import resolve_head # type: ignore
+from deep.core.repository import DEEP_GIT_DIR # type: ignore
+from deep.utils.utils import hash_bytes # type: ignore
 
 
 # Stale lock threshold: if a lock is older than this and its PID is dead, break it.
@@ -61,28 +68,70 @@ class BaseLock:
         self._file_handle = None
 
     def _write_metadata(self):
-        """Best-effort metadata update. Since we use advisory locks, 
-        the file stays on disk. We just overwrite the metadata.
+        """Write metadata using the already open self._file_handle.
+        We seek to 0, write JSON, and ensure we don't overwrite the lock offset.
         """
+        if not self._file_handle:
+            return
         try:
-            with open(self.lock_path, "w", encoding="utf-8") as f:
-                json.dump({
-                    "pid": os.getpid(),
-                    "timestamp": time.time(),
-                    "hostname": os.environ.get("COMPUTERNAME", os.environ.get("HOSTNAME", "unknown")),
-                }, f)
+            assert self._file_handle is not None
+            cast(Any, self._file_handle).seek(0)
+            metadata = {
+                "pid": os.getpid(),
+                "timestamp": time.time(),
+                "hostname": os.environ.get("COMPUTERNAME", os.environ.get("HOSTNAME", "unknown")),
+            }
+            # Write JSON and pad with spaces to ensure we don't leave old partial data
+            # but stay well below the 1024 byte lock offset.
+            data = cast(str, json.dumps(metadata)) # type: ignore
+            if len(data) > 1000:
+                data = data[:1000] # type: ignore
+            cast(Any, self._file_handle).write(data.ljust(1000))
+            cast(Any, self._file_handle).flush()
+            os.fsync(cast(Any, self._file_handle).fileno())
         except OSError:
             pass
 
     def _try_break_stale_lock(self) -> bool:
-        """With native advisory locks, if the process dies, the OS 
-        automatically releases the lock. Stale lock breaking is handled 
-        by the OS. We keep this as a no-op for API compatibility.
+        """Read the lock metadata and check if the owner process is still alive.
+        If the PID is dead, we break (unlink) the lock.
         """
+        if not self.lock_path.exists():
+            return False
+        
+        try:
+            # On Windows, if the file is locked by another handle, this will fail.
+            # That's fine - it means the process is alive.
+            with open(self.lock_path, "r", encoding="utf-8") as f:
+                data = cast(dict, json.load(f)) # type: ignore
+            
+            pid = cast(dict, data).get("pid") # type: ignore
+            if pid and not _is_process_alive(pid):
+                # Process is definitively dead. Break the lock.
+                try:
+                    os.remove(self.lock_path)
+                    return True
+                except (PermissionError, OSError):
+                    # If we can't remove it, someone else might have acquired it
+                    # or it's still somehow held.
+                    pass
+        except (OSError, json.JSONDecodeError, ValueError):
+            # If we can't read it or it's corrupt, and it's not locked by OS,
+            # we might consider it stale if it's very old? 
+            # But user said "only if definitively dead".
+            # For corrupt/empty files not held by OS, unlinking is usually safe.
+            if self.lock_path.exists():
+                try:
+                    # Try a dummy lock. If it fails, someone has it.
+                    # If it succeeds, the file is just lying around.
+                    pass
+                except OSError:
+                    pass
         return False
 
     def acquire(self):
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        from deep.utils.utils import AtomicWriter # type: ignore
         import sys
         import time
         import random
@@ -90,20 +139,30 @@ class BaseLock:
         start_time = time.time()
         
         # Open the file for the duration of the lock
-        self._file_handle = open(self.lock_path, "a")
-        fd = self._file_handle.fileno()
+        # Use r+ to allow reading/writing without truncation
+        if self.lock_path.exists():
+            self._file_handle = cast(Any, open(self.lock_path, "r+")) # type: ignore
+        else:
+            self._file_handle = cast(Any, open(self.lock_path, "w+")) # type: ignore
+        fd = cast(Any, self._file_handle).fileno() # type: ignore
 
         if sys.platform == "win32":
             import msvcrt
             while True:
                 try:
-                    # LK_NBLCK: Non-blocking lock. If fail, we retry with our own timeout/jitter.
+                    # Lock at offset 1024 to allow reading metadata at the beginning
+                    self._file_handle.seek(1024)
+                    # LK_NBLCK: Non-blocking lock.
                     msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
                     self._write_metadata()
                     return
                 except (BlockingIOError, PermissionError, OSError):
+                    # Check for stale lock
+                    if self._try_break_stale_lock():
+                        continue
+                    
                     if time.time() - start_time > self.timeout:
-                        self._file_handle.close()
+                        cast(Any, self._file_handle).close() # type: ignore
                         raise TimeoutError(f"DeepBridge: failed to acquire lock {self.lock_path} within {self.timeout}s")
                     time.sleep(0.05 + random.random() * 0.1)
         else:
@@ -114,8 +173,12 @@ class BaseLock:
                     self._write_metadata()
                     return
                 except (BlockingIOError, OSError):
+                    # Check for stale lock
+                    if self._try_break_stale_lock():
+                        continue
+                        
                     if time.time() - start_time > self.timeout:
-                        self._file_handle.close()
+                        cast(Any, self._file_handle).close() # type: ignore
                         raise TimeoutError(f"DeepBridge: failed to acquire lock {self.lock_path} within {self.timeout}s")
                     time.sleep(0.05 + random.random() * 0.1)
 
@@ -123,21 +186,22 @@ class BaseLock:
         if self._file_handle:
             import sys
             try:
-                fd = self._file_handle.fileno()
+                fd = cast(Any, self._file_handle).fileno() # type: ignore
                 if sys.platform == "win32":
-                    import msvcrt
+                    import msvcrt # type: ignore
                     try:
+                        cast(Any, self._file_handle).seek(1024) # type: ignore
                         msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
                     except OSError:
                         pass
                 else:
-                    import fcntl
+                    import fcntl # type: ignore
                     try:
                         fcntl.flock(fd, fcntl.LOCK_UN)
                     except OSError:
                         pass
             finally:
-                self._file_handle.close()
+                cast(Any, self._file_handle).close() # type: ignore
                 self._file_handle = None
                 # Optional: unlink if we are the only ones. 
                 # But for WAL/Index it's often better to just leave the empty file.

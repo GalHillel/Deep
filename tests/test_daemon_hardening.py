@@ -28,7 +28,7 @@ def repo_with_subprocess_daemon(tmp_path):
     
     port = get_free_port()
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd())
+    env["PYTHONPATH"] = str(Path.cwd() / "src")
     env["PYTHONUNBUFFERED"] = "1"
     env["DEEP_INSECURE_SKIP_AUTH"] = "1"
     

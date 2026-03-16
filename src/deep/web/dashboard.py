@@ -16,16 +16,18 @@ import os
 import traceback
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
-from typing import Optional
+from typing import Optional, ClassVar, Any, cast
 
-from deep.storage.objects import read_object, Commit, Tree, Blob, Tag
-from deep.core.refs import (
-    resolve_head,
-    list_branches,
-    get_branch,
-    log_history,
-)
-from deep.core.repository import DEEP_GIT_DIR
+from deep.storage.objects import read_object, read_object_safe, Commit, Tree, Blob, Tag # type: ignore[import]
+from deep.core.refs import resolve_head, list_branches, get_branch, list_tags # type: ignore[import]
+from deep.core.repository import find_repo, DEEP_GIT_DIR # type: ignore[import]
+from deep.core.issue import IssueManager  # type: ignore[import]
+from deep.core.pr import PRManager  # type: ignore[import]
+from deep.storage.index import read_index  # type: ignore[import]
+from deep.core.search import search_history  # type: ignore[import]
+from deep.network.p2p import P2PEngine  # type: ignore[import]
+from deep.core.blame import get_blame  # type: ignore[import]
+from deep.ai.assistant import DeepGitAI  # type: ignore[import]
 
 
 def _tree_entries_flat(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
@@ -104,7 +106,7 @@ def _gather_refs(dg_dir: Path) -> dict:
                 tags[f.name] = f.read_text().strip()
 
     # Detect current branch
-    from deep.core.refs import get_current_branch
+    from deep.core.refs import get_current_branch # type: ignore
     current_branch = get_current_branch(dg_dir)
 
     return {
@@ -143,7 +145,7 @@ def _object_detail(dg_dir: Path, sha: str) -> dict:
     except Exception as e:
         return {"error": str(e)}
 
-    info: dict = {"sha": sha, "type": obj.OBJ_TYPE}
+    info: dict = {"sha": sha, "type": cast(Any, obj).OBJ_TYPE} # type: ignore
     if isinstance(obj, Commit):
         info.update({
             "message": obj.message.strip(),
@@ -214,10 +216,10 @@ def _get_repo_dg_dir(repo_root: Path, repo_name: Optional[str]) -> Path:
     """Safely resolve repository DG_DIR and prevent path traversal."""
     if not repo_name:
         # Fallback to main repo if no repo parameter is provided
-        from deep.core.repository import DEEP_GIT_DIR
+        from deep.core.repository import DEEP_GIT_DIR # type: ignore[import]
         return repo_root / DEEP_GIT_DIR
     
-    from deep.core.repository import DEEP_GIT_DIR
+    from deep.core.repository import DEEP_GIT_DIR # type: ignore[import]
     # Ensure relative path doesn't contain traversal
     repos_base = (repo_root / "repos").resolve()
     target_repo_dir = (repos_base / repo_name).resolve()
@@ -232,9 +234,9 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 class DashboardHandler(SimpleHTTPRequestHandler):
     """Serve the Web Dashboard SPA and REST API."""
-
-    dg_dir: Path  # set at class level before starting server
-    repo_root: Path # set at class level for multi-repo support
+    
+    dg_dir: ClassVar[Path]
+    repo_root: ClassVar[Path]
 
     def do_GET(self):
         try:
@@ -269,11 +271,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
             dg = _get_repo_dg_dir(self.repo_root, repo_name)
             self._json_response(_object_detail(dg, sha))
-        elif self.path == "/api/repos":
-            from deep.platform.platform import PlatformManager
+        elif self.path == "/api/projects":
+            from deep.platform.platform import PlatformManager # type: ignore[import]
+            from deep.core.repository import find_repo # type: ignore[import]
+            from deep.core.repository import DEEP_GIT_DIR # type: ignore[import]
+            res = []
             manager = PlatformManager(self.repo_root)
             repos = manager.list_repos()
-            res = []
             for r in repos:
                 dg = self.repo_root / "repos" / r / DEEP_GIT_DIR
                 head = resolve_head(dg)
@@ -285,14 +289,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             from urllib.parse import urlparse, parse_qs
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
             dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
-            from deep.core.issue import IssueManager
+            from deep.core.issue import IssueManager # type: ignore[import]
             im = IssueManager(dg)
             self._json_response([{"id": i.id, "title": i.title} for i in im.list_issues()])
         elif self.path.startswith("/api/prs"):
             from urllib.parse import urlparse, parse_qs
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
             dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
-            from deep.core.pr import PRManager
+            from deep.core.pr import PRManager # type: ignore[import]
             prm = PRManager(dg)
             self._json_response([{"id": p.id, "title": p.title} for p in prm.list_prs()])
 
@@ -301,10 +305,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
         # ── Heatmap API ─────────────────────────────────────────────
         elif self.path == "/api/heatmap":
-            from deep.ai.analyzer import score_complexity
-            from deep.storage.index import read_index
+            from deep.ai.analyzer import score_complexity # type: ignore[import]
+            from deep.storage.index import read_index # type: ignore[import]
             heatmap = []
-            objects_dir = self.dg_dir / "objects"
+            objects_dir = cast(Any, self).dg_dir / "objects" # type: ignore
             index = read_index(self.dg_dir)
             for path, entry in index.entries.items():
                 try:
@@ -330,7 +334,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             # /api/search?q=pattern
             from urllib.parse import urlparse, parse_qs
             query = parse_qs(urlparse(self.path).query).get("q", [""])[0]
-            from deep.core.search import search_history
+            from deep.core.search import search_history # type: ignore[import]
             res = search_history(self.dg_dir, query)
             self._json_response([
                 {
@@ -343,12 +347,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         elif self.path == "/api/metrics":
             self._json_response(self._load_metrics())
         elif self.path.startswith("/api/p2p/nodes"):
-            from deep.network.p2p import P2PEngine
+            from deep.network.p2p import P2PEngine # type: ignore[import]
             from dataclasses import asdict
             engine = P2PEngine(self.dg_dir)
             self._json_response([asdict(p) for p in engine.get_peers()])
         elif self.path == "/api/p2p/presence":
-            from deep.network.p2p import P2PEngine
+            from deep.network.p2p import P2PEngine # type: ignore[import]
             engine = P2PEngine(self.dg_dir)
             peers = engine.get_peers()
             presence = {}
@@ -373,8 +377,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 })
             self._json_response(nodes_3d)
         elif self.path.startswith("/api/blame/"):
-            rel_path = self.path[len("/api/blame/"):]
-            from deep.core.blame import get_blame
+            rel_path = cast(Any, self).path[len("/api/blame/"):] # type: ignore
+            from deep.core.blame import get_blame # type: ignore[import]
             hunks = get_blame(self.dg_dir, rel_path)
             self._json_response([
                 {
@@ -388,7 +392,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         elif self.path == "/api/heatmap":
             self._json_response(self._calculate_heatmap())
         elif self.path == "/api/ai/review":
-            from deep.ai.assistant import DeepGitAI
+            from deep.ai.assistant import DeepGitAI # type: ignore[import]
             ai = DeepGitAI(self.dg_dir.parent)
             res = ai.review_changes()
             self._json_response({
@@ -398,7 +402,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 "latency_ms": res.latency_ms
             })
         elif self.path == "/api/ai/metrics":
-            from deep.ai.assistant import DeepGitAI
+            from deep.ai.assistant import DeepGitAI # type: ignore[import]
             ai = DeepGitAI(self.dg_dir.parent)
             self._json_response(ai.get_metrics())
         else:
@@ -443,8 +447,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def _calculate_heatmap(self) -> dict:
         """Calculate commit density per day for the last 365 days."""
-        from deep.core.refs import resolve_head
-        from deep.storage.objects import read_object, Commit
+        from deep.core.refs import resolve_head # type: ignore[import]
+        from deep.storage.objects import read_object_safe # type: ignore[import]
         
         counts = {}
         head = resolve_head(self.dg_dir)
@@ -461,7 +465,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             visited.add(sha)
             
             try:
-                obj = read_object(self.dg_dir / "objects", sha)
+                obj = read_object(self.dg_dir / "objects", sha) # type: ignore
                 if isinstance(obj, Commit):
                     date_str = datetime.datetime.fromtimestamp(obj.timestamp).strftime("%Y-%m-%d")
                     counts[date_str] = counts.get(date_str, 0) + 1

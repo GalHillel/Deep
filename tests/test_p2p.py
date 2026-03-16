@@ -9,7 +9,7 @@ from deep.core.repository import DEEP_DIR
 @pytest.fixture
 def p2p_repo(tmp_path):
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd())
+    env["PYTHONPATH"] = str(Path.cwd() / "src")
     subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path, env
 

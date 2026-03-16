@@ -32,7 +32,7 @@ def dashboard_server(tmp_path):
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd())
+    env["PYTHONPATH"] = str(Path.cwd() / "src")
     env["PYTHONUNBUFFERED"] = "1"
 
     # Init repo and make some commits
@@ -127,7 +127,9 @@ def test_api_multi_repo(dashboard_server):
     # Create a sibling repo
     sibling = repo_root.parent / "sibling"
     sibling.mkdir()
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=sibling, check=True)
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path.cwd() / "src")
+    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=sibling, env=env, check=True)
     
     resp = urlopen(f"http://127.0.0.1:{port}/api/multi-repo")
     data = json.loads(resp.read())

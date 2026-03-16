@@ -807,21 +807,22 @@ Examples:
 
     # ── Plugins ─────────────────────────────────────────────────────
     try:
-        from deep.core.repository import find_repo, DEEP_GIT_DIR
+        from deep.core.repository import find_repo, DEEP_GIT_DIR # type: ignore[import]
         repo_root = find_repo()
         dg_dir = repo_root / DEEP_GIT_DIR
-        
-        from deep.plugins.plugin import PluginManager
+        from deep.plugins.plugin import PluginManager  # type: ignore[import]
         pm = PluginManager(dg_dir)
-        pm.discover()
-        
-        for cmd_name, handler in pm.commands.items():
-            p_plugin = sub.add_parser(cmd_name, help=f"Plugin command: {cmd_name}")
-            p_plugin.add_argument("args", nargs=argparse.REMAINDER)
-            
-        parser.plugin_manager = pm
+        if pm:
+            pm.discover()
+            for cmd_name, _ in pm.commands.items():
+                p_plugin = sub.add_parser(cmd_name, help=f"Plugin command: {cmd_name}")
+                p_plugin.add_argument("args", nargs=argparse.REMAINDER)
+                
+            setattr(parser, "plugin_manager", pm)
+        else:
+            setattr(parser, "plugin_manager", None)
     except Exception:
-        parser.plugin_manager = None
+        setattr(parser, "plugin_manager", None)
 
     return parser
 
@@ -833,8 +834,9 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command is None:
         try:
-            from rich.console import Console
-            from rich.panel import Panel
+            from rich.console import Console # type: ignore[import]
+            from rich.panel import Panel # type: ignore[import]
+            from deep.core.repository import find_repo # type: ignore[import]
             console = Console()
             console.print(Panel("[bold cyan]DeepBridge[/bold cyan] — Next-generation Distributed VCS", expand=False))
             parser.print_help()
@@ -844,114 +846,114 @@ def main(argv: list[str] | None = None) -> None:
 
     # Dynamic import to keep startup fast.
     if args.command == "init":
-        from deep.commands.init_cmd import run
+        from deep.commands.init_cmd import run # type: ignore[import]
     elif args.command == "add":
-        from deep.commands.add_cmd import run
+        from deep.commands.add_cmd import run # type: ignore[import]
     elif args.command == "commit":
-        from deep.commands.commit_cmd import run
+        from deep.commands.commit_cmd import run # type: ignore[import]
     elif args.command == "log":
-        from deep.commands.log_cmd import run
+        from deep.commands.log_cmd import run # type: ignore[import]
     elif args.command == "branch":
-        from deep.commands.branch_cmd import run
+        from deep.commands.branch_cmd import run # type: ignore[import]
     elif args.command == "status":
-        from deep.commands.status_cmd import run
+        from deep.commands.status_cmd import run # type: ignore[import]
     elif args.command == "graph":
-        from deep.commands.graph_cmd import run
+        from deep.commands.graph_cmd import run # type: ignore[import]
     elif args.command == "diff":
-        from deep.commands.diff_cmd import run
+        from deep.commands.diff_cmd import run # type: ignore[import]
     elif args.command == "checkout":
-        from deep.commands.checkout_cmd import run
+        from deep.commands.checkout_cmd import run # type: ignore[import]
     elif args.command == "merge":
-        from deep.commands.merge_cmd import run
+        from deep.commands.merge_cmd import run # type: ignore[import]
     elif args.command == "inspect-tree":
-        from deep.commands import inspect_tree_cmd
+        from deep.commands import inspect_tree_cmd # type: ignore[import]
         inspect_tree_cmd.run(args)
     elif args.command == "fsck":
-        from deep.commands.fsck_cmd import run
+        from deep.commands.fsck_cmd import run # type: ignore[import]
     elif args.command == "rm":
-        from deep.commands.rm_cmd import run
+        from deep.commands.rm_cmd import run # type: ignore[import]
     elif args.command == "mv":
-        from deep.commands.mv_cmd import run
+        from deep.commands.mv_cmd import run # type: ignore[import]
     elif args.command == "reset":
-        from deep.commands.reset_cmd import run
+        from deep.commands.reset_cmd import run # type: ignore[import]
     elif args.command == "config":
-        from deep.commands.config_cmd import run
+        from deep.commands.config_cmd import run # type: ignore[import]
     elif args.command == "tag":
-        from deep.commands.tag_cmd import run
+        from deep.commands.tag_cmd import run # type: ignore[import]
     elif args.command == "stash":
-        from deep.commands.stash_cmd import run
+        from deep.commands.stash_cmd import run # type: ignore[import]
     elif args.command == "rebase":
-        from deep.commands.rebase_cmd import run
+        from deep.commands.rebase_cmd import run # type: ignore[import]
     elif args.command == "doctor":
-        from deep.commands.doctor_cmd import run
+        from deep.commands.doctor_cmd import run # type: ignore[import]
     elif args.command == "gc":
-        from deep.commands.gc_cmd import run
+        from deep.commands.gc_cmd import run # type: ignore[import]
     elif args.command == "benchmark":
-        from deep.commands.benchmark_cmd import run
+        from deep.commands.benchmark_cmd import run # type: ignore[import]
     elif args.command == "daemon":
-        from deep.commands.daemon_cmd import run
+        from deep.commands.daemon_cmd import run # type: ignore[import]
     elif args.command == "clone":
-        from deep.commands.clone_cmd import run
+        from deep.commands.clone_cmd import run # type: ignore[import]
     elif args.command == "push":
-        from deep.commands.push_cmd import run
+        from deep.commands.push_cmd import run # type: ignore[import]
     elif args.command == "fetch":
-        from deep.commands.fetch_cmd import run
+        from deep.commands.fetch_cmd import run # type: ignore[import]
     elif args.command == "pull":
-        from deep.commands.pull_cmd import run
+        from deep.commands.pull_cmd import run # type: ignore[import]
     elif args.command == "remote":
-        from deep.commands.remote_cmd import run
+        from deep.commands.remote_cmd import run # type: ignore[import]
     elif args.command == "web":
-        from deep.commands.web_cmd import run
+        from deep.commands.web_cmd import run # type: ignore[import]
     elif args.command == "server":
-        from deep.commands.server_cmd import run
+        from deep.commands.server_cmd import run # type: ignore[import]
     elif args.command == "user":
-        from deep.commands.user_cmd import run
+        from deep.commands.user_cmd import run # type: ignore[import]
     elif args.command == "auth":
-        from deep.commands.auth_cmd import run
+        from deep.commands.auth_cmd import run # type: ignore[import]
     elif args.command == "repo":
-        from deep.commands.repo_cmd import run
+        from deep.commands.repo_cmd import run # type: ignore[import]
     elif args.command == "pr":
-        from deep.commands.pr_cmd import run
+        from deep.commands.pr_cmd import run # type: ignore[import]
     elif args.command == "issue":
-        from deep.commands.issue_cmd import run
+        from deep.commands.issue_cmd import run # type: ignore[import]
     elif args.command == "ai":
-        from deep.commands.ai_cmd import run
+        from deep.commands.ai_cmd import run # type: ignore[import]
     elif args.command == "p2p":
-        from deep.commands.p2p_cmd import run
+        from deep.commands.p2p_cmd import run # type: ignore[import]
     elif args.command == "pipeline":
-        from deep.commands.pipeline_cmd import run
+        from deep.commands.pipeline_cmd import run # type: ignore[import]
     elif args.command == "search":
-        from deep.commands.search_cmd import run
+        from deep.commands.search_cmd import run # type: ignore[import]
     elif args.command == "mirror":
-        from deep.commands.mirror_cmd import run
+        from deep.commands.mirror_cmd import run # type: ignore[import]
     elif args.command == "sync":
-        from deep.commands.sync_cmd import run
+        from deep.commands.sync_cmd import run # type: ignore[import]
     elif args.command == "audit":
-        from deep.commands.audit_cmd import run
+        from deep.commands.audit_cmd import run # type: ignore[import]
     elif args.command == "ultra":
-        from deep.commands.ultra_cmd import run
+        from deep.commands.ultra_cmd import run # type: ignore[import]
     elif args.command == "batch":
-        from deep.commands.batch_cmd import run
+        from deep.commands.batch_cmd import run # type: ignore[import]
     elif args.command == "verify":
-        from deep.commands.verify_cmd import run
+        from deep.commands.verify_cmd import run # type: ignore[import]
     elif args.command == "sandbox":
-        from deep.commands.sandbox_cmd import run
+        from deep.commands.sandbox_cmd import run # type: ignore[import]
     elif args.command == "rollback":
-        from deep.commands.rollback_cmd import run
+        from deep.commands.rollback_cmd import run # type: ignore[import]
     elif args.command == "debug-tree":
-        from deep.commands.debug_cmd import run_debug_tree as run
+        from deep.commands.debug_cmd import run_debug_tree as run # type: ignore[import]
     elif args.command == "version":
-        from deep.cli.main import VERSION
+        ver_str = VERSION
         try:
-            from rich.console import Console
-            Console().print(f"[bold green]DeepBridge[/bold green] version [cyan]{VERSION}[/cyan]")
+            from rich.console import Console # type: ignore[import]
+            Console().print(f"[bold green]DeepBridge[/bold green] version [cyan]{ver_str}[/cyan]")
         except ImportError:
-            print(f"DeepBridge version {VERSION}")
+            print(f"DeepBridge version {ver_str}")
         return
     elif args.command == "help":
         try:
-            from rich.console import Console
-            from rich.panel import Panel
+            from rich.console import Console # type: ignore[import]
+            from rich.panel import Panel # type: ignore[import]
             Console().print(Panel("[bold cyan]DeepBridge Help[/bold cyan]", expand=False))
             parser.print_help()
         except ImportError:
@@ -967,7 +969,7 @@ def main(argv: list[str] | None = None) -> None:
             parser.print_help()
             sys.exit(1)
 
-    from deep.core.repository import find_repo, DEEP_GIT_DIR
+    from deep.core.repository import find_repo, DEEP_GIT_DIR # type: ignore[import]
     try:
         if args.command not in ("init", "clone", "version"):
             repo_root = find_repo()
@@ -975,7 +977,7 @@ def main(argv: list[str] | None = None) -> None:
             
             # Only recover if txlog actually exists and we're not doing a read-only command
             if args.command in ("commit", "merge", "push", "pull", "rollback", "checkout", "status"):
-                from deep.storage.txlog import TransactionLog
+                from deep.storage.txlog import TransactionLog # type: ignore[import]
                 txlog = TransactionLog(dg_dir)
                 if txlog.log_path.exists() and txlog.needs_recovery():
                     print("Running crash recovery...", file=sys.stderr)
@@ -983,8 +985,8 @@ def main(argv: list[str] | None = None) -> None:
 
             # Corruption detection for doctor and other integrity-sensitive commands
             if args.command in ("doctor",):
-                from deep.core.refs import resolve_head, list_branches, get_branch
-                from deep.storage.objects import read_object_safe
+                from deep.core.refs import resolve_head, list_branches, get_branch # type: ignore[import]
+                from deep.storage.objects import read_object_safe # type: ignore[import]
                 
                 objects_dir = dg_dir / "objects"
                 

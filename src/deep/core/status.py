@@ -15,14 +15,14 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Any, cast, List
 
-from deep.core.ignore import IgnoreEngine
-from deep.storage.index import read_index
-from deep.storage.objects import Blob, Commit, Tree, read_object
-from deep.core.refs import resolve_head
-from deep.core.repository import DEEP_GIT_DIR
-from deep.utils.utils import hash_bytes
+from deep.core.ignore import IgnoreEngine # type: ignore
+from deep.storage.index import read_index, Index # type: ignore
+from deep.storage.objects import Blob, Commit, Tree, read_object # type: ignore
+from deep.core.refs import resolve_head # type: ignore
+from deep.core.repository import DEEP_GIT_DIR # type: ignore
+from deep.utils.utils import hash_bytes # type: ignore
 
 
 @dataclass
@@ -78,7 +78,7 @@ def _walk_working_dir(repo_root: Path) -> Set[str]:
     files: set[str] = set()
     for dirpath, dirnames, filenames in os.walk(repo_root):
         # Skip .deep_git and hidden dirs.
-        dirnames[:] = [
+        dirnames[:] = [ # type: ignore
             d for d in dirnames
             if d != DEEP_GIT_DIR and not d.startswith(".")
         ]
@@ -152,7 +152,7 @@ def compute_status(repo_root: Path, index: Optional[Index] = None) -> StatusResu
     if to_check:
         max_workers = min(os.cpu_count() or 4, len(to_check))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(_check_file_status, repo_root, *args) for args in to_check]
+            futures = [cast(Any, executor).submit(_check_file_status, repo_root, *args) for args in to_check] # type: ignore
             for f in futures:
                 path, is_mod = f.result()
                 if is_mod:
@@ -184,8 +184,8 @@ def compute_status(repo_root: Path, index: Optional[Index] = None) -> StatusResu
                 result.untracked.append(path)
 
     # 4. Ahead/Behind metrics
-    from deep.core.config import Config
-    from deep.core.refs import get_current_branch, get_remote_ref, find_merge_base, log_history
+    from deep.core.config import Config # type: ignore
+    from deep.core.refs import get_current_branch, get_remote_ref, find_merge_base, log_history # type: ignore
     
     branch = get_current_branch(dg_dir)
     if branch:

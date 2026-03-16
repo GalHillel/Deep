@@ -253,7 +253,7 @@ def list_branches(dg_dir: Path) -> list[str]:
     heads_dir = dg_dir / "refs" / "heads"
     if not heads_dir.exists():
         return []
-    return sorted(p.name for p in heads_dir.iterdir() if p.is_file())
+    return sorted(p.name for p in heads_dir.iterdir() if p.is_file() and not p.name.endswith(".lock"))
 
 
 def get_branch(dg_dir: Path, name: str) -> Optional[str]:
@@ -319,7 +319,7 @@ def list_tags(dg_dir: Path) -> list[str]:
     tags_dir = dg_dir / "refs" / "tags"
     if not tags_dir.exists():
         return []
-    return sorted(p.name for p in tags_dir.iterdir() if p.is_file())
+    return sorted(p.name for p in tags_dir.iterdir() if p.is_file() and not p.name.endswith(".lock"))
 
 
 def get_tag(dg_dir: Path, name: str) -> Optional[str]:

@@ -10,7 +10,7 @@ from deep.utils.utils import hash_bytes
 @pytest.fixture
 def resilience_repo(tmp_path):
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd())
+    env["PYTHONPATH"] = str(Path.cwd() / "src") + os.pathsep + str(Path.cwd())
     subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path, env
 
@@ -41,12 +41,20 @@ def test_object_quarantine(resilience_repo):
     
     # Run doctor to trigger quarantine
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "doctor"],
+        [sys.executable, "-m", "deep.main", "doctor", "--fix"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert "corrupt" in result.stdout.lower()
     
     # Check quarantine dir
-    quarantine_dir = dg_dir / "quarantine"
-    assert quarantine_dir.exists()
-    assert (quarantine_dir / blob_sha).exists()
+    quarantine_base = dg_dir / "quarantine"
+    assert quarantine_base.exists()
+    
+    # Doctor uses timestamped subdirs: dg_dir / "quarantine" / str(int(time.time()))
+    # And appends _corrupt suffix for corrupt objects
+    found = False
+    for ts_dir in quarantine_base.iterdir():
+        if (ts_dir / f"{blob_sha}_corrupt").exists():
+            found = True
+            break
+    assert found, f"Corrupt blob {blob_sha} not found in quarantine"
