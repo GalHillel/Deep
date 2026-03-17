@@ -14,7 +14,7 @@ from typing import Set
 
 from deep.storage.objects import Commit, Tree, Tag, read_object
 from deep.core.refs import list_branches, get_branch, list_tags, get_tag, resolve_head
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.stash import get_stash_list
 
 
@@ -85,7 +85,7 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
     Returns:
         tuple (count_collected, count_total)
     """
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
     if not objects_dir.exists():
@@ -127,6 +127,9 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
     if not dry_run and marked:
         from deep.storage.pack import PackWriter
         writer = PackWriter(dg_dir)
+        # Identify existing packs before creating a new one
+        existing_packs = list(writer.pack_dir.glob("pack-*.pack")) + list(writer.pack_dir.glob("pack-*.idx"))
+        
         pack_sha, idx_sha = writer.create_pack(list(marked))
         if verbose:
             print(f"Compacted {len(marked)} objects into pack-{pack_sha}.pack")
@@ -136,6 +139,17 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
             loose_path = objects_dir / sha[:2] / sha[2:]
             if loose_path.exists():
                 loose_path.unlink()
+        
+        # Delete old packfiles that were not just created
+        new_pack_base = f"pack-{pack_sha}"
+        for p in existing_packs:
+            if p.stem != new_pack_base:
+                try:
+                    p.unlink()
+                    if verbose:
+                        print(f"Removed old pack file: {p.name}")
+                except OSError:
+                    pass
 
     unreachable = all_loose_shas - marked
     
@@ -165,6 +179,23 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
     elif dry_run and verbose:
         for sha in unreachable:
             print(f"Would quarantine: {sha}")
+
+    # Prune old quarantine directories (> 14 days)
+    if not dry_run:
+        quarantine_base = dg_dir / "quarantine"
+        if quarantine_base.exists():
+            now = time.time()
+            prune_thresh = 14 * 24 * 3600
+            for qdir in quarantine_base.iterdir():
+                if qdir.is_dir():
+                    try:
+                        q_time = int(qdir.name)
+                        if now - q_time > prune_thresh:
+                            shutil.rmtree(qdir)
+                            if verbose:
+                                print(f"Pruned old quarantine: {qdir.name}")
+                    except ValueError:
+                        pass
 
     repo_lock.release()
     # Total count = objects that were loose initially.

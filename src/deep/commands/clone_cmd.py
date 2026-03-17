@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.refs import update_head, update_branch, resolve_head
 from deep.core.config import Config
 from deep.network.client import get_remote_client
@@ -29,7 +29,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     
     target_dir = Path(args.dir or name).resolve()
     if target_dir.exists() and any(target_dir.iterdir()):
-        print(f"Error: Target directory '{target_dir}' already exists and is not empty", file=sys.stderr)
+        print(f"DeepGit: error: Target directory '{target_dir}' already exists and is not empty", file=sys.stderr)
         sys.exit(1)
         
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -46,7 +46,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         client = get_remote_client(url, auth_token=auth_token)
         client.connect()
         
-        print(f"Cloning into '{target_dir}'...")
+        print(f"DeepGit: cloning into '{target_dir}'...")
         
         # Discovery
         refs = client.ls_refs()
@@ -56,11 +56,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             if refs:
                 main_sha = list(refs.values())[0]
             else:
-                print("Error: Remote repository is empty or has no branches", file=sys.stderr)
+                print("DeepGit: error: Remote repository is empty or has no branches", file=sys.stderr)
                 sys.exit(1)
 
         # Fetch
-        dg_dir = target_dir / DEEP_GIT_DIR
+        dg_dir = target_dir / DEEP_DIR
         client.fetch(dg_dir / "objects", main_sha, depth=getattr(args, "depth", None), filter_spec=getattr(args, "filter", None))
         
         # Update refs and checkout

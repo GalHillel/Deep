@@ -2,9 +2,9 @@
 deep.storage.objects
 ~~~~~~~~~~~~~~~~~~~~
 
-The core content-addressable object store.
+The core content-addressable object store for DeepGit.
 
-This module defines the fundamental data structures of Deep VCS:
+This module defines the fundamental data structures:
 - **Blob**: Raw file content.
 - **Tree**: Directory-like mapping of names to other objects.
 - **Commit**: Snapshot of the project state with metadata.
@@ -12,7 +12,7 @@ This module defines the fundamental data structures of Deep VCS:
 
 All objects are identified by their SHA-1 hash and stored using a
 fan-out directory structure (`objects/xx/yyyy...`) to ensure performance
-at scale.
+at scale. Consistent with DeepGit's independent architecture.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ import sys
 import time
 import threading
 import zlib
+import functools
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -49,13 +50,36 @@ def set_delta_depth(val: int) -> None:
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
-def _object_path(objects_dir: Path, sha: str) -> Path:
-    """Return the absolute filesystem path for an object given its SHA-1."""
+def _object_path(objects_dir: Path, sha: str, level: int = 2) -> Path:
+    """Return the absolute filesystem path for an object given its SHA-1.
+    
+    Supports Level 1 (xx/yyyy...) and Level 2 (xx/yy/zzzz...) fan-out.
+    New objects are always written to Level 2.
+    """
     s: str = str(sha)
     if not _SHA_RE.match(s):
         raise ValueError(f"Invalid SHA format: {s!r}")
-    # Use explicit slice bounds 0:2 and 2:40 to help type inference
-    return objects_dir / cast(Any, s)[0:2] / cast(Any, s)[2:40] # type: ignore
+    
+    if level == 1:
+        return objects_dir / s[0:2] / s[2:40]
+    else:
+        # Default Level 2: objects/xx/yy/zzzz...
+        return objects_dir / s[0:2] / s[2:4] / s[4:40]
+
+
+def walk_loose_shas(objects_dir: Path):
+    """Yield all loose object SHAs in the repository, regardless of fan-out depth."""
+    for root, _, files in os.walk(objects_dir):
+        # Skip pack and info directories
+        if "pack" in root or "info" in root:
+            continue
+        for f in files:
+            if len(f) >= 36: # Remaining part of SHA
+                # Reconstruct SHA from path
+                rel = Path(root).relative_to(objects_dir)
+                sha = "".join(rel.parts) + f
+                if len(sha) == 40 and _SHA_RE.match(sha):
+                    yield sha
 
 
 def _serialize(obj_type: str, content: bytes) -> bytes:
@@ -82,8 +106,8 @@ def _deserialize(raw: bytes) -> tuple[str, bytes]:
 # ── Base class ───────────────────────────────────────────────────────
 
 @dataclass
-class GitObject:
-    """Abstract base class for all content-addressable objects in Deep VCS."""
+class DeepObject:
+    """Abstract base class for all content-addressable objects in DeepGit."""
 
     OBJ_TYPE: str = field(init=False, repr=False)
 
@@ -127,7 +151,7 @@ class GitObject:
 # ── Blob ─────────────────────────────────────────────────────────────
 
 @dataclass
-class Blob(GitObject):
+class Blob(DeepObject):
     """A blob stores the raw contents of a single file."""
 
     OBJ_TYPE: str = field(init=False, default="blob", repr=False)
@@ -158,7 +182,7 @@ class TreeEntry:
     sha: str
 
     def __post_init__(self):
-        # Normalize mode (Git trees often use "40000" but sometimes omit leading zero)
+        # Normalize mode (DeepGit trees use "40000" for directories)
         # However, for serialization we must be consistent.
         if self.mode == "040000":
             self.mode = "40000"
@@ -184,18 +208,18 @@ class TreeEntry:
 
 
 @dataclass
-class Tree(GitObject):
+class Tree(DeepObject):
     """A tree maps names to blobs (files) or other trees (directories)."""
 
     OBJ_TYPE: str = field(init=False, default="tree", repr=False)
     entries: List[TreeEntry] = field(default_factory=list)
 
     def serialize_content(self) -> bytes:
-        """Serialize entries sorted by name, Git-style.
+        """Serialize entries sorted by name (DeepGit native format).
 
         Format: <mode> <name>\0<20-byte raw SHA-1>
         """
-        from deep.core.reconcile import sanitize_filename  # type: ignore[import] # noqa: F401 – defensive import kept for future use
+        from deep.utils.utils import sanitize_filename
         
         parts: list[bytes] = []
         # We need objects_dir for validation. If NOT provided, we skip strict validation 
@@ -211,7 +235,7 @@ class Tree(GitObject):
             # 1. Validate
             assert "\x00" not in entry.name, f"Null byte in filename: {repr(entry.name)}"
             
-            # 2. Sanitize (to match legacy test expectation and ensure robust storage)
+            # 2. Sanitize (to ensure robust storage and cross-platform compatibility)
             safe_name = sanitize_filename(entry.name)
             
             # 3. Convert to binary
@@ -248,17 +272,18 @@ class Tree(GitObject):
 # ── Commit ───────────────────────────────────────────────────────────
 
 @dataclass
-class Commit(GitObject):
+class Commit(DeepObject):
     """A commit binds a :class:`Tree` to metadata and parent commits."""
 
     OBJ_TYPE: str = field(init=False, default="commit", repr=False)
     tree_sha: str = ""
     parent_shas: List[str] = field(default_factory=list)
-    author: str = "DeepBridge User <user@deep>"
-    committer: str = "DeepBridge User <user@deep>"
+    author: str = "DeepGit User <user@deep>"
+    committer: str = "DeepGit User <user@deep>"
     message: str = ""
     timestamp: int = field(default_factory=lambda: int(time.time()))
     timezone: str = field(default_factory=lambda: get_local_timezone_offset())
+    sequence_id: int = 0
     signature: Optional[str] = None
 
     def serialize_content(self) -> bytes:
@@ -269,6 +294,7 @@ class Commit(GitObject):
         lines.append(
             f"committer {self.committer} {self.timestamp} {self.timezone}"
         )
+        lines.append(f"sequence {self.sequence_id}")
         sig: Optional[str] = self.signature
         if sig:
             lines.append("gpgsig -----BEGIN PGP SIGNATURE-----")
@@ -297,6 +323,7 @@ class Commit(GitObject):
         committer = ""
         timestamp = 0
         timezone = "+0000"
+        sequence_id = 0
         signature_lines = []
         in_sig = False
         
@@ -315,6 +342,11 @@ class Commit(GitObject):
                 tree_sha = cast(Any, line)[5:]
             elif line.startswith("parent "): # type: ignore
                 parent_shas.append(cast(Any, line)[7:])
+            elif line.startswith("sequence "): # type: ignore
+                try:
+                    sequence_id = int(line[9:])
+                except ValueError:
+                    sequence_id = 0
             elif line.startswith("author "): # type: ignore
                 parts = line[7:].rsplit(" ", 2)
                 author = parts[0]
@@ -334,6 +366,7 @@ class Commit(GitObject):
             message=message,
             timestamp=timestamp,
             timezone=timezone,
+            sequence_id=sequence_id,
             signature=signature,
         )
 
@@ -341,7 +374,7 @@ class Commit(GitObject):
 # ── Tag ──────────────────────────────────────────────────────────────
 
 @dataclass
-class Tag(GitObject):
+class Tag(DeepObject):
     """An annotated tag object."""
 
     OBJ_TYPE: str = field(init=False, default="tag", repr=False)
@@ -400,7 +433,7 @@ class Tag(GitObject):
 
 
 @dataclass
-class DeltaObject(GitObject):
+class DeltaObject(DeepObject):
     """A delta-compressed object.
     
     Stores a delta that reconstruction the original content from a base object.
@@ -422,7 +455,7 @@ class DeltaObject(GitObject):
 
 
 @dataclass
-class Chunk(GitObject):
+class Chunk(DeepObject):
     """A sub-file content chunk for deduplication."""
     OBJ_TYPE: str = field(init=False, default="chunk", repr=False)
     data: bytes
@@ -436,7 +469,7 @@ class Chunk(GitObject):
 
 
 @dataclass
-class ChunkedBlob(GitObject):
+class ChunkedBlob(DeepObject):
     """A blob represented as a list of chunk SHAs."""
     OBJ_TYPE: str = field(init=False, default="chunked_blob", repr=False)
     chunk_shas: List[str]
@@ -452,8 +485,8 @@ class ChunkedBlob(GitObject):
 
 # ── Write to disk ──────────────────────────────────────────────────
 
-def write_object(objects_dir: Path, obj: GitObject) -> str:
-    """Convenience helper to write a GitObject."""
+def write_object(objects_dir: Path, obj: DeepObject) -> str:
+    """Convenience helper to write a DeepObject."""
     return obj.write(objects_dir)
 
 
@@ -492,24 +525,71 @@ def write_delta_object(objects_dir: Path, base_sha: str, target_content: bytes) 
 
 # ── Read from disk ──────────────────────────────────────────────────
 
-def read_object(objects_dir: Path, sha: str) -> GitObject:
+@functools.lru_cache(maxsize=10240)
+def read_object(objects_dir: Path, sha: str) -> DeepObject:
     """Read and deserialise an object from the object store.
     
     This function transparently handles compressed (zlib), 
-    legacy uncompressed, DELTA-compressed, and PACKed objects.
+    DELTA-compressed, and Vaulted objects.
     """
     if not sha or not isinstance(sha, str) or len(sha) != 40:
         raise ValueError(f"Invalid object SHA: {sha!r}")
         
-    path = _object_path(objects_dir, sha)
+    path = _object_path(objects_dir, sha, level=2)
+    if not path.exists():
+        # Fallback to Level 1
+        l1_path = _object_path(objects_dir, sha, level=1)
+        if l1_path.exists():
+            path = l1_path
+    
     if not path.exists():
         # Check packfiles
-        from deep.storage.pack import PackReader # type: ignore[import]
-        reader = PackReader(objects_dir.parent)
-        obj = reader.get_object(sha)
-        if obj:
-            return obj
-        raise FileNotFoundError(f"Object {sha} not found in loose or pack storage.")
+        # Check Vault (v2) and Pack (v1 fallback)
+        from deep.storage.vault import DeepVaultReader # type: ignore
+        vault_dir = objects_dir / "vault"
+        if vault_dir.exists():
+            for v_path in vault_dir.glob("*.dvpf"):
+                reader = DeepVaultReader(v_path)
+                res = reader.get_object(sha)
+                if res:
+                    obj_type, content = res
+                    # Helper for instantiation below
+                    raw = _serialize(obj_type, content)
+                    # We continue to the standard read paths
+                    break
+            else: res = None
+        else: res = None
+
+        if not res:
+            from deep.storage.pack import PackReader # type: ignore[import]
+            reader = PackReader(objects_dir.parent)
+            obj = reader.get_object(sha)
+            if obj:
+                return obj
+            
+        # Lazy fetch from promisor
+        from deep.core.repository import get_promisor_remote # type: ignore[import]
+        promisor_url = get_promisor_remote(objects_dir.parent)
+        if promisor_url:
+            from deep.network.client import get_remote_client # type: ignore[import]
+            try:
+                client = get_remote_client(promisor_url)
+                client.connect()
+                client.fetch(objects_dir, sha, depth=1)
+                client.disconnect()
+                # Re-check disk
+                if path.exists():
+                    pass # Continue to read below
+                else:
+                    reader = PackReader(objects_dir.parent)
+                    obj = reader.get_object(sha)
+                    if obj: return obj
+            except Exception:
+                # If fetch fails, we fall back to raise FileNotFoundError
+                pass
+        
+        if not path.exists():
+            raise FileNotFoundError(f"Object {sha} not found in loose or pack storage.")
         
     data = path.read_bytes()
     
@@ -518,11 +598,15 @@ def read_object(objects_dir: Path, sha: str) -> GitObject:
         raw = zlib.decompress(data)
     except zlib.error:
         # If decompression fails, it might be an old uncompressed object
-        valid_headers = [b"blob ", b"tree ", b"commit ", b"tag ", b"delta "]
+        valid_headers = [b"blob ", b"tree ", b"commit ", b"tag ", b"delta ", b"chunked_blob ", b"chunk "]
         if any(data.startswith(h) for h in valid_headers):
             raw = data
         else:
             raise ValueError(f"Object {sha} is corrupted or in an unknown format.")
+
+    actual_sha = hash_bytes(raw)
+    if actual_sha != sha:
+        raise ValueError(f"Corrupt object {sha} (hash mismatch).")
 
     obj_type, content = _deserialize(raw)
 
@@ -540,7 +624,7 @@ def read_object(objects_dir: Path, sha: str) -> GitObject:
         depth = get_delta_depth()
         if get_delta_depth() >= MAX_DELTA_CHAIN_DEPTH:  # type: ignore[operator]
             raise ValueError(
-                f"DeepBridge: delta-chain depth exceeded ({MAX_DELTA_CHAIN_DEPTH}). "
+                f"DeepGit: delta-chain depth exceeded ({MAX_DELTA_CHAIN_DEPTH}). "
                 f"Object {sha} may be part of a cyclic or pathologically deep delta chain."
             )
         set_delta_depth(depth + 1)
@@ -585,14 +669,11 @@ def read_object(objects_dir: Path, sha: str) -> GitObject:
     else:
         raise ValueError(f"Unknown object type: {obj_type!r}")
     
-    # Explicit return to satisfy linter that all paths return GitObject
-    return GitObject() # Never actually reached due to exhausts above
-    
-    # Should be unreachable, but keeps linter happy
-    raise ValueError("Unreachable return in read_object")
+    # Explicit return to satisfy linter that all paths return DeepObject
+    return DeepObject() # type: ignore
 
 
-def read_object_safe(objects_dir: Path, sha: str) -> GitObject:
+def read_object_safe(objects_dir: Path, sha: str) -> DeepObject:
     """Read an object and verify its SHA-1 hash."""
     path = _object_path(objects_dir, sha)
     
@@ -624,7 +705,7 @@ def read_object_safe(objects_dir: Path, sha: str) -> GitObject:
         if not q_path.exists():
             path.replace(q_path)
         
-        # Phase 57: Attempt P2P Heal
+        # Phase 57 (Roadmap): Attempt P2P Heal
         healed_data = _attempt_p2p_heal(objects_dir.parent, sha)
         if healed_data:
             # Persist healed object

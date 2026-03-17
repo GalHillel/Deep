@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import argparse
 import sys
+import os
+from deep.core.errors import DeepError
 
 
 VERSION = "1.0.0"
@@ -26,11 +28,11 @@ def build_parser() -> argparse.ArgumentParser:
     """Build and return the top-level argument parser."""
     parser = argparse.ArgumentParser(
         prog="deep",
-        description="DeepBridge — Next-generation Distributed Version Control System",
+        description="DeepGit — Next-generation Distributed Version Control System",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Core Commands:
-  init, add, commit, status, log, diff, branch, checkout, merge, rebase, reset, rm, mv, tag, stash
+  init, add, commit, status, log, diff, branch, checkout, merge, rebase, reset, rm, mv, tag, stash, migrate
 
 Remote & Distributed:
   clone, push, pull, fetch, remote, mirror, daemon, p2p, sync
@@ -52,8 +54,8 @@ Help:
     # ── init ─────────────────────────────────────────────────────────
     p_init = sub.add_parser(
         "init",
-        help="Initialize a new empty DeepBridge repository",
-        description="Create an empty DeepBridge repository or reinitialize an existing one. This sets up the internal .deep structures.",
+        help="Initialize a new empty DeepGit repository",
+        description="Create an empty DeepGit repository or reinitialize an existing one. This sets up the internal .deep structures.",
         epilog="""
 Examples:
   deep init                  # Initialize in the current directory
@@ -95,7 +97,7 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_commit.add_argument("-m", "--message", help="The commit message describing the changes")
-    p_commit.add_argument("--ai", action="store_true", help="Automatically generate a commit message using DeepBridge AI")
+    p_commit.add_argument("--ai", action="store_true", help="Automatically generate a commit message using DeepGit AI")
     p_commit.add_argument("-S", "--sign", action="store_true", help="Digitally sign the commit using your identity key")
 
     # ── status ───────────────────────────────────────────────────────
@@ -151,7 +153,7 @@ Examples:
     p_branch = sub.add_parser(
         "branch",
         help="Manage repository branches",
-        description="List, create, or delete branches in the current DeepBridge repository.",
+        description="List, create, or delete branches in the current DeepGit repository.",
         epilog="""
 Examples:
   deep branch                # List all local branches
@@ -217,7 +219,7 @@ Examples:
     p_mv = sub.add_parser(
         "mv", 
         help="Move or rename a file or directory",
-        description="Move or rename a file, directory, or symlink and update the DeepBridge index accordingly.",
+        description="Move or rename a file, directory, or symlink and update the DeepGit index accordingly.",
         epilog="""
 Examples:
   deep mv old.txt new.txt    # Rename a file and stage the change
@@ -306,6 +308,13 @@ Examples:
     )
     p_stash.add_argument("action", choices=["push", "save", "pop", "list", "drop", "clear", "apply"], nargs="?", default="save", help="The stash operation to perform (default: save)")
 
+    # ── migrate ─────────────────────────────────────────────────────
+    p_migrate = sub.add_parser(
+        "migrate",
+        help="Upgrade repository to native DeepGit v2 format",
+        description="Repacks history and converts metadata to the high-performance DeepGit v2 format.",
+    )
+
     # ── config ──────────────────────────────────────────────────────
     p_config = sub.add_parser(
         "config", 
@@ -328,7 +337,7 @@ Examples:
     p_clone = sub.add_parser(
         "clone",
         help="Clone a repository into a new directory",
-        description="Create a local copy of a remote DeepBridge repository, including all history and metadata.",
+        description="Create a local copy of a remote DeepGit repository, including all history and metadata.",
         epilog="""
 Examples:
   deep clone https://deepbridge.com/user/project  # Clone from a remote URL
@@ -409,7 +418,7 @@ Examples:
     p_mirror = sub.add_parser(
         "mirror",
         help="Create a full 1:1 mirror of a repository",
-        description="Create a complete mirror of a DeepBridge repository, including all references, branches, and internal metadata.",
+        description="Create a complete mirror of a DeepGit repository, including all references, branches, and internal metadata.",
         epilog="""
 Examples:
   deep mirror https://deepbridge.com/repo /local/mirror # Create a mirror at the specified path
@@ -422,8 +431,8 @@ Examples:
     # ── daemon ───────────────────────────────────────────────────────
     p_daemon = sub.add_parser(
         "daemon",
-        help="Start the DeepBridge network daemon",
-        description="Launch a background daemon process to serve the current repository over the network to other DeepBridge clients.",
+        help="Start the DeepGit network daemon",
+        description="Launch a background daemon process to serve the current repository over the network to other DeepGit clients.",
         epilog="""
 Examples:
   deep daemon --port 9090    # Start the daemon listening on port 9090
@@ -439,7 +448,7 @@ Examples:
         description="Discover nearby peers and synchronize repository data over a decentralized Peer-to-Peer network.",
         epilog="""
 Examples:
-  deep p2p discover          # Scan the local network for DeepBridge peers
+  deep p2p discover          # Scan the local network for DeepGit peers
   deep p2p sync <peer-id>    # Initiate a direct synchronization with a specific peer
   deep p2p start             # Start the P2P listener for decentralized discovery
 """,
@@ -465,11 +474,11 @@ Examples:
     # ── server ───────────────────────────────────────────────────────
     p_server = sub.add_parser(
         "server",
-        help="Manage the DeepBridge platform server",
-        description="Control the lifecycle of the DeepBridge platform server process (start, stop, restart, status).",
+        help="Manage the DeepGit platform server",
+        description="Control the lifecycle of the DeepGit platform server process (start, stop, restart, status).",
         epilog="""
 Examples:
-  deep server start          # Launch the DeepBridge background server
+  deep server start          # Launch the DeepGit background server
   deep server stop           # Gracefully terminate the server process
   deep server status         # Check if the server is currently running
 """,
@@ -481,10 +490,10 @@ Examples:
     p_repo = sub.add_parser(
         "repo",
         help="Manage platform-hosted repositories",
-        description="Interface with and manage repositories hosted on the DeepBridge platform.",
+        description="Interface with and manage repositories hosted on the DeepGit platform.",
         epilog="""
 Examples:
-  deep repo create my-app    # Create a new repository on the DeepBridge platform
+  deep repo create my-app    # Create a new repository on the DeepGit platform
   deep repo list             # List all repositories you have access to on the platform
   deep repo permit --user bob --role write # Grant 'write' access to user 'bob'
 """,
@@ -500,7 +509,7 @@ Examples:
     p_user = sub.add_parser(
         "user",
         help="Manage platform user accounts",
-        description="Manage user profiles, settings, and accounts on the DeepBridge platform.",
+        description="Manage user profiles, settings, and accounts on the DeepGit platform.",
         epilog="""
 Examples:
   deep user create bob       # Create a new user profile named 'bob'
@@ -517,10 +526,10 @@ Examples:
     p_auth = sub.add_parser(
         "auth",
         help="Platform authentication management",
-        description="Manage session tokens, credentials, and login status for the DeepBridge platform.",
+        description="Manage session tokens, credentials, and login status for the DeepGit platform.",
         epilog="""
 Examples:
-  deep auth login            # Interactively authenticate with the DeepBridge platform
+  deep auth login            # Interactively authenticate with the DeepGit platform
   deep auth status           # Display the current authentication status and active user
   deep auth logout           # Clear local session tokens and logout
 """,
@@ -532,7 +541,7 @@ Examples:
     p_pr = sub.add_parser(
         "pr",
         help="Manage platform Pull Requests",
-        description="Create, review, and interact with Pull Requests on the DeepBridge platform.",
+        description="Create, review, and interact with Pull Requests on the DeepGit platform.",
         epilog="""
 Examples:
   deep pr create             # Open a new Pull Request for the current branch
@@ -548,7 +557,7 @@ Examples:
     p_issue = sub.add_parser(
         "issue",
         help="Manage platform Issues",
-        description="Track bugs, tasks, and feature requests using DeepBridge platform-integrated issues.",
+        description="Track bugs, tasks, and feature requests using DeepGit platform-integrated issues.",
         epilog="""
 Examples:
   deep issue create          # Open a new issue interactively
@@ -564,7 +573,7 @@ Examples:
     p_pipeline = sub.add_parser(
         "pipeline",
         help="Interact with CI/CD Pipelines",
-        description="Run, monitor, and manage automated CI/CD pipelines on the DeepBridge platform.",
+        description="Run, monitor, and manage automated CI/CD pipelines on the DeepGit platform.",
         epilog="""
 Examples:
   deep pipeline run          # Trigger a pipeline run for the local changes
@@ -584,19 +593,26 @@ Examples:
         description="Launch an interactive, browser-based dashboard for visual repository management and history browsing.",
         epilog="""
 Examples:
-  deep web                   # Open the DeepBridge dashboard on the default port (9000)
+  deep web                   # Open the DeepGit dashboard on the default port (9000)
   deep web --port 8080       # Start the dashboard on port 8080
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_web.add_argument("--port", type=int, default=9000, help="The network port to listen on (default: 9000)")
 
-    # ── Group: Diagnostics & Dev Tools
-    # ── doctor ───────────────────────────────────────────────────────
+    # ── commit-graph ──────────────────────────────────────────────────
+    p_cg = sub.add_parser(
+        "commit-graph",
+        help="Manage the commit graph index",
+        description="Manage the binary commit graph index for accelerated history traversal.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_cg.add_argument("cg_command", choices=["write", "verify", "clear"], help="The commit-graph operation to perform")
+
     p_doctor = sub.add_parser(
         "doctor",
         help="Run repository health checks",
-        description="Audit the health of the local DeepBridge repository and optionally fix common corruption or configuration issues.",
+        description="Audit the health of the local DeepGit repository and optionally fix common corruption or configuration issues.",
         epilog="""
 Examples:
   deep doctor                # Run a comprehensive suite of diagnostic checks
@@ -610,7 +626,7 @@ Examples:
     p_benchmark = sub.add_parser(
         "benchmark",
         help="Performance benchmarking suite",
-        description="Measure and analyze the performance of core DeepBridge VCS operations.",
+        description="Measure and analyze the performance of core DeepGit VCS operations.",
         epilog="""
 Examples:
   deep benchmark                 # Run the default performance benchmark suite
@@ -679,6 +695,20 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
+    # ── repack ───────────────────────────────────────────────────────
+    p_repack = sub.add_parser(
+        "repack",
+        help="Consolidate objects into packfiles and generate bitmaps",
+        description="Optimize the object database by packing loose objects into efficient packfiles and generating reachability bitmaps.",
+        epilog="""
+Examples:
+  deep repack                # Consolidate objects and generate bitmaps
+  deep repack --no-bitmaps   # Repack without generating bitmaps
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_repack.add_argument("--no-bitmaps", action="store_false", dest="bitmaps", default=True, help="Disable bitmap generation")
+
     # ── sandbox ──────────────────────────────────────────────────────
     p_sandbox = sub.add_parser(
         "sandbox",
@@ -711,7 +741,7 @@ Examples:
     # ── ai ──────────────────────────────────────────────────────────
     p_ai = sub.add_parser(
         "ai", 
-        help="DeepBridge AI assistant tools",
+        help="DeepGit AI assistant tools",
         description="Harness the power of AI for generating commit messages, performing code reviews, and predicting merge outcomes.",
         epilog="""
 Examples:
@@ -726,7 +756,7 @@ Examples:
         "predict-merge", "predict-push", "cross-repo", 
         "refactor", "cleanup", "interactive", "assistant"
     ]
-    p_ai.add_argument("ai_command", choices=ai_choices, nargs="?", default="suggest", help="The DeepBridge AI tool to invoke (default: suggest)")
+    p_ai.add_argument("ai_command", choices=ai_choices, nargs="?", default="suggest", help="The DeepGit AI tool to invoke (default: suggest)")
     p_ai.add_argument("target", nargs="?", help="The target file, branch, or commit SHA for the AI tool")
     p_ai.add_argument("--description", help="Provide an additional prompt or description to guide the AI")
     p_ai.add_argument("--source", help="The source branch for predictive merge analysis")
@@ -749,7 +779,7 @@ Examples:
     p_batch = sub.add_parser(
         "batch",
         help="Execute atomic batch VCS operations",
-        description="Run a sequence of DeepBridge operations defined in a script as a single atomic transaction.",
+        description="Run a sequence of DeepGit operations defined in a script as a single atomic transaction.",
         epilog="""
 Examples:
   deep batch script.deep     # Execute the sequence of commands defined in 'script.deep'
@@ -786,14 +816,28 @@ Examples:
     )
     p_gc.add_argument("--dry-run", action="store_true", help="Display what would be cleaned up without making changes")
     p_gc.add_argument("-v", "--verbose", action="store_true", help="Display detailed information during the optimization process")
+    
+    # ── maintenance ──────────────────────────────────────────────────
+    p_maint = sub.add_parser(
+        "maintenance",
+        help="Run repository maintenance tasks",
+        description="Optimize the repository by repacking objects, updating indices, and pruning unreachable data.",
+        epilog="""
+Examples:
+  deep maintenance           # Run scheduled maintenance tasks
+  deep maintenance --force   # Force run all maintenance tasks immediately
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_maint.add_argument("--force", action="store_true", help="Force run maintenance even if recently completed")
 
-    sub.add_parser("version", help="Show DeepBridge version information")
+    sub.add_parser("version", help="Show DeepGit version information")
 
     # ── debug-tree (Diagnostics) ────────────────────────────────────
     p_debug = sub.add_parser(
         "debug-tree",
         help="Inspect tree contents with hidden character visibility",
-        description="Forensic tool to inspect DeepBridge tree objects. Uses repr() to reveal hidden characters for debugging purposes.",
+        description="Forensic tool to inspect DeepGit tree objects. Uses repr() to reveal hidden characters for debugging purposes.",
         epilog="""
 Examples:
   deep debug-tree <sha>      # Reveal hidden characters in the specified tree or commit object
@@ -807,9 +851,9 @@ Examples:
 
     # ── Plugins ─────────────────────────────────────────────────────
     try:
-        from deep.core.repository import find_repo, DEEP_GIT_DIR # type: ignore[import]
+        from deep.core.repository import find_repo, DEEP_DIR # type: ignore[import]
         repo_root = find_repo()
-        dg_dir = repo_root / DEEP_GIT_DIR
+        dg_dir = repo_root / DEEP_DIR
         from deep.plugins.plugin import PluginManager  # type: ignore[import]
         pm = PluginManager(dg_dir)
         if pm:
@@ -838,7 +882,7 @@ def main(argv: list[str] | None = None) -> None:
             from rich.panel import Panel # type: ignore[import]
             from deep.core.repository import find_repo # type: ignore[import]
             console = Console()
-            console.print(Panel("[bold cyan]DeepBridge[/bold cyan] — Next-generation Distributed VCS", expand=False))
+            console.print(Panel("[bold cyan]DeepGit[/bold cyan] — Next-generation Distributed VCS", expand=False))
             parser.print_help()
         except ImportError:
             parser.print_help()
@@ -847,6 +891,8 @@ def main(argv: list[str] | None = None) -> None:
     # Dynamic import to keep startup fast.
     if args.command == "init":
         from deep.commands.init_cmd import run # type: ignore[import]
+    elif args.command == "migrate":
+        from deep.commands.migrate_cmd import migrate_cmd as run # type: ignore[import]
     elif args.command == "add":
         from deep.commands.add_cmd import run # type: ignore[import]
     elif args.command == "commit":
@@ -868,6 +914,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "inspect-tree":
         from deep.commands import inspect_tree_cmd # type: ignore[import]
         inspect_tree_cmd.run(args)
+    elif args.command == "commit-graph":
+        from deep.commands import commit_graph_cmd # type: ignore[import]
+        commit_graph_cmd.run(args)
     elif args.command == "fsck":
         from deep.commands.fsck_cmd import run # type: ignore[import]
     elif args.command == "rm":
@@ -884,6 +933,9 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.stash_cmd import run # type: ignore[import]
     elif args.command == "rebase":
         from deep.commands.rebase_cmd import run # type: ignore[import]
+    elif args.command == "repack":
+        from deep.commands import repack_cmd # type: ignore[import]
+        repack_cmd.run(args)
     elif args.command == "doctor":
         from deep.commands.doctor_cmd import run # type: ignore[import]
     elif args.command == "gc":
@@ -946,15 +998,25 @@ def main(argv: list[str] | None = None) -> None:
         ver_str = VERSION
         try:
             from rich.console import Console # type: ignore[import]
-            Console().print(f"[bold green]DeepBridge[/bold green] version [cyan]{ver_str}[/cyan]")
+            Console().print(f"[bold green]DeepGit[/bold green] version [cyan]{ver_str}[/cyan]")
         except ImportError:
-            print(f"DeepBridge version {ver_str}")
+            print(f"DeepGit version {ver_str}")
+        return
+    elif args.command == "maintenance":
+        from deep.core.maintenance import run_maintenance # type: ignore[import]
+        from deep.core.repository import find_repo # type: ignore[import]
+        try:
+            repo_root = find_repo()
+            run_maintenance(repo_root, force=getattr(args, "force", False))
+        except FileNotFoundError:
+            print("DeepGit: error: not a repository", file=sys.stderr)
+            sys.exit(1)
         return
     elif args.command == "help":
         try:
             from rich.console import Console # type: ignore[import]
             from rich.panel import Panel # type: ignore[import]
-            Console().print(Panel("[bold cyan]DeepBridge Help[/bold cyan]", expand=False))
+            Console().print(Panel("[bold cyan]DeepGit Help[/bold cyan]", expand=False))
             parser.print_help()
         except ImportError:
             parser.print_help()
@@ -969,11 +1031,11 @@ def main(argv: list[str] | None = None) -> None:
             parser.print_help()
             sys.exit(1)
 
-    from deep.core.repository import find_repo, DEEP_GIT_DIR # type: ignore[import]
+    from deep.core.repository import find_repo, DEEP_DIR # type: ignore[import]
     try:
         if args.command not in ("init", "clone", "version"):
             repo_root = find_repo()
-            dg_dir = repo_root / DEEP_GIT_DIR
+            dg_dir = repo_root / DEEP_DIR
             
             # Only recover if txlog actually exists and we're not doing a read-only command
             if args.command in ("commit", "merge", "push", "pull", "rollback", "checkout", "status"):
@@ -1017,12 +1079,37 @@ def main(argv: list[str] | None = None) -> None:
         handler(plugin_args)
         return
 
-    run(args)
+    try:
+        run(args)
+    except DeepError as e:
+        print(f"DeepGit: error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        # Don't silence unexpected exceptions in dev mode if requested,
+        # but for CLI users, show a clean internal error.
+        if os.environ.get("DEEP_DEBUG"):
+            raise
+        print(f"DeepGit: internal error: {e}", file=sys.stderr)
+        sys.exit(1)
+    
+    # --- Background Auto-Maintenance Hook ---
+    # Triggered after some commands if enough time has passed.
+    # Commands that frequently modify the repo are good candidates.
+    if args.command in ("commit", "push", "pull", "merge", "add"):
+        try:
+            from deep.core.repository import find_repo # type: ignore[import]
+            from deep.core.maintenance import run_maintenance # type: ignore[import]
+            repo_root = find_repo()
+            # Run in a background thread or process could be better,
+            # but for now we'll do it synchronously if needed.
+            run_maintenance(repo_root, force=False)
+        except Exception:
+            pass # Never let maintenance failure crash a successful command
 
 
 if __name__ == "__main__":
     main()
 
 def legacy_main(argv: list[str] | None = None) -> None:
-    print("This command has been renamed to 'deep' (DeepBridge). Please use `deep`.", file=sys.stderr)
+    print("This command has been renamed to 'deep' (DeepGit). Please use `deep`.", file=sys.stderr)
     sys.exit(1)

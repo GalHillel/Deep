@@ -37,11 +37,11 @@ def run(args: argparse.Namespace) -> None:
         checkout(repo_root, target, create_branch=create_branch, force=force)
         
         if create_branch:
-            print(f"DeepBridge: switched to a new branch '{target}'")
+            print(f"DeepGit: switched to a new branch '{target}'")
         elif target and len(target) == 40:
-            print(f"DeepBridge: HEAD is now at {target[:7]}")
+            print(f"DeepGit: HEAD is now at {target[:7]}")
         else:
-            print(f"DeepBridge: switched to branch '{target}'")
+            print(f"DeepGit: switched to branch '{target}'")
 
     except DeepError as exc:
         print(f"DeepError: {exc}", file=sys.stderr)

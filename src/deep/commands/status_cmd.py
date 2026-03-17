@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from deep.core.refs import get_current_branch, resolve_head
-from deep.core.repository import DEEP_GIT_DIR, find_repo
+from deep.core.repository import DEEP_DIR, find_repo
 from deep.core.status import compute_status
 from deep.utils.ux import Color
 
@@ -20,10 +20,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     branch = get_current_branch(dg_dir)
     if branch:
         print(f"On branch {Color.wrap(Color.CYAN, branch)}")

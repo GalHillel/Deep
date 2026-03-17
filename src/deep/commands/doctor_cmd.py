@@ -17,7 +17,7 @@ from pathlib import Path
 from deep.storage.index import read_index
 from deep.storage.objects import Blob, Commit, Tag, Tree, read_object, GitObject
 from deep.core.refs import list_branches, resolve_head, list_tags, get_tag, get_branch
-from deep.core.repository import DEEP_GIT_DIR, find_repo
+from deep.core.repository import DEEP_DIR, find_repo
 from deep.utils.ux import Color
 from deep.core.gc import mark_reachable
 
@@ -27,10 +27,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
     fix_mode = getattr(args, "fix", False)
     

@@ -13,48 +13,38 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional, Any, cast, Union, List
+from typing import Optional, Any, cast, Union, List, Dict
 
 from deep.utils.utils import AtomicWriter # type: ignore
 
-# Canonical repository directory name for DeepBridge.
-DEEP_DIR = ".deep"
-# Backward-compatible alias used throughout the existing codebase.
-DEEP_GIT_DIR = DEEP_DIR
+from deep.core.constants import DEEP_DIR # type: ignore
 
 
-def _deep_git_path(repo_root: Path) -> Path:
+def _get_dg_path(repo_root: Path) -> Path:
     """Return the absolute path to the internal repository directory for a given root."""
-    return repo_root / DEEP_GIT_DIR
+    return repo_root / DEEP_DIR
 
+def init_repo(path: Union[str, Path] = ".") -> Path:
+    """Initialize a new empty DeepGit repository."""
 
-def init_repo(path: Union[str, Path]) -> Path:
-    """Initialize a new DeepBridge repository at the specified path.
-
-    This creates the internal structure required for tracking history:
-    - `objects/`: The content-addressable storage.
-    - `refs/heads/`: Branch pointers.
-    - `HEAD`: Pointer to the current active branch.
-    - `index`: Staging area for upcoming commits.
-
-    Args:
-        path: Directory path where the repository should be initialized.
-
-    Returns:
-        Path: The absolute path to the internal repository directory.
-    """
     repo_root = Path(path).resolve()
-    dg = _deep_git_path(repo_root)
+    dg = _get_dg_path(repo_root)
 
-    # If the internal directory already exists, treat init as idempotent and
-    # repair any missing core structures instead of failing.
+    # If the internal directory already exists, treat init as idempotent.
     if dg.exists():
         if not dg.is_dir():
-            raise FileExistsError(f"DeepBridge internal path exists but is not a directory: {dg}")
+            raise FileExistsError(f"DeepGit internal path exists but is not a directory: {dg}")
     else:
         # Create directory tree for a brand-new repository.
         (dg / "objects").mkdir(parents=True, exist_ok=True)
         (dg / "refs" / "heads").mkdir(parents=True, exist_ok=True)
+        (dg / "objects" / "vault").mkdir(parents=True, exist_ok=True)
+
+    # Initialise configuration with format_version = 2
+    config = get_config(dg)
+    if "format_version" not in config:
+        config["format_version"] = 2
+        set_config(dg, config)
 
     # Ensure core subdirectories always exist (self-healing for partial setups).
     (dg / "objects").mkdir(parents=True, exist_ok=True)
@@ -67,13 +57,12 @@ def init_repo(path: Union[str, Path]) -> Path:
         with AtomicWriter(head_path, mode="w") as aw:
             aw.write("ref: refs/heads/main\n")
 
-    # Empty index (binary format) if index is missing or zero-length.
-    from deep.storage.index import Index # type: ignore
+    # Empty index (DeepIndex v1 binary format)
+    from deep.storage.index import DeepIndex # type: ignore
     index_path = dg / "index"
     index_needs_init = (not index_path.exists()) or index_path.stat().st_size == 0
     if index_needs_init:
-        with AtomicWriter(index_path, mode="wb") as aw:
-            aw.write(Index().to_binary())
+        write_index(dg, DeepIndex())
 
     return dg
 
@@ -89,15 +78,41 @@ def find_repo(start: Union[str, Path] | None = None) -> Path:
     """
     current = Path(start or Path.cwd()).resolve()
     while True:
-        candidate = current / DEEP_GIT_DIR
+        candidate = current / DEEP_DIR
         if candidate.is_dir():
             return current
         parent = current.parent
         if parent == current:
             raise FileNotFoundError(
-                "Not a DeepBridge repository (or any of the parent directories)"
+                "Not a DeepGit repository (or any of the parent directories)"
             )
         current = parent
+
+def get_config(dg_dir: Path) -> Dict[str, Any]:
+    """Read the repository configuration file."""
+    config_path = dg_dir / "config"
+    if not config_path.exists():
+        return {}
+    try:
+        return json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+def set_config(dg_dir: Path, config: Dict[str, Any]) -> None:
+    """Write the repository configuration file."""
+    config_path = dg_dir / "config"
+    with AtomicWriter(config_path, mode="w") as aw:
+        json.dump(config, aw, indent=2)
+
+def is_partial_clone(dg_dir: Path) -> bool:
+    """Check if the repository is a partial clone (has a promisor remote)."""
+    config = get_config(dg_dir)
+    return "promisor" in config
+
+def get_promisor_remote(dg_dir: Path) -> Optional[str]:
+    """Get the URL of the promisor remote if configured."""
+    config = get_config(dg_dir)
+    return config.get("promisor")
     # unreachable but satisfies linter
     return current # type: ignore
 
@@ -114,11 +129,11 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
         resolve_revision,
     ) # type: ignore
     from deep.core.status import compute_status # type: ignore
-    from deep.storage.index import Index, IndexEntry, read_index_no_lock, write_index_no_lock # type: ignore
+    from deep.storage.index import DeepIndex, DeepIndexEntry, read_index_no_lock, write_index_no_lock # type: ignore
     from deep.storage.objects import Commit, Tree, read_object # type: ignore
     from deep.utils.utils import DeepError # type: ignore
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
     # 1. Acquire RepositoryLock
@@ -160,7 +175,8 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
             
             for path in status.modified:
                 p_str = cast(str, path)
-                if p_str in target_files and target_files[p_str] != current_index.entries[p_str].sha:
+                # Any locally modified file that either 1) will be removed or 2) overwritten with a different target version
+                if p_str not in target_files or target_files[p_str] != current_index.entries.get(p_str, DeepIndexEntry(sha="", size=0, mtime=0)).sha:
                     conflicts.append(p_str)
 
             for path in status.deleted:
@@ -169,7 +185,7 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                     conflicts.append(p_str)
 
             if conflicts:
-                msg = "the following files would be overwritten by checkout:\n"
+                msg = "the following files would be overwritten or deleted by checkout:\n"
                 msg += "\n".join(f"  {c}" for c in cast(List[str], conflicts)[:10]) # type: ignore
                 if len(conflicts) > 10:
                     msg += f"\n  ... and {len(conflicts) - 10} more"
@@ -194,11 +210,20 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                 raise BaseException("DeepBridge: simulated crash before working directory update")
 
             # 4. Update Working Directory
+            from deep.utils.sparse import load_sparse_patterns, matches_sparse_patterns
+            sparse_patterns = load_sparse_patterns(dg_dir)
+            
             target_files = _get_tree_files(objects_dir, commit_obj.tree_sha)
             
             # Files to remove: currently tracked but not in target
             to_remove = [p for p in current_index.entries if p not in target_files]
-            for p in to_remove:
+            
+            # Also remove objects that are now out-of-pattern if they were present
+            for p in current_index.entries:
+                if p in target_files and not matches_sparse_patterns(p, sparse_patterns):
+                    to_remove.append(p)
+
+            for p in set(to_remove):
                 full = repo_root / cast(Any, p) # type: ignore
                 if full.exists():
                     full.unlink()
@@ -209,19 +234,24 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                             parent.rmdir()
                         except OSError:
                             break
-                    parent = cast(Path, parent).parent # type: ignore
+                        parent = cast(Path, parent).parent # type: ignore
 
             # Apply updates
-            new_index = Index()
+            new_index = DeepIndex()
             for p, sha in cast(dict, target_files).items(): # type: ignore
-                full = repo_root / p
-                full.parent.mkdir(parents=True, exist_ok=True)
-                obj = read_object(objects_dir, sha)
-                full.write_bytes(obj.serialize_content())
-                stat = full.stat()
-                new_index.entries[p] = IndexEntry(sha=sha, size=stat.st_size, mtime=stat.st_mtime)
+                is_match = matches_sparse_patterns(p, sparse_patterns)
+                if is_match:
+                    full = repo_root / p
+                    full.parent.mkdir(parents=True, exist_ok=True)
+                    obj = read_object(objects_dir, sha)
+                    full.write_bytes(obj.serialize_content())
+                    stat = full.stat()
+                    new_index.entries[p] = DeepIndexEntry(sha=sha, size=stat.st_size, mtime=stat.st_mtime, flags=0)
+                else:
+                    # Skip worktree (bit 0 = 0x01)
+                    new_index.entries[p] = DeepIndexEntry(sha=sha, size=0, mtime=0, flags=0x01)
 
-            # 5. Update Index
+            # 5. Update DeepIndex
             write_index_no_lock(dg_dir, new_index)
 
             # 6. Atomic HEAD Ref update

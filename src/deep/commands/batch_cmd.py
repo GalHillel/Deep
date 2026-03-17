@@ -16,23 +16,23 @@ import shlex
 import sys
 from pathlib import Path
 
-from deep.core.repository import find_repo, DEEP_GIT_DIR
+from deep.core.repository import find_repo, DEEP_DIR
 
 
 def run(args) -> None:
     """Execute the ``batch`` command."""
     script_path = Path(args.script)
     if not script_path.exists():
-        print(f"Error: Script '{script_path}' not found", file=sys.stderr)
+        print(f"DeepGit: error: Script '{script_path}' not found", file=sys.stderr)
         sys.exit(1)
 
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
 
     from deep.storage.txlog import TransactionLog
     from deep.core.telemetry import TelemetryCollector, Timer

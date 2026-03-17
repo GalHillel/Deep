@@ -10,7 +10,7 @@ import sys
 from argparse import Namespace
 from pathlib import Path
 
-from deep.core.repository import find_repo, DEEP_GIT_DIR
+from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import update_branch, resolve_head, get_branch
 from deep.core.config import Config
 from deep.network.client import get_remote_client
@@ -21,7 +21,7 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     url_or_name = args.url
@@ -29,7 +29,7 @@ def run(args) -> None:
     url = config.get(f"remote.{url_or_name}.url", url_or_name)
     
     branch = args.branch
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
 
     auth_token = config.get("auth.token")
     client = get_remote_client(url, auth_token=auth_token)
@@ -43,7 +43,7 @@ def run(args) -> None:
         remote_ref = f"refs/heads/{branch}"
         remote_sha = refs.get(remote_ref)
         if not remote_sha:
-            print(f"Error: Remote branch '{branch}' not found", file=sys.stderr)
+            print(f"DeepGit: error: Remote branch '{branch}' not found", file=sys.stderr)
             sys.exit(1)
             
         print(f"Fetching {branch} ({remote_sha[:7]})...")
@@ -56,7 +56,7 @@ def run(args) -> None:
         merge_run(merge_args)
         
     except Exception as e:
-        print(f"Pull failed: {e}", file=sys.stderr)
+        print(f"DeepGit: error: pull failed: {e}", file=sys.stderr)
         sys.exit(1)
     finally:
         client.disconnect()

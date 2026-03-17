@@ -8,40 +8,7 @@ from deep.core.refs import update_branch, update_head
 
 import unicodedata
 
-INVALID_WIN_CHARS = r'[\x00-\x1f\\?*<>|:"]'
-RESERVED_WIN_NAMES = {
-    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-}
-
-def sanitize_filename(name: str) -> str:
-    """
-    Guarantees a safe filename for Git and all filesystems.
-    - Replaces \r, \n, \t and control characters with underscores
-    - Normalizes Unicode to NFC
-    - Replaces Windows-illegal characters with underscores
-    - Strips leading/trailing whitespace and trailing dots
-    """
-    if not name:
-        return "unnamed_file"
-
-    # 1. Unicode Normalization (NFC)
-    name = unicodedata.normalize('NFC', name)
-    
-    # 2. Replace all Windows-illegal and control characters (including \r \n \t) with underscores
-    # Note: We do this before stripping to ensure trailing control characters become underscores 
-    # and are NOT stripped by name.strip().
-    name = re.sub(INVALID_WIN_CHARS, '_', name)
-    
-    # 3. Strip whitespace and basic cleanup
-    name = name.strip()
-    
-    # 4. Final safety check for empty or dot-only names
-    name = name.rstrip('. ')
-    if not name:
-        return "sanitized_file"
-        
-    return name
+from deep.utils.utils import sanitize_filename, INVALID_WIN_CHARS, RESERVED_WIN_NAMES
 
 def sanitize_path(path: str) -> Tuple[str, bool]:
     """
@@ -179,6 +146,14 @@ def logical_rebase(
         if sanitize_windows:
             merged_tree_sha = sanitize_tree(objects_dir, merged_tree_sha, renamed_log)
         
+        max_p_seq = 0
+        if curr_head:
+            try:
+                p_obj = read_object(objects_dir, curr_head)
+                if isinstance(p_obj, Commit):
+                    max_p_seq = p_obj.sequence_id
+            except Exception: pass
+
         new_commit = Commit(
             tree_sha=merged_tree_sha,
             parent_shas=[curr_head],
@@ -187,6 +162,7 @@ def logical_rebase(
             message=c_obj.message,
             timestamp=c_obj.timestamp,
             timezone=getattr(c_obj, "timezone", "+0000"),
+            sequence_id=max_p_seq + 1,
         )
         curr_head = new_commit.write(objects_dir)
         
@@ -196,6 +172,15 @@ def logical_rebase(
         new_tree_sha = sanitize_tree(objects_dir, head_obj.tree_sha, renamed_log)
         if new_tree_sha != head_obj.tree_sha:
             # We must create a new commit even for "up-to-date" if paths changed
+            max_p_seq = 0
+            if head_obj.parent_shas:
+                for p_sha in head_obj.parent_shas:
+                    try:
+                        p_obj = read_object(objects_dir, p_sha)
+                        if isinstance(p_obj, Commit):
+                            max_p_seq = max(max_p_seq, p_obj.sequence_id)
+                    except Exception: pass
+
             new_commit = Commit(
                 tree_sha=new_tree_sha,
                 parent_shas=head_obj.parent_shas,
@@ -204,6 +189,7 @@ def logical_rebase(
                 message=head_obj.message + " (Windows Path Sanitization)",
                 timestamp=head_obj.timestamp,
                 timezone=getattr(head_obj, "timezone", "+0000"),
+                sequence_id=max_p_seq + 1,
             )
             curr_head = new_commit.write(objects_dir)
         else:

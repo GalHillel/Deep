@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from deep.core.diff import diff_working_tree
-from deep.core.repository import find_repo, DEEP_GIT_DIR
+from deep.core.repository import find_repo, DEEP_DIR
 
 
 def run(args) -> None:  # type: ignore[no-untyped_def]
@@ -18,10 +18,10 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     from deep.core.refs import resolve_revision
     from deep.core.diff import diff_trees, diff_working_tree
     
@@ -32,13 +32,13 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         rev1 = resolve_revision(dg_dir, revisions[0])
         rev2 = resolve_revision(dg_dir, revisions[1])
         if not rev1 or not rev2:
-            print(f"Error: Invalid revisions {revisions}", file=sys.stderr)
+            print(f"DeepGit: error: Invalid revisions {revisions}", file=sys.stderr)
             sys.exit(1)
         diffs = diff_trees(dg_dir, rev1, rev2)
     elif len(revisions) == 1:
         rev1 = resolve_revision(dg_dir, revisions[0])
         if not rev1:
-            print(f"Error: Invalid revision {revisions[0]}", file=sys.stderr)
+            print(f"DeepGit: error: Invalid revision {revisions[0]}", file=sys.stderr)
             sys.exit(1)
         # diff <rev> is rev vs working tree (via index)
         diffs = diff_trees(dg_dir, rev1, "HEAD")

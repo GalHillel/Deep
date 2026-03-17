@@ -1,7 +1,7 @@
 """
 deep.commands.add_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-DeepBridge ``add`` command implementation.
+DeepGit ``add`` command implementation.
 """
 
 from __future__ import annotations
@@ -9,18 +9,19 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import Optional, Tuple, List
 
 from deep.core.ignore import IgnoreEngine
 from deep.core.reconcile import sanitize_path
-from deep.storage.index import update_multiple_index_entries, remove_multiple_index_entries
+from deep.storage.index import add_multiple_to_index, remove_multiple_from_index
 from deep.storage.objects import Blob, write_object
-from deep.core.repository import DEEP_GIT_DIR, find_repo
+from deep.core.repository import DEEP_DIR, find_repo
 from deep.utils.ux import ProgressBar
 
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sha: Optional[str] = None, previous_size: Optional[int] = None, previous_mtime: Optional[float] = None) -> tuple[str, Optional[str], int, float]:
+def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sha: Optional[str] = None, previous_size: Optional[int] = None, previous_mtime_ns: Optional[int] = None) -> tuple[str, Optional[str], int, int]:
     """Worker function to process a single file. (Must be top-level for pickling)"""
     from deep.storage.objects import Blob, write_object, write_delta_object, write_large_blob
     from deep.utils.ux import Color
@@ -31,17 +32,13 @@ def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sh
     
     # Fast Path: Check mtime and size before reading bytes
     stat = file_path.stat()
-    if previous_sha is not None and previous_size == stat.st_size and previous_mtime == stat.st_mtime:
+    if previous_sha is not None and previous_size == stat.st_size and previous_mtime_ns == stat.st_mtime_ns:
         # Heuristic says file hasn't changed
-        return rel_path, None, stat.st_size, stat.st_mtime
-
-    # Check if file actually changed before doing heavy work (optional, but kept for robustness)
-    data = file_path.read_bytes()
-    sha = Blob(data).sha
+        return rel_path, None, stat.st_size, stat.st_mtime_ns
 
     if sha == previous_sha:
         # Content hasn't changed, just return the existing info with updated stat
-        return rel_path, sha, stat.st_size, stat.st_mtime
+        return rel_path, sha, stat.st_size, stat.st_mtime_ns
 
     # Content changed, write new object
     objects_dir = dg_dir / "objects"
@@ -56,7 +53,7 @@ def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sh
     else:
         sha = write_object(objects_dir, Blob(data))
         
-    return rel_path, sha, stat.st_size, stat.st_mtime
+    return rel_path, sha, stat.st_size, stat.st_mtime_ns
 
 
 def run(args) -> None:  # type: ignore[no-untyped_def]
@@ -64,10 +61,10 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepBridge: error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
 
     from deep.storage.index import read_index
@@ -86,14 +83,14 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 rel_path, _ = sanitize_path(rel_path)
             except ValueError:
                 # Path is outside repo
-                print(f"DeepBridge: error: {file_path_str} is outside repository", file=sys.stderr)
+                print(f"DeepGit: error: {file_path_str} is outside repository", file=sys.stderr)
                 sys.exit(1)
                 
             if rel_path in index.entries:
                 paths_to_remove.append(rel_path)
                 continue
             else:
-                print(f"DeepBridge: error: {file_path_str} does not exist", file=sys.stderr)
+                print(f"DeepGit: error: {file_path_str} does not exist", file=sys.stderr)
                 sys.exit(1)
             
         if path.is_file():
@@ -105,7 +102,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 valid_dirs = []
                 for d in dirnames:
                     d_rel = f"{rel_dir}/{d}" if rel_dir != "." else d
-                    if d == DEEP_GIT_DIR:
+                    if d == DEEP_DIR:
                         continue
                     if not ignore_engine.is_ignored(d_rel, is_dir=True):
                         valid_dirs.append(d)
@@ -117,9 +114,9 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                         files_to_add.append(Path(dirpath) / f)
 
     if paths_to_remove:
-        remove_multiple_index_entries(dg_dir, paths_to_remove)
+        remove_multiple_from_index(dg_dir, paths_to_remove)
         for p in paths_to_remove:
-            print(f"DeepBridge: staged deletion: {p}")
+            print(f"DeepGit: staged deletion: {p}")
 
     if not files_to_add:
         return
@@ -145,9 +142,9 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             
             if rel_path in index.entries:
                 entry = index.entries[rel_path]
-                p_sha = entry.sha
+                p_sha = entry.content_hash
                 p_size = entry.size
-                p_mtime = entry.mtime
+                p_mtime_ns = entry.mtime_ns
             
             futures.append(executor.submit(
                 _add_file_worker, 
@@ -156,7 +153,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 file_path, 
                 p_sha,
                 p_size,
-                p_mtime
+                p_mtime_ns
             ))
             
         for future in as_completed(futures):
@@ -171,5 +168,5 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         actual_results = [r for r in results if r[1] is not None]
         
         if actual_results:
-            update_multiple_index_entries(dg_dir, actual_results)
-            print(f"DeepBridge: added {len(actual_results)} files to the index.")
+            add_multiple_to_index(dg_dir, actual_results)
+            print(f"DeepGit: added {len(actual_results)} files to the index.")

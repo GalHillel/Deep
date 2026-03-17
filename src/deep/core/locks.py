@@ -15,12 +15,19 @@ import time
 from pathlib import Path
 from typing import Optional, Any, cast, Union
 
-from deep.core.ignore import IgnoreEngine # type: ignore
-from deep.storage.index import read_index # type: ignore
-from deep.storage.objects import Blob, Commit, Tree, read_object # type: ignore
-from deep.core.refs import resolve_head # type: ignore
-from deep.core.repository import DEEP_GIT_DIR # type: ignore
+from deep.core.constants import DEEP_DIR # type: ignore
+import threading
 from deep.utils.utils import hash_bytes # type: ignore
+
+_local_locks = threading.local()
+
+def _get_held_lock_levels() -> list[int]:
+    if not hasattr(_local_locks, 'levels'):
+        _local_locks.levels = []
+    return _local_locks.levels
+
+class LockHierarchyViolation(RuntimeError):
+    pass
 
 
 # Stale lock threshold: if a lock is older than this and its PID is dead, break it.
@@ -60,6 +67,8 @@ class BaseLock:
     
     Uses msvcrt.locking on Windows and fcntl.flock on Unix.
     """
+    
+    level: int = 0
 
     def __init__(self, lock_path: Path, timeout: float = 60.0):
         self.lock_path = lock_path
@@ -130,6 +139,13 @@ class BaseLock:
         return False
 
     def acquire(self):
+        held = _get_held_lock_levels()
+        if any(l >= self.level for l in held):
+            raise LockHierarchyViolation(
+                f"DeepBridge: Lock hierarchy violation (deadlock prevention): "
+                f"attempting to acquire level {self.level} while holding tighter/equal locks {held}"
+            )
+            
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
         from deep.utils.utils import AtomicWriter # type: ignore
         import sys
@@ -182,6 +198,8 @@ class BaseLock:
                         raise TimeoutError(f"DeepBridge: failed to acquire lock {self.lock_path} within {self.timeout}s")
                     time.sleep(0.05 + random.random() * 0.1)
 
+        held.append(self.level)
+
     def release(self):
         if self._file_handle:
             import sys
@@ -203,8 +221,10 @@ class BaseLock:
             finally:
                 cast(Any, self._file_handle).close() # type: ignore
                 self._file_handle = None
-                # Optional: unlink if we are the only ones. 
-                # But for WAL/Index it's often better to just leave the empty file.
+                
+        held = _get_held_lock_levels()
+        if self.level in held:
+            held.remove(self.level)
 
     def __enter__(self):
         self.acquire()
@@ -216,17 +236,27 @@ class BaseLock:
 
 class RepositoryLock(BaseLock):
     """Global lock for operations modifying the entire repository state."""
+    level = 100
     def __init__(self, dg_dir: Path, timeout: float = 30.0):
-        super().__init__(dg_dir / "index.lock", timeout)
+        super().__init__(dg_dir / "repo.lock", timeout)
 
 
 class BranchLock(BaseLock):
     """Lock for updating a specific branch."""
+    level = 200
     def __init__(self, dg_dir: Path, branch_name: str, timeout: float = 10.0):
         super().__init__(dg_dir / "refs" / "heads" / f"{branch_name}.lock", timeout)
 
 
+class IndexLock(BaseLock):
+    """Lock specifically for index (staging area) updates."""
+    level = 300
+    def __init__(self, dg_dir: Path, timeout: float = 10.0):
+        super().__init__(dg_dir / "index.lock", timeout)
+
+
 class PackfileLock(BaseLock):
     """Lock for generating/writing packfiles to prevent concurrent packing."""
+    level = 400
     def __init__(self, dg_dir: Path, timeout: float = 60.0):
         super().__init__(dg_dir / "objects" / "pack" / "packing.lock", timeout)

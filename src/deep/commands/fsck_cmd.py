@@ -1,143 +1,129 @@
 """
 deep.commands.fsck_cmd
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-``deep fsck`` — Verify the integrity of the reachable objects, trees, commits, and references.
+~~~~~~~~~~~~~~~~~~~~~~~~
+Verify the connectivity and validity of objects in the database.
 """
 
 from __future__ import annotations
-
-import sys
+import hashlib
+import os
 from pathlib import Path
+from typing import Set, Dict, List, Tuple, Optional
 
-from deep.core.repository import DEEP_GIT_DIR, find_repo
-from deep.core.refs import list_branches, list_tags, resolve_head, get_branch, get_tag
-from deep.storage.objects import read_object, Commit, Tree, Tag, Blob
-
-
-def run(args) -> None:
+def verify_object_integrity(objects_dir: Path, sha: str) -> bool:
+    """Verify that a physical object file's content matches its SHA name."""
+    import zlib
+    import hashlib
+    path = objects_dir / sha[:2] / sha[2:]
+    if not path.exists():
+        return False
+    
     try:
-        repo_root = find_repo()
-    except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        data = path.read_bytes()
+        try:
+            raw = zlib.decompress(data)
+        except zlib.error:
+            raw = data
+            
+        actual_sha = hashlib.sha1(raw).hexdigest()
+        return actual_sha == sha
+    except Exception:
+        return False
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+def run(args):
+    # Defer imports to avoid circularity
+    from deep.core.repository import find_repo, DEEP_DIR
+    from deep.storage.objects import read_object, Commit, Tree, Blob
+    from deep.core.refs import list_branches, list_tags, resolve_head, get_branch, get_tag
+    from rich.console import Console
+
+    console = Console()
+    repo_root = find_repo(Path.cwd())
+    if not repo_root:
+        console.print("[red]DeepGit: error: not a DeepGit repository[/red]")
+        return
+    
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
+    
+    # 1. Verify integrity of all physical files
+    console.print("[bold blue]Verifying object integrity...[/bold blue]")
+    all_shas: Set[str] = set()
+    corrupt_objects: List[str] = []
+    
+    if not objects_dir.exists():
+        console.print("[yellow]Empty repository (no objects).[/yellow]")
+        return
 
-    errors = 0
-    checked_commits = set()
-    checked_trees = set()
-    checked_blobs = set()
+    for xx_dir in objects_dir.iterdir():
+        if not xx_dir.is_dir() or len(xx_dir.name) != 2:
+            continue
+        for yy_file in xx_dir.iterdir():
+            sha = xx_dir.name + yy_file.name
+            all_shas.add(sha)
+            if not verify_object_integrity(objects_dir, sha):
+                corrupt_objects.append(sha)
+    
+    if corrupt_objects:
+        console.print(f"[bold red]Found {len(corrupt_objects)} corrupt objects![/bold red]")
+        for sha in corrupt_objects:
+            console.print(f"  corrupt: {sha}")
+    else:
+        console.print(f"Checked {len(all_shas)} objects, 0 corruption.")
 
-    print("Checking reference consistency...")
-    # 1. Reference consistency
-    heads = {}
+    # 2. Connectivity check from all refs
+    console.print("\n[bold blue]Checking connectivity...[/bold blue]")
+    reachable: Set[str] = set()
+    missing: Set[str] = set()
+    
+    # Entry points
+    heads = set()
     for b in list_branches(dg_dir):
         sha = get_branch(dg_dir, b)
-        if sha:
-            try:
-                obj = read_object(objects_dir, sha)
-                if not isinstance(obj, Commit):
-                    print(f"Error: Branch '{b}' points to non-commit object {sha[:7]}")
-                    errors += 1
-                heads[b] = sha
-            except Exception as e:
-                print(f"Error: Branch '{b}' points to missing object {sha[:7]} ({e})")
-                errors += 1
-
+        if sha: heads.add(sha)
     for t in list_tags(dg_dir):
         sha = get_tag(dg_dir, t)
-        if sha:
-            try:
-                obj = read_object(objects_dir, sha)
-                if not isinstance(obj, Tag):
-                    print(f"Error: Tag '{t}' points to non-tag object {sha[:7]}")
-                    errors += 1
-                else:
-                    target_sha = obj.target_sha
-                    try:
-                        read_object(objects_dir, target_sha)
-                    except Exception:
-                        print(f"Error: Tag '{t}' target object {target_sha[:7]} is missing")
-                        errors += 1
-            except Exception as e:
-                print(f"Error: Tag '{t}' points to missing object {sha[:7]} ({e})")
-                errors += 1
-
+        if sha: heads.add(sha)
     head_sha = resolve_head(dg_dir)
-    if head_sha:
-        try:
-            read_object(objects_dir, head_sha)
-            heads["HEAD"] = head_sha
-        except Exception:
-            print(f"Error: HEAD points to missing object {head_sha[:7]}")
-            errors += 1
-
-    print("Checking commit DAG, tree references, and object existence...")
-    # 2. Commit DAG & Trees
-    queue = list(heads.values())
+    if head_sha: heads.add(head_sha)
     
-    while queue:
-        sha = queue.pop(0)
-        if sha in checked_commits:
+    stack = list(heads)
+    while stack:
+        sha = stack.pop()
+        if sha in reachable:
             continue
+        
         try:
             obj = read_object(objects_dir, sha)
-            if isinstance(obj, Commit):
-                checked_commits.add(sha)
-                
-                # Check parents exist
-                for p_sha in obj.parent_shas:
-                    try:
-                        read_object(objects_dir, p_sha)
-                        queue.append(p_sha)
-                    except Exception:
-                        print(f"Error: Commit {sha[:7]} parent {p_sha[:7]} is missing")
-                        errors += 1
-                
-                # Check tree exists
-                t_sha = obj.tree_sha
-                if t_sha:
-                    try:
-                        read_object(objects_dir, t_sha)
-                        # Add tree to validation queue
-                        queue.append(t_sha)
-                    except Exception:
-                        print(f"Error: Commit {sha[:7]} tree {t_sha[:7]} is missing")
-                        errors += 1
+            reachable.add(sha)
             
+            if isinstance(obj, Commit):
+                if obj.parent_shas:
+                    stack.extend(obj.parent_shas)
+                if obj.tree_sha:
+                    stack.append(obj.tree_sha)
             elif isinstance(obj, Tree):
-                if sha in checked_trees:
-                    continue
-                checked_trees.add(sha)
-                
                 for entry in obj.entries:
-                    e_sha = entry.sha
-                    try:
-                        child = read_object(objects_dir, e_sha)
-                        if isinstance(child, Tree):
-                            if entry.mode != "40000":
-                                print(f"Error: Tree {sha[:7]} entry '{entry.name}' is a tree but has mode {entry.mode}")
-                                errors += 1
-                            if e_sha not in checked_trees:
-                                queue.append(e_sha)
-                        elif isinstance(child, Blob):
-                            if entry.mode == "40000":
-                                print(f"Error: Tree {sha[:7]} entry '{entry.name}' is a blob but has mode 40000")
-                                errors += 1
-                            checked_blobs.add(e_sha)
-                    except Exception:
-                        print(f"Error: Tree {sha[:7]} entry '{entry.name}' points to missing object {e_sha[:7]}")
-                        errors += 1
-
-        except Exception as e:
-            # Reached a missing object in the queue
-            pass
-
-    print(f"\nFsck completed.")
-    print(f"Checked: {len(checked_commits)} commits, {len(checked_trees)} trees, {len(checked_blobs)} blobs.")
-    if errors == 0:
-        print("Result: OK - No corruption found.")
+                    stack.append(entry.sha)
+            # Blobs have no children
+        except Exception:
+            missing.add(sha)
+            console.print(f"[red]Missing object: {sha}[/red]")
+            
+    if not missing:
+        console.print("Connectivity OK.")
+    
+    # 3. Find dangling objects
+    dangling = all_shas - reachable
+    if dangling:
+        console.print(f"\n[yellow]Found {len(dangling)} dangling objects (unreachable from any ref):[/yellow]")
+        # Only show first 5 to avoid spam
+        for sha in sorted(list(dangling))[:5]:
+            console.print(f"  dangling: {sha}")
+        if len(dangling) > 5:
+            console.print(f"  ... and {len(dangling) - 5} more.")
+    
+    if not corrupt_objects and not missing:
+        console.print("\n[bold green]Fsck complete. Repository is healthy.[/bold green]")
     else:
-        print(f"Result: FAILED - {errors} error(s) found.")
-        sys.exit(1)
+        console.print("\n[bold red]Fsck complete. Repository has ISSUES.[/bold red]")

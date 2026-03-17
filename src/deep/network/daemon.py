@@ -25,8 +25,8 @@ from deep.storage.objects import (
 )
 from deep.storage.pack import unpack, create_pack
 from deep.core.refs import update_branch, resolve_head, list_branches, get_branch
-from deep.core.repository import DEEP_GIT_DIR
-from deep.network.protocol import AsyncPktLineStream
+from deep.core.repository import DEEP_DIR
+from deep.network.protocol import AsyncPktLineStream, AsyncSidebandStream, BAND_DATA, BAND_PROGRESS, BAND_ERROR
 
 
 class DeepGitDaemon:
@@ -34,7 +34,7 @@ class DeepGitDaemon:
 
     def __init__(self, repo_root: Path, host: str = "0.0.0.0", port: int = 8888):
         self.repo_root = repo_root
-        self.dg_dir = repo_root / DEEP_GIT_DIR
+        self.dg_dir = repo_root / DEEP_DIR
         self.host = host
         self.port = port
         self.server: Optional[asyncio.AbstractServer] = None
@@ -63,7 +63,7 @@ class DeepGitDaemon:
         try:
             # 1. Handshake
             await stream.write(b"deep v1")
-            await stream.write(b"capabilities: push fetch packfile-v1 auth select")
+            await stream.write(b"capabilities: push fetch packfile-v1 auth select sideband-v2")
             await stream.flush()
 
             # 2. Auth & Protocol Stage
@@ -89,7 +89,15 @@ class DeepGitDaemon:
                 if cmd == "select":
                     repo_name = parts[1]
                     # platform support
-                    platform_repo = self.repo_root / "repos" / repo_name / DEEP_GIT_DIR
+                    repos_base = (self.repo_root / "repos").resolve()
+                    platform_repo = (repos_base / repo_name / DEEP_DIR).resolve()
+                    try:
+                        platform_repo.relative_to(repos_base)
+                    except ValueError:
+                        await stream.write(f"error invalid repo path: {repo_name}".encode("ascii"))
+                        await stream.flush()
+                        continue
+                        
                     if platform_repo.exists():
                         dg_dir = platform_repo
                         await stream.write(f"ok selected: {repo_name}".encode("ascii"))
@@ -136,7 +144,7 @@ class DeepGitDaemon:
                     await stream.write(f"error unknown command: {cmd}".encode("ascii"))
                     await stream.flush()
 
-        except (asyncio.IncompleteReadError, ConnectionResetError, ConnectionAbortedError, OSError) as e:
+        except (asyncio.IncompleteReadError, ConnectionResetError, ConnectionAbortedError, OSError, asyncio.TimeoutError) as e:
             # Handle common network errors gracefully, especially WinError 64 on Windows
             if isinstance(e, OSError) and getattr(e, "winerror", None) != 64:
                 print(f"Daemon Network Error: {e}", file=sys.stderr)
@@ -203,7 +211,7 @@ class DeepGitDaemon:
                 chunk_size = 64 * 1024 # 64KB
                 while bytes_left > 0:
                     to_read = min(bytes_left, chunk_size)
-                    chunk = await stream.reader.read(to_read)
+                    chunk = await asyncio.wait_for(stream.reader.read(to_read), timeout=30.0)
                     if not chunk:
                         raise asyncio.IncompleteReadError(chunk, pack_size - bytes_left)
                     tmp_pack.write(chunk)
@@ -289,14 +297,28 @@ class DeepGitDaemon:
 
         try:
             # We must send all reachable objects (commit, trees, blobs)
-            shas = get_reachable_objects(dg_dir / "objects", [target_sha], max_depth=max_depth, filter_spec=filter_spec)
-            pack_data = create_pack(dg_dir / "objects", shas)
-            await stream.write(f"packfile {len(pack_data)}".encode("ascii"))
-            stream.writer.write(pack_data)
-            await stream.writer.drain()
+            if "--sideband" in args:
+                sb_stream = AsyncSidebandStream(stream.reader, stream.writer)
+                await sb_stream.send_progress("Counting objects...")
+                shas = await asyncio.to_thread(get_reachable_objects, dg_dir / "objects", [target_sha], max_depth, filter_spec)
+                await sb_stream.send_progress(f"Found {len(shas)} objects. Compressing...")
+                pack_data = await asyncio.to_thread(create_pack, dg_dir / "objects", shas)
+                await sb_stream.send_progress("Sending packfile...")
+                await sb_stream.send_data(f"packfile {len(pack_data)}".encode("ascii"))
+                await sb_stream.send_data(pack_data)
+            else:
+                shas = await asyncio.to_thread(get_reachable_objects, dg_dir / "objects", [target_sha], max_depth, filter_spec)
+                pack_data = await asyncio.to_thread(create_pack, dg_dir / "objects", shas)
+                await stream.write(f"packfile {len(pack_data)}".encode("ascii"))
+                stream.writer.write(pack_data)
+                await stream.writer.drain()
         except Exception as e:
-            await stream.write(f"error fetch failed: {e}".encode("ascii"))
-            await stream.flush()
+            if "--sideband" in args:
+                sb_stream = AsyncSidebandStream(stream.reader, stream.writer)
+                await sb_stream.send_error(str(e))
+            else:
+                await stream.write(f"error fetch failed: {e}".encode("ascii"))
+                await stream.flush()
 
     async def handle_ls_refs(self, stream: AsyncPktLineStream, dg_dir: Path, args: list[str]):
         """List all refs in the repository."""

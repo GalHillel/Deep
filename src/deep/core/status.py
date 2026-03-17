@@ -1,13 +1,13 @@
 """
 deep.core.status
 ~~~~~~~~~~~~~~~~~~~~~
-Status engine — compares HEAD tree, Index, and Working Directory.
+Status engine — compares HEAD tree, DeepIndex, and Working Directory.
 
 Returns structured information about which files are:
-- **Staged** (in Index, different from HEAD tree)
-- **Modified** (in working dir, different from Index)
-- **Deleted** (in Index but missing from working dir)
-- **Untracked** (in working dir but not in Index)
+- **Staged** (in DeepIndex, different from HEAD tree)
+- **Modified** (in working dir, different from DeepIndex)
+- **Deleted** (in DeepIndex but missing from working dir)
+- **Untracked** (in working dir but not in DeepIndex)
 """
 
 from __future__ import annotations
@@ -18,10 +18,10 @@ from pathlib import Path
 from typing import Dict, Optional, Set, Any, cast, List
 
 from deep.core.ignore import IgnoreEngine # type: ignore
-from deep.storage.index import read_index, Index # type: ignore
+from deep.storage.index import read_index, DeepIndex # type: ignore
 from deep.storage.objects import Blob, Commit, Tree, read_object # type: ignore
 from deep.core.refs import resolve_head # type: ignore
-from deep.core.repository import DEEP_GIT_DIR # type: ignore
+from deep.core.repository import DEEP_DIR # type: ignore
 from deep.utils.utils import hash_bytes # type: ignore
 
 
@@ -80,7 +80,7 @@ def _walk_working_dir(repo_root: Path) -> Set[str]:
         # Skip .deep_git and hidden dirs.
         dirnames[:] = [ # type: ignore
             d for d in dirnames
-            if d != DEEP_GIT_DIR and not d.startswith(".")
+            if d != DEEP_DIR and not d.startswith(".")
         ]
         for fname in filenames:
             if fname.startswith("."):
@@ -119,19 +119,19 @@ def _check_file_status(repo_root: Path, path: str, index_sha: str, index_mtime: 
         return path, True
 
 
-def compute_status(repo_root: Path, index: Optional[Index] = None) -> StatusResult:
+def compute_status(repo_root: Path, index: Optional[DeepIndex] = None) -> StatusResult:
     """Compute the full repository status concurrently.
     
     If *index* is provided, it is used directly without further locking.
     Otherwise, the index is read from disk with an exclusive lock.
     """
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     result = StatusResult()
 
     # 1. HEAD tree
     head_entries = _get_head_tree_entries(dg_dir)
 
-    # 2. Index
+    # 2. DeepIndex
     if index is None:
         index = read_index(dg_dir)
     
@@ -141,7 +141,7 @@ def compute_status(repo_root: Path, index: Optional[Index] = None) -> StatusResu
     all_paths = set(head_entries) | set(index.entries.keys()) | working_files
     ignore_engine = IgnoreEngine(repo_root)
 
-    # Prepare parallel checks for Unstaged changes (Working dir vs Index)
+    # Prepare parallel checks for Unstaged changes (Working dir vs DeepIndex)
     to_check = []
     for path in all_paths:
         if path in index.entries and path in working_files:
@@ -163,7 +163,7 @@ def compute_status(repo_root: Path, index: Optional[Index] = None) -> StatusResu
         in_index = path in index.entries
         in_wd = path in working_files
 
-        # --- Staged changes (Index vs HEAD) ---
+        # --- Staged changes (DeepIndex vs HEAD) ---
         if in_index and not in_head:
             result.staged_new.append(path)
         elif in_index and in_head and index.entries[path].sha != head_entries[path]:
@@ -171,12 +171,13 @@ def compute_status(repo_root: Path, index: Optional[Index] = None) -> StatusResu
         elif not in_index and in_head:
             result.staged_deleted.append(path)
 
-        # --- Unstaged changes (Working dir vs Index) ---
+        # --- Unstaged changes (Working dir vs DeepIndex) ---
         if in_index and in_wd:
             if path in modified_paths:
                 result.modified.append(path)
         elif in_index and not in_wd:
-            result.deleted.append(path)
+            if not index.entries[path].skip_worktree:
+                result.deleted.append(path)
 
         # --- Untracked ---
         if in_wd and not in_index:

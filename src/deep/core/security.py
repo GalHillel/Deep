@@ -96,22 +96,44 @@ class SigningKey:
 
 
 class KeyManager:
-    """Manages signing keys stored at .deep_git/keys/keyring.json.
+    """Manages signing keys stored at .deep_git/keys/keyring.enc.
 
     Supports key generation, rotation, and revocation.
     """
 
-    def __init__(self, dg_dir: Path):
+    def __init__(self, dg_dir: Path, passphrase: Optional[str] = None):
+        import os
         self.keys_dir = dg_dir / "keys"
-        self.keyring_path = self.keys_dir / "keyring.json"
+        self.keyring_path = self.keys_dir / "keyring.enc"
+        self.passphrase = passphrase or os.environ.get("DEEP_PASSPHRASE", "deep_default_insecure_passphrase")
         self._keys: Dict[str, SigningKey] = {}
         self._load()
 
+    def _cipher(self, data: bytes) -> bytes:
+        import hashlib, struct
+        key = hashlib.sha256(self.passphrase.encode("utf-8")).digest()
+        out = bytearray()
+        for i in range(0, len(data), 32):
+            keystream = hashlib.sha256(key + struct.pack(">I", i // 32)).digest()
+            chunk = data[i:i+32]
+            for b1, b2 in zip(chunk, keystream):
+                out.append(b1 ^ b2)
+        return bytes(out)
+
     def _load(self):
-        if not self.keyring_path.exists():
-            return
+        # Fallback to plaintext json for backwards compatibility if .enc doesn't exist
+        legacy_path = self.keys_dir / "keyring.json"
+        
         try:
-            data = json.loads(self.keyring_path.read_text(encoding="utf-8"))
+            if self.keyring_path.exists():
+                raw = self.keyring_path.read_bytes()
+                decrypted = self._cipher(raw).decode("utf-8")
+                data = json.loads(decrypted)
+            elif legacy_path.exists():
+                data = json.loads(legacy_path.read_text(encoding="utf-8"))
+            else:
+                return
+                
             for kd in data.get("keys", []):
                 key = SigningKey.from_dict(kd)
                 self._keys[key.key_id] = key
@@ -121,10 +143,16 @@ class KeyManager:
     def _save(self):
         self.keys_dir.mkdir(parents=True, exist_ok=True)
         from deep.utils.utils import AtomicWriter
-        with AtomicWriter(self.keyring_path, mode="w") as aw:
-            aw.write(json.dumps({
-                "keys": [k.to_dict() for k in self._keys.values()]
-            }, indent=2))
+        
+        payload = json.dumps({"keys": [k.to_dict() for k in self._keys.values()]}, indent=2).encode("utf-8")
+        encrypted = self._cipher(payload)
+        
+        with AtomicWriter(self.keyring_path, mode="wb") as aw:
+            aw.write(encrypted)
+            
+        legacy_path = self.keys_dir / "keyring.json"
+        if legacy_path.exists():
+            legacy_path.unlink() # Delete legacy plaintext file
 
     def generate_key(self, key_id: Optional[str] = None) -> SigningKey:
         """Generate a new HMAC-SHA256 signing key."""
@@ -279,8 +307,7 @@ class MerkleAuditChain:
             expected_prev = entry.get("prev_hash", "")
 
             if not entry_hash:
-                # Pre-hardening entry without hash — skip
-                continue
+                return False, i # Reject entries missing hashes (Hardening)
 
             if expected_prev != prev_hash:
                 return False, i

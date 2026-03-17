@@ -17,7 +17,7 @@ from deep.storage.index import write_index, read_index
 from deep.core.merge import three_way_merge
 from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import get_current_branch, resolve_head
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.status import _get_head_tree_entries, compute_status
 from deep.utils.utils import AtomicWriter
 
@@ -40,7 +40,7 @@ def save_stash(repo_root: Path) -> Optional[str]:
     
     Returns the SHA of the stash commit, or None if nothing to stash.
     """
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
     status = compute_status(repo_root)
 
@@ -112,8 +112,8 @@ def save_stash(repo_root: Path) -> Optional[str]:
         head_tree = read_object(objects_dir, head_commit.tree_sha)
         assert isinstance(head_tree, Tree)
         
-        from deep.storage.index import Index, IndexEntry
-        new_index = Index()
+        from deep.storage.index import DeepIndex, DeepIndexEntry
+        new_index = DeepIndex()
         for e in head_tree.entries:
             blob = read_object(objects_dir, e.sha)
             if isinstance(blob, Blob):
@@ -122,7 +122,7 @@ def save_stash(repo_root: Path) -> Optional[str]:
                 with AtomicWriter(p, mode="wb") as aw:
                     aw.write(blob.data)
                 stat = p.stat()
-                new_index.entries[e.name] = IndexEntry(
+                new_index.entries[e.name] = DeepIndexEntry(
                     sha=e.sha,
                     size=stat.st_size,
                     mtime=stat.st_mtime,
@@ -137,7 +137,7 @@ def pop_stash(repo_root: Path) -> bool:
     
     Returns True if successful, False if there was a conflict.
     """
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     stashes = get_stash_list(dg_dir)
     if not stashes:
         raise RuntimeError("No stash entries found.")
@@ -178,7 +178,7 @@ def pop_stash(repo_root: Path) -> bool:
     )
 
     # Write merged entries to working tree
-    from deep.storage.index import Index, IndexEntry, read_index
+    from deep.storage.index import DeepIndex, DeepIndexEntry, read_index
     
     # Clear current tracked files
     current_index = read_index(dg_dir)
@@ -187,7 +187,7 @@ def pop_stash(repo_root: Path) -> bool:
         if full.exists():
             full.unlink()
 
-    new_index = Index()
+    new_index = DeepIndex()
     for entry in merged_entries:
         name = entry.name
         sha = entry.sha
@@ -201,7 +201,7 @@ def pop_stash(repo_root: Path) -> bool:
             aw.write(blob.data)
         
         stat = p.stat()
-        new_index.entries[name] = IndexEntry(
+        new_index.entries[name] = DeepIndexEntry(
             sha=sha,
             size=stat.st_size,
             mtime=stat.st_mtime,

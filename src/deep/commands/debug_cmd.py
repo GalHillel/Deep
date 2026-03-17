@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from deep.core.repository import find_repo, DEEP_GIT_DIR
+from deep.core.repository import find_repo, DEEP_DIR
 from deep.storage.objects import read_object, Tree, Commit
 from deep.core.refs import resolve_head
 
@@ -17,17 +17,17 @@ def run_debug_tree(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
 
     sha = args.sha
     if not sha:
         sha = resolve_head(dg_dir)
         if not sha:
-            print("Error: HEAD is not set", file=sys.stderr)
+            print("DeepGit: error: HEAD is not set", file=sys.stderr)
             sys.exit(1)
         
         # If HEAD is a commit, get its tree

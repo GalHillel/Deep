@@ -6,7 +6,7 @@ deep.commands.graph_cmd
 
 from __future__ import annotations
 import sys
-from deep.core.repository import find_repo, DEEP_GIT_DIR
+from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.graph import get_history_graph, render_graph
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
@@ -14,10 +14,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     
     nodes = get_history_graph(
         dg_dir, 

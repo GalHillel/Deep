@@ -5,10 +5,13 @@ Core graph traversal and rendering for history visualization.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field
+import heapq
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Any
+from dataclasses import dataclass, field
 
+# Defer these to avoid circular imports if needed, 
+# but they are currently used in get_history_graph.
 from deep.storage.objects import Commit, read_object
 from deep.core.refs import list_branches, list_tags, resolve_head, get_branch, get_tag
 
@@ -22,9 +25,13 @@ class GraphNode:
     tags: List[str] = field(default_factory=list)
     message: str = ""
 
-def get_history_graph(dg_dir: Path, max_count: int = 100, all_refs: bool = False) -> List[GraphNode]:
+def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: int = 100, all_refs: bool = False) -> List[GraphNode]:
     """Traverse commits and build a graph structure for rendering."""
+    from deep.storage.commit_graph import CommitGraph
+    
     objects_dir = dg_dir / "objects"
+    cg = CommitGraph(dg_dir)
+    use_index = cg.load()
     
     # Identify entry points
     heads: Dict[str, str] = {}
@@ -33,134 +40,101 @@ def get_history_graph(dg_dir: Path, max_count: int = 100, all_refs: bool = False
             sha = get_branch(dg_dir, b)
             if sha:
                 heads[b] = sha
+    elif start_sha:
+        heads["HEAD"] = start_sha
     else:
         head_sha = resolve_head(dg_dir)
         if head_sha:
             heads["HEAD"] = head_sha
-            
+
     tags_map: Dict[str, str] = {}
     for t in list_tags(dg_dir):
         sha = get_tag(dg_dir, t)
         if sha:
             tags_map[t] = sha
+
+    # Priority Queue: (-timestamp, sha) to get newest first
+    pq: List[Tuple[int, str]] = []
+    processed: Set[str] = set()
+
+    def _get_commit_meta(sha: str) -> Optional[Tuple[int, List[str], str, str]]:
+        """Helpers to get essential commit data, using index if possible."""
+        if use_index:
+            idx = cg.get_commit_index(sha)
+            if idx is not None:
+                info = cg.get_commit_info(idx)
+                if info:
+                    tree_sha, p_indices, gen, ts = info
+                    parents = [cg._oids[pi].hex() for pi in p_indices]
+                    # We still need the message for GraphNode, which isn't in the index yet.
+                    # Git's commit-graph doesn't store messages either, but we could add it.
+                    # For now, we load the object for the message.
+                    try:
+                        commit = read_object(objects_dir, sha)
+                        return ts, parents, tree_sha, commit.message.split("\n")[0]
+                    except Exception:
+                        return ts, parents, tree_sha, ""
+        
+        try:
+            commit = read_object(objects_dir, sha)
+            if isinstance(commit, Commit):
+                return commit.timestamp, commit.parent_shas, commit.tree_sha, commit.message.split("\n")[0]
+        except Exception:
+            pass
+        return None
+
+    def _push_commit(sha: str):
+        if sha in processed: return
+        meta = _get_commit_meta(sha)
+        if meta:
+            ts, parents, tree, msg = meta
+            heapq.heappush(pq, (-ts, sha))
+
+    for sha in set(heads.values()):
+        _push_commit(sha)
     
-    # Collect nodes using BFS/DFS
     nodes: Dict[str, GraphNode] = {}
-    # Use a set for initial queue to avoid duplicates
-    queue = list(set(heads.values()))
-    queue.sort(reverse=True) # Probabilistic newest first
-    processed = set()
-    
-    while queue and len(nodes) < max_count:
-        sha = queue.pop(0)
+    while pq and len(nodes) < max_count:
+        neg_ts, sha = heapq.heappop(pq)
         if sha in processed:
             continue
         processed.add(sha)
         
+        meta = _get_commit_meta(sha)
+        if not meta:
+            continue
+            
+        ts, parents, tree_sha, msg = meta
+        
+        # We need a dummy Commit object for GraphNode compatibility if we use index
+        # or we refactor GraphNode to not require a full Commit.
+        # Let's create a lightweight Commit wrapper or just load it if we must.
+        # To avoid breaking types, we'll load the commit object.
+        # Optimization: the _get_commit_meta already loaded it for the message.
         try:
             commit = read_object(objects_dir, sha)
-            if not isinstance(commit, Commit):
-                continue
-                
             node = GraphNode(
                 sha=sha,
                 commit=commit,
-                parents=commit.parent_shas,
-                message=commit.message.split("\n")[0][:50]
+                parents=parents,
+                message=msg
             )
             
-            # Add decorations
-            for b_name, b_sha in heads.items():
-                if b_sha == sha:
-                    node.branches.append(b_name)
-            for t_name, t_sha in tags_map.items():
-                if t_sha == sha:
-                    node.tags.append(t_name)
-                    
+            # Decorations
+            for b, bsha in heads.items():
+                if bsha == sha:
+                    node.branches.append(b)
+            for t, tsha in tags_map.items():
+                if tsha == sha:
+                    node.tags.append(t)
+            
             nodes[sha] = node
             
-            for p_sha in commit.parent_shas:
-                if p_sha not in processed:
-                    queue.append(p_sha)
-                    # Re-sort to maintain chronological-ish order
-                    queue.sort(reverse=True)
+            # Push parents
+            for p_sha in parents:
+                _push_commit(p_sha)
+                
         except Exception:
             continue
-            
-    # Sort nodes by timestamp descending
-    sorted_nodes = sorted(nodes.values(), key=lambda n: n.commit.timestamp, reverse=True)
-    
-    # Assign columns (swimlanes)
-    active_columns: List[Optional[str]] = []
-    
-    for node in sorted_nodes:
-        # If this SHA is already in a column (from a child), use it
-        if node.sha in active_columns:
-            node.column = active_columns.index(node.sha)
-        else:
-            # New thread
-            if None in active_columns:
-                node.column = active_columns.index(None)
-                active_columns[node.column] = node.sha
-            else:
-                node.column = len(active_columns)
-                active_columns.append(node.sha)
-        
-        # Update columns for parents
-        first_parent_assigned = False
-        current_sha = active_columns[node.column]
-        
-        # Remove self from active columns
-        active_columns[node.column] = None
-        
-        for p_sha in node.parents:
-            if not first_parent_assigned:
-                # First parent takes the current column
-                active_columns[node.column] = p_sha
-                first_parent_assigned = True
-            else:
-                # Other parents (merges) need new columns
-                if p_sha not in active_columns:
-                    if None in active_columns:
-                        idx = active_columns.index(None)
-                        active_columns[idx] = p_sha
-                    else:
-                        active_columns.append(p_sha)
-                        
-    return sorted_nodes
 
-def render_graph(nodes: List[GraphNode]) -> None:
-    """Render the graph nodes using Unicode decorations."""
-    # Colors (ANSI)
-    C_SHA = "\033[33m" # Yellow
-    C_BRANCH = "\033[32m" # Green
-    C_TAG = "\033[35m" # Magenta
-    C_RESET = "\033[0m"
-    
-    # Lane colors for variety
-    LANE_COLORS = ["\033[31m", "\033[32m", "\033[34m", "\033[35m", "\033[36m"]
-    
-    max_col = max((n.column for n in nodes), default=0)
-    
-    for node in nodes:
-        line = ""
-        for c in range(max_col + 1):
-            if c == node.column:
-                line += f"{LANE_COLORS[c % len(LANE_COLORS)]}●{C_RESET} "
-            else:
-                # For now, simplistic: vertical line if lane is active
-                # Full rendering requires tracking active edges between nodes
-                line += "│ "
-                
-        # Decorations
-        decs = []
-        if node.branches:
-            decs.append(f"{C_BRANCH}({', '.join(node.branches)}){C_RESET}")
-        if node.tags:
-            decs.append(f"{C_TAG}tag: {', '.join(node.tags)}{C_RESET}")
-            
-        dec_str = " ".join(decs)
-        if dec_str:
-            dec_str = f" {dec_str}"
-            
-        print(f"{line}{C_SHA}{node.sha[:7]}{C_RESET}{dec_str} {node.message}")
+    return list(nodes.values())

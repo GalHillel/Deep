@@ -284,7 +284,7 @@ class TransactionLog:
                     
                     # For operations that modify the WD, we MUST restore the WD too.
                     if record.operation in ("checkout", "reset-hard", "merge", "merge-3way", "merge-ff"):
-                        self._restore_workdir(record.target_object_id)
+                        self._restore_workdir(record.target_object_id, record.previous_commit_sha)
 
                     if record.branch_ref == "HEAD":
                         update_head(self.log_path.parent, record.target_object_id)
@@ -312,10 +312,10 @@ class TransactionLog:
             else:
                 self.rollback(record.tx_id, f"Crash recovery: operation '{record.operation}' aborted")
 
-    def _restore_workdir(self, commit_sha: str):
+    def _restore_workdir(self, commit_sha: str, previous_commit_sha: str = ""):
         """Restore the working directory to the state of the given commit."""
         from deep.storage.objects import read_object, Commit # type: ignore
-        from deep.storage.index import Index, IndexEntry, write_index # type: ignore
+        from deep.storage.index import DeepIndex, DeepIndexEntry, write_index, read_index_no_lock # type: ignore
         from deep.core.repository import _get_tree_files # type: ignore
 
         dg_dir = self.log_path.parent
@@ -328,15 +328,40 @@ class TransactionLog:
 
         target_files = _get_tree_files(objects_dir, commit.tree_sha)
         
-        # Simple/brazen restoration: wipe and rewrite
-        # In a real system we'd be more careful, but for recovery this is the safest way to ensure consistency.
-        new_index = Index()
+        current_index = DeepIndex()
+        try:
+            current_index = read_index_no_lock(dg_dir)
+        except Exception:
+            pass
+
+        if previous_commit_sha:
+            try:
+                prev_commit = read_object(objects_dir, previous_commit_sha)
+                if isinstance(prev_commit, Commit):
+                    prev_files = _get_tree_files(objects_dir, prev_commit.tree_sha)
+                    for p in prev_files:
+                        if p not in target_files:
+                            full_path = repo_root / p
+                            if full_path.exists():
+                                full_path.unlink()
+                                parent = full_path.parent
+                                while parent != repo_root:
+                                    try:
+                                        parent.rmdir()
+                                    except OSError:
+                                        break
+                                    parent = parent.parent
+                            if p in current_index.entries:
+                                del current_index.entries[p]
+            except Exception:
+                pass
+
         for p, sha in target_files.items():
             full = repo_root / p
             full.parent.mkdir(parents=True, exist_ok=True)
             obj = read_object(objects_dir, sha)
             full.write_bytes(obj.serialize_content())
             stat = full.stat()
-            new_index.entries[p] = IndexEntry(sha=sha, size=stat.st_size, mtime=stat.st_mtime)
+            current_index.entries[p] = DeepIndexEntry(sha=sha, size=stat.st_size, mtime=stat.st_mtime)
         
-        write_index(dg_dir, new_index)
+        write_index(dg_dir, current_index)

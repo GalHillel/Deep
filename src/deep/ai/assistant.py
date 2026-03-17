@@ -17,7 +17,7 @@ from typing import Optional
 
 from deep.storage.index import read_index
 from deep.storage.objects import read_object, Blob, Commit
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.diff import diff_blob_vs_file
 from deep.ai.analyzer import (
     analyze_diff_text,
@@ -43,8 +43,8 @@ class DeepGitAI:
 
     def __init__(self, repo_root: Path):
         self.repo_root = repo_root
-        from deep.core.repository import DEEP_GIT_DIR
-        self.dg_dir = repo_root / (DEEP_GIT_DIR or ".deep_git")
+        from deep.core.repository import DEEP_DIR
+        self.dg_dir = repo_root / (DEEP_DIR or ".deep_git")
         self.metrics: dict = {
             "suggestions_made": 0,
             "avg_latency_ms": 0.0,
@@ -373,7 +373,7 @@ class DeepGitAI:
             parent = self.repo_root.parent
             for path in parent.iterdir():
                 if path.is_dir() and path != self.repo_root:
-                    if (path / DEEP_GIT_DIR).exists():
+                    if (path / DEEP_DIR).exists():
                         findings.append(f"Dependency Correlation: Found sibling repo '{path.name}'")
                         # Heuristic: Check for common package files
                         if (path / "package.json").exists() and (self.repo_root / "package.json").exists():

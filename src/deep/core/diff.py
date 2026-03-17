@@ -15,7 +15,7 @@ from typing import Optional
 
 from deep.storage.index import read_index
 from deep.storage.objects import Blob, read_object
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 def diff_lines(
@@ -189,8 +189,8 @@ def diff_working_tree(repo_root: Path) -> list[tuple[str, str]]:
     Returns:
         List of ``(rel_path, diff_text)`` tuples for files that differ.
     """
-    from deep.core.repository import DEEP_GIT_DIR
-    dg_dir = repo_root / DEEP_GIT_DIR
+    from deep.core.repository import DEEP_DIR
+    dg_dir = repo_root / DEEP_DIR
     objs_dir = dg_dir / "objects"
     index = read_index(dg_dir)
 

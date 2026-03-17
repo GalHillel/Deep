@@ -20,7 +20,7 @@ from typing import Optional, ClassVar, Any, cast
 
 from deep.storage.objects import read_object, read_object_safe, Commit, Tree, Blob, Tag # type: ignore[import]
 from deep.core.refs import resolve_head, list_branches, get_branch, list_tags # type: ignore[import]
-from deep.core.repository import find_repo, DEEP_GIT_DIR # type: ignore[import]
+from deep.core.repository import find_repo, DEEP_DIR # type: ignore[import]
 from deep.core.issue import IssueManager  # type: ignore[import]
 from deep.core.pr import PRManager  # type: ignore[import]
 from deep.storage.index import read_index  # type: ignore[import]
@@ -124,7 +124,7 @@ def _gather_multi_repo_data(repo_root: Path) -> list[dict]:
         parent = repo_root.parent
         for path in parent.iterdir():
             if path.is_dir():
-                dg_dir = path / DEEP_GIT_DIR
+                dg_dir = path / DEEP_DIR
                 if dg_dir.exists():
                     head = resolve_head(dg_dir)
                     repos.append({
@@ -216,10 +216,10 @@ def _get_repo_dg_dir(repo_root: Path, repo_name: Optional[str]) -> Path:
     """Safely resolve repository DG_DIR and prevent path traversal."""
     if not repo_name:
         # Fallback to main repo if no repo parameter is provided
-        from deep.core.repository import DEEP_GIT_DIR # type: ignore[import]
-        return repo_root / DEEP_GIT_DIR
+        from deep.core.repository import DEEP_DIR # type: ignore[import]
+        return repo_root / DEEP_DIR
     
-    from deep.core.repository import DEEP_GIT_DIR # type: ignore[import]
+    from deep.core.repository import DEEP_DIR # type: ignore[import]
     # Ensure relative path doesn't contain traversal
     repos_base = (repo_root / "repos").resolve()
     target_repo_dir = (repos_base / repo_name).resolve()
@@ -227,7 +227,7 @@ def _get_repo_dg_dir(repo_root: Path, repo_name: Optional[str]) -> Path:
     if not target_repo_dir.is_relative_to(repos_base):
         raise ValueError("Security Violation: Path traversal detected in repo parameter")
     
-    return target_repo_dir / DEEP_GIT_DIR
+    return target_repo_dir / DEEP_DIR
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -274,12 +274,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         elif self.path == "/api/projects":
             from deep.platform.platform import PlatformManager # type: ignore[import]
             from deep.core.repository import find_repo # type: ignore[import]
-            from deep.core.repository import DEEP_GIT_DIR # type: ignore[import]
+            from deep.core.repository import DEEP_DIR # type: ignore[import]
             res = []
             manager = PlatformManager(self.repo_root)
             repos = manager.list_repos()
             for r in repos:
-                dg = self.repo_root / "repos" / r / DEEP_GIT_DIR
+                dg = self.repo_root / "repos" / r / DEEP_DIR
                 head = resolve_head(dg)
                 res.append({"name": r, "head": head[:7] if head else "none"})
             self._json_response(res)
@@ -288,14 +288,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         elif self.path.startswith("/api/issues"):
             from urllib.parse import urlparse, parse_qs
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
+            dg = (self.repo_root / "repos" / repo_name / DEEP_DIR) if repo_name else self.dg_dir
             from deep.core.issue import IssueManager # type: ignore[import]
             im = IssueManager(dg)
             self._json_response([{"id": i.id, "title": i.title} for i in im.list_issues()])
         elif self.path.startswith("/api/prs"):
             from urllib.parse import urlparse, parse_qs
             repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = (self.repo_root / "repos" / repo_name / DEEP_GIT_DIR) if repo_name else self.dg_dir
+            dg = (self.repo_root / "repos" / repo_name / DEEP_DIR) if repo_name else self.dg_dir
             from deep.core.pr import PRManager # type: ignore[import]
             prm = PRManager(dg)
             self._json_response([{"id": p.id, "title": p.title} for p in prm.list_prs()])
@@ -480,7 +480,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
 def start_dashboard(repo_root: Path, host: str = "127.0.0.1", port: int = 9000):
     """Start the Web Dashboard HTTP server."""
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     DashboardHandler.dg_dir = dg_dir
     DashboardHandler.repo_root = repo_root
 

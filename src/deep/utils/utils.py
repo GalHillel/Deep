@@ -18,23 +18,25 @@ import shutil
 import sys
 import tempfile
 import time
+import unicodedata
+import re
 from pathlib import Path
-from typing import List, Optional, Union, IO, Any, TYPE_CHECKING, cast
+from typing import List, Optional, Union, IO, Any, TYPE_CHECKING, cast, Tuple
 
 if TYPE_CHECKING:
     from deep.core.locks import BaseLock # type: ignore[import]
 
 
 class DeepError(Exception):
-    """Base exception for all DeepBridge errors."""
+    """Base exception for all DeepGit errors."""
     pass
 
 
 def hash_bytes(data: bytes) -> str:
     """Return the hex-encoded SHA-1 hash of *data*.
 
-    SHA-1 is used for compatibility with Git's content-addressable storage
-    scheme.  The 40-character lowercase hex digest is returned.
+    SHA-1 is used for the content-addressable storage scheme. 
+    The 40-character lowercase hex digest is returned.
 
     Args:
         data: Raw bytes to hash.
@@ -93,7 +95,7 @@ class AtomicWriter:
 
         fd, tmp_name = tempfile.mkstemp(
             dir=str(self.target.parent),
-            prefix=".tmp_deep_git_",
+            prefix=".tmp_deep_",
         )
         self._fd = fd
         self._tmp_path = Path(tmp_name)
@@ -176,8 +178,8 @@ def get_local_timezone_offset() -> str:
     return f"{sign}{hours:02d}{minutes:02d}"
 
 
-def format_git_date(timestamp: int, tz_offset_str: str) -> str:
-    """Format a Unix timestamp and tz offset into Git's date string.
+def format_date(timestamp: int, tz_offset_str: str) -> str:
+    """Format a Unix timestamp and tz offset into a readable date string.
     Example: 'Tue Mar 4 14:20:00 2026 +0200'
     """
     import time
@@ -190,19 +192,50 @@ def format_git_date(timestamp: int, tz_offset_str: str) -> str:
         offset_seconds = 0
 
     gm = time.gmtime(timestamp + offset_seconds)
-    # Note: %d is zero-padded on Windows, but %e is space-padded.
-    # Python on Windows doesn't universally support %e, so we stick to %d
-    # but strip leading zero if needed or just use %d.
     formatted = time.strftime('%a %b %d %H:%M:%S %Y', gm)
     
-    # Strip leading zero from day for Git compatibility: ' 4' instead of '04'
-    # Wait, we can manually replace it:
-    # Actually, Git's output looks like 'Tue Mar 4...' or 'Tue Mar 14...'
+    # Standardize day format: ' 4' instead of '04' for consistency
     day_str = time.strftime('%d', gm)
     if day_str.startswith('0'):
         formatted = formatted.replace(f" {day_str} ", f"  {day_str[1]} ", 1)
 
     return f"{formatted} {tz_offset_str}"
+
+
+# ── Path & Filename Sanitization ─────────────────────────────────────
+
+INVALID_WIN_CHARS = r'[\x00-\x1f\\?*<>|:"]'
+RESERVED_WIN_NAMES = {
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+}
+
+def sanitize_filename(name: str) -> str:
+    """
+    Guarantees a safe filename for all filesystems.
+    - Replaces \r, \n, \t and control characters with underscores
+    - Normalizes Unicode to NFC
+    - Replaces Windows-illegal characters with underscores
+    - Strips leading/trailing whitespace and trailing dots
+    """
+    if not name:
+        return "unnamed_file"
+
+    # 1. Unicode Normalization (NFC)
+    name = unicodedata.normalize('NFC', name)
+    
+    # 2. Replace all Windows-illegal and control characters (including \r \n \t) with underscores
+    name = re.sub(INVALID_WIN_CHARS, '_', name)
+    
+    # 3. Strip whitespace and basic cleanup
+    name = name.strip()
+    
+    # 4. Final safety check for empty or dot-only names
+    name = name.rstrip('. ')
+    if not name:
+        return "sanitized_file"
+        
+    return name
 
 
 # ── CLI Utilities (DEPRECATED: Use deep.utils.ux instead) ───────────────────────────

@@ -17,7 +17,7 @@ import threading
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from typing import Dict, List, Optional, Any
 
 
@@ -203,7 +203,7 @@ except Exception as e:
         cascaded = []
         for sibling in parent_dir.iterdir():
             if sibling.is_dir() and sibling.name != repo_name:
-                sib_dg = sibling / DEEP_GIT_DIR
+                sib_dg = sibling / DEEP_DIR
                 if sib_dg.exists():
                     sib_runner = PipelineRunner(sib_dg)
                     sib_config = sib_runner.load_config()

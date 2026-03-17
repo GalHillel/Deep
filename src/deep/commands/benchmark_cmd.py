@@ -16,7 +16,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``benchmark`` command."""
     compare_git = getattr(args, "compare_git", False)
     
-    print(Color.wrap(Color.CYAN, "Running DeepBridge Performance Benchmarks..."))
+    print(Color.wrap(Color.CYAN, "Running DeepGit Performance Benchmarks..."))
     if compare_git:
         print(Color.wrap(Color.YELLOW, "Comparing against native Git... (This will take longer)"))
     
@@ -35,8 +35,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     print()
     print(f"{Color.wrap(Color.BOLD, '--- RESULTS ---')}")
     
-    # DeepBridge Metrics
-    print(f"{Color.wrap(Color.BLUE, 'DeepBridge:')}")
+    # DeepGit Metrics
+    print(f"{Color.wrap(Color.BLUE, 'DeepGit:')}")
     print(f"  Blob Hashing: {results['deep_blob_total_time']:.4f}s ({results['deep_blob_throughput']:.2f} obj/s)")
     print(f"  Commit Speed: {results['deep_commit_avg_time']*1000:.2f}ms/commit")
     
@@ -48,7 +48,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         
         ratio = results['deep_commit_avg_time'] / g['commit_avg_time']
         color = Color.GREEN if ratio < 1.2 else Color.RED
-        print(f"  Performance Ratio: {Color.wrap(color, f'{ratio:.2f}')} (lower is better for DeepBridge)")
+        print(f"  Performance Ratio: {Color.wrap(color, f'{ratio:.2f}')} (lower is better for DeepGit)")
 
     print()
     print(Color.wrap(Color.GREEN, "Benchmark complete."))

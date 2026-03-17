@@ -21,7 +21,7 @@ from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.core.refs import list_branches, get_branch
 
 
@@ -94,22 +94,77 @@ class P2PEngine:
                     "port": self.listen_port,
                     "branches": state,
                     "presence": self.local_presence,
-                    "timestamp": time.time()
+                    "timestamp": time.time(),
+                    "signature": None,
+                    "key_id": None
                 }
+                
+                # Sign the beacon
+                from deep.core.security import KeyManager, CommitSigner
+                km = KeyManager(self.dg_dir)
+                active_key = km.get_active_key()
+                if active_key:
+                    signer = CommitSigner(km)
+                    # Use a stable JSON representation for signing
+                    payload = json.dumps({k: v for k, v in msg.items() if k not in ("signature", "key_id")}, sort_keys=True).encode("utf-8")
+                    sig_hex, key_id = signer.sign(payload)
+                    msg["signature"] = sig_hex
+                    msg["key_id"] = key_id
+
                 data = json.dumps(msg).encode('utf-8')
                 self.beacon_sock.sendto(data, (MULTICAST_GROUP, MULTICAST_PORT))
             except Exception:
                 pass
             time.sleep(BEACON_INTERVAL)
 
+    def _verify_beacon(self, data: bytes) -> bool:
+        """Verify the signature and integrity of a beacon payload."""
+        try:
+            msg = json.loads(data.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return False
+            
+        if not isinstance(msg, dict) or "node_id" not in msg or "port" not in msg or "branches" not in msg:
+            return False
+        
+        # Verify Signature
+        from deep.core.security import KeyManager, CommitSigner
+        sig = msg.get("signature")
+        key_id = msg.get("key_id")
+        
+        if not sig or not key_id:
+            return False
+        
+        km = KeyManager(self.dg_dir)
+        signer = CommitSigner(km)
+        payload = json.dumps({k: v for k, v in msg.items() if k not in ("signature", "key_id")}, sort_keys=True).encode("utf-8")
+        
+        return signer.verify(payload, sig, key_id)
+
     def _listen_loop(self):
         """Listen for beacons from other nodes."""
         self.recv_sock.settimeout(1.0)
+        self._rate_limits = {} # ip -> list of timestamps
         while self._running:
             try:
-                data, addr = self.recv_sock.recvfrom(2048)
-                msg = json.loads(data.decode('utf-8'))
+                data, addr = self.recv_sock.recvfrom(4096)
+                if len(data) > 4000:
+                    continue  # Ignore overly large packets
+                    
+                now = time.time()
+                ip = addr[0]
+                timestamps = self._rate_limits.get(ip, [])
+                timestamps = [ts for ts in timestamps if now - ts < 1.0]
+                if len(timestamps) >= 10:
+                    self._rate_limits[ip] = timestamps
+                    continue # Rate limit exceeded (10 pkts/s)
+                timestamps.append(now)
+                self._rate_limits[ip] = timestamps
                 
+                if not self._verify_beacon(data):
+                    continue
+                    
+                msg = json.loads(data.decode('utf-8'))
                 if msg["node_id"] == self.node_id:
                     continue
                 
@@ -186,7 +241,7 @@ class P2PEngine:
             repo_name = getattr(peer, "repo_name", "")
             if not repo_name:
                 return None
-            peer_repo = self.dg_dir.parent.parent / repo_name / DEEP_GIT_DIR
+            peer_repo = self.dg_dir.parent.parent / repo_name / DEEP_DIR
             if peer_repo.exists():
                 obj = read_object(peer_repo / "objects", obj_sha)
                 return obj.full_serialize()

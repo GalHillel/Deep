@@ -15,7 +15,7 @@ import configparser
 from pathlib import Path
 from typing import Optional
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 
 class Config:
@@ -26,7 +26,7 @@ class Config:
         self.global_path = Path.home() / ".deepconfig"
         self.local_path = None
         if repo_root:
-            self.local_path = repo_root / DEEP_GIT_DIR / "config"
+            self.local_path = repo_root / DEEP_DIR / "config"
             
         self.reload()
 

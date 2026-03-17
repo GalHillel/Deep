@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from deep.core.repository import find_repo, DEEP_GIT_DIR
+from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.mirror import MirrorManager
 from deep.core.config import Config
 from deep.utils.ux import Color
@@ -19,10 +19,10 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     manager = MirrorManager(dg_dir)
     config = Config(repo_root)
     auth_token = config.get("auth.token")

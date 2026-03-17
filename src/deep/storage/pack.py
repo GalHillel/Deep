@@ -30,46 +30,78 @@ class PackWriter:
         self.pack_dir.mkdir(parents=True, exist_ok=True)
 
     def create_pack(self, shas: List[str]) -> Tuple[str, str]:
-        """Write reachable objects into a new .pack file.
+        """Write reachable objects into a new .pack file, using delta compression."""
+        from deep.storage.delta import create_delta
         
-        Returns:
-            (pack_sha, idx_sha)
-        """
+        # 1. Gather object metadata for heuristic sorting
+        # (type, size, name_hint, sha)
+        entries: List[Tuple[str, int, str, str]] = []
+        for sha in shas:
+            obj = read_object(self.objects_dir, sha)
+            # Find a name hint if it's a blob/tree
+            # For simplicity, we just use the sha or type for now.
+            entries.append((obj.OBJ_TYPE, len(obj.serialize_content()), sha, sha))
+            
+        # Group by type, then size
+        entries.sort(key=lambda x: (x[0], x[1]))
+        
         data = bytearray()
         data.extend(PACK_SIGNATURE)
         data.extend(struct.pack(">I", PACK_VERSION))
         data.extend(struct.pack(">I", len(shas)))
         
         offsets: Dict[str, int] = {}
+        window: List[Tuple[str, bytes]] = [] # (sha, raw_content)
+        WINDOW_SIZE = 10
         
-        # We'll use a simple approach: loose objects -> pack
-        # Future: implement delta compression between similar blobs here
-        for sha in sorted(shas):
+        for o_type, o_size, o_name, sha in entries:
             offsets[sha] = len(data)
             obj = read_object(self.objects_dir, sha)
+            raw = obj.full_serialize()
             
-            # Pack format for each object:
-            # <type_int:1B><size:8B><compressed_data>
-            type_map = {"blob": 1, "tree": 2, "commit": 3, "tag": 4, "chunk": 5, "chunked_blob": 6}
-            type_id = type_map.get(obj.OBJ_TYPE, 0)
+            best_base_sha = None
+            best_delta = None
             
-            content = obj.full_serialize()
-            compressed = zlib.compress(content)
+            # 2. Try to find a delta in the window
+            for base_sha, base_raw in window:
+                # Basic heuristic: only delta if size is somewhat similar
+                if abs(len(base_raw) - len(raw)) < len(raw) // 2:
+                    delta = create_delta(base_raw, raw)
+                    if len(delta) < len(raw) * 0.7: # Only if > 30% savings
+                        if best_delta is None or len(delta) < len(best_delta):
+                            best_delta = delta
+                            best_base_sha = base_sha
             
-            data.extend(struct.pack(">BQ", type_id, len(compressed)))
-            data.extend(compressed)
-            
-        # Append SHA-1 trailer of everything so far
+            # 3. Write object (either as delta or base)
+            if best_delta:
+                # Type ID 7 is 'delta' in our pack format
+                compressed = zlib.compress(best_delta)
+                data.extend(struct.pack(">BQ", 7, len(compressed)))
+                # For delta objects, we must also specify the base
+                # Simplified: Include base SHA after the header
+                data.extend(bytes.fromhex(best_base_sha))
+                data.extend(compressed)
+            else:
+                type_map = {"blob": 1, "tree": 2, "commit": 3, "tag": 4, "chunk": 5, "chunked_blob": 6}
+                type_id = type_map.get(o_type, 0)
+                compressed = zlib.compress(raw)
+                data.extend(struct.pack(">BQ", type_id, len(compressed)))
+                data.extend(compressed)
+                
+            # 4. Update window
+            window.append((sha, raw))
+            if len(window) > WINDOW_SIZE:
+                window.pop(0)
+                
+        # Append SHA-1 trailer
         import hashlib
         trailer = hashlib.sha1(bytes(data)).digest()
         data.extend(trailer)
         
-        # Final hash of the pack content as the pack name
         pack_sha = hashlib.sha1(data).hexdigest()
         pack_path = self.pack_dir / f"pack-{pack_sha}.pack"
         pack_path.write_bytes(data)
         
-        # Create Index (.idx)
         idx_data = self._create_idx(offsets)
         idx_sha = hashlib.sha1(idx_data).hexdigest()
         idx_path = self.pack_dir / f"pack-{pack_sha}.idx"
@@ -165,16 +197,37 @@ class PackReader:
         return None
 
     def _read_at(self, pack_path: Path, offset: int) -> GitObject:
+        from deep.storage.objects import Blob, Tree, Commit, Tag, DeltaObject, Chunk, ChunkedBlob
         with open(pack_path, "rb") as f:
             f.seek(offset)
             # Header starts with type_id (1B) and compressed_size (8B)
             type_id, comp_size = struct.unpack(">BQ", f.read(9))
-            compressed = f.read(comp_size)
-            raw = zlib.decompress(compressed)
             
-            obj_type, content = _deserialize(raw)
+            if type_id == 7: # In-pack Delta
+                base_sha_bytes = f.read(20)
+                base_sha = base_sha_bytes.hex()
+                compressed = f.read(comp_size)
+                delta_payload = zlib.decompress(compressed)
+                
+                from deep.storage.delta import apply_delta
+                base_obj = self.get_object(base_sha)
+                if not base_obj:
+                    # Try loose objects if not in pack
+                    base_obj = read_object(self.dg_dir / "objects", base_sha)
+                
+                base_content = base_obj.serialize_content()
+                # Apply delta to the content. Note: create_delta works on full_serialize()
+                # but we'll adapt to whatever the delta creation used.
+                # In create_pack, I used raw = obj.full_serialize().
+                # So the delta translates base_full -> target_full.
+                target_full = apply_delta(base_obj.full_serialize(), delta_payload)
+                obj_type, content = _deserialize(target_full)
+            else:
+                compressed = f.read(comp_size)
+                raw = zlib.decompress(compressed)
+                obj_type, content = _deserialize(raw)
+            
             # Instantiate correct object
-            from deep.storage.objects import Blob, Tree, Commit, Tag, DeltaObject, Chunk, ChunkedBlob
             if obj_type == "blob": return Blob(data=content)
             if obj_type == "tree": return Tree.from_content(content)
             if obj_type == "commit": return Commit.from_content(content)
@@ -244,16 +297,38 @@ def unpack(stream_or_data: Union[bytes, BinaryIO], objects_dir: Path) -> int:
         type_id, comp_size = struct.unpack(">BQ", header)
         
         # 3. Read compressed data in chunks to avoid memory spikes
-        # Although zlib.decompress expects the full block, we at least 
-        # only keep the compressed block + raw block in memory for one object at a time.
-        compressed = sw.read(comp_size)
-        
+        # Stream decompression to prevent memory exhaustion / zip bombs
+        MAX_OBJECT_SIZE = 50 * 1024 * 1024 # 50MB
+        comp_left = comp_size
+        chunk_size = 64 * 1024
+        decompressor = zlib.decompressobj()
+        raw_chunks = []
+        compressed_chunks = []
+        raw_size = 0
+        hasher = hashlib.sha1()
         try:
-            raw = zlib.decompress(compressed)
+            while comp_left > 0:
+                to_read = min(comp_left, chunk_size)
+                chunk = sw.read(to_read)
+                compressed_chunks.append(chunk)
+                comp_left -= len(chunk)
+                uncompressed_chunk = decompressor.decompress(chunk)
+                raw_size += len(uncompressed_chunk)
+                if raw_size > MAX_OBJECT_SIZE:
+                    raise ValueError(f"Pack entry exceeds maximum allowed size of {MAX_OBJECT_SIZE} bytes")
+                hasher.update(uncompressed_chunk)
+            
+            uncompressed_chunk = decompressor.flush()
+            raw_size += len(uncompressed_chunk)
+            if raw_size > MAX_OBJECT_SIZE:
+                raise ValueError(f"Pack entry exceeds maximum allowed size of {MAX_OBJECT_SIZE} bytes")
+            hasher.update(uncompressed_chunk)
+            
+            compressed = b"".join(compressed_chunks)
         except zlib.error:
             raise ValueError("Corrupt pack entry: zlib decompression failed")
         
-        sha = hashlib.sha1(raw).hexdigest()
+        sha = hasher.hexdigest()
         shas_to_write.append((sha, compressed))
 
     # 4. Validate trailer (next 20 bytes - NOT hashed into the content hash)

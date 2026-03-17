@@ -9,11 +9,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from deep.core.repository import find_repo, DEEP_GIT_DIR
+from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import resolve_head, get_branch
 from deep.core.config import Config
 from deep.network.client import get_remote_client
 from deep.utils.ux import Color
+from deep.core.hooks import run_hook
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
@@ -21,7 +22,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     url_or_name = args.url
@@ -29,12 +30,12 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     url = config.get(f"remote.{url_or_name}.url", url_or_name)
     
     branch = args.branch
-    local_sha = get_branch(repo_root / DEEP_GIT_DIR, branch)
+    local_sha = get_branch(repo_root / DEEP_DIR, branch)
     if not local_sha:
-        print(f"Error: Branch '{branch}' not found locally", file=sys.stderr)
+        print(f"DeepGit: error: Branch '{branch}' not found locally", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     config = Config(repo_root)
     url = config.get(f"remote.{url_or_name}.url", url_or_name)
     auth_token = config.get("auth.token")
@@ -45,7 +46,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     from deep.core.audit import AuditLog
     from deep.core.reconcile import logical_rebase
     from deep.core.refs import get_current_branch, update_branch, update_head
-    from deep.storage.index import read_index, write_index, Index
+    from deep.storage.index import read_index, write_index, DeepIndex
     from deep.commands.rebase_cmd import _restore_tree_to_workdir
     from deep.storage.objects import read_object, Commit, Tree
 
@@ -56,6 +57,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     tx_id = txlog.begin("push", f"{branch} -> {url}")
     temp_bridge_dir = None
     try:
+        run_hook(dg_dir, "pre-push", args=[url, branch])
         with Timer(telemetry, "push"):
             client.connect()
             
@@ -108,7 +110,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                                     except OSError:
                                         pass
                             
-                            new_index = Index()
+                            new_index = DeepIndex()
                             _restore_tree_to_workdir(repo_root, dg_dir / "objects", tree, new_index)
                             write_index(dg_dir, new_index)
                             
@@ -135,15 +137,15 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         audit.record("local", "push", ref=branch, sha=local_sha, client=url)
     except Exception as e:
         txlog.rollback(tx_id, str(e))
-        print(f"Push failed: {e}", file=sys.stderr)
+        print(f"DeepGit: error: push failed: {e}", file=sys.stderr)
         sys.exit(1)
     finally:
         try:
             client.disconnect()
         except Exception:
             pass
-        # Cleanup any deep_git temp dirs
-        tmp_dirs = list(dg_dir.glob("temp_git_*")) + list(repo_root.glob("temp_git_*"))
+        # Cleanup any DeepGit temp dirs
+        tmp_dirs = list(dg_dir.glob("temp_deep_*")) + list(repo_root.glob("temp_deep_*"))
         for d in tmp_dirs:
             if d.is_dir():
                 import shutil

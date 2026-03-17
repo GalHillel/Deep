@@ -11,7 +11,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-from deep.core.repository import find_repo, DEEP_GIT_DIR
+from deep.core.repository import find_repo, DEEP_DIR
 from deep.network.daemon import DeepGitDaemon
 from deep.web.dashboard import DashboardHandler
 from deep.utils.ux import Color
@@ -22,8 +22,8 @@ import threading
 import time
 
 def run_web_server(repo_root: Path, host: str, port: int):
-    from deep.core.repository import DEEP_GIT_DIR
-    dg_dir = repo_root / DEEP_GIT_DIR
+    from deep.core.repository import DEEP_DIR
+    dg_dir = repo_root / DEEP_DIR
     DashboardHandler.dg_dir = dg_dir
     DashboardHandler.repo_root = repo_root
     
@@ -32,7 +32,7 @@ def run_web_server(repo_root: Path, host: str, port: int):
     httpd.serve_forever()
 
 def run_mirror_sync(repo_root: Path):
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     manager = MirrorManager(dg_dir)
     config = Config(repo_root)
     # Background sync needs a token if remote is authenticated
@@ -48,7 +48,7 @@ def run_mirror_sync(repo_root: Path):
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     host = getattr(args, "host", "127.0.0.1")

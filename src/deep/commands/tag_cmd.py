@@ -13,7 +13,7 @@ from pathlib import Path
 from deep.core.config import Config
 from deep.storage.objects import Tag
 from deep.core.refs import create_tag, list_tags, resolve_head
-from deep.core.repository import DEEP_GIT_DIR, find_repo
+from deep.core.repository import DEEP_DIR, find_repo
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
@@ -21,10 +21,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
 
     # If no tag name is given, list tags
@@ -36,7 +36,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     # Find target commit
     target_sha = resolve_head(dg_dir)
     if not target_sha:
-        print("Error: no commits to tag", file=sys.stderr)
+        print("DeepGit: error: no commits to tag", file=sys.stderr)
         sys.exit(1)
 
     tag_name = args.name
@@ -44,7 +44,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     if args.message:
         # Annotated tag
         config = Config(repo_root)
-        author_name = config.get("user.name", "DeepBridge User")
+        author_name = config.get("user.name", "DeepGit User")
         author_email = config.get("user.email", "user@deep")
         tagger_str = f"{author_name} <{author_email}>"
 
@@ -61,12 +61,12 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         try:
             create_tag(dg_dir, tag_name, tag_sha)
         except FileExistsError as e:
-            print(f"Error: {e}", file=sys.stderr)
+            print(f"DeepGit: error: {e}", file=sys.stderr)
             sys.exit(1)
     else:
         # Lightweight tag
         try:
             create_tag(dg_dir, tag_name, target_sha)
         except FileExistsError as e:
-            print(f"Error: {e}", file=sys.stderr)
+            print(f"DeepGit: error: {e}", file=sys.stderr)
             sys.exit(1)

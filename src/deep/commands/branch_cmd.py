@@ -1,7 +1,7 @@
 """
 deep.commands.branch_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DeepBridge ``branch`` command implementation.
+DeepGit ``branch`` command implementation.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from deep.core.refs import (
     resolve_head,
     update_branch,
 )
-from deep.core.repository import DEEP_GIT_DIR, find_repo
+from deep.core.repository import DEEP_DIR, find_repo
 from deep.utils.ux import Color
 
 
@@ -24,10 +24,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
 
     # 1. List branches
     if args.name is None and not getattr(args, "list", False):
@@ -50,7 +50,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             delete_branch(dg_dir, args.name)
             print(f"Deleted branch '{args.name}'.")
         except Exception as e:
-            print(f"Error: {e}", file=sys.stderr)
+            print(f"DeepGit: error: {e}", file=sys.stderr)
             sys.exit(1)
         return
 
@@ -73,7 +73,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         from deep.core.refs import get_branch
         old_sha = get_branch(dg_dir, old_name)
         if not old_sha:
-            print(f"Error: branch '{old_name}' not found.", file=sys.stderr)
+            print(f"DeepGit: error: branch '{old_name}' not found.", file=sys.stderr)
             sys.exit(1)
             
         update_branch(dg_dir, new_name, old_sha)
@@ -93,7 +93,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     target_sha = resolve_revision(dg_dir, start_point)
     
     if target_sha is None:
-        print(f"Error: Not a valid object name: '{start_point}'", file=sys.stderr)
+        print(f"DeepGit: error: Not a valid object name: '{start_point}'", file=sys.stderr)
         sys.exit(1)
         
     update_branch(dg_dir, args.name, target_sha)

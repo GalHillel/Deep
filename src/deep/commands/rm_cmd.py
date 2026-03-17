@@ -11,8 +11,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from deep.storage.index import remove_index_entry
-from deep.core.repository import DEEP_GIT_DIR, find_repo
+from deep.storage.index import remove_multiple_from_index
+from deep.core.repository import DEEP_DIR, find_repo
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
@@ -20,10 +20,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
 
     for file_path_str in args.files:
         file_path = Path(file_path_str).resolve()
@@ -31,9 +31,9 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
         # Remove from index.
         try:
-            remove_index_entry(dg_dir, rel_path)
+            remove_multiple_from_index(dg_dir, [rel_path])
         except KeyError:
-            print(f"Error: '{rel_path}' is not tracked.", file=sys.stderr)
+            print(f"DeepGit: error: '{rel_path}' is not tracked.", file=sys.stderr)
             sys.exit(1)
 
         # Remove from working directory.

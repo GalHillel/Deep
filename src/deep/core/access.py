@@ -50,9 +50,6 @@ class AccessManager:
         return self._perms.get(username, "viewer")
 
     def has_permission(self, username: str, action: str) -> bool:
-        import os
-        if os.environ.get("DEEP_INSECURE_SKIP_AUTH") == "1":
-            return True
         role = self.get_role(username)
         allowed_actions = ROLES.get(role, [])
         return action in allowed_actions

@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 class PlatformManager:
     """Manages multiple repositories under a server root."""
@@ -43,7 +43,7 @@ class PlatformManager:
     def list_repos(self) -> List[str]:
         if not self.repos_dir.exists():
             return []
-        return [d.name for d in self.repos_dir.iterdir() if d.is_dir() and (d / DEEP_GIT_DIR).exists()]
+        return [d.name for d in self.repos_dir.iterdir() if d.is_dir() and (d / DEEP_DIR).exists()]
 
     def get_repo_path(self, name: str) -> Path:
         return self.repos_dir / name

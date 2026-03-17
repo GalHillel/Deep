@@ -1,7 +1,7 @@
 """
 deep.commands.log_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-DeepBridge ``log`` command implementation.
+DeepGit ``log`` command implementation.
 """
 
 from __future__ import annotations
@@ -11,9 +11,9 @@ from pathlib import Path
 
 from deep.storage.objects import Commit, read_object
 from deep.core.refs import get_commit_decorations, log_history, resolve_head
-from deep.core.repository import DEEP_GIT_DIR, find_repo
+from deep.core.repository import DEEP_DIR, find_repo
 from deep.utils.ux import Color
-from deep.utils.utils import format_git_date
+from deep.utils.utils import format_date
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
@@ -21,10 +21,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"DeepGit: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
 
     shas = log_history(dg_dir)
@@ -69,7 +69,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             print(f"{graph_prefix}{Color.wrap(Color.YELLOW, 'commit ' + sha)}{dec_str}")
             graph_pad = "| " if is_graph else ""
             print(f"{graph_pad}{Color.wrap(Color.BOLD, 'Author:')} {obj.author}")
-            date_str = format_git_date(obj.timestamp, obj.timezone)
+            date_str = format_date(obj.timestamp, obj.timezone)
             print(f"{graph_pad}{Color.wrap(Color.BOLD, 'Date:')}   {date_str}")
             print(graph_pad.rstrip())
             for line in obj.message.splitlines():

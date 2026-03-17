@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 from deep.storage.objects import Blob, Commit, Tree, TreeEntry
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo, DEEP_DIR
 
 
 def run_benchmarks(verbose: bool = False, compare_git: bool = False) -> Dict[str, Any]:
@@ -25,7 +25,7 @@ def run_benchmarks(verbose: bool = False, compare_git: bool = False) -> Dict[str
     temp_repo_root = Path(tempfile.mkdtemp(prefix="deep_bench_"))
     try:
         init_repo(temp_repo_root)
-        dg_dir = temp_repo_root / DEEP_GIT_DIR
+        dg_dir = temp_repo_root / DEEP_DIR
         objects_dir = dg_dir / "objects"
         
         # 1. Blob Bench

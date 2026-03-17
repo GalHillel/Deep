@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from deep.storage.objects import Commit, read_object, Tree, Blob
 from deep.storage.pack import create_pack, unpack
-from deep.network.protocol import PktLineStream, encode_pkt, decode_pkt
+from deep.network.protocol import PktLineStream, SidebandStream, encode_pkt, decode_pkt, BAND_DATA, BAND_PROGRESS, BAND_ERROR
 
 
 class GitBridgeError(Exception):
@@ -42,6 +42,7 @@ class RemoteClient:
         self.reader: Optional[io.BufferedReader] = None
         self.writer: Optional[io.BufferedWriter] = None
         self.stream: Optional[PktLineStream] = None
+        self.server_caps: Set[str] = set()
         self._obj_cache: Dict[str, Any] = {}
 
     def connect(self):
@@ -56,7 +57,10 @@ class RemoteClient:
         if not banner or b"deep v1" not in banner:
             raise ConnectionError(f"Unexpected server banner: {banner}")
             
-        caps = self.stream.read_pkt()
+        caps_pkt = self.stream.read_pkt()
+        if caps_pkt and caps_pkt.startswith(b"capabilities: "):
+            cap_str = caps_pkt[14:].decode("ascii")
+            self.server_caps = set(cap_str.split())
         # Non-flush following caps might be our Auth/Platform commands
         
         # 1. Select repository if specified in URL
@@ -136,9 +140,42 @@ class RemoteClient:
         if filter_spec is not None:
             cmd_parts.append(f"--filter {filter_spec}")
             
+        use_sideband = "sideband-v2" in self.server_caps
+        if use_sideband:
+            cmd_parts.append("--sideband")
+            
         cmd = " ".join(cmd_parts).encode("ascii")
         self.stream.write(cmd)
         
+        if use_sideband:
+            sb_stream = SidebandStream(self.reader, self.writer)
+            pack_data = bytearray()
+            pack_size = 0
+            
+            while True:
+                frame = sb_stream.read_frame()
+                if not frame: break
+                band, payload = frame
+                
+                if band == BAND_PROGRESS:
+                    print(f"Remote: {payload.decode('utf-8', errors='replace')}")
+                elif band == BAND_ERROR:
+                    raise RuntimeError(f"Server Error: {payload.decode('utf-8', errors='replace')}")
+                elif band == BAND_DATA:
+                    if not pack_data and payload.startswith(b"packfile "):
+                        pack_size = int(payload[9:].decode("ascii"))
+                        continue
+                    pack_data.extend(payload)
+                    if pack_size and len(pack_data) >= pack_size:
+                        break
+            
+            if not pack_data:
+                raise RuntimeError("Fetch failed: no pack data received")
+            
+            count = unpack(bytes(pack_data), objects_dir)
+            return count
+
+        # Legacy PKT-LINE path
         # Read packfile header
         header_pkt = self.stream.read_pkt()
         if not header_pkt or not header_pkt.startswith(b"packfile "):
