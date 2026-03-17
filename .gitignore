@@ -70,4 +70,29 @@ venv.bak/
 /node_modules
 /deep-using-git
 
-verify_deep_git.py
+**/verify_deep_git.py
+**/test_runner.py
+**/run_tests_debug.py
+**/report*.xml
+**/*_Audit.md
+**/test_err.txt
+**/collection_log.txt
+**/*.tmp
+**/*.bak
+**/*.swp
+
+# === Workspace ===
+.gemini/
+test_results_final.txt
+.DS_Store
+Thumbs.db
+desktop.ini
+node_modules/
+.env
+.venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/

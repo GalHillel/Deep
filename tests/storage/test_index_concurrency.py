@@ -16,7 +16,7 @@ import pytest
 
 from deep.storage.index import (
     DeepIndex,
-    DeepDeepIndexEntry,
+    DeepIndexEntry,
     read_index,
     read_index_no_lock,
     remove_from_index,
@@ -66,7 +66,7 @@ class TestIndexBasic:
         """Test that DeepIndex binary serialization round-trips correctly."""
         import hashlib
         idx = DeepIndex(entries={
-            "foo.py": DeepDeepIndexEntry(
+            "foo.py": DeepIndexEntry(
                 path_hash=hashlib.sha1(b"foo.py").hexdigest(),
                 mtime_ns=12345000000000,
                 size=100,

@@ -33,8 +33,8 @@ class TestInitRepo:
     def test_index_is_valid_binary_index(self, tmp_path: Path) -> None:
         dg = init_repo(tmp_path)
         raw = (dg / "index").read_bytes()
-        index = Index.from_binary(raw)
-        assert isinstance(index, Index)
+        index = DeepIndex.from_binary(raw)
+        assert isinstance(index, DeepIndex)
         assert index.entries == {}
 
     def test_init_is_idempotent(self, tmp_path: Path) -> None:
