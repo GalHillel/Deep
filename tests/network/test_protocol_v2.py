@@ -11,6 +11,12 @@ from deep.core.refs import update_branch
 from deep.network.daemon import DeepDaemon
 from deep.network.client import RemoteClient
 
+def get_free_port():
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]
+
 class TestProtocolV2(unittest.TestCase):
     def setUp(self):
         self.test_dir = Path(tempfile.mkdtemp())
@@ -36,8 +42,9 @@ class TestProtocolV2(unittest.TestCase):
         self.c_sha = c.write(objects_dir)
         update_branch(self.server_dg, "main", self.c_sha)
 
-        # Start Daemon
-        self.daemon = DeepDaemon(self.server_path, port=9999)
+        # Start Daemon on free port
+        self.port = get_free_port()
+        self.daemon = DeepDaemon(self.server_path, port=self.port)
         self.daemon_thread = threading.Thread(target=lambda: asyncio.run(self.daemon.start()), daemon=True)
         self.daemon_thread.start()
         time.sleep(1) # Wait for start
@@ -49,7 +56,7 @@ class TestProtocolV2(unittest.TestCase):
         init_repo(self.client_path)
         client_objects = self.client_path / DEEP_DIR / "objects"
         
-        client = RemoteClient("deep://localhost:9999")
+        client = RemoteClient(f"deep://localhost:{self.port}")
         client.connect()
         
         # Verify capabilities

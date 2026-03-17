@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from deep.core.repository import DEEP_DIR
-from deep.storage.objects import Blob
+from deep.storage.objects import Blob, _object_path
 from deep.cli.main import main
 
 
@@ -62,7 +62,8 @@ def test_doctor_fix_quarantines_dangling(clean_repo: Path, capsys: pytest.Captur
     assert f"Fixed: Quarantined dangling object {dangling_sha}" in out
     
     # Verify it was quarantined
-    assert not (objects_dir / dangling_sha[:2] / dangling_sha[2:]).exists()
+    src = _object_path(objects_dir, dangling_sha, level=2)
+    assert not src.exists()
     
     quarantine_base = dg_dir / "quarantine"
     assert quarantine_base.exists()
@@ -77,9 +78,11 @@ def test_doctor_fix_quarantines_corrupt(clean_repo: Path, capsys: pytest.Capture
     # Create a dangling blob manually, and corrupt it
     b = Blob(data=b"content")
     sha = b.write(objects_dir)
-    obj_path = objects_dir / sha[:2] / sha[2:]
+    obj_path = _object_path(objects_dir, sha, level=2)
     
+    import stat
     # Corrupt the file
+    os.chmod(obj_path, stat.S_IWRITE)
     obj_path.write_bytes(b"corrupt data")
     
     # Run with --fix

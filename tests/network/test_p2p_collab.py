@@ -36,6 +36,7 @@ def test_p2p_presence_propagation(p2p_repos):
     
     # Copy keyring to r2 so it can verify r1's signatures
     import shutil
+    (r2 / ".deep" / "keys").mkdir(parents=True, exist_ok=True)
     shutil.copy2(r1 / ".deep" / "keys" / "keyring.enc", r2 / ".deep" / "keys" / "keyring.enc")
     
     um2 = UserManager(r2 / ".deep")

@@ -46,10 +46,12 @@ def test_doctor_corrupt_object(clean_repo: Path, capsys: pytest.CaptureFixture[s
     objects_dir = dg_dir / "objects"
     
     # Find any object file
-    obj_files = list(objects_dir.glob("??/*"))
+    obj_files = [f for f in objects_dir.rglob("*") if f.is_file() and len(f.name) >= 36]
     assert obj_files
     
+    import stat
     # Corrupt it by truncating
+    os.chmod(obj_files[0], stat.S_IWRITE)
     obj_files[0].write_bytes(b"corrupt data")
     
     with pytest.raises(SystemExit) as exc:

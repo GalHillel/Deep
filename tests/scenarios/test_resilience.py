@@ -33,7 +33,8 @@ def test_object_quarantine(resilience_repo):
     blob_sha = list(entries.values())[0]
     
     # Corrupt the blob file on disk
-    blob_path = dg_dir / "objects" / blob_sha[:2] / blob_sha[2:]
+    from deep.storage.objects import _object_path
+    blob_path = _object_path(dg_dir / "objects", blob_sha)
     # Overwrite with garbage (but still needs to be zlib decompressible to trigger SHA mismatch, 
     # or fail decompression which is also an error)
     content = zlib.compress(b"blob 5\x00wrong")

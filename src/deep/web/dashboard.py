@@ -313,7 +313,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             index = read_index(self.dg_dir)
             for path, entry in index.entries.items():
                 try:
-                    obj = read_object(objects_dir, entry.sha)
+                    obj = read_object(objects_dir, entry.content_hash)
                     if isinstance(obj, Blob):
                         # Quick binary check before scoring
                         if b"\0" not in obj.data:
@@ -392,7 +392,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     "num_lines": h.num_lines
                 } for h in hunks
             ])
-        elif self.path == "/api/heatmap":
+        elif self.path == "/api/commit-heatmap":
             self._json_response(self._calculate_heatmap())
         elif self.path == "/api/ai/review":
             from deep.ai.assistant import DeepAI # type: ignore[import]

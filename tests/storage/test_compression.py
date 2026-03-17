@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from deep.storage.objects import Blob, Commit, Tag, Tree, TreeEntry, read_object, hash_bytes
+from deep.storage.objects import Blob, Commit, Tag, Tree, TreeEntry, read_object, hash_bytes, _object_path
 from deep.utils.utils import AtomicWriter
 
 
@@ -28,7 +28,7 @@ def test_round_trip_blob(objects_dir: Path) -> None:
     sha = blob.write(objects_dir)
     
     # Verify disk content is compressed
-    path = objects_dir / sha[:2] / sha[2:]
+    path = _object_path(objects_dir, sha, level=2)
     disk_bytes = path.read_bytes()
     # If it's compressed, decompressing should work and not be equal to original
     uncompressed = zlib.decompress(disk_bytes)
@@ -48,7 +48,7 @@ def test_backward_compatibility(objects_dir: Path) -> None:
     raw = header + b"\x00" + content
     sha = hash_bytes(raw)
     
-    path = objects_dir / sha[:2] / sha[2:]
+    path = _object_path(objects_dir, sha, level=2)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(raw)
     
@@ -80,7 +80,7 @@ def test_sha_consistency(objects_dir: Path) -> None:
 def test_corruption_handling(objects_dir: Path) -> None:
     # Random garbage that is neither valid zlib nor starts with valid header
     sha = "f" * 40
-    path = objects_dir / sha[:2] / sha[2:]
+    path = _object_path(objects_dir, sha, level=2)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"not a valid object")
     

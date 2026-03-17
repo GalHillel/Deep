@@ -51,7 +51,7 @@ class TestIndexBasic:
 
     def test_remove_entry(self, tmp_path: Path) -> None:
         dg = init_repo(tmp_path)
-        add_to_index(dg, "a.txt", "1234", 100, 500)
+        add_to_index(dg, "a.txt", "1" * 40, 100, 500)
         remove_from_index(dg, "a.txt")
         idx = read_index(dg)
         assert "a.txt" not in idx.entries

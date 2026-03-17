@@ -23,11 +23,12 @@ def _get_dg_path(repo_root: Path) -> Path:
     """Return the absolute path to the internal repository directory for a given root."""
     return repo_root / DEEP_DIR
 
-def init_repo(path: Union[str, Path] = ".") -> Path:
+def init_repo(path: Union[str, Path] = ".", bare: bool = False) -> Path:
     """Initialize a new empty Deep repository."""
 
     repo_root = Path(path).resolve()
-    dg = _get_dg_path(repo_root)
+    # For bare repos, the root itself is the deep dir
+    dg = repo_root if bare else _get_dg_path(repo_root)
 
     # If the internal directory already exists, treat init as idempotent.
     if dg.exists():
@@ -41,9 +42,16 @@ def init_repo(path: Union[str, Path] = ".") -> Path:
 
     # Initialise configuration with format_version = 2
     from deep.core.config import Config
-    config_obj = Config(repo_root)
-    if not config_obj.get("core.format_version"):
-        config_obj.set_local("core.format_version", "2")
+    
+    # config needs to look inside dg for bare repos, but Config takes repo_root
+    # We will set config path explicitly if needed, but it seems Config uses repo_root / DEEP_DIR / "config"
+    # To fix this, we should write the config manually to dg / "config"
+    config_path = dg / "config"
+    if not config_path.exists():
+        with AtomicWriter(config_path, mode="w") as aw:
+            aw.write("[core]\n\tformat_version = 2\n")
+            if bare:
+                aw.write("\tbare = true\n")
 
     # Ensure core subdirectories always exist (self-healing for partial setups).
     (dg / "objects").mkdir(parents=True, exist_ok=True)
@@ -57,11 +65,12 @@ def init_repo(path: Union[str, Path] = ".") -> Path:
             aw.write("ref: refs/heads/main\n")
 
     # Empty index (DeepIndex v1 binary format)
-    from deep.storage.index import DeepIndex, write_index # type: ignore
-    index_path = dg / "index"
-    index_needs_init = (not index_path.exists()) or index_path.stat().st_size == 0
-    if index_needs_init:
-        write_index(dg, DeepIndex())
+    if not bare:
+        from deep.storage.index import DeepIndex, write_index # type: ignore
+        index_path = dg / "index"
+        index_needs_init = (not index_path.exists()) or index_path.stat().st_size == 0
+        if index_needs_init:
+            write_index(dg, DeepIndex())
 
     return dg
 

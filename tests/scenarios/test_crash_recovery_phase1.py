@@ -104,7 +104,8 @@ def test_crash_after_branch_update_before_txlog_commit(tmp_path: Path):
             with mock.patch.object(TransactionLog, "commit", side_effect=crashing_txlog_commit, autospec=True):
                 with mock.patch.object(TransactionLog, "rollback"):
                     add_run(AddArgs())
-                    with pytest.raises(OSError, match="Simulated power loss during txlog commit"):
+                    from deep.core.errors import TransactionError
+                    with pytest.raises(TransactionError, match="Simulated power loss during txlog commit"):
                         commit_run(MockArgs("second commit"))
 
     # The branch WAS updated, but the transaction is incomplete

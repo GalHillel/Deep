@@ -65,6 +65,7 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_init.add_argument("path", nargs="?", default=None, help="The target directory for the repository (default: current directory)")
+    p_init.add_argument("--bare", action="store_true", help="Create a bare repository (without a working tree)")
 
     # ── add ──────────────────────────────────────────────────────────
     p_add = sub.add_parser(
@@ -396,6 +397,14 @@ Examples:
     )
     p_fetch.add_argument("url", help="The remote name or URL to fetch from")
     p_fetch.add_argument("sha", nargs="?", help="A specific commit SHA to fetch (optional)")
+
+    # ── ls-remote ────────────────────────────────────────────────────
+    p_ls_remote = sub.add_parser(
+        "ls-remote",
+        help="List references in a remote repository",
+        description="Connect to a remote repository and output its available references (branches, tags) and their target SHAs.",
+    )
+    p_ls_remote.add_argument("url", help="The remote name or URL")
 
     # ── remote ───────────────────────────────────────────────────────
     p_remote = sub.add_parser(
@@ -891,6 +900,8 @@ def main(argv: list[str] | None = None) -> None:
     # Dynamic import to keep startup fast.
     if args.command == "init":
         from deep.commands.init_cmd import run # type: ignore[import]
+    elif args.command == "ls-remote":
+        from deep.commands.ls_remote_cmd import run # type: ignore[import]
     elif args.command == "migrate":
         from deep.commands.migrate_cmd import migrate_cmd as run # type: ignore[import]
     elif args.command == "add":

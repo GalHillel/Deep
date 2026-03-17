@@ -31,11 +31,13 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         rel_path = file_path.relative_to(repo_root).as_posix()
 
         # Remove from index.
-        try:
-            remove_multiple_from_index(dg_dir, [rel_path])
-        except KeyError:
+        from deep.storage.index import read_index
+        idx = read_index(dg_dir)
+        if rel_path not in idx.entries:
             print(f"Deep: error: '{rel_path}' is not tracked.", file=sys.stderr)
             sys.exit(1)
+            
+        remove_multiple_from_index(dg_dir, [rel_path])
 
         # Remove from working directory.
         if file_path.exists():

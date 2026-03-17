@@ -147,3 +147,15 @@ def test_api_heatmap(dashboard_server):
     assert len(data) > 0
     assert "file" in data[0]
     assert "complexity" in data[0]
+
+def test_api_commit_heatmap(dashboard_server):
+    port, _ = dashboard_server
+    resp = urlopen(f"http://127.0.0.1:{port}/api/commit-heatmap")
+    data = json.loads(resp.read())
+    assert isinstance(data, dict)
+    assert len(data) > 0
+    # Values represent commit counts per day
+    for date_str, count in data.items():
+        assert isinstance(date_str, str)
+        assert isinstance(count, int)
+        assert count > 0

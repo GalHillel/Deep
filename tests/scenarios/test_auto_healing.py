@@ -31,7 +31,8 @@ def test_p2p_auto_heal(healing_env):
     b2.write(r2 / DEEP_DIR / "objects")
     
     # 2. Corrupt the object in r2
-    obj_path = r2 / DEEP_DIR / "objects" / sha[:2] / sha[2:]
+    from deep.storage.objects import _object_path
+    obj_path = _object_path(r2 / DEEP_DIR / "objects", sha)
     obj_path.write_bytes(zlib.compress(b"CORRUPT DATA"))
     
     # 3. Setup P2P discovery so r2 knows about r1
