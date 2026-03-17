@@ -15,7 +15,8 @@ from deep.core.refs import (
     resolve_head,
     update_branch,
 )
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 from deep.utils.ux import Color
 
 

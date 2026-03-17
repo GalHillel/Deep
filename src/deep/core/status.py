@@ -21,7 +21,7 @@ from deep.core.ignore import IgnoreEngine # type: ignore
 from deep.storage.index import read_index, DeepIndex # type: ignore
 from deep.storage.objects import Blob, Commit, Tree, read_object # type: ignore
 from deep.core.refs import resolve_head # type: ignore
-from deep.core.repository import DEEP_DIR # type: ignore
+from deep.core.constants import DEEP_DIR # type: ignore
 from deep.utils.utils import hash_bytes # type: ignore
 
 

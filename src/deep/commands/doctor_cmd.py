@@ -17,7 +17,8 @@ from pathlib import Path
 from deep.storage.index import read_index
 from deep.storage.objects import Blob, Commit, Tag, Tree, read_object, GitObject
 from deep.core.refs import list_branches, resolve_head, list_tags, get_tag, get_branch
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 from deep.utils.ux import Color
 from deep.core.gc import mark_reachable
 

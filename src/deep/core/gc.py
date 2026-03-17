@@ -14,7 +14,7 @@ from typing import Set
 
 from deep.storage.objects import Commit, Tree, Tag, read_object
 from deep.core.refs import list_branches, get_branch, list_tags, get_tag, resolve_head
-from deep.core.repository import DEEP_DIR
+from deep.core.constants import DEEP_DIR
 from deep.core.stash import get_stash_list
 
 

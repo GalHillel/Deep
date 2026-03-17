@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 from typing import Optional, Any, cast, Union, List, Dict
 
+from deep.core.config import get_config, set_config, is_partial_clone, get_promisor_remote # type: ignore
+
 from deep.utils.utils import AtomicWriter # type: ignore
 
 from deep.core.constants import DEEP_DIR # type: ignore
@@ -58,7 +60,7 @@ def init_repo(path: Union[str, Path] = ".") -> Path:
             aw.write("ref: refs/heads/main\n")
 
     # Empty index (DeepIndex v1 binary format)
-    from deep.storage.index import DeepIndex # type: ignore
+    from deep.storage.index import DeepIndex, write_index # type: ignore
     index_path = dg / "index"
     index_needs_init = (not index_path.exists()) or index_path.stat().st_size == 0
     if index_needs_init:
@@ -88,33 +90,7 @@ def find_repo(start: Union[str, Path] | None = None) -> Path:
             )
         current = parent
 
-def get_config(dg_dir: Path) -> Dict[str, Any]:
-    """Read the repository configuration file."""
-    config_path = dg_dir / "config"
-    if not config_path.exists():
-        return {}
-    try:
-        return json.loads(config_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
 
-def set_config(dg_dir: Path, config: Dict[str, Any]) -> None:
-    """Write the repository configuration file."""
-    config_path = dg_dir / "config"
-    with AtomicWriter(config_path, mode="w") as aw:
-        json.dump(config, aw, indent=2)
-
-def is_partial_clone(dg_dir: Path) -> bool:
-    """Check if the repository is a partial clone (has a promisor remote)."""
-    config = get_config(dg_dir)
-    return "promisor" in config
-
-def get_promisor_remote(dg_dir: Path) -> Optional[str]:
-    """Get the URL of the promisor remote if configured."""
-    config = get_config(dg_dir)
-    return config.get("promisor")
-    # unreachable but satisfies linter
-    return current # type: ignore
 
 
 def checkout(repo_root: Path, target: str, create_branch: bool = False, force: bool = False) -> None:

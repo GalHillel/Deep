@@ -17,7 +17,8 @@ from deep.core.config import Config
 from deep.storage.index import read_index
 from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import get_current_branch, resolve_head, update_branch
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 from deep.core.hooks import run_hook
 
 

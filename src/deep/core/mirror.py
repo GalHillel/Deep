@@ -13,7 +13,7 @@ from typing import List, Dict, Optional
 
 from deep.network.client import get_remote_client
 from deep.core.refs import list_branches, get_branch, update_branch
-from deep.core.repository import DEEP_DIR
+from deep.core.constants import DEEP_DIR
 
 class MirrorManager:
     """Manages repository mirrors and synchronization."""

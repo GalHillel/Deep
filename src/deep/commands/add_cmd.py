@@ -15,7 +15,8 @@ from deep.core.ignore import IgnoreEngine
 from deep.core.reconcile import sanitize_path
 from deep.storage.index import add_multiple_to_index, remove_multiple_from_index
 from deep.storage.objects import Blob, write_object
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 from deep.utils.ux import ProgressBar
 
 
@@ -36,6 +37,10 @@ def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sh
         # Heuristic says file hasn't changed
         return rel_path, None, stat.st_size, stat.st_mtime_ns
 
+    # Read and hash content
+    data = file_path.read_bytes()
+    sha = hashlib.sha1(data).hexdigest()
+    
     if sha == previous_sha:
         # Content hasn't changed, just return the existing info with updated stat
         return rel_path, sha, stat.st_size, stat.st_mtime_ns
@@ -46,11 +51,14 @@ def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sh
     # Phase 2: Content Deduplication
     # If file is large (> 128KB), use chunking
     if stat.st_size > 128 * 1024:
+        from deep.storage.objects import write_large_blob
         sha = write_large_blob(objects_dir, data)
     # Phase 1: Try Delta Compression if we have a previous SHA
     elif previous_sha:
+        from deep.storage.objects import write_delta_object
         sha = write_delta_object(objects_dir, previous_sha, data)
     else:
+        from deep.storage.objects import write_object, Blob
         sha = write_object(objects_dir, Blob(data))
         
     return rel_path, sha, stat.st_size, stat.st_mtime_ns

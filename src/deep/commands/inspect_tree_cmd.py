@@ -6,7 +6,8 @@ Internal debug command to verify raw tree entry modes and object types.
 
 import sys
 from pathlib import Path
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 from deep.storage.objects import read_object, Tree, Blob
 
 def run(args) -> None:

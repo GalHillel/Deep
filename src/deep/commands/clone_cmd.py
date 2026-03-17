@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from deep.core.repository import DEEP_DIR
+from deep.core.constants import DEEP_DIR
 from deep.core.refs import update_head, update_branch, resolve_head
 from deep.core.config import Config
 from deep.network.client import get_remote_client

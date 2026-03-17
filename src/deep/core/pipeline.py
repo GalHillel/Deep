@@ -17,7 +17,7 @@ import threading
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
-from deep.core.repository import DEEP_DIR
+from deep.core.constants import DEEP_DIR
 from typing import Dict, List, Optional, Any
 
 

@@ -17,7 +17,7 @@ from deep.storage.index import write_index, read_index
 from deep.core.merge import three_way_merge
 from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import get_current_branch, resolve_head
-from deep.core.repository import DEEP_DIR
+from deep.core.constants import DEEP_DIR
 from deep.core.status import _get_head_tree_entries, compute_status
 from deep.utils.utils import AtomicWriter
 

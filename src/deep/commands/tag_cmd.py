@@ -13,7 +13,8 @@ from pathlib import Path
 from deep.core.config import Config
 from deep.storage.objects import Tag
 from deep.core.refs import create_tag, list_tags, resolve_head
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]

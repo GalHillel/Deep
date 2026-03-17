@@ -568,7 +568,7 @@ def read_object(objects_dir: Path, sha: str) -> DeepObject:
                 return obj
             
         # Lazy fetch from promisor
-        from deep.core.repository import get_promisor_remote # type: ignore[import]
+        from deep.core.config import get_promisor_remote # type: ignore[import]
         promisor_url = get_promisor_remote(objects_dir.parent)
         if promisor_url:
             from deep.network.client import get_remote_client # type: ignore[import]

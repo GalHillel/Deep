@@ -22,7 +22,7 @@ import threading
 import time
 
 def run_web_server(repo_root: Path, host: str, port: int):
-    from deep.core.repository import DEEP_DIR
+    from deep.core.constants import DEEP_DIR
     dg_dir = repo_root / DEEP_DIR
     DashboardHandler.dg_dir = dg_dir
     DashboardHandler.repo_root = repo_root

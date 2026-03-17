@@ -26,7 +26,8 @@ from deep.core.refs import (
     resolve_head,
     update_branch,
 )
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 from deep.core.config import Config
 from deep.core.telemetry import TelemetryCollector, Timer
 from deep.core.audit import AuditLog

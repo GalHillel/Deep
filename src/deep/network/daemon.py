@@ -25,7 +25,7 @@ from deep.storage.objects import (
 )
 from deep.storage.pack import unpack, create_pack
 from deep.core.refs import update_branch, resolve_head, list_branches, get_branch
-from deep.core.repository import DEEP_DIR
+from deep.core.constants import DEEP_DIR
 from deep.network.protocol import AsyncPktLineStream, AsyncSidebandStream, BAND_DATA, BAND_PROGRESS, BAND_ERROR
 
 

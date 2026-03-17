@@ -24,7 +24,8 @@ from deep.storage.index import (
 )
 from deep.storage.objects import Blob, Commit, Tree, read_object
 from deep.core.refs import get_current_branch, update_branch, update_head, resolve_revision
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 
 
 def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:

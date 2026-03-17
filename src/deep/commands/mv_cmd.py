@@ -15,7 +15,8 @@ from pathlib import Path
 
 from deep.storage.index import DeepIndex, DeepIndexEntry, read_index, write_index
 from deep.storage.objects import Blob
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]

@@ -9,7 +9,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 from deep.core.user import UserManager
 from deep.core.config import Config
 from deep.utils.ux import Color

@@ -11,11 +11,12 @@ Hierarchy:
 
 from __future__ import annotations
 
+import json
 import configparser
 from pathlib import Path
 from typing import Optional
 
-from deep.core.repository import DEEP_DIR
+from deep.core.constants import DEEP_DIR # type: ignore
 
 
 class Config:
@@ -119,3 +120,32 @@ class Config:
         parser.write(buf)
         with AtomicWriter(config_file, mode="w") as aw:
             aw.write(buf.getvalue())
+
+def get_config(dg_dir: Path) -> dict[str, Any]:
+    """Read the repository configuration file (JSON)."""
+    config_path = dg_dir / "config"
+    if not config_path.exists():
+        return {}
+    try:
+        import json
+        return json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+def set_config(dg_dir: Path, config: dict[str, Any]) -> None:
+    """Write the repository configuration file (JSON)."""
+    config_path = dg_dir / "config"
+    from deep.utils.utils import AtomicWriter
+    with AtomicWriter(config_path, mode="w") as aw:
+        import json
+        json.dump(config, aw, indent=2)
+
+def is_partial_clone(dg_dir: Path) -> bool:
+    """Check if the repository is a partial clone (has a promisor remote)."""
+    config = get_config(dg_dir)
+    return "promisor" in config
+
+def get_promisor_remote(dg_dir: Path) -> Optional[str]:
+    """Get the URL of the promisor remote if configured."""
+    config = get_config(dg_dir)
+    return config.get("promisor")

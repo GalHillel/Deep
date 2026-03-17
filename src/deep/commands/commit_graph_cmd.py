@@ -19,7 +19,7 @@ def run(args):
         console.print("[red]DeepGit: error: not a DeepGit repository[/red]")
         sys.exit(1)
         
-    from deep.core.repository import DEEP_DIR
+    from deep.core.constants import DEEP_DIR
     dg_dir = repo_root / DEEP_DIR
     
     if args.cg_command == "write":

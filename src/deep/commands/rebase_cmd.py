@@ -20,7 +20,8 @@ from deep.core.refs import (
     update_branch,
     update_head,
 )
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 from deep.core.reconcile import logical_rebase
 
 def run(args) -> None:  # type: ignore[no-untyped-def]

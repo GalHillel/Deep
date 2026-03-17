@@ -21,7 +21,7 @@ from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
-from deep.core.repository import DEEP_DIR
+from deep.core.constants import DEEP_DIR
 from deep.core.refs import list_branches, get_branch
 
 

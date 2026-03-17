@@ -20,7 +20,8 @@ from typing import Optional, ClassVar, Any, cast
 
 from deep.storage.objects import read_object, read_object_safe, Commit, Tree, Blob, Tag # type: ignore[import]
 from deep.core.refs import resolve_head, list_branches, get_branch, list_tags # type: ignore[import]
-from deep.core.repository import find_repo, DEEP_DIR # type: ignore[import]
+from deep.core.repository import find_repo # type: ignore[import]
+from deep.core.constants import DEEP_DIR # type: ignore[import]
 from deep.core.issue import IssueManager  # type: ignore[import]
 from deep.core.pr import PRManager  # type: ignore[import]
 from deep.storage.index import read_index  # type: ignore[import]
@@ -216,10 +217,10 @@ def _get_repo_dg_dir(repo_root: Path, repo_name: Optional[str]) -> Path:
     """Safely resolve repository DG_DIR and prevent path traversal."""
     if not repo_name:
         # Fallback to main repo if no repo parameter is provided
-        from deep.core.repository import DEEP_DIR # type: ignore[import]
+        from deep.core.constants import DEEP_DIR # type: ignore[import]
         return repo_root / DEEP_DIR
     
-    from deep.core.repository import DEEP_DIR # type: ignore[import]
+    from deep.core.constants import DEEP_DIR # type: ignore[import]
     # Ensure relative path doesn't contain traversal
     repos_base = (repo_root / "repos").resolve()
     target_repo_dir = (repos_base / repo_name).resolve()
@@ -274,7 +275,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         elif self.path == "/api/projects":
             from deep.platform.platform import PlatformManager # type: ignore[import]
             from deep.core.repository import find_repo # type: ignore[import]
-            from deep.core.repository import DEEP_DIR # type: ignore[import]
+            from deep.core.constants import DEEP_DIR # type: ignore[import]
             res = []
             manager = PlatformManager(self.repo_root)
             repos = manager.list_repos()

@@ -11,7 +11,8 @@ from pathlib import Path
 
 from deep.storage.objects import Commit, read_object
 from deep.core.refs import get_commit_decorations, log_history, resolve_head
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 from deep.utils.ux import Color
 from deep.utils.utils import format_date
 

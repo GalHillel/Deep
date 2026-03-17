@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from deep.core.repository import DEEP_DIR
+from deep.core.constants import DEEP_DIR
 
 class PlatformManager:
     """Manages multiple repositories under a server root."""

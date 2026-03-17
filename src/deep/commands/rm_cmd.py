@@ -12,7 +12,8 @@ import sys
 from pathlib import Path
 
 from deep.storage.index import remove_multiple_from_index
-from deep.core.repository import DEEP_DIR, find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
