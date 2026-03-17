@@ -71,9 +71,9 @@ def stress_test(tmp_path):
         # 5. Concurrent Fetches
         print(f"Starting {CONCURRENT_CLIENTS} concurrent fetches...")
         # Get head sha
-        from deep_git.core.refs import resolve_head
-        from deep_git.core.repository import DEEP_GIT_DIR
-        head_sha = resolve_head(server_root / DEEP_GIT_DIR)
+        from deep.core.refs import resolve_head
+        from deep.core.repository import DEEP_DIR
+        head_sha = resolve_head(server_root / DEEP_DIR)
         
         procs = []
         for i in range(CONCURRENT_CLIENTS):
@@ -101,7 +101,7 @@ def stress_test(tmp_path):
         # 7. Doctor sweep
         print("Running Doctor on all repos...")
         for r in [server_root, client_root]:
-            res = run_cmd([sys.executable, "-m", "deep_git.main", "doctor"], cwd=r, env=env)
+            res = run_cmd([sys.executable, "-m", "deep.main", "doctor"], cwd=r, env=env)
             if "HEALTHY" not in res.stdout:
                 print(f"HEALTH CHECK FAILED for {r}: {res.stdout}")
             else:

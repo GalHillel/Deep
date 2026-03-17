@@ -17,7 +17,7 @@ import pytest
 from deep.core.repository import DEEP_DIR
 from deep.storage.objects import read_object, Commit
 from deep.cli.main import main
-from deep.network.daemon import DeepGitDaemon
+from deep.network.daemon import DeepDaemon
 from deep.network.p2p import P2PEngine
 
 def get_free_port():
@@ -49,7 +49,7 @@ def repo_b(tmp_path: Path) -> Path:
 
 def run_daemon_in_thread(repo_root: Path, port: int):
     import asyncio
-    d = DeepGitDaemon(repo_root, host="127.0.0.1", port=port)
+    d = DeepDaemon(repo_root, host="127.0.0.1", port=port)
     loop = asyncio.new_event_loop()
     
     def run():

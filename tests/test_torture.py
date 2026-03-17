@@ -136,7 +136,7 @@ def test_torture_deletion_workflow(repo_dir):
     
     f.unlink()
     # Currently 'deep add' might not handle deletions unless we pass the path
-    # or implement 'deep rm'. Git uses 'git add -u'.
+    # or implement 'deep rm'. Deep uses 'deep add -u'.
     # Our current add_cmd processes args.files. 
     # If we pass the deleted file path to add_cmd, it should check it.
     add_cmd.run(Args())
@@ -184,7 +184,7 @@ def test_torture_reset_hard_dirty_workdir(repo_dir):
     reset_cmd.run(ResetArgs())
     
     assert (repo_dir / "f").read_text() == "v1"
-    # Note: git reset --hard doesn't remove untracked files, only tracked ones.
+    # Note: deep reset --hard doesn't remove untracked files, only tracked ones.
     # Our implementation uses current_index.entries to clear.
     assert (repo_dir / "untracked.txt").exists()
 

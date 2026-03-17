@@ -110,15 +110,8 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
         return 0, 0
     
     # Identify ALL loose objects on disk BEFORE packing/unlinking
-    all_loose_shas: Set[str] = set()
-    for root, dirs, files in os.walk(objects_dir):
-        # Skip pack directory using a more robust check
-        if "pack" in Path(root).parts:
-            continue
-        for f in files:
-            # Expecting objects/aa/bb...
-            if len(Path(root).name) == 2 and len(f) == 38:
-                all_loose_shas.add(Path(root).name + f)
+    from deep.storage.objects import walk_loose_shas
+    all_loose_shas = set(walk_loose_shas(objects_dir))
 
     # Perform Marking
     marked = mark_reachable(dg_dir)
@@ -135,8 +128,9 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
             print(f"Compacted {len(marked)} objects into pack-{pack_sha}.pack")
         
         # Now that they are packed, we can remove the loose copies
+        from deep.storage.objects import _object_path
         for sha in marked:
-            loose_path = objects_dir / sha[:2] / sha[2:]
+            loose_path = _object_path(objects_dir, sha)
             if loose_path.exists():
                 loose_path.unlink()
         
@@ -159,8 +153,9 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
         quarantine_dir = dg_dir / "quarantine" / str(timestamp)
         quarantine_dir.mkdir(parents=True, exist_ok=True)
         
+        from deep.storage.objects import _object_path
         for sha in unreachable:
-            src = objects_dir / sha[:2] / sha[2:]
+            src = _object_path(objects_dir, sha)
             # It's possible an object marked for packing wasn't in the loose set (already packed)
             # but 'unreachable' is (all_loose - marked), so src should exist.
             if src.exists():

@@ -18,14 +18,14 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
     script_path = Path(args.script).resolve()
 
     if not script_path.exists():
-        print(f"DeepGit: error: Script not found: {script_path}", file=sys.stderr)
+        print(f"Deep: error: Script not found: {script_path}", file=sys.stderr)
         sys.exit(1)
 
     from deep.core.security import SandboxRunner

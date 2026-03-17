@@ -4,7 +4,7 @@ import tempfile
 import time
 from pathlib import Path
 from deep.storage.objects import Blob, Tree, TreeEntry, Commit, read_object
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo, DEEP_DIR
 from deep.core.merge import recursive_merge
 
 class TestAdvMerge(unittest.TestCase):

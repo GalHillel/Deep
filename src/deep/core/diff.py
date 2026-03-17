@@ -147,7 +147,7 @@ def diff_trees(dg_dir: Path, sha1: str, sha2: str) -> list[tuple[str, str]]:
     """Compute diffs between two tree/commit SHAs.
 
     Args:
-        dg_dir: Path to .deep_git
+        dg_dir: Path to .deep
         sha1:   Old tree/commit SHA
         sha2:   New tree/commit SHA
 
@@ -197,7 +197,7 @@ def diff_working_tree(repo_root: Path) -> list[tuple[str, str]]:
     diffs: list[tuple[str, str]] = []
     for rel_path, entry in sorted(index.entries.items()):
         file_path = repo_root / rel_path
-        result = diff_blob_vs_file(objs_dir, entry.sha, file_path, rel_path)
+        result = diff_blob_vs_file(objs_dir, entry.content_hash, file_path, rel_path)
         if result is not None:
             diffs.append((rel_path, result))
 

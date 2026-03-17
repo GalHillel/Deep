@@ -2,7 +2,7 @@
 deep.storage.objects
 ~~~~~~~~~~~~~~~~~~~~
 
-The core content-addressable object store for DeepGit.
+The core content-addressable object store for Deep.
 
 This module defines the fundamental data structures:
 - **Blob**: Raw file content.
@@ -12,7 +12,7 @@ This module defines the fundamental data structures:
 
 All objects are identified by their SHA-1 hash and stored using a
 fan-out directory structure (`objects/xx/yyyy...`) to ensure performance
-at scale. Consistent with DeepGit's independent architecture.
+at scale. Consistent with Deep's independent architecture.
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def _deserialize(raw: bytes) -> tuple[str, bytes]:
 
 @dataclass
 class DeepObject:
-    """Abstract base class for all content-addressable objects in DeepGit."""
+    """Abstract base class for all content-addressable objects in Deep."""
 
     OBJ_TYPE: str = field(init=False, repr=False)
 
@@ -182,7 +182,7 @@ class TreeEntry:
     sha: str
 
     def __post_init__(self):
-        # Normalize mode (DeepGit trees use "40000" for directories)
+        # Normalize mode (Deep trees use "40000" for directories)
         # However, for serialization we must be consistent.
         if self.mode == "040000":
             self.mode = "40000"
@@ -215,7 +215,7 @@ class Tree(DeepObject):
     entries: List[TreeEntry] = field(default_factory=list)
 
     def serialize_content(self) -> bytes:
-        """Serialize entries sorted by name (DeepGit native format).
+        """Serialize entries sorted by name (Deep native format).
 
         Format: <mode> <name>\0<20-byte raw SHA-1>
         """
@@ -278,8 +278,8 @@ class Commit(DeepObject):
     OBJ_TYPE: str = field(init=False, default="commit", repr=False)
     tree_sha: str = ""
     parent_shas: List[str] = field(default_factory=list)
-    author: str = "DeepGit User <user@deep>"
-    committer: str = "DeepGit User <user@deep>"
+    author: str = "Deep User <user@deep>"
+    committer: str = "Deep User <user@deep>"
     message: str = ""
     timestamp: int = field(default_factory=lambda: int(time.time()))
     timezone: str = field(default_factory=lambda: get_local_timezone_offset())
@@ -624,7 +624,7 @@ def read_object(objects_dir: Path, sha: str) -> DeepObject:
         depth = get_delta_depth()
         if get_delta_depth() >= MAX_DELTA_CHAIN_DEPTH:  # type: ignore[operator]
             raise ValueError(
-                f"DeepGit: delta-chain depth exceeded ({MAX_DELTA_CHAIN_DEPTH}). "
+                f"Deep: delta-chain depth exceeded ({MAX_DELTA_CHAIN_DEPTH}). "
                 f"Object {sha} may be part of a cyclic or pathologically deep delta chain."
             )
         set_delta_depth(depth + 1)

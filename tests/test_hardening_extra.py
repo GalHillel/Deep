@@ -68,7 +68,7 @@ def test_merge_conflict_detection(tmp_path: Path, monkeypatch):
     assert exc.value.code == 1
 
 def test_missing_pack_index_resilience(tmp_path: Path, monkeypatch):
-    """Verify that DeepGit doesn't crash if a .idx file is missing or corrupt."""
+    """Verify that Deep doesn't crash if a .idx file is missing or corrupt."""
     monkeypatch.chdir(tmp_path)
     init_cmd.run(Namespace(path=None))
     dg_dir = tmp_path / DEEP_DIR

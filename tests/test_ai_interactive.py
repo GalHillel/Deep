@@ -16,7 +16,7 @@ import pytest
 
 from deep.core.repository import DEEP_DIR
 from deep.cli.main import main
-from deep.ai.assistant import DeepGitAI
+from deep.ai.assistant import DeepAI
 
 @pytest.fixture()
 def repo(tmp_path: Path) -> Path:
@@ -50,8 +50,8 @@ def test_ai_classification_security(repo: Path):
     f.write_text("API_KEY=12345\n")
     main(["add", "secrets.env"])
     
-    from deep.ai.assistant import DeepGitAI
-    ai = DeepGitAI(repo)
+    from deep.ai.assistant import DeepAI
+    ai = DeepAI(repo)
     diff_text, stats = ai._get_staged_diff()
     
     from deep.ai.analyzer import classify_change
@@ -64,8 +64,8 @@ def test_ai_classification_perf(repo: Path):
     f.write_text("def optimize_speed():\n    # faster implementation\n    pass\n")
     main(["add", "logic.py"])
     
-    from deep.ai.assistant import DeepGitAI
-    ai = DeepGitAI(repo)
+    from deep.ai.assistant import DeepAI
+    ai = DeepAI(repo)
     diff_text, stats = ai._get_staged_diff()
     
     from deep.ai.analyzer import classify_change
@@ -74,8 +74,8 @@ def test_ai_classification_perf(repo: Path):
 
 def test_ai_handle_query(repo: Path):
     # Test fallback
-    from deep.ai.assistant import DeepGitAI
-    ai = DeepGitAI(repo)
+    from deep.ai.assistant import DeepAI
+    ai = DeepAI(repo)
     res = ai.handle_query("hello")
     assert "Ask me about your current changes" in res.text
     

@@ -26,6 +26,22 @@ def test_p2p_presence_propagation(p2p_repos):
     e1 = P2PEngine(r1 / ".deep")
     e2 = P2PEngine(r2 / ".deep")
     
+    # Needs keys to sign and verify beacons
+    from deep.core.user import UserManager
+    from deep.core.security import KeyManager
+    um1 = UserManager(r1 / ".deep")
+    um1.add_user("user1", "key1", "user1@deep.local")
+    km1 = KeyManager(r1 / ".deep")
+    km1.generate_key()
+    
+    # Copy keyring to r2 so it can verify r1's signatures
+    import shutil
+    shutil.copy2(r1 / ".deep" / "keys" / "keyring.enc", r2 / ".deep" / "keys" / "keyring.enc")
+    
+    um2 = UserManager(r2 / ".deep")
+    um2.add_user("user2", "key2", "user2@deep.local")
+    km2 = KeyManager(r2 / ".deep")
+    
     e1.start()
     e2.start()
     
@@ -43,7 +59,7 @@ def test_p2p_presence_propagation(p2p_repos):
                 if p.node_id == e1.node_id:
                     if e1.node_id in p.presence:
                         pres = p.presence[e1.node_id]
-                        if pres.get("file") == "main.py":
+                        if isinstance(pres, dict) and pres.get("file") == "main.py":
                             found = True
                             break
             if found: break

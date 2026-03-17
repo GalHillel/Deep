@@ -2,7 +2,7 @@
 deep.utils.logger
 ~~~~~~~~~~~~~~~~~
 
-Standardized logging for DeepGit.
+Standardized logging for Deep.
 """
 
 import logging

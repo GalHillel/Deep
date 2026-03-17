@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os
 import pytest
 
-from deep.ai.assistant import DeepGitAI
+from deep.ai.assistant import DeepAI
 from deep.ai.analyzer import (
     analyze_diff_text, classify_change, extract_keywords, score_complexity
 )
@@ -14,10 +14,10 @@ from deep.core.repository import DEEP_DIR
 def ai_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     (tmp_path / "main.py").write_text("def hello():\n    print('hi')\n")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "main.py"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "initial"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "main.py"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "initial"], cwd=tmp_path, env=env, check=True)
     return tmp_path
 
 
@@ -56,7 +56,7 @@ def test_score_complexity():
 # ── AI Assistant Integration Tests ──
 def test_suggest_commit_message(ai_repo):
     (ai_repo / "main.py").write_text("def hello():\n    print('hello world')\n")
-    ai = DeepGitAI(ai_repo)
+    ai = DeepAI(ai_repo)
     result = ai.suggest_commit_message()
     assert result.suggestion_type == "commit_msg"
     assert len(result.text) > 0
@@ -65,21 +65,21 @@ def test_suggest_commit_message(ai_repo):
 
 
 def test_analyze_quality(ai_repo):
-    ai = DeepGitAI(ai_repo)
+    ai = DeepAI(ai_repo)
     result = ai.analyze_quality()
     assert result.suggestion_type == "quality"
     assert len(result.text) > 0
 
 
 def test_suggest_branch_name(ai_repo):
-    ai = DeepGitAI(ai_repo)
+    ai = DeepAI(ai_repo)
     result = ai.suggest_branch_name("add user authentication")
     assert result.suggestion_type == "branch_name"
     assert "feature/" in result.text
 
 
 def test_ai_metrics(ai_repo):
-    ai = DeepGitAI(ai_repo)
+    ai = DeepAI(ai_repo)
     ai.suggest_commit_message()
     ai.analyze_quality()
     metrics = ai.get_metrics()

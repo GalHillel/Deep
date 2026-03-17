@@ -1,7 +1,7 @@
 """
 tests.test_workflow
 ~~~~~~~~~~~~~~~~~~~
-End-to-End Simulation of DeepGit usage in a standard workflow:
+End-to-End Simulation of Deep usage in a standard workflow:
 Init -> Edit -> Add -> Commit -> Branch -> Checkout -> Edit -> Add -> Commit -> Checkout Main -> Merge
 """
 

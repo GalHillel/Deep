@@ -90,7 +90,7 @@ def resolve_revision(dg_dir: Path, revision: str) -> Optional[str]:
     """Resolve a revision string (branch, tag, sha, HEAD~n) to a SHA-1.
 
     Args:
-        dg_dir:   Path to .deep_git
+        dg_dir:   Path to .deep
         revision: Revision string (e.g. "main", "v1.0", "abc1234", "HEAD~2")
 
     Returns:
@@ -153,7 +153,7 @@ def resolve_revision(dg_dir: Path, revision: str) -> Optional[str]:
                             return sha_candidate
             else:
                 # Fallback if revision is < 2 chars or bucket doesn't exist
-                # git usually requires at least 4 chars for short SHA anyway.
+                # deep usually requires at least 4 chars for short SHA anyway.
                 pass
         except ValueError:
             pass
@@ -281,7 +281,7 @@ def update_branch(dg_dir: Path, name: str, commit_sha: str) -> None:
     """Atomically create or update a branch ref.
 
     Args:
-        dg_dir:     Path to ``.deep_git``.
+        dg_dir:     Path to ``.deep``.
         name:       Branch name (e.g. ``"main"``).
         commit_sha: 40-character SHA-1 hex digest of the tip commit.
     """
@@ -334,7 +334,7 @@ def create_tag(dg_dir: Path, name: str, sha: str) -> None:
     """Atomically create a tag ref.
 
     Args:
-        dg_dir: Path to ``.deep_git``.
+        dg_dir: Path to ``.deep``.
         name:   Tag name (e.g. ``"v1.0"``).
         sha:    40-character SHA-1 hex digest of the target commit or tag object.
     
@@ -366,7 +366,7 @@ def log_history(
     By default, it follows all parents (merges) in a de-duplicated traversal.
 
     Args:
-        dg_dir:    Path to ``.deep_git``.
+        dg_dir:    Path to ``.deep``.
         start_sha: Starting commit SHA (default: resolved HEAD).
         max_count: Stop after this many commits.
 
@@ -429,7 +429,7 @@ def get_commit_decorations(dg_dir: Path) -> dict[str, list[str]]:
         decorations.setdefault(sha, []).append(lbl)
 
     # Note: A tag could point to a Tag object, not directly the commit.
-    # In a full git, log resolves the tag object back to the commit.
+    # In a full deep, log resolves the tag object back to the commit.
     # We will just map the tag SHA for now; if it's an annotated tag, 
     # the decoration naturally belongs to the tag object or we must dereference it.
     # Let's dereference it here via read_object.

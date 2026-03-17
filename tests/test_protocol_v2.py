@@ -6,9 +6,9 @@ import shutil
 import tempfile
 from pathlib import Path
 from deep.storage.objects import Blob, write_object, read_object, Commit
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo, DEEP_DIR
 from deep.core.refs import update_branch
-from deep.network.daemon import DeepGitDaemon
+from deep.network.daemon import DeepDaemon
 from deep.network.client import RemoteClient
 
 class TestProtocolV2(unittest.TestCase):
@@ -37,7 +37,7 @@ class TestProtocolV2(unittest.TestCase):
         update_branch(self.server_dg, "main", self.c_sha)
 
         # Start Daemon
-        self.daemon = DeepGitDaemon(self.server_path, port=9999)
+        self.daemon = DeepDaemon(self.server_path, port=9999)
         self.daemon_thread = threading.Thread(target=lambda: asyncio.run(self.daemon.start()), daemon=True)
         self.daemon_thread.start()
         time.sleep(1) # Wait for start
@@ -47,7 +47,7 @@ class TestProtocolV2(unittest.TestCase):
 
     def test_sideband_fetch(self):
         init_repo(self.client_path)
-        client_objects = self.client_path / DEEP_GIT_DIR / "objects"
+        client_objects = self.client_path / DEEP_DIR / "objects"
         
         client = RemoteClient("deep://localhost:9999")
         client.connect()

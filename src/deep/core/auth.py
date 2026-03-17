@@ -23,7 +23,7 @@ class User:
 
 
 class AuthManager:
-    """File-based auth stored at .deep_git/auth.json."""
+    """File-based auth stored at .deep/auth.json."""
 
     def __init__(self, dg_dir: Path):
         self.auth_path = dg_dir / "auth.json"

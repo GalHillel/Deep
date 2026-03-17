@@ -1,7 +1,7 @@
 """
 deep.web.dashboard
 ~~~~~~~~~~~~~~~~~~~~~~
-HTTP + WebSocket server for the DeepGit Web Dashboard.
+HTTP + WebSocket server for the Deep Web Dashboard.
 
 Serves a single-page interactive DAG explorer and exposes REST API
 endpoints for querying repository state.
@@ -28,7 +28,7 @@ from deep.storage.index import read_index  # type: ignore[import]
 from deep.core.search import search_history  # type: ignore[import]
 from deep.network.p2p import P2PEngine  # type: ignore[import]
 from deep.core.blame import get_blame  # type: ignore[import]
-from deep.ai.assistant import DeepGitAI  # type: ignore[import]
+from deep.ai.assistant import DeepAI  # type: ignore[import]
 
 
 def _tree_entries_flat(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
@@ -119,7 +119,7 @@ def _gather_refs(dg_dir: Path) -> dict:
 
 
 def _gather_multi_repo_data(repo_root: Path) -> list[dict]:
-    """Scan siblings for DeepGit repos and return summaries."""
+    """Scan siblings for Deep repos and return summaries."""
     repos = []
     try:
         parent = repo_root.parent
@@ -315,9 +315,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 try:
                     obj = read_object(objects_dir, entry.sha)
                     if isinstance(obj, Blob):
-                        content = obj.data.decode("utf-8", errors="replace")
-                        comp = score_complexity(content)
-                        heatmap.append({"file": path, "complexity": comp, "lines": len(content.splitlines())})
+                        # Quick binary check before scoring
+                        if b"\0" not in obj.data:
+                            content = obj.data.decode("utf-8", errors="ignore")
+                            comp = score_complexity(content)
+                            heatmap.append({"file": path, "complexity": comp, "lines": len(content.splitlines())})
                 except Exception: pass
             self._json_response(heatmap)
 
@@ -393,8 +395,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         elif self.path == "/api/heatmap":
             self._json_response(self._calculate_heatmap())
         elif self.path == "/api/ai/review":
-            from deep.ai.assistant import DeepGitAI # type: ignore[import]
-            ai = DeepGitAI(self.dg_dir.parent)
+            from deep.ai.assistant import DeepAI # type: ignore[import]
+            ai = DeepAI(self.dg_dir.parent)
             res = ai.review_changes()
             self._json_response({
                 "text": res.text,
@@ -403,8 +405,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 "latency_ms": res.latency_ms
             })
         elif self.path == "/api/ai/metrics":
-            from deep.ai.assistant import DeepGitAI # type: ignore[import]
-            ai = DeepGitAI(self.dg_dir.parent)
+            from deep.ai.assistant import DeepAI # type: ignore[import]
+            ai = DeepAI(self.dg_dir.parent)
             self._json_response(ai.get_metrics())
         else:
             # Try to serve static file
@@ -486,7 +488,7 @@ def start_dashboard(repo_root: Path, host: str = "127.0.0.1", port: int = 9000):
     DashboardHandler.repo_root = repo_root
 
     server = HTTPServer((host, port), DashboardHandler)
-    print(f"DeepGit Dashboard running at http://{host}:{port}")
+    print(f"Deep Dashboard running at http://{host}:{port}")
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()

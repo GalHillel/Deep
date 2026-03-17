@@ -38,11 +38,11 @@ def test_merge_conflict_markers(tmp_path, monkeypatch):
     
     # Check for conflict markers
     content = f.read_text()
-    assert "<<<<<<< HEAD" in content
+    assert "<<<<<<< OURS" in content
     assert "side content" in content
     assert "=======" in content
     assert "main content" in content
-    assert ">>>>>>> f.txt" in content
+    assert ">>>>>>> THEIRS" in content
 
 def test_merge_crash_recovery(tmp_path, monkeypatch):
     """Test WAL recovery for merge crashing before ref update."""
@@ -74,7 +74,7 @@ def test_merge_crash_recovery(tmp_path, monkeypatch):
     # Simulate crash before ref update in 3-way merge
     monkeypatch.setenv("DEEP_CRASH_TEST", "MERGE_BEFORE_REF_UPDATE")
     
-    with pytest.raises(BaseException, match="DeepBridge: simulated crash before ref update"):
+    with pytest.raises(BaseException, match="Deep: simulated crash before ref update"):
         main(["merge", "main"])
     
     # Verify state: HEAD still at side_sha, WAL active

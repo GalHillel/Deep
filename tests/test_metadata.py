@@ -7,32 +7,32 @@ Tests for commit metadata parsing, timezone offsets, and date formatting.
 from __future__ import annotations
 
 import time
-from deep.utils.utils import format_git_date, get_local_timezone_offset
+from deep.utils.utils import format_date, get_local_timezone_offset
 from deep.storage.objects import Commit
 
 
-def test_format_git_date_utc() -> None:
+def test_format_date_utc() -> None:
     # 0 -> Jan 1 1970 00:00:00
-    formatted = format_git_date(0, "+0000")
+    formatted = format_date(0, "+0000")
     assert formatted == "Thu Jan  1 00:00:00 1970 +0000"
 
 
-def test_format_git_date_positive_offset() -> None:
+def test_format_date_positive_offset() -> None:
     # 0 -> UTC, but with +0200 we add 2 hours -> Jan 1 1970 02:00:00
-    formatted = format_git_date(0, "+0200")
+    formatted = format_date(0, "+0200")
     assert formatted == "Thu Jan  1 02:00:00 1970 +0200"
 
 
-def test_format_git_date_negative_offset() -> None:
+def test_format_date_negative_offset() -> None:
     # 0 -> +0000. For -0300, it's 3 hours behind UTC -> Dec 31 1969 21:00:00
     # Watch out for negative timestamps on some platforms, let's use a standard positive time.
     # 86400 = Jan 2 1970 00:00:00 UTC
-    formatted = format_git_date(86400, "-0300")
+    formatted = format_date(86400, "-0300")
     assert formatted == "Thu Jan  1 21:00:00 1970 -0300"
 
 
-def test_format_git_date_malformed_offset() -> None:
-    formatted = format_git_date(0, "INVALID")
+def test_format_date_malformed_offset() -> None:
+    formatted = format_date(0, "INVALID")
     # Falls back to offset 0
     assert formatted == "Thu Jan  1 00:00:00 1970 INVALID"
 

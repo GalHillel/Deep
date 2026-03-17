@@ -1,13 +1,14 @@
 """
 deep.commands.add_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-DeepGit ``add`` command implementation.
+Deep ``add`` command implementation.
 """
 
 from __future__ import annotations
 
 import os
 import sys
+import hashlib
 from pathlib import Path
 from typing import Optional, Tuple, List
 
@@ -69,7 +70,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -91,14 +92,14 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 rel_path, _ = sanitize_path(rel_path)
             except ValueError:
                 # Path is outside repo
-                print(f"DeepGit: error: {file_path_str} is outside repository", file=sys.stderr)
+                print(f"Deep: error: {file_path_str} is outside repository", file=sys.stderr)
                 sys.exit(1)
                 
             if rel_path in index.entries:
                 paths_to_remove.append(rel_path)
                 continue
             else:
-                print(f"DeepGit: error: {file_path_str} does not exist", file=sys.stderr)
+                print(f"Deep: error: {file_path_str} does not exist", file=sys.stderr)
                 sys.exit(1)
             
         if path.is_file():
@@ -124,7 +125,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     if paths_to_remove:
         remove_multiple_from_index(dg_dir, paths_to_remove)
         for p in paths_to_remove:
-            print(f"DeepGit: staged deletion: {p}")
+            print(f"Deep: staged deletion: {p}")
 
     if not files_to_add:
         return
@@ -146,7 +147,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             
             p_sha = None
             p_size = None
-            p_mtime = None
+            p_mtime_ns = None
             
             if rel_path in index.entries:
                 entry = index.entries[rel_path]
@@ -177,4 +178,4 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         
         if actual_results:
             add_multiple_to_index(dg_dir, actual_results)
-            print(f"DeepGit: added {len(actual_results)} files to the index.")
+            print(f"Deep: added {len(actual_results)} files to the index.")

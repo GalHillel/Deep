@@ -1,8 +1,8 @@
 """
 deep.core.pr
 ~~~~~~~~~~~~~~~~
-Core logic for Pull Requests in DeepGit platform.
-PRs are stored as JSON files in .deep_git/prs/<id>.json
+Core logic for Pull Requests in Deep platform.
+PRs are stored as JSON files in .deep/prs/<id>.json
 """
 
 from __future__ import annotations

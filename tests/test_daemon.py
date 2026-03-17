@@ -1,7 +1,7 @@
 """
 tests.test_daemon
 ~~~~~~~~~~~~~~~~~
-Tests for the Deep Git Distributed Daemon.
+Tests for the Deep Deep Distributed Daemon.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import pytest
 from deep.storage.objects import Blob, read_object
 from deep.storage.pack import create_pack
 from deep.core.repository import DEEP_DIR
-from deep.network.daemon import DeepGitDaemon
+from deep.network.daemon import DeepDaemon
 from deep.network.protocol import encode_pkt, decode_pkt
 from deep.cli.main import main
 
@@ -37,7 +37,7 @@ def test_daemon_handshake_sync(tmp_path):
     repo_root.mkdir()
     os.chdir(repo_root)
     # Using sys.executable -m deep.main to run the module directly
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], check=True)
     
     port = get_free_port()
     # Start daemon in Separate Process
@@ -45,7 +45,7 @@ def test_daemon_handshake_sync(tmp_path):
     env["PYTHONPATH"] = str(Path.cwd() / "src")
     env["PYTHONUNBUFFERED"] = "1"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "deep.main", "daemon", "--port", str(port)],
+        [sys.executable, "-m", "deep.cli.main", "daemon", "--port", str(port)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=env
@@ -76,25 +76,25 @@ def test_daemon_push_sync(tmp_path):
     server_root = tmp_path / "server"
     server_root.mkdir()
     os.chdir(server_root)
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], check=True)
     
     # Allow anonymous write for test simplicity
     from deep.core.user import UserManager
     from deep.core.access import AccessManager
-    from deep.core.repository import DEEP_GIT_DIR
-    um = UserManager(server_root / DEEP_GIT_DIR)
+    from deep.core.repository import DEEP_DIR
+    um = UserManager(server_root / DEEP_DIR)
     um.add_user("anonymous", "test-key", "anon@example.com")
-    am = AccessManager(server_root / DEEP_GIT_DIR)
+    am = AccessManager(server_root / DEEP_DIR)
     am.set_permission("anonymous", "contributor")
     
     # Client repo
     client_root = tmp_path / "client"
     client_root.mkdir()
     os.chdir(client_root)
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], check=True)
     (client_root / "f.txt").write_text("hello remote")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"], check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "first commit"], check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "f.txt"], check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "first commit"], check=True)
     
     from deep.core.refs import resolve_head
     new_sha = resolve_head(client_root / DEEP_DIR)
@@ -113,7 +113,7 @@ def test_daemon_push_sync(tmp_path):
     env["PYTHONPATH"] = str(Path.cwd() / "src")
     env["PYTHONUNBUFFERED"] = "1"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "deep.main", "daemon", "--port", str(port)],
+        [sys.executable, "-m", "deep.cli.main", "daemon", "--port", str(port)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=str(server_root),

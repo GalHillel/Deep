@@ -22,7 +22,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     url_or_name = args.url
@@ -32,7 +32,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     branch = args.branch
     local_sha = get_branch(repo_root / DEEP_DIR, branch)
     if not local_sha:
-        print(f"DeepGit: error: Branch '{branch}' not found locally", file=sys.stderr)
+        print(f"Deep: error: Branch '{branch}' not found locally", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -126,9 +126,9 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                         sys.exit(1)
 
             print(f"Pushing {branch} to {url}...")
-            # If using GitBridge, it may leave temp dirs. We should handle them if possible,
-            # but GitBridge.push uses tempfile.TemporaryDirectory already.
-            # We add a generic cleanup for any .deep_git/tmp or similar if they existed.
+            # If using DeepBridge, it may leave temp dirs. We should handle them if possible,
+            # but DeepBridge.push uses tempfile.TemporaryDirectory already.
+            # We add a generic cleanup for any .deep/tmp or similar if they existed.
             resp = client.push(dg_dir / "objects", f"refs/heads/{branch}", remote_sha or "0"*40, local_sha)
             print(resp)
             
@@ -137,14 +137,14 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         audit.record("local", "push", ref=branch, sha=local_sha, client=url)
     except Exception as e:
         txlog.rollback(tx_id, str(e))
-        print(f"DeepGit: error: push failed: {e}", file=sys.stderr)
+        print(f"Deep: error: push failed: {e}", file=sys.stderr)
         sys.exit(1)
     finally:
         try:
             client.disconnect()
         except Exception:
             pass
-        # Cleanup any DeepGit temp dirs
+        # Cleanup any Deep temp dirs
         tmp_dirs = list(dg_dir.glob("temp_deep_*")) + list(repo_root.glob("temp_deep_*"))
         for d in tmp_dirs:
             if d.is_dir():

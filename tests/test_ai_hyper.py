@@ -9,7 +9,7 @@ import os
 import shutil
 from pathlib import Path
 from deep.core.repository import init_repo
-from deep.ai.assistant import DeepGitAI
+from deep.ai.assistant import DeepAI
 
 
 import contextlib
@@ -33,7 +33,7 @@ def hyper_repo(tmp_path):
 
 
 def test_predict_push_basic(hyper_repo):
-    ai = DeepGitAI(hyper_repo)
+    ai = DeepAI(hyper_repo)
     
     with chdir(hyper_repo):
         # Create initial commit on main
@@ -74,7 +74,7 @@ def test_cross_repo_detection(tmp_path):
     (repo1 / "requirements.txt").write_text("pytest\n")
     (repo2 / "requirements.txt").write_text("pytest\n")
     
-    ai = DeepGitAI(repo1)
+    ai = DeepAI(repo1)
     result = ai.cross_repo_analysis()
     
     assert "Detected" in result.text
@@ -84,7 +84,7 @@ def test_cross_repo_detection(tmp_path):
 
 
 def test_predict_push_conflict_simulation(hyper_repo):
-    ai = DeepGitAI(hyper_repo)
+    ai = DeepAI(hyper_repo)
     
     with chdir(hyper_repo):
         # 1. Base commit

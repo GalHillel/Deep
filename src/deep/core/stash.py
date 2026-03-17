@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sys
 import time
+import hashlib
 from pathlib import Path
 from typing import Optional
 
@@ -123,9 +124,10 @@ def save_stash(repo_root: Path) -> Optional[str]:
                     aw.write(blob.data)
                 stat = p.stat()
                 new_index.entries[e.name] = DeepIndexEntry(
-                    sha=e.sha,
+                    path_hash=hashlib.sha1(e.name.encode()).hexdigest(),
+                    content_hash=e.sha,
                     size=stat.st_size,
-                    mtime=stat.st_mtime,
+                    mtime_ns=stat.st_mtime_ns,
                 )
         write_index(dg_dir, new_index)
 
@@ -173,7 +175,7 @@ def pop_stash(repo_root: Path) -> bool:
             "Please commit or stash them."
         )
 
-    merged_entries, conflicts = three_way_merge(
+    merged_tree_sha, conflicts = three_way_merge(
         objects_dir, base_tree_sha, curr_tree_sha, stash_commit.tree_sha
     )
 
@@ -187,25 +189,48 @@ def pop_stash(repo_root: Path) -> bool:
         if full.exists():
             full.unlink()
 
+    # Read the merged tree to get entries
+    merged_tree = read_object(objects_dir, merged_tree_sha)
+    assert isinstance(merged_tree, Tree)
+
     new_index = DeepIndex()
-    for entry in merged_entries:
+    for entry in merged_tree.entries:
         name = entry.name
         sha = entry.sha
         if sha is None:
             continue
-        blob = read_object(objects_dir, sha)
-        assert isinstance(blob, Blob)
-        p = repo_root / name
-        p.parent.mkdir(parents=True, exist_ok=True)
-        with AtomicWriter(p, mode="wb") as aw:
-            aw.write(blob.data)
-        
-        stat = p.stat()
-        new_index.entries[name] = DeepIndexEntry(
-            sha=sha,
-            size=stat.st_size,
-            mtime=stat.st_mtime,
-        )
+        obj = read_object(objects_dir, sha)
+        if isinstance(obj, Blob):
+            p = repo_root / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with AtomicWriter(p, mode="wb") as aw:
+                aw.write(obj.data)
+            
+            stat = p.stat()
+            new_index.entries[name] = DeepIndexEntry(
+                path_hash=hashlib.sha1(name.encode()).hexdigest(),
+                content_hash=sha,
+                size=stat.st_size,
+                mtime_ns=stat.st_mtime_ns,
+            )
+        elif isinstance(obj, Tree):
+            # Handle subtrees by flattening
+            from deep.commands.merge_cmd import _get_tree_files
+            sub_files = _get_tree_files(objects_dir, sha, prefix=name)
+            for sub_path, sub_sha in sub_files.items():
+                sub_blob = read_object(objects_dir, sub_sha)
+                if isinstance(sub_blob, Blob):
+                    p = repo_root / sub_path
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    with AtomicWriter(p, mode="wb") as aw:
+                        aw.write(sub_blob.data)
+                    stat = p.stat()
+                    new_index.entries[sub_path] = DeepIndexEntry(
+                        path_hash=hashlib.sha1(sub_path.encode()).hexdigest(),
+                        content_hash=sub_sha,
+                        size=stat.st_size,
+                        mtime_ns=stat.st_mtime_ns,
+                    )
 
     write_index(dg_dir, new_index)
 

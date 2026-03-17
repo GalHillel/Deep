@@ -1,7 +1,7 @@
 """
 deep.commands.debug_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Debug tooling for inspecting internal DeepGit state.
+Debug tooling for inspecting internal Deep state.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ def run_debug_tree(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -27,7 +27,7 @@ def run_debug_tree(args) -> None:
     if not sha:
         sha = resolve_head(dg_dir)
         if not sha:
-            print("DeepGit: error: HEAD is not set", file=sys.stderr)
+            print("Deep: error: HEAD is not set", file=sys.stderr)
             sys.exit(1)
         
         # If HEAD is a commit, get its tree

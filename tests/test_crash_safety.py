@@ -1,7 +1,7 @@
 """
 tests.test_crash_safety
 ~~~~~~~~~~~~~~~~~~~~~~~~
-Verify that DeepGit can recover from crashes using the Transaction Log (WAL).
+Verify that Deep can recover from crashes using the Transaction Log (WAL).
 """
 
 import json

@@ -30,7 +30,7 @@ def encode_pkt(data: bytes) -> bytes:
     if not data:
         return FLUSH_PKT
     
-    # Git format: 4 hex digits for total length (including length itself)
+    # Deep format: 4 hex digits for total length (including length itself)
     # Max size 65520 (65535 - 15)
     total_len = len(data) + 4
     if total_len > 65535:
@@ -67,7 +67,7 @@ def decode_pkt(stream: BinaryIO) -> Optional[bytes]:
         raise ValueError(f"Malformed PKT-LINE header: {header!r}")
     
     if total_len == 0:
-        return None # Alternative flush? Git standard uses 0000
+        return None # Alternative flush? Deep standard uses 0000
     
     if total_len < 4:
         raise ValueError(f"Invalid PKT-LINE length: {total_len}")

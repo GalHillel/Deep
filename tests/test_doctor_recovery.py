@@ -11,10 +11,10 @@ from deep.core.repository import DEEP_DIR
 def recovery_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     (tmp_path / "a.txt").write_text("hello")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "a.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "a.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path, env
 
 
@@ -25,7 +25,7 @@ def test_doctor_detects_txlog_issues(recovery_repo):
     txlog.begin("commit", "orphan tx")
     # Doctor should detect
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "doctor"],
+        [sys.executable, "-m", "deep.cli.main", "doctor"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     # Doctor should still succeed (it checks objects/refs, txlog is extra)
@@ -59,7 +59,7 @@ def test_recovery_preserves_committed_tx(recovery_repo):
 def test_doctor_runs_clean_after_recovery(recovery_repo):
     repo, env = recovery_repo
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "doctor"],
+        [sys.executable, "-m", "deep.cli.main", "doctor"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0

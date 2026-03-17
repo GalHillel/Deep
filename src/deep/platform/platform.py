@@ -1,7 +1,7 @@
 """
 deep.core.platform
 ~~~~~~~~~~~~~~~~~~~~~~
-Platform-level logic for managing multiple repositories on a DeepGit server.
+Platform-level logic for managing multiple repositories on a Deep server.
 """
 
 from __future__ import annotations

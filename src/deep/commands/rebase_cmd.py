@@ -29,7 +29,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -39,7 +39,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     # Resolve head and target branch
     head_sha = resolve_head(dg_dir)
     if not head_sha:
-        print("DeepGit: error: no commits on current branch.", file=sys.stderr)
+        print("Deep: error: no commits on current branch.", file=sys.stderr)
         sys.exit(1)
 
     target_sha = get_branch(dg_dir, target_branch)
@@ -47,7 +47,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         # Try resolving as SHA directly
         target_sha = target_branch if len(target_branch) == 40 else ""
         if not target_sha:
-            print(f"DeepGit: error: branch or SHA '{target_branch}' not found.", file=sys.stderr)
+            print(f"Deep: error: branch or SHA '{target_branch}' not found.", file=sys.stderr)
             sys.exit(1)
 
     if head_sha == target_sha:
@@ -57,7 +57,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     from deep.core.status import compute_status
     status = compute_status(repo_root)
     if status.staged_new or status.staged_modified or status.staged_deleted or status.modified or status.deleted:
-        print("DeepGit: error: working directory not clean.", file=sys.stderr)
+        print("Deep: error: working directory not clean.", file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -108,4 +108,4 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     write_index(dg_dir, new_index)
     
     if lca != head_sha:
-        print(f"DeepGit: Successfully rebased and updated {curr_branch or 'HEAD'}.")
+        print(f"Deep: Successfully rebased and updated {curr_branch or 'HEAD'}.")

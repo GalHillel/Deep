@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from deep.core.repository import DEEP_DIR, find_repo, init_repo
-from deep.storage.index import Index
+from deep.storage.index import DeepIndex
 
 
 class TestInitRepo:

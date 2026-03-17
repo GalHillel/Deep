@@ -4,10 +4,10 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo, DEEP_DIR
 from deep.storage.objects import Blob, write_object
 from deep.core.maintenance import run_maintenance, count_loose_objects, MAINTENANCE_LOG
-from deep.storage.commit_graph import COMMIT_GRAPH_FILE
+from deep.storage.commit_graph import HISTORY_GRAPH_FILE
 
 class TestMaintenance(unittest.TestCase):
     def setUp(self):
@@ -54,7 +54,7 @@ class TestMaintenance(unittest.TestCase):
         # Wait, I should make them reachable if I want to test repacking.
         
         # Let's verify commit-graph exists at least
-        self.assertTrue((self.dg_dir / COMMIT_GRAPH_FILE).exists())
+        self.assertTrue((self.dg_dir / HISTORY_GRAPH_FILE).exists())
         self.assertTrue((self.dg_dir / MAINTENANCE_LOG).exists())
         
         # Verify bitmaps (at least one pack should have them)

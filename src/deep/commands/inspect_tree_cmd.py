@@ -14,7 +14,7 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -24,7 +24,7 @@ def run(args) -> None:
     try:
         obj = read_object(objects_dir, sha)
         if not isinstance(obj, Tree):
-            print(f"DeepGit: error: Object {sha} is not a tree ({obj.OBJ_TYPE})", file=sys.stderr)
+            print(f"Deep: error: Object {sha} is not a tree ({obj.OBJ_TYPE})", file=sys.stderr)
             sys.exit(1)
         
         print(f"Tree {sha}:")

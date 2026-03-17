@@ -11,10 +11,10 @@ from deep.core.repository import DEEP_DIR
 def sync_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     (tmp_path / "a.txt").write_text("hi")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "a.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "a.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path
 
 

@@ -51,7 +51,8 @@ def test_gc_collects_orphan(repo_with_orphan: tuple[Path, str], capsys: pytest.C
     objects_dir = dg_dir / "objects"
     
     # Verify orphan object exists
-    orphan_path = objects_dir / orphan_sha[:2] / orphan_sha[2:]
+    from deep.storage.objects import _object_path
+    orphan_path = _object_path(objects_dir, orphan_sha)
     assert orphan_path.exists()
     
     # Run GC
@@ -75,7 +76,8 @@ def test_gc_dry_run(repo_with_orphan: tuple[Path, str], capsys: pytest.CaptureFi
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
-    orphan_path = objects_dir / orphan_sha[:2] / orphan_sha[2:]
+    from deep.storage.objects import _object_path
+    orphan_path = _object_path(objects_dir, orphan_sha)
     assert orphan_path.exists()
     
     # Run GC Dry Run

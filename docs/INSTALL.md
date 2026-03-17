@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide provides comprehensive instructions for installing and uninstalling DeepGit on various platforms.
+This guide provides comprehensive instructions for installing and uninstalling Deep on various platforms.
 
 ## Prerequisites
 
@@ -13,8 +13,8 @@ For most users, installing from the source repository in editable mode is the re
 
 1.  **Clone the Repository**:
     ```bash
-    git clone https://github.com/yourusername/DeepGit.git
-    cd DeepGit
+    git clone https://github.com/yourusername/Deep.git
+    cd Deep
     ```
 
 2.  **Install the Package**:
@@ -30,7 +30,7 @@ For most users, installing from the source repository in editable mode is the re
 ## Installation Options
 
 ### 1. Developer (Editable) Mode
-This is useful if you plan to contribute to DeepGit or want to test the latest changes.
+This is useful if you plan to contribute to Deep or want to test the latest changes.
 ```bash
 pip install -e .
 ```
@@ -43,7 +43,7 @@ pip install .
 
 ## Uninstallation
 
-To completely remove DeepGit from your system:
+To completely remove Deep from your system:
 
 1.  **Uninstall via Pip**:
     ```bash

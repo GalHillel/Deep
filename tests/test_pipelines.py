@@ -11,12 +11,12 @@ from deep.core.pipeline import PipelineRunner, PipelineRun, PipelineJob
 def pipeline_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     
     # Create an initial commit
     (tmp_path / "a.txt").write_text("hello")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "a.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "initial"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "a.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "initial"], cwd=tmp_path, env=env, check=True)
     
     # Create pipeline config
     config = [
@@ -60,12 +60,12 @@ def test_pipeline_cli_list(pipeline_repo):
     repo, env = pipeline_repo
     # Trigger a run via CLI
     subprocess.run(
-        [sys.executable, "-m", "deep.main", "pipeline", "run"],
+        [sys.executable, "-m", "deep.cli.main", "pipeline", "run"],
         cwd=repo, env=env, check=True
     )
     
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "pipeline", "list"],
+        [sys.executable, "-m", "deep.cli.main", "pipeline", "list"],
         cwd=repo, env=env, capture_output=True, text=True, check=True
     )
     assert "run_" in result.stdout
@@ -75,20 +75,20 @@ def test_pipeline_cli_status(pipeline_repo):
     repo, env = pipeline_repo
     # Trigger a run
     subprocess.run(
-        [sys.executable, "-m", "deep.main", "pipeline", "run"],
+        [sys.executable, "-m", "deep.cli.main", "pipeline", "run"],
         cwd=repo, env=env, check=True
     )
     
     # Get run ID from list
     list_res = subprocess.run(
-        [sys.executable, "-m", "deep.main", "pipeline", "list"],
+        [sys.executable, "-m", "deep.cli.main", "pipeline", "list"],
         cwd=repo, env=env, capture_output=True, text=True, check=True
     )
     run_id = list_res.stdout.splitlines()[2].split()[0]
     
     # Check status
     status_res = subprocess.run(
-        [sys.executable, "-m", "deep.main", "pipeline", "status", run_id],
+        [sys.executable, "-m", "deep.cli.main", "pipeline", "status", run_id],
         cwd=repo, env=env, capture_output=True, text=True, check=True
     )
     assert run_id in status_res.stdout

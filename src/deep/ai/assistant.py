@@ -1,7 +1,7 @@
 """
 deep.ai.assistant
 ~~~~~~~~~~~~~~~~~~~~~
-Embedded AI Assistant for DeepGit.
+Embedded AI Assistant for Deep.
 
 Provides intelligent suggestions for commit messages, code quality,
 merge conflict resolution, and branch naming using rule-based heuristics.
@@ -38,13 +38,13 @@ class AISuggestion:
     latency_ms: float = 0.0
 
 
-class DeepGitAI:
-    """Rule-based AI assistant for DeepGit."""
+class DeepAI:
+    """Rule-based AI assistant for Deep."""
 
     def __init__(self, repo_root: Path):
         self.repo_root = repo_root
         from deep.core.constants import DEEP_DIR
-        self.dg_dir = repo_root / (DEEP_DIR or ".deep_git")
+        self.dg_dir = repo_root / (DEEP_DIR or ".deep")
         self.metrics: dict = {
             "suggestions_made": 0,
             "avg_latency_ms": 0.0,
@@ -85,7 +85,7 @@ class DeepGitAI:
             stats.file_types[ext] = stats.file_types.get(ext, 0) + 1
             
             old_sha = head_entries.get(rel_path, "")
-            new_sha = entry.sha
+            new_sha = entry.content_hash
             
             if old_sha == new_sha:
                 continue
@@ -160,7 +160,7 @@ class DeepGitAI:
 
         for rel_path, entry in index.entries.items():
             try:
-                obj = read_object(objects_dir, entry.sha)
+                obj = read_object(objects_dir, entry.content_hash)
                 if isinstance(obj, Blob):
                     content = obj.data.decode("utf-8", errors="replace")
                     complexity = score_complexity(content)
@@ -412,7 +412,7 @@ class DeepGitAI:
         
         for rel_path, entry in index.entries.items():
             try:
-                obj = read_object(objects_dir, entry.sha)
+                obj = read_object(objects_dir, entry.content_hash)
                 if isinstance(obj, Blob):
                     content = obj.data.decode("utf-8", errors="replace")
                     changes = engine.suggest_fixes(content, rel_path)

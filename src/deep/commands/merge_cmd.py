@@ -1,7 +1,7 @@
 """
 deep.commands.merge_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DeepGit ``merge <branch>`` command implementation.
+Deep ``merge <branch>`` command implementation.
 
 Supports:
 - "Already up to date" (LCA == target)
@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+import hashlib
 from pathlib import Path
 
 from deep.storage.index import DeepIndex, DeepIndexEntry, read_index, write_index, read_index_no_lock, write_index_no_lock
@@ -116,7 +117,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -126,14 +127,14 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     # Resolve current HEAD.
     head_sha = resolve_head(dg_dir)
     if head_sha is None:
-        print("DeepGit: error: no commits on current branch.", file=sys.stderr)
+        print("Deep: error: no commits on current branch.", file=sys.stderr)
         sys.exit(1)
 
     # Resolve target branch.
     from deep.core.refs import resolve_revision
     target_sha = resolve_revision(dg_dir, target_branch)
     if target_sha is None:
-        print(f"DeepGit: error: revision '{target_branch}' not found.", file=sys.stderr)
+        print(f"Deep: error: revision '{target_branch}' not found.", file=sys.stderr)
         sys.exit(1)
 
     if head_sha == target_sha:
@@ -154,7 +155,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     try:
         repo_lock.acquire()
     except TimeoutError as e:
-        print(f"DeepGit: error: {e}", file=sys.stderr)
+        print(f"Deep: error: {e}", file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -164,7 +165,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         audit = AuditLog(dg_dir)
         
         config = Config(repo_root)
-        author_name = config.get("user.name", "DeepGit User")
+        author_name = config.get("user.name", "Deep User")
         
         with Timer(telemetry, "merge"):
             current_branch = get_current_branch(dg_dir)
@@ -191,7 +192,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
 
                     # Crash hook: after index update, before ref update
                     if os.environ.get("DEEP_CRASH_TEST") == "MERGE_FF_AFTER_INDEX_UPDATE":
-                        raise BaseException("DeepGit: simulated crash during FF merge (after index update)")
+                        raise BaseException("Deep: simulated crash during FF merge (after index update)")
 
                     if current_branch:
                         update_branch(dg_dir, current_branch, target_sha)
@@ -213,21 +214,18 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             lca_commit = read_object(objects_dir, lca_sha) if lca_sha else None
             base_tree_sha = lca_commit.tree_sha if isinstance(lca_commit, Commit) else None
 
-            merged_entries, conflicts = three_way_merge(
+            merged_tree_sha, conflicts = three_way_merge(
                 objects_dir, base_tree_sha, head_commit.tree_sha, target_commit.tree_sha,
             )
 
             if conflicts:
-                print(f"DeepGit: CONFLICT in: {', '.join(conflicts)}", file=sys.stderr)
+                print(f"Deep: CONFLICT in: {', '.join(conflicts)}", file=sys.stderr)
                 # Write conflict markers to working directory
                 for conflict_name in conflicts:
                     _write_conflict_markers(repo_root, objects_dir, conflict_name,
                                             head_commit.tree_sha, target_commit.tree_sha, base_tree_sha)
-                print("DeepGit: fix conflicts and then run 'deep commit'.", file=sys.stderr)
+                print("Deep: fix conflicts and then run 'deep commit'.", file=sys.stderr)
                 sys.exit(1)
-
-            merged_tree = Tree(entries=merged_entries)
-            merged_tree_sha = merged_tree.write(objects_dir)
 
             merge_commit = Commit(
                 tree_sha=merged_tree_sha,
@@ -249,7 +247,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             try:
                 # Crash hook
                 if os.environ.get("DEEP_CRASH_TEST") == "MERGE_BEFORE_REF_UPDATE":
-                    raise BaseException("DeepGit: simulated crash before ref update")
+                    raise BaseException("Deep: simulated crash before ref update")
 
                 target_files = _get_tree_files(objects_dir, merged_tree_sha)
                 current_index = read_index_no_lock(dg_dir)
@@ -269,7 +267,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 txlog.rollback(tx_id, str(e))
                 raise
     
-            print(f"DeepGit: merge made by 3-way merge: {merge_commit_sha[:7]}")
+            print(f"Deep: merge made by 3-way merge: {merge_commit_sha[:7]}")
 
     finally:
         repo_lock.release()
@@ -309,7 +307,7 @@ def _write_conflict_markers(
     theirs_raw = _get_raw_content(theirs_map, name)
 
     if (ours_raw and _is_binary(ours_raw)) or (theirs_raw and _is_binary(theirs_raw)):
-        print(f"DeepGit: error: cannot merge binary file {name}", file=sys.stderr)
+        print(f"Deep: error: cannot merge binary file {name}", file=sys.stderr)
         sys.exit(1)
 
     ours_content = ours_raw.decode("utf-8", errors="replace") if ours_raw else ""

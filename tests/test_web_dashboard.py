@@ -1,7 +1,7 @@
 """
 tests.test_web_dashboard
 ~~~~~~~~~~~~~~~~~~~~~~~~
-Tests for the DeepGit Web Dashboard REST API.
+Tests for the Deep Web Dashboard REST API.
 """
 
 from __future__ import annotations
@@ -37,23 +37,23 @@ def dashboard_server(tmp_path):
 
     # Init repo and make some commits
     subprocess.run(
-        [sys.executable, "-m", "deep.main", "init"],
+        [sys.executable, "-m", "deep.cli.main", "init"],
         cwd=repo_root, env=env, check=True
     )
     for i in range(3):
         (repo_root / f"file_{i}.txt").write_text(f"content {i}")
         subprocess.run(
-            [sys.executable, "-m", "deep.main", "add", f"file_{i}.txt"],
+            [sys.executable, "-m", "deep.cli.main", "add", f"file_{i}.txt"],
             cwd=repo_root, env=env, check=True
         )
         subprocess.run(
-            [sys.executable, "-m", "deep.main", "commit", "-m", f"commit {i}"],
+            [sys.executable, "-m", "deep.cli.main", "commit", "-m", f"commit {i}"],
             cwd=repo_root, env=env, check=True
         )
 
     port = get_free_port()
     proc = subprocess.Popen(
-        [sys.executable, "-m", "deep.main", "web", "--port", str(port)],
+        [sys.executable, "-m", "deep.cli.main", "web", "--port", str(port)],
         cwd=repo_root, env=env,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
@@ -70,7 +70,7 @@ def test_dashboard_index(dashboard_server):
     resp = urlopen(f"http://127.0.0.1:{port}/")
     assert resp.status == 200
     body = resp.read().decode()
-    assert "DeepGit" in body
+    assert "Deep" in body
     assert "<canvas" in body or "dag" in body.lower()
 
 
@@ -129,7 +129,7 @@ def test_api_multi_repo(dashboard_server):
     sibling.mkdir()
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=sibling, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=sibling, env=env, check=True)
     
     resp = urlopen(f"http://127.0.0.1:{port}/api/multi-repo")
     data = json.loads(resp.read())

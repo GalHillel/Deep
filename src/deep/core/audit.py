@@ -31,7 +31,7 @@ class AuditEntry:
 
 
 class AuditLog:
-    """Append-only audit log stored at .deep_git/audit.log.
+    """Append-only audit log stored at .deep/audit.log.
 
     GOD MODE: Each entry is hash-chained using SHA-256 for tamper detection.
     """

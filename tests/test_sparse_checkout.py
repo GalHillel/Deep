@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from deep.core.repository import init_repo, checkout
 from deep.storage.objects import Blob, write_object
-from deep.storage.index import Index, IndexEntry, write_index
+from deep.storage.index import DeepIndex, DeepIndexEntry, write_index
 from deep.core.status import compute_status
 
 class TestSparseCheckout(unittest.TestCase):

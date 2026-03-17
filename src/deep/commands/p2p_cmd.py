@@ -8,7 +8,7 @@ from pathlib import Path
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.network.p2p import P2PEngine
-from deep.network.daemon import DeepGitDaemon
+from deep.network.daemon import DeepDaemon
 
 
 def run(args) -> None:
@@ -16,7 +16,7 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -27,7 +27,7 @@ def run(args) -> None:
         print(f"📡 Starting P2P node '{socket.gethostname()}' on port {port}...")
         
         # Start a local daemon so others can pull from us
-        daemon = DeepGitDaemon(repo_root, port=port)
+        daemon = DeepDaemon(repo_root, port=port)
         
         def run_daemon():
             asyncio.run(daemon.start())

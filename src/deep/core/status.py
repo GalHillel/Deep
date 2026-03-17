@@ -73,11 +73,11 @@ def _get_head_tree_entries(dg_dir: Path) -> Dict[str, str]:
 def _walk_working_dir(repo_root: Path) -> Set[str]:
     """Return a set of relative POSIX paths for every file in the working tree.
 
-    Skips the ``.deep_git`` directory.
+    Skips the ``.deep`` directory.
     """
     files: set[str] = set()
     for dirpath, dirnames, filenames in os.walk(repo_root):
-        # Skip .deep_git and hidden dirs.
+        # Skip .deep and hidden dirs.
         dirnames[:] = [ # type: ignore
             d for d in dirnames
             if d != DEEP_DIR and not d.startswith(".")
@@ -100,7 +100,7 @@ def _blob_sha_for_file(file_path: Path) -> str:
 
 from concurrent.futures import ThreadPoolExecutor
 
-def _check_file_status(repo_root: Path, path: str, index_sha: str, index_mtime: float, index_size: int) -> tuple[str, bool]:
+def _check_file_status(repo_root: Path, path: str, index_sha: str, index_mtime_ns: int, index_size: int) -> tuple[str, bool]:
     """Check if a file is modified. Returns (path, is_modified)."""
     full_path = repo_root / path
     if not full_path.exists():
@@ -109,7 +109,7 @@ def _check_file_status(repo_root: Path, path: str, index_sha: str, index_mtime: 
     try:
         stat = full_path.stat()
         # Optimization: Skip hashing if mtime and size haven't changed
-        if stat.st_mtime == index_mtime and stat.st_size == index_size:
+        if stat.st_mtime_ns == index_mtime_ns and stat.st_size == index_size:
             return path, False
         
         # Hash check
@@ -146,7 +146,7 @@ def compute_status(repo_root: Path, index: Optional[DeepIndex] = None) -> Status
     for path in all_paths:
         if path in index.entries and path in working_files:
             entry = index.entries[path]
-            to_check.append((path, entry.sha, entry.mtime, entry.size))
+            to_check.append((path, entry.content_hash, entry.mtime_ns, entry.size))
 
     modified_paths = set()
     if to_check:
@@ -166,7 +166,7 @@ def compute_status(repo_root: Path, index: Optional[DeepIndex] = None) -> Status
         # --- Staged changes (DeepIndex vs HEAD) ---
         if in_index and not in_head:
             result.staged_new.append(path)
-        elif in_index and in_head and index.entries[path].sha != head_entries[path]:
+        elif in_index and in_head and index.entries[path].content_hash != head_entries[path]:
             result.staged_modified.append(path)
         elif not in_index and in_head:
             result.staged_deleted.append(path)

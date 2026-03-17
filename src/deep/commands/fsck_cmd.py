@@ -40,7 +40,7 @@ def run(args):
     console = Console()
     repo_root = find_repo(Path.cwd())
     if not repo_root:
-        console.print("[red]DeepGit: error: not a DeepGit repository[/red]")
+        console.print("[red]Deep: error: not a Deep repository[/red]")
         return
     
     dg_dir = repo_root / DEEP_DIR

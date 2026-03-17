@@ -29,7 +29,7 @@ class TestHashBytes:
         assert hash_bytes(data) == hashlib.sha1(data).hexdigest()
 
     def test_deterministic(self) -> None:
-        data = b"deep git rocks"
+        data = b"deep deep rocks"
         assert hash_bytes(data) == hash_bytes(data)
 
     def test_different_inputs_differ(self) -> None:

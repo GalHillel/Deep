@@ -20,7 +20,7 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError:
-        print("DeepGit: error: Not a DeepGit repository.", file=sys.stderr)
+        print("Deep: error: Not a Deep repository.", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -58,5 +58,5 @@ def run(args) -> None:
             pr = manager.merge_pr(pr_id)
             print(Color.wrap(Color.PURPLE, f"Pull Request #{pr.id} merged successfully!"))
         except ValueError as e:
-            print(f"DeepGit: error: {e}", file=sys.stderr)
+            print(f"Deep: error: {e}", file=sys.stderr)
             sys.exit(1)

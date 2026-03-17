@@ -4,7 +4,8 @@ import shutil
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from deep.core.repository import init_repo, set_config
+from deep.core.repository import init_repo
+from deep.core.config import set_config
 from deep.storage.objects import Blob, write_object, read_object, _object_path
 from deep.network.client import RemoteClient
 

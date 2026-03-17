@@ -1,7 +1,7 @@
 """
 tests.test_index_concurrency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Concurrency stress tests for :mod:`deep.core.index`.
+Concurrency stress tests for :mod:`deep.storage.index`.
 
 Spawns 20 threads that simultaneously update the index and verifies no data
 corruption occurs.
@@ -15,14 +15,22 @@ from pathlib import Path
 import pytest
 
 from deep.storage.index import (
-    Index,
-    IndexEntry,
+    DeepIndex,
+    DeepDeepIndexEntry,
     read_index,
-    remove_index_entry,
-    update_index_entry,
-    write_index,
+    read_index_no_lock,
+    remove_from_index,
+    add_to_index,
+    write_index_no_lock,
 )
 from deep.core.repository import init_repo
+
+
+def _update_index_entry(dg_dir: Path, key: str, sha: str, size: int, mtime: float) -> None:
+    """Helper: add a single entry to the index using the DEEP-native API."""
+    import hashlib
+    mtime_ns = int(mtime * 1e9)
+    add_to_index(dg_dir, key, sha, size, mtime_ns)
 
 
 class TestIndexBasic:
@@ -35,38 +43,46 @@ class TestIndexBasic:
 
     def test_add_and_read_entry(self, tmp_path: Path) -> None:
         dg = init_repo(tmp_path)
-        update_index_entry(dg, "hello.txt", sha="ab" * 20, size=5, mtime=1.0)
+        _update_index_entry(dg, "hello.txt", sha="ab" * 20, size=5, mtime=1.0)
         idx = read_index(dg)
         assert "hello.txt" in idx.entries
-        assert idx.entries["hello.txt"].sha == "ab" * 20
+        assert idx.entries["hello.txt"].content_hash == "ab" * 20
         assert idx.entries["hello.txt"].size == 5
 
     def test_remove_entry(self, tmp_path: Path) -> None:
         dg = init_repo(tmp_path)
-        update_index_entry(dg, "a.txt", sha="aa" * 20, size=1, mtime=0.0)
-        remove_index_entry(dg, "a.txt")
+        add_to_index(dg, "a.txt", "1234", 100, 500)
+        remove_from_index(dg, "a.txt")
         idx = read_index(dg)
         assert "a.txt" not in idx.entries
 
-    def test_remove_missing_raises(self, tmp_path: Path) -> None:
+    def test_remove_missing_no_error(self, tmp_path: Path) -> None:
+        """Removing a non-existent entry is a no-op (not an error)."""
         dg = init_repo(tmp_path)
-        with pytest.raises(KeyError):
-            remove_index_entry(dg, "nope.txt")
+        # Should not raise — remove_from_index silently ignores missing keys
+        remove_from_index(dg, "nope.txt")
 
-    def test_json_round_trip(self) -> None:
-        idx = Index(entries={
-            "foo.py": IndexEntry(sha="ab" * 20, size=100, mtime=12345.0),
+    def test_binary_round_trip(self) -> None:
+        """Test that DeepIndex binary serialization round-trips correctly."""
+        import hashlib
+        idx = DeepIndex(entries={
+            "foo.py": DeepDeepIndexEntry(
+                path_hash=hashlib.sha1(b"foo.py").hexdigest(),
+                mtime_ns=12345000000000,
+                size=100,
+                content_hash="ab" * 20,
+            ),
         })
-        text = idx.to_json()
-        loaded = Index.from_json(text)
-        assert loaded.entries["foo.py"].sha == "ab" * 20
+        data = idx.to_binary()
+        loaded = DeepIndex.from_binary(data)
+        assert loaded.entries["foo.py"].content_hash == "ab" * 20
 
     def test_overwrite_entry(self, tmp_path: Path) -> None:
         dg = init_repo(tmp_path)
-        update_index_entry(dg, "f.txt", sha="aa" * 20, size=1, mtime=0.0)
-        update_index_entry(dg, "f.txt", sha="bb" * 20, size=2, mtime=1.0)
+        _update_index_entry(dg, "f.txt", sha="aa" * 20, size=1, mtime=0.0)
+        _update_index_entry(dg, "f.txt", sha="bb" * 20, size=2, mtime=1.0)
         idx = read_index(dg)
-        assert idx.entries["f.txt"].sha == "bb" * 20
+        assert idx.entries["f.txt"].content_hash == "bb" * 20
         assert idx.entries["f.txt"].size == 2
 
 
@@ -86,7 +102,7 @@ class TestIndexConcurrency:
                 barrier.wait(timeout=5)
                 key = f"file_{thread_id}.txt"
                 sha = f"{thread_id:040d}"
-                update_index_entry(dg, key, sha=sha, size=thread_id, mtime=float(thread_id))
+                _update_index_entry(dg, key, sha=sha, size=thread_id, mtime=float(thread_id))
             except Exception as exc:
                 errors.append(f"Thread {thread_id}: {exc}")
 
@@ -107,7 +123,7 @@ class TestIndexConcurrency:
         for i in range(self.NUM_THREADS):
             key = f"file_{i}.txt"
             assert key in idx.entries, f"Missing {key}"
-            assert idx.entries[key].sha == f"{i:040d}"
+            assert idx.entries[key].content_hash == f"{i:040d}"
             assert idx.entries[key].size == i
 
     def test_concurrent_mixed_operations(self, tmp_path: Path) -> None:
@@ -123,8 +139,8 @@ class TestIndexConcurrency:
                 own_key = f"own_{thread_id}.txt"
                 shared_key = "shared.txt"
                 sha = f"{thread_id:040d}"
-                update_index_entry(dg, own_key, sha=sha, size=thread_id, mtime=0.0)
-                update_index_entry(dg, shared_key, sha=sha, size=thread_id, mtime=0.0)
+                _update_index_entry(dg, own_key, sha=sha, size=thread_id, mtime=0.0)
+                _update_index_entry(dg, shared_key, sha=sha, size=thread_id, mtime=0.0)
             except Exception as exc:
                 errors.append(f"Thread {thread_id}: {exc}")
 

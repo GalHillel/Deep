@@ -4,12 +4,12 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo, DEEP_DIR
 from deep.storage.objects import Commit, Tree, TreeEntry, Blob, write_object
 from deep.core.graph import get_history_graph
-from deep.storage.commit_graph import write_repository_commit_graph, CommitGraph
+from deep.storage.commit_graph import build_history_graph, DeepHistoryGraph
 
-class TestCommitGraph(unittest.TestCase):
+class TestDeepHistoryGraph(unittest.TestCase):
     def setUp(self):
         self.test_dir = Path(tempfile.mkdtemp())
         self.repo_path = self.test_dir / "repo"
@@ -37,7 +37,7 @@ class TestCommitGraph(unittest.TestCase):
         graph_no_index = get_history_graph(self.dg_dir, all_refs=True)
         
         # Write index
-        num = write_repository_commit_graph(self.dg_dir)
+        num = build_history_graph(self.dg_dir)
         self.assertEqual(num, 10)
         
         # Get graph WITH index
@@ -59,7 +59,7 @@ class TestCommitGraph(unittest.TestCase):
         get_history_graph(self.dg_dir, all_refs=True)
         dur_no = time.perf_counter() - start
         
-        write_repository_commit_graph(self.dg_dir)
+        build_history_graph(self.dg_dir)
         
         # Time with index
         start = time.perf_counter()
@@ -68,7 +68,7 @@ class TestCommitGraph(unittest.TestCase):
         
         print(f"\nTraversal (100 commits): No Index={dur_no:.4f}s, With Index={dur_with:.4f}s")
         # In this small case, dur_with might be similar due to overhead, but should not be significantly worse.
-        # In real Git, the speedup is 2-10x for large repos.
+        # In real Deep, the speedup is 2-10x for large repos.
 
 if __name__ == "__main__":
     unittest.main()

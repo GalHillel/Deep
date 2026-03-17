@@ -29,7 +29,7 @@ from deep.core.constants import DEEP_DIR
 from deep.network.protocol import AsyncPktLineStream, AsyncSidebandStream, BAND_DATA, BAND_PROGRESS, BAND_ERROR
 
 
-class DeepGitDaemon:
+class DeepDaemon:
     """Async TCP server for DeepBridge remote operations."""
 
     def __init__(self, repo_root: Path, host: str = "0.0.0.0", port: int = 8888):
@@ -45,7 +45,7 @@ class DeepGitDaemon:
             self.handle_client, self.host, self.port
         )
         addr = self.server.sockets[0].getsockname()
-        print(f"DeepGit Daemon listening on {addr}")
+        print(f"Deep Daemon listening on {addr}")
         try:
             async with self.server:
                 await self.server.serve_forever()

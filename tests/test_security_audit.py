@@ -14,7 +14,7 @@ import pytest
 
 from deep.network.p2p import P2PEngine
 from deep.core.security import KeyManager, CommitSigner
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo, DEEP_DIR
 
 def test_p2p_signature_verification(tmp_path: Path):
     """Verify that P2PEngine rejects beacons with invalid or missing signatures."""
@@ -55,15 +55,15 @@ def test_p2p_signature_verification(tmp_path: Path):
 
 def test_daemon_path_traversal_prevention(tmp_path: Path):
     """Verify that the daemon rejects requests attempting to access files outside the repo."""
-    from deep.network.daemon import DeepGitDaemon
+    from deep.network.daemon import DeepDaemon
     dg = init_repo(tmp_path)
     
     # Create a file outside the repo
     outside_file = tmp_path.parent / "secret.txt"
     outside_file.write_text("sensitve data")
     
-    daemon = DeepGitDaemon(tmp_path)
-    # DeepGitDaemon doesn't have _resolve_safe_path, but it has logic in handle_client
+    daemon = DeepDaemon(tmp_path)
+    # DeepDaemon doesn't have _resolve_safe_path, but it has logic in handle_client
     # Let's test the select command logic by mocking the stream
     pass
 

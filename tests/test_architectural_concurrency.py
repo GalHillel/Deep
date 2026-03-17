@@ -14,7 +14,7 @@ import pytest
 from deep.commands.init_cmd import run as init_run
 from deep.commands.add_cmd import run as add_run
 from deep.commands.commit_cmd import run as commit_run
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 from deep.storage.objects import read_object, Commit
 
 class Args:
@@ -60,7 +60,7 @@ def test_high_concurrency_commits(tmp_path: Path):
         p.join()
         
     # Verify integrity
-    dg_dir = repo_root / DEEP_GIT_DIR
+    dg_dir = repo_root / DEEP_DIR
     from deep.core.refs import resolve_head
     head_sha = resolve_head(dg_dir)
     assert head_sha is not None

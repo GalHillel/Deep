@@ -26,7 +26,7 @@ def test_reset_crash_recovery_hard(tmp_path, monkeypatch):
     # Simulate crash before ref update
     monkeypatch.setenv("DEEP_CRASH_TEST", "RESET_BEFORE_REF_UPDATE")
     
-    with pytest.raises(BaseException, match="DeepBridge: simulated crash before ref update"):
+    with pytest.raises(BaseException, match="Deep: simulated crash before ref update"):
         main(["reset", "--hard", v1_sha])
     
     # State: HEAD is still v2, but index and WD might have been partially updated (hard reset)
@@ -59,7 +59,7 @@ def test_reset_crash_recovery_soft(tmp_path, monkeypatch):
     
     monkeypatch.setenv("DEEP_CRASH_TEST", "RESET_BEFORE_REF_UPDATE")
     
-    with pytest.raises(BaseException, match="DeepBridge: simulated crash before ref update"):
+    with pytest.raises(BaseException, match="Deep: simulated crash before ref update"):
         main(["reset", "--soft", v1_sha])
     
     assert resolve_head(dg) == v2_sha
@@ -90,7 +90,7 @@ def test_reset_crash_recovery_mixed(tmp_path, monkeypatch):
     
     monkeypatch.setenv("DEEP_CRASH_TEST", "RESET_BEFORE_REF_UPDATE")
     
-    with pytest.raises(BaseException, match="DeepBridge: simulated crash before ref update"):
+    with pytest.raises(BaseException, match="Deep: simulated crash before ref update"):
         main(["reset", v1_sha]) # Mixed is default
     
     assert resolve_head(dg) == v2_sha

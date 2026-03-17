@@ -4,7 +4,7 @@ deep.core.config
 Configuration system for DeepBridge.
 
 Hierarchy:
-1. Local: `.deep_git/config`
+1. Local: `.deep/config`
 2. Global: `~/.deepconfig`
 3. Defaults
 """
@@ -122,30 +122,31 @@ class Config:
             aw.write(buf.getvalue())
 
 def get_config(dg_dir: Path) -> dict[str, Any]:
-    """Read the repository configuration file (JSON)."""
-    config_path = dg_dir / "config"
-    if not config_path.exists():
-        return {}
-    try:
-        import json
-        return json.loads(config_path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+    """Read the repository configuration file (INI format)."""
+    # For backward compatibility with JSON-calling code, we return the 'core' section as a dict
+    config = Config(dg_dir.parent)
+    res = {}
+    if config.parser.has_section("core"):
+        res.update(dict(config.parser.items("core")))
+    # Also include other sections if they look like simple keys
+    for section in config.parser.sections():
+        if section != "core":
+            for k, v in config.parser.items(section):
+                res[f"{section}.{k}"] = v
+    return res
 
-def set_config(dg_dir: Path, config: dict[str, Any]) -> None:
-    """Write the repository configuration file (JSON)."""
-    config_path = dg_dir / "config"
-    from deep.utils.utils import AtomicWriter
-    with AtomicWriter(config_path, mode="w") as aw:
-        import json
-        json.dump(config, aw, indent=2)
+def set_config(dg_dir: Path, config_dict: dict[str, Any]) -> None:
+    """Write the repository configuration file (INI format)."""
+    config = Config(dg_dir.parent)
+    for k, v in config_dict.items():
+        config.set_local(k, str(v))
 
 def is_partial_clone(dg_dir: Path) -> bool:
     """Check if the repository is a partial clone (has a promisor remote)."""
-    config = get_config(dg_dir)
-    return "promisor" in config
+    config = Config(dg_dir.parent)
+    return config.get("core.promisor") is not None or config.get("promisor") is not None
 
 def get_promisor_remote(dg_dir: Path) -> Optional[str]:
     """Get the URL of the promisor remote if configured."""
-    config = get_config(dg_dir)
-    return config.get("promisor")
+    config = Config(dg_dir.parent)
+    return config.get("core.promisor") or config.get("promisor")

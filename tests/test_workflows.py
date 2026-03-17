@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from deep.core.repository import init_repo, find_repo
 from deep.commands import add_cmd, commit_cmd, checkout_cmd, merge_cmd, reset_cmd, status_cmd
-from deep.storage.index import read_index, Index, IndexEntry
+from deep.storage.index import read_index, DeepIndex, DeepIndexEntry
 from deep.core.status import compute_status
 from deep.core.refs import resolve_head, update_branch, get_current_branch
 

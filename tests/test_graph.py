@@ -18,7 +18,7 @@ def run_deep(cwd: Path, *args: str) -> str:
     env["PYTHONPATH"] = str(Path(__file__).parent.parent)
     try:
         res = subprocess.run(
-            [sys.executable, "-m", "deep.main", *args],
+            [sys.executable, "-m", "deep.cli.main", *args],
             cwd=cwd,
             capture_output=True,
             text=True,

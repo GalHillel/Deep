@@ -1,8 +1,8 @@
 """
 deep.core.access
 ~~~~~~~~~~~~~~~~~~~~
-RBAC (Role-Based Access Control) for DeepGit platform.
-Permissions are stored in .deep_git/permissions.json
+RBAC (Role-Based Access Control) for Deep platform.
+Permissions are stored in .deep/permissions.json
 """
 
 from __future__ import annotations

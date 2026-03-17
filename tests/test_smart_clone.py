@@ -17,7 +17,7 @@ import pytest
 from deep.core.repository import DEEP_DIR
 from deep.storage.objects import read_object, Blob, Commit
 from deep.cli.main import main
-from deep.network.daemon import DeepGitDaemon
+from deep.network.daemon import DeepDaemon
 
 @pytest.fixture()
 def remote_repo(tmp_path: Path) -> Path:
@@ -44,7 +44,7 @@ def get_free_port():
 @pytest.fixture()
 def daemon(remote_repo: Path):
     port = get_free_port()
-    d = DeepGitDaemon(remote_repo, host="127.0.0.1", port=port)
+    d = DeepDaemon(remote_repo, host="127.0.0.1", port=port)
     
     import asyncio
     loop = asyncio.new_event_loop()
@@ -70,7 +70,7 @@ def daemon(remote_repo: Path):
     if not loop.is_closed():
         loop.close()
 
-def test_shallow_clone(remote_repo: Path, daemon: tuple[DeepGitDaemon, int], tmp_path: Path):
+def test_shallow_clone(remote_repo: Path, daemon: tuple[DeepDaemon, int], tmp_path: Path):
     d, port = daemon
     clone_dir = tmp_path / "shallow_clone"
     os.chdir(tmp_path)
@@ -105,7 +105,7 @@ def test_shallow_clone(remote_repo: Path, daemon: tuple[DeepGitDaemon, int], tmp
         # Shallow clone of depth 1 should NOT have the parent commit object
         assert parent_sha not in shas
 
-def test_partial_clone_blobless(remote_repo: Path, daemon: tuple[DeepGitDaemon, int], tmp_path: Path):
+def test_partial_clone_blobless(remote_repo: Path, daemon: tuple[DeepDaemon, int], tmp_path: Path):
     d, port = daemon
     clone_dir = tmp_path / "partial_clone"
     os.chdir(tmp_path)

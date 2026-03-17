@@ -2,8 +2,8 @@
 deep.core.plugin
 ~~~~~~~~~~~~~~~~~~~~
 Plugin management system.
-Allows extending DeepGit with custom subcommands and lifecycle hooks.
-Plugins are discovery from .deep_git/plugins/*.py
+Allows extending Deep with custom subcommands and lifecycle hooks.
+Plugins are discovery from .deep/plugins/*.py
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     import argparse
 
 class PluginManager:
-    """Discovers and loads DeepGit plugins."""
+    """Discovers and loads Deep plugins."""
     
     def __init__(self, dg_dir: Path):
         self.dg_dir = dg_dir
@@ -41,13 +41,13 @@ class PluginManager:
 
     def _load_plugin(self, path: Path):
         """Import a single plugin file."""
-        module_name = f"deep_git_plugin_{path.stem}"
+        module_name = f"deep_plugin_{path.stem}"
         spec = importlib.util.spec_from_file_location(module_name, path)
         if not spec or not spec.loader:
             return
 
         module = importlib.util.module_from_spec(spec)
-        # Inject 'deep_git' into the module global namespace if needed
+        # Inject 'deep' into the module global namespace if needed
         # but usually plugins just import from deep.core
         
         # Add a reference to the manager so the plugin can register itself

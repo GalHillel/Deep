@@ -85,8 +85,8 @@ class IgnoreEngine:
 
     def _load_ignores(self) -> None:
         ignore_file = self.repo_root / ".deepignore"
-        # Always ignore .deep_git
-        self.rules.append(self._compile_pattern(".deep_git/"))
+        # Always ignore .deep
+        self.rules.append(self._compile_pattern(".deep/"))
 
         if not ignore_file.exists():
             return

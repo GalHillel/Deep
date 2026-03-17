@@ -15,7 +15,7 @@ import zlib
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from deep.storage.objects import GitObject, Blob, Tree, Commit, Tag, read_object, _deserialize
+from deep.storage.objects import DeepObject, Blob, Tree, Commit, Tag, read_object, _deserialize
 from deep.storage.delta import create_delta
 
 PACK_SIGNATURE = b"PACK"
@@ -159,7 +159,7 @@ class PackReader:
             if pack_path.exists():
                 self._packs[pack_sha] = (pack_path, f)
 
-    def get_object(self, sha: str) -> Optional[GitObject]:
+    def get_object(self, sha: str) -> Optional[DeepObject]:
         for p_sha, (p_path, i_path) in self._packs.items():
             offset = self._find_offset(i_path, sha)
             if offset is not None:
@@ -196,7 +196,7 @@ class PackReader:
                 return struct.unpack(">Q", data[off_pos : off_pos + 8])[0]
         return None
 
-    def _read_at(self, pack_path: Path, offset: int) -> GitObject:
+    def _read_at(self, pack_path: Path, offset: int) -> DeepObject:
         from deep.storage.objects import Blob, Tree, Commit, Tag, DeltaObject, Chunk, ChunkedBlob
         with open(pack_path, "rb") as f:
             f.seek(offset)
@@ -250,7 +250,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from deep.utils.utils import AtomicWriter, DeepError
 
-def unpack(stream_or_data: Union[bytes, BinaryIO], objects_dir: Path) -> int:
+def unpack(stream_or_data: "Union[bytes, BinaryIO]", objects_dir: Path) -> int:
     """Extract objects from pack data and write them as loose objects.
     
     Supports both raw bytes and file-like objects for streaming.

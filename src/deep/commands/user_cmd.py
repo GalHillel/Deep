@@ -21,7 +21,7 @@ def run(args) -> None:
     except FileNotFoundError:
         # Allow global user management if no repo found? 
         # For now, let's assume it's per-server (repo root).
-        print("DeepGit: error: Not a DeepGit repository (or parent).", file=sys.stderr)
+        print("Deep: error: Not a Deep repository (or parent).", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -35,7 +35,7 @@ def run(args) -> None:
             print(Color.wrap(Color.GREEN, f"User '{user.username}' added successfully."))
             print(f"Auth Token: {user.token} (Keep this secret!)")
         except ValueError as e:
-            print(f"DeepGit: error: {e}", file=sys.stderr)
+            print(f"Deep: error: {e}", file=sys.stderr)
             sys.exit(1)
             
     elif cmd == "remove":
@@ -43,7 +43,7 @@ def run(args) -> None:
             manager.remove_user(args.username)
             print(Color.wrap(Color.YELLOW, f"User '{args.username}' removed."))
         except ValueError as e:
-            print(f"DeepGit: error: {e}", file=sys.stderr)
+            print(f"Deep: error: {e}", file=sys.stderr)
             sys.exit(1)
             
     elif cmd == "list":

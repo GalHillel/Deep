@@ -22,7 +22,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -37,7 +37,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     # Find target commit
     target_sha = resolve_head(dg_dir)
     if not target_sha:
-        print("DeepGit: error: no commits to tag", file=sys.stderr)
+        print("Deep: error: no commits to tag", file=sys.stderr)
         sys.exit(1)
 
     tag_name = args.name
@@ -45,7 +45,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     if args.message:
         # Annotated tag
         config = Config(repo_root)
-        author_name = config.get("user.name", "DeepGit User")
+        author_name = config.get("user.name", "Deep User")
         author_email = config.get("user.email", "user@deep")
         tagger_str = f"{author_name} <{author_email}>"
 
@@ -62,12 +62,12 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         try:
             create_tag(dg_dir, tag_name, tag_sha)
         except FileExistsError as e:
-            print(f"DeepGit: error: {e}", file=sys.stderr)
+            print(f"Deep: error: {e}", file=sys.stderr)
             sys.exit(1)
     else:
         # Lightweight tag
         try:
             create_tag(dg_dir, tag_name, target_sha)
         except FileExistsError as e:
-            print(f"DeepGit: error: {e}", file=sys.stderr)
+            print(f"Deep: error: {e}", file=sys.stderr)
             sys.exit(1)

@@ -1,7 +1,7 @@
 """
 deep.commands.init_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DeepGit ``init`` command implementation.
+Deep ``init`` command implementation.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     path = Path(args.path) if args.path else Path.cwd()
     try:
         dg = init_repo(path)
-        print(f"DeepGit: initialized empty repository in {dg}")
+        print(f"Deep: initialized empty repository in {dg}")
     except FileExistsError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)

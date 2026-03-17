@@ -23,13 +23,13 @@ def run(args) -> None:
     """Execute the ``batch`` command."""
     script_path = Path(args.script)
     if not script_path.exists():
-        print(f"DeepGit: error: Script '{script_path}' not found", file=sys.stderr)
+        print(f"Deep: error: Script '{script_path}' not found", file=sys.stderr)
         sys.exit(1)
 
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR

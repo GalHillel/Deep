@@ -21,7 +21,7 @@ def run_maintenance(repo_root: Path, force: bool = False):
     
     # 1. Commit Graph
     print("DeepBridge: Updating commit-graph...")
-    cg.write_repository_commit_graph(dg_dir)
+    cg.build_history_graph(dg_dir)
     
     # 2. Repack if too many loose objects
     if force or count_loose_objects(dg_dir) > 100:

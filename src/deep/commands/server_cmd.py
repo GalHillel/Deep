@@ -2,7 +2,7 @@
 deep.commands.server_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep server`` command implementation.
-The DeepGit Platform Server - handles Git protocol, REST API, and Web UI.
+The Deep Platform Server - handles Deep protocol, REST API, and Web UI.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 from deep.core.repository import find_repo, DEEP_DIR
-from deep.network.daemon import DeepGitDaemon
+from deep.network.daemon import DeepDaemon
 from deep.web.dashboard import DashboardHandler
 from deep.utils.ux import Color
 from deep.core.mirror import MirrorManager
@@ -28,7 +28,7 @@ def run_web_server(repo_root: Path, host: str, port: int):
     DashboardHandler.repo_root = repo_root
     
     httpd = HTTPServer((host, port), DashboardHandler)
-    print(Color.wrap(Color.CYAN, f"DeepGit Web UI running at http://{host}:{port}"))
+    print(Color.wrap(Color.CYAN, f"Deep Web UI running at http://{host}:{port}"))
     httpd.serve_forever()
 
 def run_mirror_sync(repo_root: Path):
@@ -48,12 +48,12 @@ def run_mirror_sync(repo_root: Path):
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     host = getattr(args, "host", "127.0.0.1")
     port = getattr(args, "port", 8080)
-    git_port = port + 10 # Default git daemon port is offset
+    git_port = port + 10 # Default deep daemon port is offset
 
     # Start the Web UI + REST API in a background thread
     web_thread = threading.Thread(target=run_web_server, args=(repo_root, host, port), daemon=True)
@@ -63,12 +63,12 @@ def run_mirror_sync(repo_root: Path):
     mirror_thread = threading.Thread(target=run_mirror_sync, args=(repo_root,), daemon=True)
     mirror_thread.start()
     
-    # Start the Git protocol daemon in the main loop
-    daemon = DeepGitDaemon(repo_root, host=host, port=git_port)
+    # Start the Deep protocol daemon in the main loop
+    daemon = DeepDaemon(repo_root, host=host, port=git_port)
     
-    print(Color.wrap(Color.GREEN, f"DeepGit Platform Server starting on host {host}..."))
+    print(Color.wrap(Color.GREEN, f"Deep Platform Server starting on host {host}..."))
     print(Color.wrap(Color.DIM, f"  Web/API: http://{host}:{port}"))
-    print(Color.wrap(Color.DIM, f"  Git:     deep://{host}:{git_port}"))
+    print(Color.wrap(Color.DIM, f"  Deep:     deep://{host}:{git_port}"))
     
     try:
         asyncio.run(daemon.start())

@@ -16,7 +16,7 @@ import time
 from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object, write_object
 from deep.core.refs import resolve_head
 from deep.utils.utils import hash_bytes
-from deep.storage.commit_graph import CommitGraph
+from deep.storage.commit_graph import DeepHistoryGraph
 
 def find_all_lcas(objects_dir: Path, sha_a: str, sha_b: str) -> list[str]:
     """Find all Lowest Common Ancestors of two commits.
@@ -31,7 +31,7 @@ def find_all_lcas(objects_dir: Path, sha_a: str, sha_b: str) -> list[str]:
     candidates = []
     
     dg_dir = objects_dir.parent
-    cg = CommitGraph(dg_dir)
+    cg = DeepHistoryGraph(dg_dir)
     use_cg = cg.load()
 
     def get_ancestors_cg(sha: str) -> set[str]:

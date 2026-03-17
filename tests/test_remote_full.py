@@ -29,7 +29,7 @@ def get_free_port():
 def run_daemon(repo_path, port):
     os.chdir(repo_path)
     # We use subprocess to avoid issues with asyncio and multiprocessing in tests
-    subprocess.run([sys.executable, "-m", "deep.main", "daemon", "--port", str(port)], timeout=30)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "daemon", "--port", str(port)], timeout=30)
 
 @pytest.fixture()
 def remote_repo(tmp_path: Path) -> Path:
@@ -44,8 +44,8 @@ def remote_repo(tmp_path: Path) -> Path:
     # Setup Authorization for tests
     from deep.core.user import UserManager
     from deep.core.access import AccessManager
-    from deep.core.repository import DEEP_GIT_DIR
-    dg_dir = remote_dir / DEEP_GIT_DIR
+    from deep.core.repository import DEEP_DIR
+    dg_dir = remote_dir / DEEP_DIR
     um = UserManager(dg_dir)
     um.add_user("anonymous", "test-key", "anon@example.com")
     am = AccessManager(dg_dir)
@@ -59,7 +59,7 @@ def test_full_remote_workflow(remote_repo: Path, tmp_path: Path) -> None:
 
     # Using a background process for daemon
     # Note: deep daemon is an infinite loop, so we'll need to kill it
-    p = subprocess.Popen([sys.executable, "-m", "deep.main", "daemon", "--port", str(port)], cwd=remote_repo)
+    p = subprocess.Popen([sys.executable, "-m", "deep.cli.main", "daemon", "--port", str(port)], cwd=remote_repo)
     time.sleep(2) # Wait for startup
 
     try:

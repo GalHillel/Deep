@@ -10,7 +10,7 @@ from deep.core.repository import DEEP_DIR
 def p2p_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path, env
 
 
@@ -35,7 +35,7 @@ def test_p2p_cli_list(p2p_repo):
     repo, env = p2p_repo
     # Just verify it doesn't crash
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "p2p", "list"],
+        [sys.executable, "-m", "deep.cli.main", "p2p", "list"],
         cwd=repo, env=env, capture_output=True, text=True, timeout=10
     )
     assert result.returncode == 0
@@ -48,11 +48,11 @@ def test_p2p_node_state_exchange(p2p_repo):
     
     # Create an initial commit
     (repo / "init.txt").write_text("initial")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "init.txt"], cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "initial"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "init.txt"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "initial"], cwd=repo, env=env, check=True)
     
     # Create a branch
-    subprocess.run([sys.executable, "-m", "deep.main", "branch", "feat-p2p"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "branch", "feat-p2p"], cwd=repo, env=env, check=True)
     
     e = P2PEngine(repo / DEEP_DIR)
     state = e._get_local_state()

@@ -2,11 +2,11 @@
 deep.core.errors
 ~~~~~~~~~~~~~~~~
 
-Standardized exception hierarchy for DeepGit.
+Standardized exception hierarchy for Deep.
 """
 
 class DeepError(Exception):
-    """Base class for all DeepGit errors."""
+    """Base class for all Deep errors."""
     def __init__(self, message: str, details: dict = None):
         super().__init__(message)
         self.details = details or {}

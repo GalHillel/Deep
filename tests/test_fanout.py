@@ -4,7 +4,7 @@ import tempfile
 import os
 from pathlib import Path
 from deep.storage.objects import Blob, write_object, read_object, walk_loose_shas
-from deep.core.repository import init_repo, DEEP_GIT_DIR
+from deep.core.repository import init_repo, DEEP_DIR
 from deep.core.maintenance import count_loose_objects
 
 class TestObjectFanout(unittest.TestCase):

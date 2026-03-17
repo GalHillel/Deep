@@ -22,14 +22,14 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     url = args.url
     # Derive name from URL
     name = url.split("/")[-1]
-    if name.endswith(".git"):
+    if name.endswith(".deep"):
         name = name[:-4]
     if ":" in name and "/" not in name:
         name = name.split(":")[-1]
     
     target_dir = Path(args.dir or name).resolve()
     if target_dir.exists() and any(target_dir.iterdir()):
-        print(f"DeepGit: error: Target directory '{target_dir}' already exists and is not empty", file=sys.stderr)
+        print(f"Deep: error: Target directory '{target_dir}' already exists and is not empty", file=sys.stderr)
         sys.exit(1)
         
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -46,7 +46,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         client = get_remote_client(url, auth_token=auth_token)
         client.connect()
         
-        print(f"DeepGit: cloning into '{target_dir}'...")
+        print(f"Deep: cloning into '{target_dir}'...")
         
         # Discovery
         refs = client.ls_refs()
@@ -56,7 +56,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             if refs:
                 main_sha = list(refs.values())[0]
             else:
-                print("DeepGit: error: Remote repository is empty or has no branches", file=sys.stderr)
+                print("Deep: error: Remote repository is empty or has no branches", file=sys.stderr)
                 sys.exit(1)
 
         # Fetch

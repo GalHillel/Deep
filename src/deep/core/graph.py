@@ -27,10 +27,10 @@ class GraphNode:
 
 def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: int = 100, all_refs: bool = False) -> List[GraphNode]:
     """Traverse commits and build a graph structure for rendering."""
-    from deep.storage.commit_graph import CommitGraph
+    from deep.storage.commit_graph import DeepHistoryGraph
     
     objects_dir = dg_dir / "objects"
-    cg = CommitGraph(dg_dir)
+    cg = DeepHistoryGraph(dg_dir)
     use_index = cg.load()
     
     # Identify entry points
@@ -67,7 +67,7 @@ def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: 
                     tree_sha, p_indices, gen, ts = info
                     parents = [cg._oids[pi].hex() for pi in p_indices]
                     # We still need the message for GraphNode, which isn't in the index yet.
-                    # Git's commit-graph doesn't store messages either, but we could add it.
+                    # Deep's commit-graph doesn't store messages either, but we could add it.
                     # For now, we load the object for the message.
                     try:
                         commit = read_object(objects_dir, sha)
@@ -138,3 +138,23 @@ def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: 
             continue
 
     return list(nodes.values())
+
+
+def render_graph(nodes: List[GraphNode]) -> None:
+    """Render a list of GraphNodes as a simple ASCII graph."""
+    for node in nodes:
+        decorations = []
+        if node.branches:
+            decorations.extend(node.branches)
+        if node.tags:
+            decorations.extend(f"tag: {t}" for t in node.tags)
+        
+        dec_str = f" ({', '.join(decorations)})" if decorations else ""
+        msg_first_line = node.message.split("\n")[0] if node.message else ""
+        print(f"● {node.sha[:7]}{dec_str} {msg_first_line}")
+        
+        if node.parents:
+            for p in node.parents[1:]:
+                print(f"├─ {p[:7]}")
+            print(f"│")
+

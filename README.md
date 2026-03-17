@@ -4,7 +4,7 @@ Deep is a professional, production-grade distributed version control system (DVC
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](INSTALL.md)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/GalHillel/DeepGit/graphs/commit-activity)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/GalHillel/Deep/graphs/commit-activity)
 
 ---
 
@@ -38,8 +38,8 @@ To get started immediately:
 
 ```bash
 # Clone and install in one command
-git clone https://github.com/GalHillel/DeepGit.git
-cd DeepGit && pip install -e .
+git clone https://github.com/GalHillel/Deep.git
+cd Deep && pip install -e .
 ```
 
 For detailed instructions on various platforms and uninstallation, see [INSTALL.md](INSTALL.md).

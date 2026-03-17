@@ -16,12 +16,12 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    from deep.ai.assistant import DeepGitAI
+    from deep.ai.assistant import DeepAI
 
-    ai = DeepGitAI(repo_root)
+    ai = DeepAI(repo_root)
     sub = args.ai_command if hasattr(args, "ai_command") else "suggest"
 
     if sub == "suggest":
@@ -79,7 +79,7 @@ def run(args) -> None:
         for d in result.details:
             print(f"   {d}")
     elif sub == "interactive":
-        print("🤖 DeepGit AI Interactive Mode")
+        print("🤖 Deep AI Interactive Mode")
         print("   Type 'exit' or 'quit' to leave. Ask me about your changes!")
         while True:
             try:

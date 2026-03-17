@@ -1,8 +1,8 @@
 """
 deep.core.issue
 ~~~~~~~~~~~~~~~~~~~
-Core logic for Issues in DeepGit platform.
-Issues are stored as JSON files in .deep_git/issues/<id>.json
+Core logic for Issues in Deep platform.
+Issues are stored as JSON files in .deep/issues/<id>.json
 """
 
 from __future__ import annotations

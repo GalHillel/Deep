@@ -1,6 +1,6 @@
-# Branching & Merging in DeepGit
+# Branching & Merging in Deep
 
-Branching is a core concept in DeepGit, allowing you to develop features, fix bugs, and experiment in isolation.
+Branching is a core concept in Deep, allowing you to develop features, fix bugs, and experiment in isolation.
 
 ## 1. Creating and Listing Branches
 
@@ -45,7 +45,7 @@ Once your work on a branch is complete, you'll want to integrate it back into yo
     deep merge feature-xyz
     ```
 
-DeepGit will attempt to automatically merge the histories. If there are conflicts, the system will pause and allow you to resolve them.
+Deep will attempt to automatically merge the histories. If there are conflicts, the system will pause and allow you to resolve them.
 
 ## 4. Deleting Branches
 

@@ -10,7 +10,7 @@ import hashlib
 from pathlib import Path
 
 from deep.network.protocol import encode_pkt
-from deep.core.repository import DEEP_GIT_DIR
+from deep.core.repository import DEEP_DIR
 
 def get_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -19,12 +19,19 @@ def get_free_port():
 
 @pytest.fixture
 def repo_with_subprocess_daemon(tmp_path):
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     dg_dir.mkdir(parents=True, exist_ok=True)
     (dg_dir / "objects").mkdir(parents=True, exist_ok=True)
     (dg_dir / "refs" / "heads").mkdir(parents=True, exist_ok=True)
     (dg_dir / "tmp").mkdir(parents=True, exist_ok=True)
     (dg_dir / "HEAD").write_text("ref: refs/heads/main\n")
+    
+    from deep.core.user import UserManager
+    from deep.core.access import AccessManager
+    um = UserManager(dg_dir)
+    um.add_user("anonymous", "test-key", "anon@example.com")
+    am = AccessManager(dg_dir)
+    am.set_permission("anonymous", "contributor")
     
     port = get_free_port()
     env = os.environ.copy()
@@ -33,7 +40,7 @@ def repo_with_subprocess_daemon(tmp_path):
     env["DEEP_INSECURE_SKIP_AUTH"] = "1"
     
     proc = subprocess.Popen(
-        [sys.executable, "-m", "deep.main", "daemon", "--port", str(port)],
+        [sys.executable, "-m", "deep.cli.main", "daemon", "--port", str(port)],
         cwd=str(tmp_path),
         env=env,
         stdout=subprocess.PIPE,
@@ -77,8 +84,8 @@ def test_push_arity_validation(repo_with_subprocess_daemon):
 
 def test_max_pack_size_limit(repo_with_subprocess_daemon):
     port, _ = repo_with_subprocess_daemon
-    from deep.network.daemon import DeepGitDaemon
-    oversized = DeepGitDaemon.MAX_PACK_SIZE + 1024
+    from deep.network.daemon import DeepDaemon
+    oversized = DeepDaemon.MAX_PACK_SIZE + 1024
     resps = communicate(port, [
         b"push refs/heads/main 0000 1111",
         b"0000",
@@ -134,5 +141,5 @@ def test_streaming_unpack_sanity(repo_with_subprocess_daemon):
         assert b"ok push successful" in resp
     
     # Verify object exists
-    dg_dir = tmp_path / DEEP_GIT_DIR
+    dg_dir = tmp_path / DEEP_DIR
     assert (dg_dir / "objects" / new_sha[:2] / new_sha[2:]).exists()

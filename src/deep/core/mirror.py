@@ -1,7 +1,7 @@
 """
 deep.core.mirror
 ~~~~~~~~~~~~~~~~~~~~
-Repository mirroring system for DeepGit.
+Repository mirroring system for Deep.
 Allows keeping full repository copies in sync across multiple nodes.
 """
 

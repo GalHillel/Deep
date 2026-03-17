@@ -10,17 +10,17 @@ from deep.core.repository import DEEP_DIR
 def compliance_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path, env
 
 
 def test_signed_commit(compliance_repo):
     repo, env = compliance_repo
     (repo / "f.txt").write_text("content")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "f.txt"], cwd=repo, env=env, check=True)
     
     # Commit with --sign
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "signed", "--sign"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "signed", "--sign"], cwd=repo, env=env, check=True)
     
     # Verify signature in raw object
     from deep.core.refs import resolve_head
@@ -36,11 +36,11 @@ def test_audit_log_cli(compliance_repo):
     repo, env = compliance_repo
     # Perform an action that logs (commit)
     (repo / "f.txt").write_text("content")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"], cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c1"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "f.txt"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "c1"], cwd=repo, env=env, check=True)
     
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "audit"],
+        [sys.executable, "-m", "deep.cli.main", "audit"],
         cwd=repo, env=env, capture_output=True, text=True, check=True
     )
     assert "TIMESTAMP" in result.stdout

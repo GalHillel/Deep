@@ -14,7 +14,7 @@ from deep.core.audit import AuditLog
 def stress_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path, env
 
 
@@ -23,9 +23,9 @@ def test_rapid_commits(stress_repo):
     repo, env = stress_repo
     for i in range(50):
         (repo / f"f{i}.txt").write_text(f"data{i}")
-        subprocess.run([sys.executable, "-m", "deep.main", "add", f"f{i}.txt"],
+        subprocess.run([sys.executable, "-m", "deep.cli.main", "add", f"f{i}.txt"],
                        cwd=repo, env=env, check=True)
-        subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", f"c{i}"],
+        subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", f"c{i}"],
                        cwd=repo, env=env, check=True)
 
     # Verify txlog
@@ -46,11 +46,11 @@ def test_multi_branch_stress(stress_repo):
     """Create 10 branches, commit on each, merge back."""
     repo, env = stress_repo
     (repo / "base.txt").write_text("base")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "base.txt"], cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "base"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "base.txt"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "base"], cwd=repo, env=env, check=True)
 
     for i in range(10):
-        subprocess.run([sys.executable, "-m", "deep.main", "branch", f"feat-{i}"],
+        subprocess.run([sys.executable, "-m", "deep.cli.main", "branch", f"feat-{i}"],
                        cwd=repo, env=env, check=True)
 
     branches = list_branches(repo / DEEP_DIR)
@@ -61,10 +61,10 @@ def test_doctor_after_stress(stress_repo):
     """Doctor should pass after stress operations."""
     repo, env = stress_repo
     (repo / "x.txt").write_text("x")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "x.txt"], cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "x"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "x.txt"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "x"], cwd=repo, env=env, check=True)
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "doctor"],
+        [sys.executable, "-m", "deep.cli.main", "doctor"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0
@@ -75,9 +75,9 @@ def test_telemetry_summary_after_stress(stress_repo):
     repo, env = stress_repo
     for i in range(10):
         (repo / f"s{i}.txt").write_text(f"s{i}")
-        subprocess.run([sys.executable, "-m", "deep.main", "add", f"s{i}.txt"],
+        subprocess.run([sys.executable, "-m", "deep.cli.main", "add", f"s{i}.txt"],
                        cwd=repo, env=env, check=True)
-        subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", f"s{i}"],
+        subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", f"s{i}"],
                        cwd=repo, env=env, check=True)
 
     metrics_path = repo / DEEP_DIR / "metrics.json"
@@ -91,13 +91,13 @@ def test_ai_under_load(stress_repo):
     repo, env = stress_repo
     for i in range(5):
         (repo / f"ai{i}.py").write_text(f"def func_{i}(): pass")
-        subprocess.run([sys.executable, "-m", "deep.main", "add", f"ai{i}.py"],
+        subprocess.run([sys.executable, "-m", "deep.cli.main", "add", f"ai{i}.py"],
                        cwd=repo, env=env, check=True)
-        subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", f"func {i}"],
+        subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", f"func {i}"],
                        cwd=repo, env=env, check=True)
 
-    from deep.ai.assistant import DeepGitAI
-    ai = DeepGitAI(repo)
+    from deep.ai.assistant import DeepAI
+    ai = DeepAI(repo)
     result = ai.suggest_commit_message()
     assert result.suggestion_type == "commit_msg"
     quality = ai.analyze_quality()

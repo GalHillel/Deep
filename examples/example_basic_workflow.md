@@ -1,6 +1,6 @@
-# Example: Basic DeepGit Workflow
+# Example: Basic Deep Workflow
 
-This example demonstrates the foundational workflow for using DeepGit in a new project.
+This example demonstrates the foundational workflow for using Deep in a new project.
 
 ## Scenario
 You want to start tracking a simple Python project.
@@ -16,7 +16,7 @@ You want to start tracking a simple Python project.
 
 2.  **Create a file and check status**:
     ```bash
-    echo "print('Hello DeepGit')" > main.py
+    echo "print('Hello Deep')" > main.py
     deep status
     ```
     *Output should show `main.py` as an untracked file.*
@@ -39,4 +39,4 @@ You want to start tracking a simple Python project.
     ```
 
 ## Summary
-You have successfully initialized a repo, staged a file, and created your first persistent snapshot in DeepGit.
+You have successfully initialized a repo, staged a file, and created your first persistent snapshot in Deep.

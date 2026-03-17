@@ -25,7 +25,7 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -35,7 +35,7 @@ def run(args) -> None:
     if cmd == "run":
         sha = args.commit or resolve_head(dg_dir)
         if not sha:
-            print("DeepGit: error: No commit specified and HEAD not resolved.", file=sys.stderr)
+            print("Deep: error: No commit specified and HEAD not resolved.", file=sys.stderr)
             sys.exit(1)
         
         pipeline_run = runner.create_run(sha)
@@ -48,7 +48,7 @@ def run(args) -> None:
         runs = runner.list_runs()
         match = [r for r in runs if r.run_id == run_id]
         if not match:
-            print(f"DeepGit: error: Run '{run_id}' not found.", file=sys.stderr)
+            print(f"Deep: error: Run '{run_id}' not found.", file=sys.stderr)
             sys.exit(1)
         
         r = match[0]

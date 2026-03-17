@@ -29,11 +29,11 @@ def verify_objects(objects_dir):
     print(f"Validated {count} objects.")
     return True
 
-def check_git_dependencies(src_dir):
-    print(f"Checking for local Git dependencies in {src_dir}...")
+def check_deep_dependencies(src_dir):
+    print(f"Checking for local Deep dependencies in {src_dir}...")
     # This logic is specific to the original script's context
     # Keeping it as a placeholder or simplifying
-    print("No local Git dependencies found.")
+    print("No local Deep dependencies found.")
     return True
 
 def run_audit(repo_root, src_dir):
@@ -42,14 +42,14 @@ def run_audit(repo_root, src_dir):
     if not dg_dir.exists():
         print(f"Skipping integrity audit: .deep directory not found at {repo_root}")
         # Still check dependencies
-        check_git_dependencies(src_dir)
+        check_deep_dependencies(src_dir)
         return True
     
     success = True
     if not verify_objects(dg_dir / "objects"):
         success = False
     
-    if not check_git_dependencies(src_dir):
+    if not check_deep_dependencies(src_dir):
         success = False
     
     if success:

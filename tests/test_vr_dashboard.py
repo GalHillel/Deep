@@ -28,6 +28,6 @@ def test_vr_explorer_loading(dashboard_server):
     # Verify index.html still loads with new VR-ready assets
     resp = urlopen(f"http://127.0.0.1:{port}/")
     body = resp.read().decode()
-    assert "DeepGit" in body
+    assert "Deep" in body
     # In a real VR app, we'd check for 3D library imports or canvas3d
     # assert "vr" in body.lower()

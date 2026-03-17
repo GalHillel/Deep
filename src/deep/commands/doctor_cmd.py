@@ -15,7 +15,7 @@ import zlib
 from pathlib import Path
 
 from deep.storage.index import read_index
-from deep.storage.objects import Blob, Commit, Tag, Tree, read_object, GitObject
+from deep.storage.objects import Blob, Commit, Tag, Tree, read_object, DeepObject
 from deep.core.refs import list_branches, resolve_head, list_tags, get_tag, get_branch
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
@@ -28,7 +28,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -50,19 +50,15 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         read_object_safe = None
 
     if objects_dir.exists():
-        for root, dirs, files in os.walk(objects_dir):
-            if "pack" in root:
-                continue
-            for file in files:
-                if len(Path(root).name) == 2 and len(file) == 38:
-                    sha = Path(root).name + file
-                    seen_objects += 1
-                    all_shas.add(sha)
-                    try:
-                        if read_object_safe:
-                            obj = read_object_safe(objects_dir, sha)
-                        else:
-                            obj = read_object(objects_dir, sha)
+        from deep.storage.objects import walk_loose_shas
+        for sha in walk_loose_shas(objects_dir):
+            seen_objects += 1
+            all_shas.add(sha)
+            try:
+                if read_object_safe:
+                    obj = read_object_safe(objects_dir, sha)
+                else:
+                    obj = read_object(objects_dir, sha)
                             
                         # Structural checks
                         if isinstance(obj, Commit):
@@ -111,9 +107,9 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         index = read_index(dg_dir)
         for path, entry in index.entries.items():
-            try: read_object(objects_dir, entry.sha)
+            try: read_object(objects_dir, entry.content_hash)
             except:
-                print(Color.wrap(Color.RED, f"Error: Index '{path}' missing blob {entry.sha[:7]}"))
+                print(Color.wrap(Color.RED, f"Error: Index '{path}' missing blob {entry.content_hash[:7]}"))
                 errors += 1
     except Exception as e:
         print(Color.wrap(Color.RED, f"Error: Index read failure: {e}"))

@@ -1,7 +1,7 @@
 """
 deep.storage.vault
 ~~~~~~~~~~~~~~~~~~
-DeepVault (DVPF) is the primary archival storage format for DeepGit objects.
+DeepVault (DVPF) is the primary archival storage format for Deep objects.
 It replaces legacy packfiles with a versioned, integrity-checked binary container.
 """
 

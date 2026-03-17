@@ -45,7 +45,7 @@ def audit_security(root_dir):
     repo_root = pathlib.Path(root_dir).parent.parent
     dg_dir = repo_root / DEEP_DIR
     if not dg_dir.exists():
-        dg_dir = repo_root / ".deep_git"
+        dg_dir = repo_root / ".deep"
     
     if not dg_dir.exists():
         # If we can't find it, just warn but continue with the static analysis

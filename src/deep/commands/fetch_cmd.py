@@ -21,7 +21,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     url_or_name = args.url
@@ -45,12 +45,12 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         with Timer(telemetry, "fetch"):
             client.connect()
             from deep.utils.ux import Color
-            print(Color.wrap(Color.CYAN, f"DeepGit: fetching {sha} from {url}..."))
+            print(Color.wrap(Color.CYAN, f"Deep: fetching {sha} from {url}..."))
             count = client.fetch(dg_dir / "objects", sha)
-            print(f"DeepGit: fetched {count} objects.")
+            print(f"Deep: fetched {count} objects.")
         
     except Exception as e:
-        print(f"DeepGit: error: fetch failed: {e}", file=sys.stderr)
+        print(f"Deep: error: fetch failed: {e}", file=sys.stderr)
         sys.exit(1)
     finally:
         client.disconnect()

@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 class DeepError(Exception):
-    """Base exception for all DeepGit errors."""
+    """Base exception for all Deep errors."""
     pass
 
 

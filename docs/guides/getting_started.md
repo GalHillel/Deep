@@ -1,10 +1,10 @@
-# Getting Started with DeepGit
+# Getting Started with Deep
 
-Welcome to DeepGit! This guide will walk you through your first steps with the system, from initialization to your first remote synchronization.
+Welcome to Deep! This guide will walk you through your first steps with the system, from initialization to your first remote synchronization.
 
 ## 1. Local Initialization
 
-Every DeepGit journey starts with a local repository. Navigate to your project folder and run:
+Every Deep journey starts with a local repository. Navigate to your project folder and run:
 
 ```bash
 deep init
@@ -14,7 +14,7 @@ This creates a hidden `.deep` directory (managed internally) to track your proje
 
 ## 2. Staging Changes
 
-DeepGit uses a staging index identical in concept to Git. You can add specific files or entire directories:
+Deep uses a staging index identical in concept to Git. You can add specific files or entire directories:
 
 ```bash
 # Stage a single file
@@ -39,7 +39,7 @@ deep commit -m "Add original hello world script"
 ```
 
 ### Pro-Tip: AI-Powered Commits
-Don't want to think of a message? Let DeepGit analyze your changes and suggest one:
+Don't want to think of a message? Let Deep analyze your changes and suggest one:
 
 ```bash
 deep commit --ai

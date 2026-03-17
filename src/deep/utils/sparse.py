@@ -20,7 +20,7 @@ def matches_sparse_patterns(path: str, patterns: List[str]) -> bool:
     """Check if a path matches any of the sparse-checkout patterns."""
     # If patterns is ["*"], everything matches.
     # We use fnmatch for glob-style matching.
-    # Note: Git's sparse-checkout is more complex (gitignore-like), 
+    # Note: Deep's sparse-checkout is more complex (gitignore-like), 
     # but we'll start with simple glob matching.
     for pattern in patterns:
         if fnmatch.fnmatch(path, pattern):

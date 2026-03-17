@@ -38,7 +38,8 @@ def test_packfile_compaction():
     (dg_dir / "HEAD").write_text("ref: refs/heads/main")
     
     # Verify it is loose
-    loose_path = objects_dir / sha1[:2] / sha1[2:]
+    from deep.storage.objects import _object_path
+    loose_path = _object_path(objects_dir, sha1)
     assert loose_path.exists()
     
     # 3. Run GC logic directly

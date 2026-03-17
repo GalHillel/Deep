@@ -21,7 +21,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         config = Config(repo_root if not is_global else None)
     except FileNotFoundError:
         if not is_global:
-            print("DeepGit: error: not in a DeepGit repository and --global not specified.", file=sys.stderr)
+            print("Deep: error: not in a Deep repository and --global not specified.", file=sys.stderr)
             sys.exit(1)
         config = Config(None)
 

@@ -10,17 +10,17 @@ from deep.core.repository import DEEP_DIR
 def blame_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     
     # Commit 1
     (tmp_path / "f.txt").write_text("line 1\nline 2")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c1"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "f.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "c1"], cwd=tmp_path, env=env, check=True)
     
     # Commit 2
     (tmp_path / "f.txt").write_text("line 1\nline 2 MODIFIED")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c2"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "f.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "c2"], cwd=tmp_path, env=env, check=True)
     
     return tmp_path, env
 

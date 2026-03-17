@@ -11,7 +11,7 @@ from deep.utils.utils import hash_bytes
 def resilience_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src") + os.pathsep + str(Path.cwd())
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     return tmp_path, env
 
 
@@ -19,8 +19,8 @@ def test_object_quarantine(resilience_repo):
     repo, env = resilience_repo
     # Create a valid object
     (repo / "f.txt").write_text("stable content")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"], cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c1"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "f.txt"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "c1"], cwd=repo, env=env, check=True)
     
     # Identify the blob SHA
     from deep.core.refs import resolve_head
@@ -41,7 +41,7 @@ def test_object_quarantine(resilience_repo):
     
     # Run doctor to trigger quarantine
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "doctor", "--fix"],
+        [sys.executable, "-m", "deep.cli.main", "doctor", "--fix"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert "corrupt" in result.stdout.lower()

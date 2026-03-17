@@ -21,7 +21,7 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     url_or_name = args.url
@@ -43,7 +43,7 @@ def run(args) -> None:
         remote_ref = f"refs/heads/{branch}"
         remote_sha = refs.get(remote_ref)
         if not remote_sha:
-            print(f"DeepGit: error: Remote branch '{branch}' not found", file=sys.stderr)
+            print(f"Deep: error: Remote branch '{branch}' not found", file=sys.stderr)
             sys.exit(1)
             
         print(f"Fetching {branch} ({remote_sha[:7]})...")
@@ -56,7 +56,7 @@ def run(args) -> None:
         merge_run(merge_args)
         
     except Exception as e:
-        print(f"DeepGit: error: pull failed: {e}", file=sys.stderr)
+        print(f"Deep: error: pull failed: {e}", file=sys.stderr)
         sys.exit(1)
     finally:
         client.disconnect()

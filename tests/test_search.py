@@ -10,17 +10,17 @@ from deep.core.repository import DEEP_DIR
 def search_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     
     # Commit 1
     (tmp_path / "a.txt").write_text("hello search world")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "a.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c1"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "a.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "c1"], cwd=tmp_path, env=env, check=True)
     
     # Commit 2
     (tmp_path / "b.txt").write_text("deep rulez")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "b.txt"], cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c2"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "b.txt"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "c2"], cwd=tmp_path, env=env, check=True)
     
     return tmp_path, env
 
@@ -28,7 +28,7 @@ def search_repo(tmp_path):
 def test_search_history_hits(search_repo):
     repo, env = search_repo
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "search", "search"],
+        [sys.executable, "-m", "deep.cli.main", "search", "search"],
         cwd=repo, env=env, capture_output=True, text=True, check=True
     )
     assert "a.txt" in result.stdout
@@ -38,7 +38,7 @@ def test_search_history_hits(search_repo):
 def test_search_history_no_hits(search_repo):
     repo, env = search_repo
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "search", "nonexistent_pattern_123"],
+        [sys.executable, "-m", "deep.cli.main", "search", "nonexistent_pattern_123"],
         cwd=repo, env=env, capture_output=True, text=True, check=True
     )
     assert "No matches found" in result.stdout
@@ -51,8 +51,8 @@ def test_semantic_blame(search_repo):
     
     # Add a function
     (repo / "code.py").write_text("def my_func():\n    pass")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "code.py"], cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "add func"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "code.py"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "add func"], cwd=repo, env=env, check=True)
     
     authors = semantic_blame(dg_dir, "code.py")
     assert "my_func" in authors

@@ -42,9 +42,9 @@ This guide provides solutions to common issues you might encounter while using D
 ## 4. AI Features
 
 ### `AI suggestion failed` or `Connection error`
-- **Cause**: DeepGit needs an active internet connection to contact the AI platform (unless a local model is cached).
+- **Cause**: Deep needs an active internet connection to contact the AI platform (unless a local model is cached).
 - **Solution**: Check your internet connection and ensure your API tokens (if required) are valid in `deep config`.
 
 ---
 
-Still having trouble? Open an issue on our [GitHub repository](https://github.com/GalHillel/DeepGit/issues) or consult the [Architecture Guide](architecture.md).
+Still having trouble? Open an issue on our [GitHub repository](https://github.com/GalHillel/Deep/issues) or consult the [Architecture Guide](architecture.md).

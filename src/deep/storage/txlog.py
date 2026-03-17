@@ -32,7 +32,7 @@ class TxRecord:
 
 
 class TransactionLog:
-    """Write-ahead log at .deep_git/txlog.
+    """Write-ahead log at .deep/txlog.
 
     GOD MODE: Supports signed WAL entries for tamper detection during recovery.
     """
@@ -356,12 +356,18 @@ class TransactionLog:
             except Exception:
                 pass
 
+        import hashlib as _hashlib
         for p, sha in target_files.items():
             full = repo_root / p
             full.parent.mkdir(parents=True, exist_ok=True)
             obj = read_object(objects_dir, sha)
             full.write_bytes(obj.serialize_content())
             stat = full.stat()
-            current_index.entries[p] = DeepIndexEntry(sha=sha, size=stat.st_size, mtime=stat.st_mtime)
+            current_index.entries[p] = DeepIndexEntry(
+                content_hash=sha,
+                size=stat.st_size,
+                mtime_ns=int(stat.st_mtime * 1e9),
+                path_hash=_hashlib.sha1(p.encode()).hexdigest(),
+            )
         
         write_index(dg_dir, current_index)

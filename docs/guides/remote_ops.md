@@ -1,6 +1,6 @@
 # Remote Operations & P2P Sync
 
-DeepGit is designed for the modern, distributed era. It supports traditional client-server workflows while introducing powerful new Peer-to-Peer (P2P) capabilities.
+Deep is designed for the modern, distributed era. It supports traditional client-server workflows while introducing powerful new Peer-to-Peer (P2P) capabilities.
 
 ## 1. Managing Remotes
 
@@ -28,7 +28,7 @@ deep pull origin main
 
 ## 3. P2P Synchronization (Next-Gen)
 
-One of DeepGit's most powerful features is its ability to sync directly with peers on your local network or via a known peer ID.
+One of Deep's most powerful features is its ability to sync directly with peers on your local network or via a known peer ID.
 
 ### Discovering Peers
 To see who is available for synchronization on your local network:
@@ -46,13 +46,13 @@ deep p2p sync <peer-id>
 
 ## 4. Starting a Daemon
 
-To allow others to sync from your repository over the network, you can start the DeepGit daemon:
+To allow others to sync from your repository over the network, you can start the Deep daemon:
 
 ```bash
 deep daemon --port 9090
 ```
 
-This transforms your local project into a shareable node on the DeepGit network.
+This transforms your local project into a shareable node on the Deep network.
 
 ## 5. Cloning Repositories
 

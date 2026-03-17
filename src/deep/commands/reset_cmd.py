@@ -1,7 +1,7 @@
 """
 deep.commands.reset_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DeepGit ``reset [--hard|--soft] <commit>`` command implementation.
+Deep ``reset [--hard|--soft] <commit>`` command implementation.
 
 Moves HEAD (and the current branch) to the specified commit.
 With ``--hard``, also resets the index and working directory.
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import sys
+import hashlib
 from pathlib import Path
 
 from deep.storage.index import (
@@ -48,7 +49,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -64,16 +65,16 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
 
     target_sha = resolve_revision(dg_dir, raw_target)
     if not target_sha:
-        print(f"DeepGit: error: commit '{raw_target}' does not exist.", file=sys.stderr)
+        print(f"Deep: error: commit '{raw_target}' does not exist.", file=sys.stderr)
         sys.exit(1)
 
     try:
         commit_obj = read_object(objects_dir, target_sha)
     except (ValueError, FileNotFoundError):
-        print(f"DeepGit: error: commit {target_sha} not found.", file=sys.stderr)
+        print(f"Deep: error: commit {target_sha} not found.", file=sys.stderr)
         sys.exit(1)
     if not isinstance(commit_obj, Commit):
-        print(f"DeepGit: error: '{target_sha}' is not a commit.", file=sys.stderr)
+        print(f"Deep: error: '{target_sha}' is not a commit.", file=sys.stderr)
         sys.exit(1)
 
     target_files = _get_tree_files(objects_dir, commit_obj.tree_sha)
@@ -84,7 +85,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     try:
         repo_lock.acquire()
     except TimeoutError as e:
-        print(f"DeepGit: error: {e}", file=sys.stderr)
+        print(f"Deep: error: {e}", file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -124,7 +125,6 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                     full.parent.mkdir(parents=True, exist_ok=True)
                     full.write_bytes(read_object(objects_dir, sha).serialize_content())
                     stat = full.stat()
-                    import hashlib
                     new_index.entries[p] = DeepIndexEntry(
                         content_hash=sha, 
                         size=stat.st_size, 
@@ -132,12 +132,11 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                         path_hash=hashlib.sha1(p.encode()).hexdigest()
                     )
                 write_index_no_lock(dg_dir, new_index)
-                print(f"DeepGit: HEAD is now at {target_sha[:7]} (hard reset)")
+                print(f"Deep: HEAD is now at {target_sha[:7]} (hard reset)")
 
             elif mode == "mixed":
                 new_index = DeepIndex()
                 for p, sha in target_files.items():
-                    import hashlib
                     new_index.entries[p] = DeepIndexEntry(
                         content_hash=sha, 
                         size=0, 
@@ -145,14 +144,14 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                         path_hash=hashlib.sha1(p.encode()).hexdigest()
                     )
                 write_index_no_lock(dg_dir, new_index)
-                print(f"DeepGit: HEAD is now at {target_sha[:7]} (mixed reset)")
+                print(f"Deep: HEAD is now at {target_sha[:7]} (mixed reset)")
 
             else:  # soft
-                print(f"DeepGit: HEAD is now at {target_sha[:7]} (soft reset)")
+                print(f"Deep: HEAD is now at {target_sha[:7]} (soft reset)")
 
             # Crash hook
             if os.environ.get("DEEP_CRASH_TEST") == "RESET_BEFORE_REF_UPDATE":
-                raise BaseException("DeepGit: simulated crash before ref update")
+                raise BaseException("Deep: simulated crash before ref update")
 
             # Update HEAD/Branch
             if branch:

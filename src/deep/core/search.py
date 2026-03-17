@@ -1,7 +1,7 @@
 """
 deep.core.search
 ~~~~~~~~~~~~~~~~~~~~
-Historical search engine for DeepGit.
+Historical search engine for Deep.
 
 Searches for patterns across all commits and their trees.
 """

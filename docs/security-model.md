@@ -17,7 +17,7 @@ Automated CI/CD pipelines and external plugins run in a restricted execution env
 ### Isolation Layer
 - **Environment Scrubbing**: The sandbox inherits almost no environment variables from the host.
 - **Restricted PATH**: The `PATH` is limited to standard system binaries (e.g., `/usr/bin`, `C:\Windows\System32`). Host-specific tools and private binaries are excluded unless explicitly permitted.
-- **Filesystem Constraints**: Writes are restricted to specific allowlisted directories (e.g., `.deep_git/tmp`, `.deep_git/wal`).
+- **Filesystem Constraints**: Writes are restricted to specific allowlisted directories (e.g., `.deep/tmp`, `.deep/wal`).
 
 ### Control Plane
 - **Timeouts**: Every execution has a mandatory timeout (default 30s) to prevent resource exhaustion (Denial of Service).
@@ -41,7 +41,7 @@ For platform-hosted repositories, Deep implements a granular permission model:
 
 ## 5. Audit Logging
 
-Sensitive operations (permissions changes, key rotation, pipeline configuration) are recorded in the `.deep_git/audit.log`.
+Sensitive operations (permissions changes, key rotation, pipeline configuration) are recorded in the `.deep/audit.log`.
 
 - **Integrity**: Each log entry is part of a Merkle chain.
 - **Visibility**: Use `deep audit` to view the history of security events.

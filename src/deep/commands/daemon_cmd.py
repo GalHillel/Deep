@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 from deep.core.repository import find_repo
-from deep.network.daemon import DeepGitDaemon
+from deep.network.daemon import DeepDaemon
 from deep.utils.ux import Color
 
 
@@ -20,15 +20,15 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     host = getattr(args, "host", "127.0.0.1")
     port = getattr(args, "port", 8888)
 
-    daemon = DeepGitDaemon(repo_root, host=host, port=port)
+    daemon = DeepDaemon(repo_root, host=host, port=port)
     
-    print(Color.wrap(Color.CYAN, f"Starting DeepGit Daemon on {host}:{port}..."))
+    print(Color.wrap(Color.CYAN, f"Starting Deep Daemon on {host}:{port}..."))
     print(Color.wrap(Color.DIM, f"Serving repository: {repo_root}"))
     
     try:

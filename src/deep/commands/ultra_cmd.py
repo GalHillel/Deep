@@ -19,7 +19,7 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -39,8 +39,8 @@ def run(args) -> None:
     print(f"CI/CD Pipeline Runs: {len(runs)} ({success} successful)")
     
     # 3. AI Insights
-    from deep.ai.assistant import DeepGitAI
-    ai = DeepGitAI(dg_dir)
+    from deep.ai.assistant import DeepAI
+    ai = DeepAI(dg_dir)
     print(f"AI Review Analytics: Active")
     
     # 4. Security

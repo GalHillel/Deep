@@ -8,7 +8,7 @@ import pytest
 import os
 from pathlib import Path
 from deep.core.repository import init_repo
-from deep.ai.assistant import DeepGitAI
+from deep.ai.assistant import DeepAI
 
 import contextlib
 
@@ -31,7 +31,7 @@ def refactor_repo(tmp_path):
 
 
 def test_ai_refactor_suggestions(refactor_repo):
-    ai = DeepGitAI(refactor_repo)
+    ai = DeepAI(refactor_repo)
     
     with chdir(refactor_repo):
         # Create a file with "unclean" code
@@ -62,7 +62,7 @@ def test_ai_refactor_suggestions(refactor_repo):
 
 
 def test_ai_refactor_no_issues(refactor_repo):
-    ai = DeepGitAI(refactor_repo)
+    ai = DeepAI(refactor_repo)
     
     with chdir(refactor_repo):
         clean_py = refactor_repo / "clean.py"

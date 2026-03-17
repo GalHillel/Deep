@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess, sys, os
 import pytest
 
-from deep.ai.assistant import DeepGitAI
+from deep.ai.assistant import DeepAI
 from deep.ai.analyzer import score_complexity, extract_keywords, classify_change
 from deep.core.repository import DEEP_DIR
 
@@ -12,14 +12,14 @@ from deep.core.repository import DEEP_DIR
 def advanced_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"], cwd=tmp_path, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
     # Create multiple files
     (tmp_path / "app.py").write_text("def main():\n    print('app')\n")
     (tmp_path / "utils.py").write_text("def helper():\n    return 42\n")
     (tmp_path / "tests.py").write_text("def test_main():\n    assert True\n")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "app.py", "utils.py", "tests.py"],
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "app.py", "utils.py", "tests.py"],
                    cwd=tmp_path, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "initial"],
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "initial"],
                    cwd=tmp_path, env=env, check=True)
     return tmp_path
 
@@ -28,14 +28,14 @@ def test_predictive_commit_grouping(advanced_repo):
     """AI should handle commits with mixed file types."""
     (advanced_repo / "app.py").write_text("def main():\n    print('updated app')\n")
     (advanced_repo / "utils.py").write_text("def helper():\n    return 99\n")
-    ai = DeepGitAI(advanced_repo)
+    ai = DeepAI(advanced_repo)
     result = ai.suggest_commit_message()
     assert result.suggestion_type == "commit_msg"
     assert len(result.text) > 0
 
 
 def test_merge_hint_quality(advanced_repo):
-    ai = DeepGitAI(advanced_repo)
+    ai = DeepAI(advanced_repo)
     result = ai.merge_hint("feature", "main")
     assert result.suggestion_type == "merge_hint"
     assert "feature" in result.text
@@ -68,7 +68,7 @@ def test_change_classification_coverage():
 
 def test_ai_concurrent_suggestions(advanced_repo):
     """Multiple suggestions should work without state corruption."""
-    ai = DeepGitAI(advanced_repo)
+    ai = DeepAI(advanced_repo)
     results = []
     for _ in range(10):
         results.append(ai.suggest_commit_message())

@@ -3,7 +3,7 @@ deep.core.pipeline
 ~~~~~~~~~~~~~~~~~~~~~~
 CI/CD Pipeline runner for DeepBridge.
 
-Loads pipeline definitions from `.deep_git/pipelines/*.json` or `.deep_git/pipeline.json`
+Loads pipeline definitions from `.deep/pipelines/*.json` or `.deep/pipeline.json`
 and executes them sequentially or in parallel.
 """
 
@@ -48,7 +48,7 @@ class PipelineRunner:
         self.runs_dir.mkdir(parents=True, exist_ok=True)
 
     def load_config(self) -> List[Dict]:
-        """Load pipeline configuration from .deepci.yml or .deep_git/pipeline.json."""
+        """Load pipeline configuration from .deepci.yml or .deep/pipeline.json."""
         # Try .deepci.yml first
         yml_path = self.dg_dir.parent / ".deepci.yml"
         if yml_path.exists():

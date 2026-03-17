@@ -21,7 +21,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -34,7 +34,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         try:
             remove_multiple_from_index(dg_dir, [rel_path])
         except KeyError:
-            print(f"DeepGit: error: '{rel_path}' is not tracked.", file=sys.stderr)
+            print(f"Deep: error: '{rel_path}' is not tracked.", file=sys.stderr)
             sys.exit(1)
 
         # Remove from working directory.

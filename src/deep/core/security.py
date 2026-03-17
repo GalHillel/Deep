@@ -96,7 +96,7 @@ class SigningKey:
 
 
 class KeyManager:
-    """Manages signing keys stored at .deep_git/keys/keyring.enc.
+    """Manages signing keys stored at .deep/keys/keyring.enc.
 
     Supports key generation, rotation, and revocation.
     """

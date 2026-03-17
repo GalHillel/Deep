@@ -11,11 +11,8 @@ The on-disk layout is designed for DeepBridge consistency and performance.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Optional, Any, cast, Union, List, Dict
-
-from deep.core.config import get_config, set_config, is_partial_clone, get_promisor_remote # type: ignore
 
 from deep.utils.utils import AtomicWriter # type: ignore
 
@@ -27,7 +24,7 @@ def _get_dg_path(repo_root: Path) -> Path:
     return repo_root / DEEP_DIR
 
 def init_repo(path: Union[str, Path] = ".") -> Path:
-    """Initialize a new empty DeepGit repository."""
+    """Initialize a new empty Deep repository."""
 
     repo_root = Path(path).resolve()
     dg = _get_dg_path(repo_root)
@@ -35,7 +32,7 @@ def init_repo(path: Union[str, Path] = ".") -> Path:
     # If the internal directory already exists, treat init as idempotent.
     if dg.exists():
         if not dg.is_dir():
-            raise FileExistsError(f"DeepGit internal path exists but is not a directory: {dg}")
+            raise FileExistsError(f"Deep internal path exists but is not a directory: {dg}")
     else:
         # Create directory tree for a brand-new repository.
         (dg / "objects").mkdir(parents=True, exist_ok=True)
@@ -43,10 +40,10 @@ def init_repo(path: Union[str, Path] = ".") -> Path:
         (dg / "objects" / "vault").mkdir(parents=True, exist_ok=True)
 
     # Initialise configuration with format_version = 2
-    config = get_config(dg)
-    if "format_version" not in config:
-        config["format_version"] = 2
-        set_config(dg, config)
+    from deep.core.config import Config
+    config_obj = Config(repo_root)
+    if not config_obj.get("core.format_version"):
+        config_obj.set_local("core.format_version", "2")
 
     # Ensure core subdirectories always exist (self-healing for partial setups).
     (dg / "objects").mkdir(parents=True, exist_ok=True)
@@ -86,7 +83,7 @@ def find_repo(start: Union[str, Path] | None = None) -> Path:
         parent = current.parent
         if parent == current:
             raise FileNotFoundError(
-                "Not a DeepGit repository (or any of the parent directories)"
+                "Not a Deep repository (or any of the parent directories)"
             )
         current = parent
 
@@ -152,7 +149,8 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
             for path in status.modified:
                 p_str = cast(str, path)
                 # Any locally modified file that either 1) will be removed or 2) overwritten with a different target version
-                if p_str not in target_files or target_files[p_str] != current_index.entries.get(p_str, DeepIndexEntry(sha="", size=0, mtime=0)).sha:
+                entry = current_index.entries.get(p_str, DeepIndexEntry(content_hash="", size=0, mtime_ns=0, path_hash=""))
+                if p_str not in target_files or target_files[p_str] != entry.content_hash:
                     conflicts.append(p_str)
 
             for path in status.deleted:
@@ -213,19 +211,21 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                         parent = cast(Path, parent).parent # type: ignore
 
             # Apply updates
+            import hashlib
             new_index = DeepIndex()
             for p, sha in cast(dict, target_files).items(): # type: ignore
                 is_match = matches_sparse_patterns(p, sparse_patterns)
+                p_hash = hashlib.sha1(p.encode("utf-8")).hexdigest()
                 if is_match:
                     full = repo_root / p
                     full.parent.mkdir(parents=True, exist_ok=True)
                     obj = read_object(objects_dir, sha)
                     full.write_bytes(obj.serialize_content())
                     stat = full.stat()
-                    new_index.entries[p] = DeepIndexEntry(sha=sha, size=stat.st_size, mtime=stat.st_mtime, flags=0)
+                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=stat.st_size, mtime_ns=int(stat.st_mtime * 1e9), path_hash=p_hash, flags=0)
                 else:
                     # Skip worktree (bit 0 = 0x01)
-                    new_index.entries[p] = DeepIndexEntry(sha=sha, size=0, mtime=0, flags=0x01)
+                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=0, mtime_ns=0, path_hash=p_hash, flags=0x01)
 
             # 5. Update DeepIndex
             write_index_no_lock(dg_dir, new_index)

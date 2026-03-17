@@ -62,7 +62,8 @@ def test_sanitize_history(tmp_path, monkeypatch):
     content = f"{mode} {name}\x00".encode("utf-8") + sha_bytes
     
     from deep.utils.utils import hash_bytes
-    tree_sha = hash_bytes(content)
+    header = f"tree {len(content)}\x00".encode("ascii")
+    tree_sha = hash_bytes(header + content)
     
     os.makedirs(objects_dir / tree_sha[:2], exist_ok=True)
     import zlib
@@ -97,7 +98,8 @@ def test_checkout_sanitization_cr(tmp_path, monkeypatch):
     sha_bytes = bytes.fromhex(blob_sha)
     content = f"{mode} {name}\x00".encode("utf-8") + sha_bytes
     from deep.utils.utils import hash_bytes
-    tree_sha = hash_bytes(content)
+    header = f"tree {len(content)}\x00".encode("ascii")
+    tree_sha = hash_bytes(header + content)
     
     os.makedirs(objects_dir / tree_sha[:2], exist_ok=True)
     import zlib

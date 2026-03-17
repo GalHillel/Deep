@@ -1,6 +1,6 @@
 # Example: Remote Synchronization (P2P)
 
-This example demonstrates how to synchronize two local repositories using DeepGit's P2P capabilities.
+This example demonstrates how to synchronize two local repositories using Deep's P2P capabilities.
 
 ## Scenario
 You have a repository on your machine and want to share it with a colleague on the same network.
@@ -8,7 +8,7 @@ You have a repository on your machine and want to share it with a colleague on t
 ## Steps
 
 ### Machine A (The "Source")
-1.  **Start the DeepGit daemon**:
+1.  **Start the Deep daemon**:
     ```bash
     deep daemon --port 8080
     ```

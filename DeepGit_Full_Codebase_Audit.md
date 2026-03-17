@@ -1,7 +1,7 @@
-# DeepGit Full Codebase Audit
+# Deep Full Codebase Audit
 
 ## 1. Architecture Overview
-DeepGit is a production-style, pure-Python distributed version control system that mimics Git while adding advanced features like AI integrations, P2P collaboration, and predictive merging.
+Deep is a production-style, pure-Python distributed version control system that mimics Git while adding advanced features like AI integrations, P2P collaboration, and predictive merging.
 
 The system is logically divided into several major subsystems:
 1. **CLI Layer (`src/deep/cli` & `src/deep/commands`)**: Parses user arguments and routes them to specific `_cmd.py` modules. These command modules orchestrate the business logic.
@@ -59,10 +59,10 @@ The system is logically divided into several major subsystems:
 ## 7. Security Findings
 - **Unbounded Temp File Creation**: `daemon.py:handle_push` streams packfiles to `NamedTemporaryFile(delete=False)`. If the connection drops mid-stream (timeout or malicious abort), the partially downloaded file is never removed, allowing a trivial persistent disk-exhaustion DoS attack.
 - **UDP Broadcast Exploitation**: `p2p.py:_listen_loop` unconditionally parses JSON from any UDP packet arriving on port 5007 (`json.loads`). There is zero source verification, making it vulnerable to local network spoofing, malicious large JSON payload memory exhaustion, and fake peer injection.
-- **Plaintext Secret Storage**: `security.py:KeyManager` stores HMAC signing secrets in plaintext inside `.deep_git/keys/keyring.json`. Anyone with read access to the repo can steal the GOD MODE signing keys and forge commits.
+- **Plaintext Secret Storage**: `security.py:KeyManager` stores HMAC signing secrets in plaintext inside `.deep/keys/keyring.json`. Anyone with read access to the repo can steal the GOD MODE signing keys and forge commits.
 - **Fake Subprocess Sandboxing**: `SandboxRunner` claims to block restricted writes, but it simply runs scripts via `subprocess.run(sys.executable, ...)` without OS-level isolation (like namespaces/cgroups). The sandbox merely scans the directory *after* execution to log unauthorized writes, it does not prevent a script from executing arbitrary OS commands or overwriting core repository files.
 - **Backdoor Environment Variable**: `access.py:has_permission` contains `if os.environ.get("DEEP_INSECURE_SKIP_AUTH") == "1": return True`. This debug backdoor allows complete bypass of RBAC in production if an attacker can set environment variables.
-- **CI/CD Remote Code Execution (RCE)**: `pipeline.py:PipelineRunner.run_pipeline` executes arbitrary commands defined in `pipeline.json` via the fake `SandboxRunner`. A malicious user can push a `.deep_git/pipeline.json` with reverse shell commands which the daemon will blindly execute, compromising the entire host machine.
+- **CI/CD Remote Code Execution (RCE)**: `pipeline.py:PipelineRunner.run_pipeline` executes arbitrary commands defined in `pipeline.json` via the fake `SandboxRunner`. A malicious user can push a `.deep/pipeline.json` with reverse shell commands which the daemon will blindly execute, compromising the entire host machine.
 
 
 ## 8. Performance Bottlenecks

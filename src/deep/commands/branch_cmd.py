@@ -1,7 +1,7 @@
 """
 deep.commands.branch_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DeepGit ``branch`` command implementation.
+Deep ``branch`` command implementation.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -51,7 +51,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             delete_branch(dg_dir, args.name)
             print(f"Deleted branch '{args.name}'.")
         except Exception as e:
-            print(f"DeepGit: error: {e}", file=sys.stderr)
+            print(f"Deep: error: {e}", file=sys.stderr)
             sys.exit(1)
         return
 
@@ -66,7 +66,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             sha = resolve_revision(dg_dir, args.start_point)
         
         # If we are renaming the branch we are currently on, we need special care?
-        # Standard git -m allows renaming current branch.
+        # Standard deep -m allows renaming current branch.
         # deep.core.refs.delete_branch refuses to delete current branch.
         target_sha = resolve_head(dg_dir) if old_name == get_current_branch(dg_dir) else None
         
@@ -74,7 +74,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         from deep.core.refs import get_branch
         old_sha = get_branch(dg_dir, old_name)
         if not old_sha:
-            print(f"DeepGit: error: branch '{old_name}' not found.", file=sys.stderr)
+            print(f"Deep: error: branch '{old_name}' not found.", file=sys.stderr)
             sys.exit(1)
             
         update_branch(dg_dir, new_name, old_sha)
@@ -94,7 +94,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     target_sha = resolve_revision(dg_dir, start_point)
     
     if target_sha is None:
-        print(f"DeepGit: error: Not a valid object name: '{start_point}'", file=sys.stderr)
+        print(f"Deep: error: Not a valid object name: '{start_point}'", file=sys.stderr)
         sys.exit(1)
         
     update_branch(dg_dir, args.name, target_sha)

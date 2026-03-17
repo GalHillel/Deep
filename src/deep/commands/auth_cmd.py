@@ -20,7 +20,7 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError:
-        print("DeepGit: error: Not a DeepGit repository.", file=sys.stderr)
+        print("Deep: error: Not a Deep repository.", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR

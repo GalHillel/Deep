@@ -1,7 +1,7 @@
 """
 deep.commands.migrate_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-Upgrades a DeepGit repository from legacy (v1) to native (v2) storage format.
+Upgrades a Deep repository from legacy (v1) to native (v2) storage format.
 This involves repacking objects into DeepVault and regenerating the DHGX.
 """
 
@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import List
 import shutil
 
-from deep.core.repository import find_repo, get_config, set_config, DEEP_DIR
+from deep.core.repository import find_repo, DEEP_DIR
+from deep.core.config import get_config, set_config
 from deep.storage.objects import walk_loose_shas, read_object, Blob, Tree, Commit, Tag, Chunk, ChunkedBlob
 from deep.storage.vault import DeepVaultWriter
 from deep.storage.commit_graph import build_history_graph
@@ -21,7 +22,7 @@ def migrate_cmd(path: str | None = None) -> None:
     try:
         repo_root = find_repo(path)
     except FileNotFoundError:
-        print("Error: Not a DeepGit repository.")
+        print("Error: Not a Deep repository.")
         return
 
     dg_dir = repo_root / DEEP_DIR
@@ -75,4 +76,4 @@ def migrate_cmd(path: str | None = None) -> None:
     # For safety, we'll keep them but they are now shadowed by the Vault.
     # In a real production system, we might delete them after verification.
     
-    print("Migration complete. Repository is now in DeepGit Native format (v2).")
+    print("Migration complete. Repository is now in Deep Native format (v2).")

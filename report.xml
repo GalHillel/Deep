@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="10.853" timestamp="2026-03-17T18:18:13.393452+02:00" hostname="dev"><testcase classname="tests.test_p2p_collab" name="test_p2p_presence_propagation" time="10.124"><failure message="AssertionError: Presence from dev_eb05e95a not found in dev_fa836387 peers&#10;assert False">p2p_repos = (WindowsPath('C:/Users/galh2/AppData/Local/Temp/pytest-of-galh2/pytest-841/test_p2p_presence_propagation0/repo1'), WindowsPath('C:/Users/galh2/AppData/Local/Temp/pytest-of-galh2/pytest-841/test_p2p_presence_propagation0/repo2'))
+
+    def test_p2p_presence_propagation(p2p_repos):
+        r1, r2 = p2p_repos
+        e1 = P2PEngine(r1 / ".deep")
+        e2 = P2PEngine(r2 / ".deep")
+    
+        # Needs keys to sign and verify beacons
+        from deep.core.user import UserManager
+        from deep.core.security import KeyManager
+        um1 = UserManager(r1 / ".deep")
+        um1.add_user("user1", "key1", "user1@deep.local")
+        km1 = KeyManager(r1 / ".deep")
+        km1.generate_key()
+    
+        um2 = UserManager(r2 / ".deep")
+        um2.add_user("user2", "key2", "user2@deep.local")
+        km2 = KeyManager(r2 / ".deep")
+        km2.generate_key()
+    
+        e1.start()
+        e2.start()
+    
+        try:
+            # Update presence on e1
+            e1.update_presence("main.py", 42)
+    
+            # Wait for discovery (beaconing)
+            timeout = 10
+            found = False
+            start = time.time()
+            while time.time() - start &lt; timeout:
+                peers = e2.get_peers()
+                for p in peers:
+                    if p.node_id == e1.node_id:
+                        if e1.node_id in p.presence:
+                            pres = p.presence[e1.node_id]
+                            if isinstance(pres, dict) and pres.get("file") == "main.py":
+                                found = True
+                                break
+                if found: break
+                time.sleep(0.5)
+    
+&gt;           assert found, f"Presence from {e1.node_id} not found in {e2.node_id} peers"
+E           AssertionError: Presence from dev_eb05e95a not found in dev_fa836387 peers
+E           assert False
+
+tests\test_p2p_collab.py:65: AssertionError</failure></testcase><testcase classname="tests.test_p2p_collab" name="test_p2p_tunnel_simulation" time="0.373" /></testsuite></testsuites>

@@ -16,8 +16,8 @@ Deep is built on the principles of **distributed power**, **security by default*
 ### 2. Environment Setup
 ```bash
 # Clone the repository
-git clone https://github.com/GalHillel/DeepGit.git
-cd DeepGit
+git clone https://github.com/GalHillel/Deep.git
+cd Deep
 
 # Create and activate a virtual environment
 python -m venv .venv

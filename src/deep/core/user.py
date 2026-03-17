@@ -1,7 +1,7 @@
 """
 deep.core.user
 ~~~~~~~~~~~~~~~~~~
-Core user management system for DeepGit platform.
+Core user management system for Deep platform.
 Stores users as JSON objects in the server metadata.
 """
 
@@ -20,7 +20,7 @@ class User:
     token: Optional[str] = None
 
 class UserManager:
-    """Manages users for the DeepGit server platform."""
+    """Manages users for the Deep server platform."""
 
     def __init__(self, dg_dir: Path):
         self.dg_dir = dg_dir

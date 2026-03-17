@@ -31,10 +31,10 @@ from deep.core.repository import DEEP_DIR
 
 @pytest.fixture
 def god_repo(tmp_path):
-    """Initialize a DeepGit repo with a key and a signed commit."""
+    """Initialize a Deep repo with a key and a signed commit."""
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.main", "init"],
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"],
                    cwd=tmp_path, env=env, check=True)
     dg_dir = tmp_path / DEEP_DIR
     return tmp_path, dg_dir, env
@@ -427,11 +427,11 @@ def test_full_pipeline_integration(god_repo):
 
     # Create and add a file
     (repo / "hello.txt").write_text("hello world")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "hello.txt"],
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "hello.txt"],
                    cwd=repo, env=env, check=True)
 
     # Commit with signing
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "signed commit", "--sign"],
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "signed commit", "--sign"],
                    cwd=repo, env=env, check=True)
 
     # Verify the commit was signed
@@ -467,13 +467,13 @@ def test_verify_all_cli(god_repo):
 
     # Create a commit first
     (repo / "f.txt").write_text("content")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"],
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "f.txt"],
                    cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c1"],
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "c1"],
                    cwd=repo, env=env, check=True)
 
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "verify", "--all"],
+        [sys.executable, "-m", "deep.cli.main", "verify", "--all"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0
@@ -486,7 +486,7 @@ def test_rollback_verify_cli(god_repo):
     repo, dg_dir, env = god_repo
 
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "rollback", "--verify"],
+        [sys.executable, "-m", "deep.cli.main", "rollback", "--verify"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0
@@ -499,13 +499,13 @@ def test_audit_report_cli(god_repo):
 
     # Create a commit to generate audit entries
     (repo / "f.txt").write_text("content")
-    subprocess.run([sys.executable, "-m", "deep.main", "add", "f.txt"],
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "f.txt"],
                    cwd=repo, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "deep.main", "commit", "-m", "c1"],
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "c1"],
                    cwd=repo, env=env, check=True)
 
     result = subprocess.run(
-        [sys.executable, "-m", "deep.main", "audit", "report"],
+        [sys.executable, "-m", "deep.cli.main", "audit", "report"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0

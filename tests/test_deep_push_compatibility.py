@@ -1,9 +1,9 @@
 """
-tests.test_git_push_compatibility
+tests.test_deep_push_compatibility
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Phase 7: Git Compatibility Integration Test.
-Verify that DeepGit can create a repository with nested directories
-and correctly push it to a standard Git server (using GitBridge logic).
+Phase 7: Deep Compatibility Integration Test.
+Verify that Deep can create a repository with nested directories
+and correctly push it to a standard Deep server (using DeepBridge logic).
 """
 
 import subprocess
@@ -12,17 +12,17 @@ from pathlib import Path
 import pytest
 from deep.cli.main import main
 from deep.core.repository import DEEP_DIR
-from deep.network.client import GitBridge
+from deep.network.client import DeepBridge
 
-def test_git_push_compatibility(tmp_path: Path, monkeypatch):
+def test_deep_push_compatibility(tmp_path: Path, monkeypatch):
     """
-    1. Create a DeepGit repo with nested dirs.
+    1. Create a Deep repo with nested dirs.
     2. Commit.
-    3. Initialize a bare Git repo as a remote.
-    4. Use GitBridge to push.
-    5. Verify Git accepts it.
+    3. Initialize a bare Deep repo as a remote.
+    4. Use DeepBridge to push.
+    5. Verify Deep accepts it.
     """
-    # 1. Setup DeepGit Repo
+    # 1. Setup Deep Repo
     deep_repo = tmp_path / "deep_repo"
     deep_repo.mkdir()
     monkeypatch.chdir(deep_repo)
@@ -41,21 +41,21 @@ def test_git_push_compatibility(tmp_path: Path, monkeypatch):
     main(["add", "."])
     main(["commit", "-m", "Initial commit with nested trees"])
     
-    # 2. Setup Bare Git Repo as Remote
-    git_remote = tmp_path / "git_remote.git"
-    git_remote.mkdir()
-    subprocess.run(["git", "init", "--bare"], cwd=git_remote, check=True)
+    # 2. Setup Bare Deep Repo as Remote
+    deep_remote = tmp_path / "deep_remote.deep"
+    deep_remote.mkdir()
+    subprocess.run(["deep", "init", "--bare"], cwd=deep_remote, check=True)
     
-    # 3. Push via GitBridge
-    # We'll use the GitBridge logic to push from deep_repo to git_remote
+    # 3. Push via DeepBridge
+    # We'll use the DeepBridge logic to push from deep_repo to deep_remote
     dg_dir = deep_repo / DEEP_DIR
-    bridge = GitBridge(dg_dir)
+    bridge = DeepBridge(dg_dir)
     
-    # We need to set up the remote in DeepGit first
-    main(["remote", "add", "origin", str(git_remote)])
+    # We need to set up the remote in Deep first
+    main(["remote", "add", "origin", str(deep_remote)])
     
     # Run push
-    # This will trigger GitBridge.push which constructs a temp git repo and pushes
+    # This will trigger DeepBridge.push which constructs a temp deep repo and pushes
     try:
         main(["push", "origin", "main"])
     except SystemExit as e:
@@ -63,11 +63,11 @@ def test_git_push_compatibility(tmp_path: Path, monkeypatch):
             # Capture failure
             raise
             
-    # 4. Verify in the Git Remote
+    # 4. Verify in the Deep Remote
     # Try to ls-tree in the remote to see if 'docs' is a tree
     result = subprocess.run(
-        ["git", "ls-tree", "main"], 
-        cwd=git_remote, 
+        ["deep", "ls-tree", "main"], 
+        cwd=deep_remote, 
         capture_output=True, 
         text=True, 
         check=True
@@ -83,8 +83,8 @@ def test_git_push_compatibility(tmp_path: Path, monkeypatch):
     
     # Verify 'docs' content
     result_docs = subprocess.run(
-        ["git", "ls-tree", "main:docs"], 
-        cwd=git_remote, 
+        ["deep", "ls-tree", "main:docs"], 
+        cwd=deep_remote, 
         capture_output=True, 
         text=True, 
         check=True

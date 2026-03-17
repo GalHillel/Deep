@@ -61,7 +61,7 @@ def sanitize_tree(objects_dir: Path, tree_sha: str, renamed_log: Dict[str, str],
     if not changed:
         return tree_sha
         
-    # Maintain sorting by name for Git compatibility
+    # Maintain sorting by name for Deep compatibility
     new_entries.sort(key=lambda e: e.name)
     new_tree = Tree(entries=new_entries)
     return new_tree.write(objects_dir)
@@ -133,15 +133,12 @@ def logical_rebase(
         
         commit_tree = c_obj.tree_sha
         
-        merged_entries, conflicts = three_way_merge(
+        merged_tree_sha, conflicts = three_way_merge(
             objects_dir, parent_tree, curr_tree, commit_tree
         )
         
         if conflicts:
             raise RuntimeError(f"CONFLICT applying commit {commit_sha[:7]}: Conflict in {conflicts[0]}")
-            
-        merged_tree = Tree(entries=merged_entries)
-        merged_tree_sha = merged_tree.write(objects_dir)
         
         if sanitize_windows:
             merged_tree_sha = sanitize_tree(objects_dir, merged_tree_sha, renamed_log)

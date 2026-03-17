@@ -1,7 +1,7 @@
 """
 tests.test_cli
 ~~~~~~~~~~~~~~~
-End-to-end integration tests for the Deep Git CLI.
+End-to-end integration tests for the Deep Deep CLI.
 
 Each test creates a fresh temporary repo and exercises the CLI by calling
 :func:`deep.main.main` directly with argv lists.

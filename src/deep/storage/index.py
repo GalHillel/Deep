@@ -2,7 +2,7 @@
 deep.storage.index
 ~~~~~~~~~~~~~~~~~~
 
-DeepIndex v1: Redesigned Staging Area for DeepGit.
+DeepIndex v1: Redesigned Staging Area for Deep.
 This index structure is optimized for independent operation, providing
 O(1) conflict detection via path hashing and nanosecond-precision timestamps.
 """
@@ -121,7 +121,7 @@ class DeepIndex:
     @classmethod
     def _migrate_from_legacy_v1(cls, data: bytes) -> "DeepIndex":
         """Handle migration from the legacy 'DEEP' format used in earlier phases."""
-        logging.getLogger("DeepGit").info("Migrating legacy index to DeepIndex v1")
+        logging.getLogger("Deep").info("Migrating legacy index to DeepIndex v1")
         # Legacy format: [DEEP][uint32 ver][uint32 count]
         # Entry: [H path_len][20s sha][Q size][d mtime][B flags][path]
         count = struct.unpack(">I", data[8:12])[0]
@@ -146,7 +146,7 @@ class DeepIndex:
             )
         return cls(entries=entries)
 
-# ── Public APIs (Independent of Git naming) ──────────────────────────
+# ── Public APIs (Independent of Deep naming) ──────────────────────────
 
 def read_index(dg_dir: Path) -> DeepIndex:
     path = dg_dir / "index"
@@ -157,7 +157,7 @@ def read_index(dg_dir: Path) -> DeepIndex:
         try:
             return DeepIndex.from_binary(path.read_bytes())
         except Exception as e:
-            logging.getLogger("DeepGit").error(f"Failed to read index: {e}")
+            logging.getLogger("Deep").error(f"Failed to read index: {e}")
             return DeepIndex()
 
 def write_index(dg_dir: Path, index: DeepIndex) -> None:
@@ -179,31 +179,35 @@ def write_index_no_lock(dg_dir: Path, index: DeepIndex) -> None:
     with AtomicWriter(path) as aw:
         aw.write(index.to_binary())
 
-# Aliases for Phase 21 migration
-Index = DeepIndex
-IndexEntry = DeepIndexEntry
+
 
 def add_to_index(dg_dir: Path, rel_path: str, sha: str, size: int, mtime_ns: int):
     add_multiple_to_index(dg_dir, [(rel_path, sha, size, mtime_ns)])
 
 def add_multiple_to_index(dg_dir: Path, entries: List[Tuple[str, str, int, int]]):
-    index = read_index(dg_dir)
-    for rel_path, sha, size, mtime_ns in entries:
-        p_hash = hashlib.sha1(rel_path.encode("utf-8")).hexdigest()
-        index.entries[rel_path] = DeepIndexEntry(
-            path_hash=p_hash,
-            mtime_ns=mtime_ns,
-            size=size,
-            content_hash=sha
-        )
-    write_index(dg_dir, index)
+    from deep.core.locks import IndexLock
+    lock = IndexLock(dg_dir)
+    with lock:
+        index = read_index_no_lock(dg_dir)
+        for rel_path, sha, size, mtime_ns in entries:
+            p_hash = hashlib.sha1(rel_path.encode("utf-8")).hexdigest()
+            index.entries[rel_path] = DeepIndexEntry(
+                path_hash=p_hash,
+                mtime_ns=mtime_ns,
+                size=size,
+                content_hash=sha
+            )
+        write_index_no_lock(dg_dir, index)
 
 def remove_from_index(dg_dir: Path, rel_path: str):
     remove_multiple_from_index(dg_dir, [rel_path])
 
 def remove_multiple_from_index(dg_dir: Path, rel_paths: List[str]):
-    index = read_index(dg_dir)
-    for p in rel_paths:
-        if p in index.entries:
-            del index.entries[p]
-    write_index(dg_dir, index)
+    from deep.core.locks import IndexLock
+    lock = IndexLock(dg_dir)
+    with lock:
+        index = read_index_no_lock(dg_dir)
+        for p in rel_paths:
+            if p in index.entries:
+                del index.entries[p]
+        write_index_no_lock(dg_dir, index)

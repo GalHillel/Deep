@@ -1,9 +1,9 @@
 """
 deep.commands.commit_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DeepGit ``commit -m <msg>`` command implementation.
+Deep ``commit -m <msg>`` command implementation.
 
-ECDSA signing for DeepGit-native commits.
+ECDSA signing for Deep-native commits.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ def _build_tree_from_index(dg_dir: Path, allow_empty: bool = False) -> str:
     from deep.storage.index import read_index_no_lock
     index = read_index_no_lock(dg_dir)
     if not index.entries and not allow_empty:
-        print("DeepGit: error: nothing to commit (no staged changes).", file=sys.stderr)
+        print("Deep: error: nothing to commit (no staged changes).", file=sys.stderr)
         sys.exit(1)
 
     objects_dir = dg_dir / "objects"
@@ -68,7 +68,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"DeepGit: error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
@@ -77,14 +77,14 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     # AI Suggestion
     message = args.message
     if not message and getattr(args, "ai", False):
-        from deep.ai.assistant import DeepGitAI
-        ai = DeepGitAI(repo_root)
+        from deep.ai.assistant import DeepAI
+        ai = DeepAI(repo_root)
         suggestion = ai.suggest_commit_message()
         message = suggestion.text
-        print(f"DeepGit: AI suggestion: {message}")
+        print(f"Deep: AI suggestion: {message}")
     
     if not message:
-        print("DeepGit: error: must provide a commit message (-m) or use --ai.", file=sys.stderr)
+        print("Deep: error: must provide a commit message (-m) or use --ai.", file=sys.stderr)
         sys.exit(1)
 
     from deep.storage.transaction import TransactionManager
@@ -115,7 +115,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 parent_shas = [parent_sha] if parent_sha else []
 
                 config = Config(repo_root)
-                author_name = config.get("user.name", "DeepGit User")
+                author_name = config.get("user.name", "Deep User")
                 author_email = config.get("user.email", "user@deep")
                 author_str = f"{author_name} <{author_email}>"
 
@@ -186,7 +186,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
                 # Crash hook: after writing commit object but before WAL begin.
                 if os.environ.get("DEEP_CRASH_TEST") == "BEFORE_REF_UPDATE":
-                    raise RuntimeError("DeepGit: simulated crash before ref update")
+                    raise RuntimeError("Deep: simulated crash before ref update")
 
                 # WAL Transaction setup
                 logical_ref = branch if branch else "HEAD"
@@ -200,7 +200,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
                 # Crash hook: after WAL begin, before ref update.
                 if os.environ.get("DEEP_CRASH_TEST") == "AFTER_BEGIN_BEFORE_REF":
-                    raise RuntimeError("DeepGit: simulated crash after WAL begin")
+                    raise RuntimeError("Deep: simulated crash after WAL begin")
 
                 if branch:
                     from deep.core.refs import update_branch_no_lock
