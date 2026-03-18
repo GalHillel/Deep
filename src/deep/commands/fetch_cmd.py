@@ -38,11 +38,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     objects_dir = dg_dir / "objects"
 
     try:
-        from deep.network.git_protocol import GitTransportClient
+        from deep.network.client import get_remote_client
         from deep.network.auth import get_auth_token
 
         auth_token = config.get("auth.token") or get_auth_token()
-        client = GitTransportClient(url, token=auth_token)
+        client = get_remote_client(url, auth_token=auth_token)
 
         # Discover remote refs
         print(f"Deep: fetching from {url}...")

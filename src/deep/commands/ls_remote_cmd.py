@@ -32,8 +32,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
     # Remote URL — use Git smart protocol
     try:
-        from deep.network.git_protocol import GitTransportClient
-        client = GitTransportClient(url)
+        from deep.network.client import get_remote_client
+        client = get_remote_client(url)
         refs = client.ls_remote()
 
         if not refs:

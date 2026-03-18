@@ -12,6 +12,7 @@ import os
 import sys
 import shutil
 import hashlib
+import struct
 from pathlib import Path
 
 from deep.storage.index import DeepIndex, DeepIndexEntry, read_index, write_index
@@ -71,11 +72,13 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             to_remove.append(rel_src)
             # Re-stat the moved file
             stat = dest_path.stat()
+            path_hash_full = hashlib.sha256(rel_dest.encode()).digest()
+            path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
             to_update[rel_dest] = DeepIndexEntry(
                 content_hash=entry.content_hash, 
                 mtime_ns=int(stat.st_mtime * 1e9),
                 size=stat.st_size, 
-                path_hash=hashlib.sha1(rel_dest.encode()).hexdigest()
+                path_hash=path_hash_int
             )
         else:
             # Directory move (look for prefix)
@@ -86,11 +89,13 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     to_remove.append(path)
                     try:
                         stat = (repo_root / new_path).stat()
+                        path_hash_full = hashlib.sha256(new_path.encode()).digest()
+                        path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
                         to_update[new_path] = DeepIndexEntry(
                             content_hash=entry.content_hash, 
                             mtime_ns=int(stat.st_mtime * 1e9),
                             size=stat.st_size, 
-                            path_hash=hashlib.sha1(new_path.encode()).hexdigest()
+                            path_hash=path_hash_int
                         )
                     except FileNotFoundError:
                         pass

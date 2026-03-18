@@ -115,13 +115,62 @@ class RemoteClient:
         
         refs = {}
         for pkt in pkts:
-            line = pkt.decode("ascii")
+            line = pkt.decode("ascii", errors="replace")
             if " " in line:
                 sha, ref = line.split(" ", 1)
                 refs[ref] = sha
         return refs
 
-    def fetch(self, objects_dir: Path, target_sha: str, depth: int | None = None, filter_spec: str | None = None):
+    def ls_remote(self) -> Dict[str, str]:
+        """Alias for ls_refs for protocol parity."""
+        return self.ls_refs()
+
+    def clone(self, objects_dir: Path, depth: Optional[int] = None) -> Tuple[Dict[str, str], str]:
+        """Clone via Deep protocol."""
+        self.connect()
+        try:
+            refs = self.ls_refs()
+            if not refs:
+                return {}, "HEAD"
+            
+            # Simple heuristic for HEAD
+            latest_sha = refs.get("HEAD", "")
+            head_ref = "refs/heads/main"
+            if not latest_sha:
+                for r, s in refs.items():
+                    if r.startswith("refs/heads/"):
+                        latest_sha = s
+                        head_ref = r
+                        break
+            
+            self.fetch(objects_dir, target_sha=latest_sha, depth=depth)
+            return refs, head_ref
+        finally:
+            self.disconnect()
+
+    def fetch(self, objects_dir: Path, want_shas: Optional[List[str]] = None, have_shas: Optional[List[str]] = None, depth: Optional[int] = None, filter_spec: Optional[str] = None) -> int:
+        """Standardized fetch for protocol compatibility."""
+        self.connect()
+        try:
+            if not want_shas:
+                # Discover all refs and fetch them
+                refs = self.ls_refs()
+                target_shas = list(refs.values())
+            else:
+                target_shas = want_shas
+            
+            count = 0
+            for sha in target_shas:
+                if sha == "0"*40: continue
+                # We reuse the existing _fetch_single (renamed from fetch)
+                count += self._fetch_single(objects_dir, sha, depth=depth, filter_spec=filter_spec)
+            return count
+        finally:
+            self.disconnect()
+
+    def _fetch_single(self, objects_dir: Path, target_sha: str, depth: int | None = None, filter_spec: str | None = None):
+        """Internal fetch for a single SHA."""
+        # Previous fetch logic...
         cmd_parts = [f"fetch {target_sha}"]
         if depth is not None:
             cmd_parts.append(f"--depth {depth}")
@@ -136,6 +185,7 @@ class RemoteClient:
         self.stream.write(cmd)
         
         if use_sideband:
+            from deep.network.protocol import SidebandStream, BAND_DATA, BAND_PROGRESS, BAND_ERROR
             sb_stream = SidebandStream(self.reader, self.writer)
             pack_data = bytearray()
             pack_size = 0
@@ -160,6 +210,7 @@ class RemoteClient:
             if not pack_data:
                 raise RuntimeError("Fetch failed: no pack data received")
             
+            from deep.storage.pack import unpack
             count = unpack(bytes(pack_data), objects_dir)
             return count
 
@@ -176,8 +227,36 @@ class RemoteClient:
                 raise EOFError("Premature EOF during fetch packfile")
             pack_data.extend(chunk)
             
+        from deep.storage.pack import unpack
         count = unpack(bytes(pack_data), objects_dir)
         return count
+
+    def push(self, objects_dir: Path, ref: str, old_sha: str, new_sha: str) -> str:
+        """Standardized push for protocol compatibility."""
+        self.connect()
+        try:
+            shas_to_push = self._discover_objects(objects_dir, old_sha, new_sha)
+            if not shas_to_push:
+                return "Everything up-to-date"
+
+            from deep.storage.pack import create_pack
+            pack_data = create_pack(objects_dir, shas_to_push)
+            
+            cmd = f"push {ref} {old_sha} {new_sha}".encode("ascii")
+            self.stream.write(cmd)
+            
+            header = f"packfile {len(pack_data)}".encode("ascii")
+            self.stream.write(header)
+            
+            self.sock.sendall(pack_data)
+            
+            resp = self.stream.read_pkt()
+            if not resp or not resp.startswith(b"ok "):
+                raise RuntimeError(f"Push failed: {resp}")
+                
+            return resp.decode("ascii")
+        finally:
+            self.disconnect()
 
     def _discover_objects(self, objects_dir: Path, old_sha: str, new_sha: str) -> List[str]:
         if old_sha == new_sha:
@@ -197,7 +276,8 @@ class RemoteClient:
             
             obj = self._get_obj(objects_dir, sha)
             if isinstance(obj, Commit):
-                queue.append(obj.tree_sha)
+                if obj.tree_sha:
+                    queue.append(obj.tree_sha)
                 for p in obj.parent_shas:
                     queue.append(p)
             elif isinstance(obj, Tree):
@@ -205,6 +285,11 @@ class RemoteClient:
                     queue.append(entry.sha)
                     
         return to_pack
+
+    def _get_obj(self, objects_dir: Path, sha: str) -> Any:
+        if sha not in self._obj_cache:
+            self._obj_cache[sha] = read_object(objects_dir, sha)
+        return self._obj_cache[sha]
 
     def _parse_url(self, url: str) -> tuple[str, int, Optional[str]]:
         if url.startswith("deep://"):
@@ -221,23 +306,8 @@ class RemoteClient:
         return url, 8888, repo_name
 
 
-class Color:
-    CYAN = "\033[96m"
-    YELLOW = "\033[93m"
-    RESET = "\033[0m"
-    @staticmethod
-    def wrap(color, text):
-        return f"{color}{text}{Color.RESET}"
-
-
 def get_remote_client(url: str, auth_token: Optional[str] = None):
-    """Factory to return the appropriate client for a URL.
-
-    - deep:// or host:port → RemoteClient (Deep daemon)
-    - git@, ssh://, https:// → GitTransportClient (native Git protocol)
-    - DEEP_PROTOCOL_FALLBACK=1 → Force Deep daemon client
-    """
-    # Debug fallback
+    """Factory to return the appropriate client for a URL."""
     if os.environ.get("DEEP_PROTOCOL_FALLBACK") == "1":
         return RemoteClient(url, auth_token=auth_token)
 
@@ -251,6 +321,5 @@ def get_remote_client(url: str, auth_token: Optional[str] = None):
     if is_deep or is_classic_daemon:
         return RemoteClient(url, auth_token=auth_token)
     else:
-        # Use native Git protocol client
         from deep.network.git_protocol import GitTransportClient
         return GitTransportClient(url, token=auth_token)

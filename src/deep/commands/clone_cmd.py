@@ -54,11 +54,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         objects_dir = dg_dir / "objects"
 
         # Use native Git protocol
-        from deep.network.git_protocol import GitTransportClient
+        from deep.network.client import get_remote_client
         from deep.network.auth import get_auth_token
 
         token = getattr(args, "token", None) or get_auth_token()
-        client = GitTransportClient(url, token=token)
+        client = get_remote_client(url, auth_token=token)
 
         print(f"Deep: cloning into '{target_dir}'...")
 

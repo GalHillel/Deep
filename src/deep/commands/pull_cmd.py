@@ -38,11 +38,11 @@ def run(args) -> None:
     dg_dir = repo_root / DEEP_DIR
 
     try:
-        from deep.network.git_protocol import GitTransportClient
+        from deep.network.client import get_remote_client
         from deep.network.auth import get_auth_token
 
         auth_token = config.get("auth.token") or get_auth_token()
-        client = GitTransportClient(url, token=auth_token)
+        client = get_remote_client(url, auth_token=auth_token)
 
         print(Color.wrap(Color.CYAN, f"Pulling from {url}..."))
 

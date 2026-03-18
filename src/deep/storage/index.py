@@ -87,9 +87,9 @@ class DeepIndex:
             
             entry_body += struct.pack(">32sQQQ",
                 bytes.fromhex(c_hash_padded),
-                entry.mtime_ns,
-                entry.size,
-                entry.path_hash
+                int(entry.mtime_ns or 0),
+                int(entry.size or 0),
+                int(entry.path_hash or 0)
             )
             
             body_parts.append(entry_header + entry_body)
@@ -239,10 +239,13 @@ class DeepIndex:
             c_hash_v2 = sha.hex()
             p_hash_v2 = int(hashlib.sha256(path.encode("utf-8")).hexdigest()[:16], 16)
             
+            # Convert float mtime to int nsec
+            mtime_ns = int(mtime * 1e9)
+            
             entries[path] = DeepIndexEntry(
                 content_hash=c_hash_v2,
                 mtime_ns=mtime_ns,
-                size=size,
+                size=int(size),
                 path_hash=p_hash_v2,
                 flags=flags
             )

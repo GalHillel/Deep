@@ -144,7 +144,7 @@ class AuditLog:
 
         lines = []
         lines.append("=" * 70)
-        lines.append("DEEPGIT AUDIT REPORT")
+        lines.append("DEEP AUDIT REPORT")
         lines.append("=" * 70)
         lines.append(f"Total entries: {len(entries)}")
         lines.append(f"Chain integrity: {'✅ VALID' if is_valid else f'❌ INVALID at entry {invalid_idx}'}")
