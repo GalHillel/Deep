@@ -143,7 +143,7 @@ class RemoteClient:
                         head_ref = r
                         break
             
-            self.fetch(objects_dir, target_sha=latest_sha, depth=depth)
+            self.fetch(objects_dir, want_shas=[latest_sha] if latest_sha else [], depth=depth)
             return refs, head_ref
         finally:
             self.disconnect()
@@ -319,7 +319,11 @@ def get_remote_client(url: str, auth_token: Optional[str] = None):
     )
 
     if is_deep or is_classic_daemon:
+        if os.environ.get("DEEP_DEBUG"):
+            print(f"[DEEP_DEBUG] get_remote_client: returning RemoteClient for {url}", file=sys.stderr)
         return RemoteClient(url, auth_token=auth_token)
     else:
+        if os.environ.get("DEEP_DEBUG"):
+            print(f"[DEEP_DEBUG] get_remote_client: returning GitTransportClient for {url}", file=sys.stderr)
         from deep.network.git_protocol import GitTransportClient
         return GitTransportClient(url, token=auth_token)
