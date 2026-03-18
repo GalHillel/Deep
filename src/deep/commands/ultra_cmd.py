@@ -24,7 +24,7 @@ def run(args) -> None:
 
     dg_dir = repo_root / DEEP_DIR
     
-    print(Color.wrap(Color.CYAN, "=== DEEPGIT ULTRA MODE STATUS ==="))
+    print(Color.wrap(Color.CYAN, "=== DEEP ULTRA MODE STATUS ==="))
     
     # 1. P2P Status
     from deep.network.p2p import P2PEngine

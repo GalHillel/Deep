@@ -131,7 +131,7 @@ def run(args) -> None:
 
     # Output
     print("=" * 60)
-    print("DEEPGIT VERIFICATION REPORT")
+    print("DEEP VERIFICATION REPORT")
     print("=" * 60)
     print(f"  Signatures: {results['signatures']}")
     print(f"  DAG:        {results['dag']}")

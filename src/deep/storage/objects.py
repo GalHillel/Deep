@@ -313,6 +313,12 @@ class Commit(DeepObject):
     signature: Optional[str] = None
 
     def serialize_content(self) -> bytes:
+        """Serialize commit in Git-compatible format.
+
+        Standard Git headers: tree, parent, author, committer.
+        Deep-specific metadata stored as optional x-deep-* headers
+        for full Git interoperability.
+        """
         lines: list[str] = [f"tree {self.tree_sha}"]
         for p in self.parent_shas:
             lines.append(f"parent {p}")
@@ -320,14 +326,17 @@ class Commit(DeepObject):
         lines.append(
             f"committer {self.committer} {self.timestamp} {self.timezone}"
         )
-        lines.append(f"sequence {self.sequence_id}")
+        # Deep-specific metadata as optional x-deep-* headers
+        # These are ignored by Git but preserved by Deep
+        if self.sequence_id:
+            lines.append(f"x-deep-sequence {self.sequence_id}")
         sig: Optional[str] = self.signature
         if sig:
             lines.append("gpgsig -----BEGIN PGP SIGNATURE-----")
             for sig_line in sig.splitlines():
                 lines.append(f" {sig_line}")
             lines.append(" -----END PGP SIGNATURE-----")
-            
+
         lines.append("")
         lines.append(self.message)
         return "\n".join(lines).encode("utf-8")
@@ -368,10 +377,11 @@ class Commit(DeepObject):
                 tree_sha = cast(Any, line)[5:]
             elif line.startswith("parent "): # type: ignore
                 parent_shas.append(cast(Any, line)[7:])
-            elif line.startswith("sequence "): # type: ignore
+            elif line.startswith("sequence ") or line.startswith("x-deep-sequence "): # type: ignore
                 try:
-                    sequence_id = int(line[9:])
-                except ValueError:
+                    val = line.split(" ", 1)[1].strip()
+                    sequence_id = int(val)
+                except (ValueError, IndexError):
                     sequence_id = 0
             elif line.startswith("author "): # type: ignore
                 parts = line[7:].rsplit(" ", 2)

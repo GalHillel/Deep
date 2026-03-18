@@ -2,6 +2,15 @@
 deep.commands.push_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep push`` command implementation.
+
+Native Git protocol push:
+1. Discover remote refs
+2. Compute missing objects via DAG walk
+3. Build Git v2 packfile
+4. Send via receive-pack protocol
+5. Parse status response
+
+No git CLI dependency.
 """
 
 from __future__ import annotations
@@ -12,7 +21,6 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import resolve_head, get_branch
 from deep.core.config import Config
-from deep.network.client import get_remote_client
 from deep.utils.ux import Color
 from deep.core.hooks import run_hook
 
@@ -28,7 +36,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     url_or_name = args.url
     config = Config(repo_root)
     url = config.get(f"remote.{url_or_name}.url", url_or_name)
-    
+
     branch = args.branch
     local_sha = get_branch(repo_root / DEEP_DIR, branch)
     if not local_sha:
@@ -36,117 +44,73 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         sys.exit(1)
 
     dg_dir = repo_root / DEEP_DIR
-    config = Config(repo_root)
-    url = config.get(f"remote.{url_or_name}.url", url_or_name)
-    auth_token = config.get("auth.token")
-    client = get_remote_client(url, auth_token=auth_token)
 
     from deep.storage.txlog import TransactionLog
     from deep.core.telemetry import TelemetryCollector, Timer
     from deep.core.audit import AuditLog
-    from deep.core.reconcile import logical_rebase
-    from deep.core.refs import get_current_branch, update_branch, update_head
-    from deep.storage.index import read_index, write_index, DeepIndex
-    from deep.commands.rebase_cmd import _restore_tree_to_workdir
-    from deep.storage.objects import read_object, Commit, Tree
+    from deep.core.refs import get_current_branch, update_branch, update_remote_ref
 
     txlog = TransactionLog(dg_dir)
     telemetry = TelemetryCollector(dg_dir)
     audit = AuditLog(dg_dir)
 
     tx_id = txlog.begin("push", f"{branch} -> {url}")
-    temp_bridge_dir = None
     try:
         run_hook(dg_dir, "pre-push", args=[url, branch])
         with Timer(telemetry, "push"):
-            client.connect()
-            
-            # 1. Fetch remote HEAD to check for divergence
+            # Use native Git protocol
+            from deep.network.git_protocol import GitTransportClient
+            from deep.network.auth import get_auth_token
+
+            auth_token = config.get("auth.token") or get_auth_token()
+            client = GitTransportClient(url, token=auth_token)
+
+            # Discover remote refs
             print(f"Checking remote {branch} state...")
-            refs = client.ls_refs()
+            remote_refs = client.ls_remote()
+
             remote_ref = f"refs/heads/{branch}"
-            remote_sha = refs.get(remote_ref)
-            
-            if remote_sha and remote_sha != "0"*40:
-                # Fetch remote objects first to allow LCA calculation and rebase
-                print(f"Fetching remote commits...")
-                client.fetch(dg_dir / "objects", remote_sha)
-                
-                # Check if we are already a fast-forward of remote
-                from deep.core.merge import find_lca
-                lca = find_lca(dg_dir / "objects", local_sha, remote_sha)
-                
-                if lca != remote_sha:
-                    print(Color.wrap(Color.YELLOW, "Divergence detected. Automatically reconciling local branch via rebase..."))
-                    
-                    # Perform logical rebase with Windows sanitization
-                    try:
-                        new_local_sha, renamed_log = logical_rebase(repo_root, dg_dir / "objects", local_sha, remote_sha, sanitize_windows=True)
-                        
-                        if renamed_log:
-                            print(Color.wrap(Color.CYAN, "\nWindows Path Sanitization Summary:"))
-                            for old_n, new_n in renamed_log.items():
-                                print(f"  - {old_n} -> {new_n}")
-                            print()
-                            
-                        # Update local branch pointer
-                        curr_branch = get_current_branch(dg_dir)
-                        if curr_branch == branch:
-                            update_branch(dg_dir, curr_branch, new_local_sha)
-                            
-                            # Restore working directory to match the rebased state
-                            target_commit = read_object(dg_dir / "objects", new_local_sha)
-                            assert isinstance(target_commit, Commit)
-                            tree = read_object(dg_dir / "objects", target_commit.tree_sha)
-                            assert isinstance(tree, Tree)
-                            
-                            # Clear current index/workdir state for restored files
-                            old_index = read_index(dg_dir)
-                            for rel_path in old_index.entries:
-                                full = repo_root / rel_path
-                                if full.exists() and full.is_file():
-                                    try:
-                                        full.unlink()
-                                    except OSError:
-                                        pass
-                            
-                            new_index = DeepIndex()
-                            _restore_tree_to_workdir(repo_root, dg_dir / "objects", tree, new_index)
-                            write_index(dg_dir, new_index)
-                            
-                        else:
-                            # If we're pushing a branch we're NOT on, just update its ref
-                            update_branch(dg_dir, branch, new_local_sha)
-                        
-                        local_sha = new_local_sha
-                        print(f"Rebased and sanitized successfully!")
-                    except RuntimeError as e:
-                        print(f"Automatic reconciliation failed: {e}", file=sys.stderr)
-                        print("Please resolve conflicts manually using 'deep pull'.", file=sys.stderr)
-                        sys.exit(1)
+            remote_sha = remote_refs.get(remote_ref, "0" * 40)
+
+            if remote_sha == local_sha:
+                print("Everything up-to-date.")
+                txlog.commit(tx_id)
+                return
+
+            # Check for divergence/non-fast-forward
+            if remote_sha and remote_sha != "0" * 40:
+                from deep.core.refs import is_ancestor
+                objects_dir = dg_dir / "objects"
+
+                # Try to check if remote is ancestor of local
+                from deep.objects.hash_object import object_exists
+                if object_exists(objects_dir, remote_sha):
+                    if not is_ancestor(objects_dir, remote_sha, local_sha):
+                        print(Color.wrap(Color.YELLOW,
+                              "Warning: Non-fast-forward push. "
+                              "Remote has diverged. Use 'deep pull' first or push with --force."),
+                              file=sys.stderr)
+                        if not getattr(args, 'force', False):
+                            sys.exit(1)
 
             print(f"Pushing {branch} to {url}...")
-            # If using DeepBridge, it may leave temp dirs. We should handle them if possible,
-            # but DeepBridge.push uses tempfile.TemporaryDirectory already.
-            # We add a generic cleanup for any .deep/tmp or similar if they existed.
-            resp = client.push(dg_dir / "objects", f"refs/heads/{branch}", remote_sha or "0"*40, local_sha)
-            print(resp)
-            
-        tx_id_commit = tx_id
-        txlog.commit(tx_id_commit)
+            resp = client.push(
+                dg_dir / "objects",
+                remote_ref,
+                remote_sha,
+                local_sha,
+            )
+            print(f"Push result: {resp}")
+
+            # Update remote tracking ref
+            update_remote_ref(dg_dir, url_or_name, branch, local_sha)
+            if url_or_name != "origin":
+                update_remote_ref(dg_dir, "origin", branch, local_sha)
+
+        txlog.commit(tx_id)
         audit.record("local", "push", ref=branch, sha=local_sha, client=url)
+
     except Exception as e:
         txlog.rollback(tx_id, str(e))
         print(f"Deep: error: push failed: {e}", file=sys.stderr)
         sys.exit(1)
-    finally:
-        try:
-            client.disconnect()
-        except Exception:
-            pass
-        # Cleanup any Deep temp dirs
-        tmp_dirs = list(dg_dir.glob("temp_deep_*")) + list(repo_root.glob("temp_deep_*"))
-        for d in tmp_dirs:
-            if d.is_dir():
-                import shutil
-                shutil.rmtree(d, ignore_errors=True)

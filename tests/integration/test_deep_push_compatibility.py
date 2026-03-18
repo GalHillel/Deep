@@ -12,14 +12,14 @@ from pathlib import Path
 import pytest
 from deep.cli.main import main
 from deep.core.repository import DEEP_DIR
-from deep.network.client import DeepBridge
+from deep.network.git_protocol import GitTransportClient
 
 def test_deep_push_compatibility(tmp_path: Path, monkeypatch):
     """
     1. Create a Deep repo with nested dirs.
     2. Commit.
     3. Initialize a bare Deep repo as a remote.
-    4. Use DeepBridge to push (mocked to avoid git commands).
+    4. Use GitTransportClient to push (mocked to avoid network commands).
     5. Verify Deep accepts it.
     """
     # 1. Setup Deep Repo
@@ -49,11 +49,10 @@ def test_deep_push_compatibility(tmp_path: Path, monkeypatch):
     # We need to set up the remote in Deep first
     main(["remote", "add", "origin", str(deep_remote)])
     
-    # Mock DeepBridge.push to just return success since it relies on missing 
-    # legacy 'deep hash-object' and 'deep commit-tree' git commands.
+    # Mock GitTransportClient.push to just return success
     def mock_push(self, objects_dir, ref, old_sha, new_sha):
         branch = ref.split("/")[-1]
-        print(f"DeepBridge: Mock push successful! (Final Deep SHA: {new_sha[:8]})")
+        print(f"GitTransportClient: Mock push successful! (Final Deep SHA: {new_sha[:8]})")
         
         # Simulate updating remote head 
         remote_heads_dir = Path(self.url) / "refs" / "heads"
@@ -62,7 +61,11 @@ def test_deep_push_compatibility(tmp_path: Path, monkeypatch):
         
         return f"ok {ref}"
         
-    monkeypatch.setattr(DeepBridge, "push", mock_push)
+    def mock_ls_remote(self):
+        return {"refs/heads/main": "0"*40}
+        
+    monkeypatch.setattr(GitTransportClient, "push", mock_push)
+    monkeypatch.setattr(GitTransportClient, "ls_remote", mock_ls_remote)
 
     # Run push
     try:
