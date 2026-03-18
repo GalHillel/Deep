@@ -27,6 +27,7 @@ def test_index_v2_roundtrip(tmp_repo):
         index.entries[path] = DeepIndexEntry(
             content_hash=content_hash,
             mtime_ns=1700000000000 + i,
+            size=1024 + i,
             path_hash=path_hash
         )
     
@@ -50,6 +51,7 @@ def test_index_corruption_detection(tmp_repo):
     index.entries["test.txt"] = DeepIndexEntry(
         content_hash="a" * 64,
         mtime_ns=12345,
+        size=1024,
         path_hash=67890
     )
     write_index(tmp_repo, index)
@@ -72,7 +74,7 @@ def test_index_corruption_detection(tmp_repo):
 def test_index_partial_write_recovery(tmp_repo):
     """Test recovery from truncated/partial index files."""
     index = DeepIndex()
-    index.entries["test.txt"] = DeepIndexEntry("b" * 64, 1, 1)
+    index.entries["test.txt"] = DeepIndexEntry("b" * 64, 1, 2048, 1)
     write_index(tmp_repo, index)
     
     index_file = tmp_repo / "index"
@@ -88,7 +90,7 @@ def test_index_partial_write_recovery(tmp_repo):
 def test_index_checksum_mismatch(tmp_repo):
     """Test explicit checksum mismatch detection."""
     index = DeepIndex()
-    index.entries["valid.txt"] = DeepIndexEntry("c"*64, 1, 1)
+    index.entries["valid.txt"] = DeepIndexEntry("c"*64, 1, 4096, 1)
     write_index(tmp_repo, index)
     
     index_file = tmp_repo / "index"
@@ -123,6 +125,7 @@ def test_index_v1_migration(tmp_repo):
     assert len(index.entries) == 1
     assert "v1_file.txt" in index.entries
     assert index.entries["v1_file.txt"].mtime_ns == 123456789
+    assert index.entries["v1_file.txt"].size == 1000
     # v2 content_hash should be padded SHA1
     assert index.entries["v1_file.txt"].content_hash.startswith(c_hash.hex())
     
@@ -144,11 +147,11 @@ def test_index_deterministic_output(tmp_repo):
     hash_a = "a" * 64
     hash_b = "b" * 64
     index1 = DeepIndex()
-    index1.entries["b.txt"] = DeepIndexEntry(hash_b, 2, 2)
-    index1.entries["a.txt"] = DeepIndexEntry(hash_a, 1, 1)
+    index1.entries["b.txt"] = DeepIndexEntry(hash_b, 2, 5000, 2)
+    index1.entries["a.txt"] = DeepIndexEntry(hash_a, 1, 5000, 1)
     
     index2 = DeepIndex()
-    index2.entries["a.txt"] = DeepIndexEntry(hash_a, 1, 1)
-    index2.entries["b.txt"] = DeepIndexEntry(hash_b, 2, 2)
+    index2.entries["a.txt"] = DeepIndexEntry(hash_a, 1, 5000, 1)
+    index2.entries["b.txt"] = DeepIndexEntry(hash_b, 2, 5000, 2)
     
     assert index1.to_binary() == index2.to_binary()

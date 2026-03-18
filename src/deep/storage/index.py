@@ -50,6 +50,7 @@ class DeepIndexEntry:
     """Metadata for a single entry in DeepIndex v2."""
     content_hash: str # SHA256 hex string (32 bytes binary)
     mtime_ns: int    # Nanosecond timestamp
+    size: int        # uint64 (File size in bytes)
     path_hash: int   # uint64
     flags: int = 0   # Bit 0: skip-worktree, Bit 1: executable (Reserved for v2)
 
@@ -72,11 +73,16 @@ class DeepIndex:
             entry = self.entries[path]
             path_bytes = path.encode("utf-8")
             
-            # Entry: [Path_Len: H][Path: s][Content_Hash: 32s][MTIME_NS: Q][Path_Hash: Q]
+            # Entry: [Path_Len: H][Path: s][Content_Hash: 32s][MTIME_NS: Q][Size: Q][Path_Hash: Q]
+            path_bytes = path.encode("utf-8")
             entry_header = struct.pack(">H", len(path_bytes))
             entry_body = path_bytes
-            entry_body += bytes.fromhex(entry.content_hash)
-            entry_body += struct.pack(">QQ", entry.mtime_ns, entry.path_hash)
+            entry_body += struct.pack(">32sQQQ",
+                bytes.fromhex(entry.content_hash),
+                entry.mtime_ns,
+                entry.size,
+                entry.path_hash
+            )
             
             body_parts.append(entry_header + entry_body)
         
@@ -133,7 +139,7 @@ class DeepIndex:
                 path_len = struct.unpack(">H", body[offset : offset + 2])[0]
                 offset += 2
                 
-                if offset + path_len + 32 + 8 + 8 > body_len:
+                if offset + path_len + 56 > body_len:
                     raise CorruptIndexError("Malformed entry: body too short for entry data")
                 
                 path_bytes = body[offset : offset + path_len]
@@ -144,15 +150,15 @@ class DeepIndex:
                 except UnicodeDecodeError:
                     raise CorruptIndexError(f"Invalid UTF-8 path at offset {offset - path_len}")
                     
-                content_hash = body[offset : offset + 32].hex()
-                offset += 32
-                
-                mtime_ns, path_hash = struct.unpack(">QQ", body[offset : offset + 16])
-                offset += 16
+                # [Content_Hash 32s][MTIME_NS Q][Size Q][Path_Hash Q] = 56 bytes
+                content_hash_bytes, mtime_ns, size, path_hash = struct.unpack(">32sQQQ", body[offset : offset + 56])
+                content_hash = content_hash_bytes.hex()
+                offset += 56
                 
                 entries[path] = DeepIndexEntry(
                     content_hash=content_hash,
                     mtime_ns=mtime_ns,
+                    size=size,
                     path_hash=path_hash
                 )
         except struct.error as e:
@@ -201,6 +207,7 @@ class DeepIndex:
             entries[path] = DeepIndexEntry(
                 content_hash=c_hash_v2,
                 mtime_ns=mtime_ns,
+                size=size,
                 path_hash=p_hash_v2,
                 flags=flags
             )
@@ -226,6 +233,7 @@ class DeepIndex:
             entries[path] = DeepIndexEntry(
                 content_hash=c_hash_v2,
                 mtime_ns=mtime_ns,
+                size=size,
                 path_hash=p_hash_v2,
                 flags=flags
             )
@@ -350,6 +358,7 @@ def add_multiple_to_index(dg_dir: Path, entries: List[Tuple[str, str, int, int]]
             index.entries[rel_path] = DeepIndexEntry(
                 content_hash=sha,
                 mtime_ns=mtime_ns,
+                size=size,
                 path_hash=path_hash
             )
         write_index_no_lock(dg_dir, index)

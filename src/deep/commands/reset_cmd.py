@@ -127,9 +127,9 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                     stat = full.stat()
                     new_index.entries[p] = DeepIndexEntry(
                         content_hash=sha, 
-                        size=stat.st_size, 
                         mtime_ns=int(stat.st_mtime * 1e9),
-                        path_hash=hashlib.sha1(p.encode()).hexdigest()
+                        size=stat.st_size, 
+                        path_hash=int(hashlib.sha256(p.encode()).hexdigest()[:16], 16)
                     )
                 write_index_no_lock(dg_dir, new_index)
                 print(f"Deep: HEAD is now at {target_sha[:7]} (hard reset)")
@@ -139,9 +139,9 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 for p, sha in target_files.items():
                     new_index.entries[p] = DeepIndexEntry(
                         content_hash=sha, 
-                        size=0, 
                         mtime_ns=0,
-                        path_hash=hashlib.sha1(p.encode()).hexdigest()
+                        size=0, 
+                        path_hash=int(hashlib.sha256(p.encode()).hexdigest()[:16], 16)
                     )
                 write_index_no_lock(dg_dir, new_index)
                 print(f"Deep: HEAD is now at {target_sha[:7]} (mixed reset)")

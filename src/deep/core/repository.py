@@ -158,7 +158,7 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
             for path in status.modified:
                 p_str = cast(str, path)
                 # Any locally modified file that either 1) will be removed or 2) overwritten with a different target version
-                entry = current_index.entries.get(p_str, DeepIndexEntry(content_hash="", size=0, mtime_ns=0, path_hash=""))
+                entry = current_index.entries.get(p_str, DeepIndexEntry(content_hash="", size=0, mtime_ns=0, path_hash=0))
                 if p_str not in target_files or target_files[p_str] != entry.content_hash:
                     conflicts.append(p_str)
 
@@ -231,10 +231,10 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                     obj = read_object(objects_dir, sha)
                     full.write_bytes(obj.serialize_content())
                     stat = full.stat()
-                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=stat.st_size, mtime_ns=int(stat.st_mtime * 1e9), path_hash=p_hash, flags=0)
+                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=stat.st_size, mtime_ns=int(stat.st_mtime * 1e9), path_hash=int(p_hash[:16], 16), flags=0)
                 else:
                     # Skip worktree (bit 0 = 0x01)
-                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=0, mtime_ns=0, path_hash=p_hash, flags=0x01)
+                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=0, mtime_ns=0, path_hash=int(p_hash[:16], 16), flags=0x01)
 
             # 5. Update DeepIndex
             write_index_no_lock(dg_dir, new_index)

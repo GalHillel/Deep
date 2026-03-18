@@ -53,8 +53,8 @@ def _restore_tree_to_workdir(
             stat = file_path.stat()
             index.entries[rel_path] = DeepIndexEntry(
                 content_hash=entry.sha,
-                size=stat.st_size,
                 mtime_ns=int(stat.st_mtime * 1e9),
+                size=stat.st_size,
                 path_hash=hashlib.sha1(rel_path.encode()).hexdigest()
             )
         elif isinstance(obj, Tree):
@@ -105,8 +105,8 @@ def _apply_tree_to_workdir(
         stat = full.stat()
         new_index.entries[p] = DeepIndexEntry(
             content_hash=sha, 
-            size=stat.st_size, 
             mtime_ns=int(stat.st_mtime * 1e9),
+            size=stat.st_size, 
             path_hash=hashlib.sha1(p.encode()).hexdigest()
         )
     return new_index

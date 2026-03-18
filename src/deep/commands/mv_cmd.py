@@ -73,8 +73,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             stat = dest_path.stat()
             to_update[rel_dest] = DeepIndexEntry(
                 content_hash=entry.content_hash, 
-                size=stat.st_size, 
                 mtime_ns=int(stat.st_mtime * 1e9),
+                size=stat.st_size, 
                 path_hash=hashlib.sha1(rel_dest.encode()).hexdigest()
             )
         else:
@@ -88,8 +88,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                         stat = (repo_root / new_path).stat()
                         to_update[new_path] = DeepIndexEntry(
                             content_hash=entry.content_hash, 
-                            size=stat.st_size, 
                             mtime_ns=int(stat.st_mtime * 1e9),
+                            size=stat.st_size, 
                             path_hash=hashlib.sha1(new_path.encode()).hexdigest()
                         )
                     except FileNotFoundError:

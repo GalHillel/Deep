@@ -124,10 +124,10 @@ def save_stash(repo_root: Path) -> Optional[str]:
                     aw.write(blob.data)
                 stat = p.stat()
                 new_index.entries[e.name] = DeepIndexEntry(
-                    path_hash=hashlib.sha1(e.name.encode()).hexdigest(),
+                    path_hash=int(hashlib.sha256(e.name.encode()).hexdigest()[:16], 16),
                     content_hash=e.sha,
-                    size=stat.st_size,
                     mtime_ns=stat.st_mtime_ns,
+                    size=stat.st_size,
                 )
         write_index(dg_dir, new_index)
 
@@ -208,10 +208,10 @@ def pop_stash(repo_root: Path) -> bool:
             
             stat = p.stat()
             new_index.entries[name] = DeepIndexEntry(
-                path_hash=hashlib.sha1(name.encode()).hexdigest(),
+                path_hash=int(hashlib.sha256(name.encode()).hexdigest()[:16], 16),
                 content_hash=sha,
-                size=stat.st_size,
                 mtime_ns=stat.st_mtime_ns,
+                size=stat.st_size,
             )
         elif isinstance(obj, Tree):
             # Handle subtrees by flattening
@@ -226,10 +226,10 @@ def pop_stash(repo_root: Path) -> bool:
                         aw.write(sub_blob.data)
                     stat = p.stat()
                     new_index.entries[sub_path] = DeepIndexEntry(
-                        path_hash=hashlib.sha1(sub_path.encode()).hexdigest(),
+                        path_hash=int(hashlib.sha256(sub_path.encode()).hexdigest()[:16], 16),
                         content_hash=sub_sha,
-                        size=stat.st_size,
                         mtime_ns=stat.st_mtime_ns,
+                        size=stat.st_size,
                     )
 
     write_index(dg_dir, new_index)
