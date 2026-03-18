@@ -67,4 +67,4 @@ def test_large_refactor_confidence(ai_repo):
     result = ai.suggest_commit_message()
     assert "feat(core): add new functionality" in result.text
     assert result.confidence > 0.85
-    assert "large" in result.details[0]
+    assert "high" in result.details[0]

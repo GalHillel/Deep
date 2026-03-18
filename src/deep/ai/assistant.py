@@ -47,6 +47,22 @@ def infer_scope_from_path(file_path: str) -> str:
     return ""
 
 
+def get_dominant_scope(files: list[str]) -> str:
+    """
+    Return the most frequent scope across all changed files.
+    """
+    if not files:
+        return ""
+
+    scopes = [infer_scope_from_path(f) for f in files]
+    scopes = [s for s in scopes if s]
+
+    if not scopes:
+        return ""
+
+    return max(set(scopes), key=scopes.count)
+
+
 @dataclass
 class AISuggestion:
     """A suggestion from the AI assistant."""
@@ -176,62 +192,62 @@ class DeepAI:
         # 3. Change Magnitude Scoring (Phase 3)
         total_lines = stats.lines_added + stats.lines_removed
         if total_lines < 20:
-            magnitude = "small"
+            magnitude = "low"
         elif total_lines <= 100:
             magnitude = "medium"
         else:
-            magnitude = "large"
+            magnitude = "high"
 
         # 4. Infer Scope
-        scope = ""
-        for f in staged_files:
-            s = infer_scope_from_path(f)
-            if s:
-                scope = s
-                break
+        scope = get_dominant_scope(staged_files)
         scope_part = f"({scope})" if scope else ""
 
-        # 5. Message Decision Tree (Phase 4)
-        msg = ""
-        confidence = 0.5
+        # 5. Message Decision Tree (Phase 5)
+        candidates = []
 
         if semantics["breaking_change"]:
-            msg = f"refactor!{scope_part}: breaking change in {scope or 'system'}"
-            confidence = 0.90
-        elif semantics["new_files"] and not any([semantics["logic_changes"], semantics["condition_changes"], semantics["deleted_files"]]):
-            msg = f"feat{scope_part}: add new functionality"
-            confidence = 0.85
-        elif semantics["deleted_files"] and not any([semantics["logic_changes"], semantics["condition_changes"], semantics["new_files"]]):
-            msg = f"refactor{scope_part}: remove obsolete components"
-            confidence = 0.85
-        elif semantics["exceptions_added"]:
-            msg = f"fix{scope_part}: improve error handling"
-            confidence = 0.80
-        elif semantics["logic_changes"] or semantics["condition_changes"]:
+            candidates.append((f"refactor!{scope_part}: breaking change in {scope or 'system'}", 0.90))
+        if semantics["new_files"] and not any([semantics["logic_changes"], semantics["condition_changes"], semantics["deleted_files"]]):
+            candidates.append((f"feat{scope_part}: add new functionality", 0.85))
+        if semantics["deleted_files"] and not any([semantics["logic_changes"], semantics["condition_changes"], semantics["new_files"]]):
+            candidates.append((f"refactor{scope_part}: remove obsolete components", 0.85))
+        if semantics["exceptions_added"]:
+            candidates.append((f"fix{scope_part}: improve error handling", 0.80))
+        if semantics["logic_changes"] or semantics["condition_changes"]:
             if semantics["functions"]:
                 func_name = semantics["functions"][0]
-                msg = f"fix{scope_part}: update {func_name} logic"
+                candidates.append((f"fix{scope_part}: update {func_name} logic", 0.80))
             else:
-                msg = f"fix{scope_part}: adjust application logic"
-            confidence = 0.80
-        elif semantics["imports_added"]:
-            msg = f"chore{scope_part}: add required dependencies"
-            confidence = 0.75
-        elif semantics["classes"]:
+                candidates.append((f"fix{scope_part}: adjust application logic", 0.80))
+        if semantics["imports_added"]:
+            candidates.append((f"chore{scope_part}: add required dependencies", 0.75))
+        if semantics["classes"]:
             cls_name = semantics["classes"][0]
-            msg = f"refactor{scope_part}: update {cls_name} implementation"
-            confidence = 0.85
-        elif len(staged_files) > 1:
-            change_type = classify_change(staged_files, all_diff)
-            msg = f"{change_type}{scope_part}: update {len(staged_files)} files"
-            confidence = 0.60
-        else:
-            change_type = classify_change(staged_files, all_diff)
-            msg = f"{change_type}{scope_part}: update system components"
-            confidence = 0.50
+            candidates.append((f"refactor{scope_part}: update {cls_name} implementation", 0.85))
 
-        # Adjust confidence based on magnitude for large refactors (Phase 3/4)
-        if magnitude == "large" and confidence > 0.7:
+        # 10. Multi-file
+        if len(staged_files) > 1:
+            change_type = classify_change(staged_files, all_diff)
+            candidates.append((f"{change_type}{scope_part}: update {len(staged_files)} files", 0.60))
+
+        # 11. Fallback
+        change_type = classify_change(staged_files, all_diff)
+        candidates.append((f"{change_type}{scope_part}: update system components", 0.50))
+
+        # Phase 8: Anti-Generic Guard
+        vague_patterns = [
+            "update files", "modify code", "update system components", 
+            f"update {len(staged_files)} files", "update code"
+        ]
+        
+        msg, confidence = candidates[-1]
+        for cand_msg, cand_conf in candidates:
+            if not any(v in cand_msg for v in vague_patterns):
+                msg, confidence = cand_msg, cand_conf
+                break
+
+        # Adjust confidence based on magnitude for large refactors
+        if magnitude == "high" and confidence > 0.7:
             confidence = min(0.99, confidence + 0.05)
 
         # 6. Formatting Rules
