@@ -87,17 +87,19 @@ Examples:
     p_commit = sub.add_parser(
         "commit",
         help="Record changes to the repository history",
-        description="Create a new commit containing the current contents of the index with a descriptive message and metadata.",
+        description="Create a new commit containing the current contents of the index with a descriptive message and metadata. Using -a will automatically stage tracked file changes before committing.",
         epilog="""
 Examples:
-  deep commit -m "Fix bug"   # Create a commit with a manual message
-  deep commit --ai           # Use the AI assistant to generate a smart commit message
-  deep commit -S -m "Signed" # Create a cryptographically signed commit for security
-  deep commit --allow-empty  # Create a commit even if no changes are staged
+  deep commit -m "Fix bug"          # Create a commit with a manual message
+  deep commit -a -m "Commit all"    # Auto-stage tracked changes and commit
+  deep commit --ai -a              # AI-generated message with auto-stage
+  deep commit -S -m "Signed"        # Create a cryptographically signed commit
+  deep commit --allow-empty         # Create a commit even if no changes are staged
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_commit.add_argument("-m", "--message", help="The commit message describing the changes")
+    p_commit.add_argument("-a", "--all", action="store_true", help="Automatically stage modified and deleted tracked files before committing (like Git). Does NOT include untracked files.")
     p_commit.add_argument("--ai", action="store_true", help="Automatically generate a commit message using Deep AI")
     p_commit.add_argument("-S", "--sign", action="store_true", help="Digitally sign the commit using your identity key")
 

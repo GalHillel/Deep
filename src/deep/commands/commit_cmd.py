@@ -88,6 +88,64 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print("Deep: error: must provide a commit message (-m) or use --ai.", file=sys.stderr)
         sys.exit(1)
 
+    if getattr(args, "all", False):
+        from deep.core.status import compute_status
+
+        status = compute_status(repo_root)
+
+        files_to_update = list(status.modified)
+        files_to_remove = list(status.deleted)
+
+        if files_to_update or files_to_remove:
+            from deep.storage.index import (
+                add_multiple_to_index,
+                remove_multiple_from_index
+            )
+            from deep.commands.add_cmd import _add_file_worker
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            index = read_index(dg_dir)
+
+            # --- Handle deletions ---
+            if files_to_remove:
+                remove_multiple_from_index(dg_dir, files_to_remove)
+
+            # --- Handle modifications ---
+            if files_to_update:
+                results = []
+                max_workers = min(os.cpu_count() or 4, len(files_to_update))
+
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = []
+
+                    for rel_path in files_to_update:
+                        file_path = repo_root / rel_path
+                        entry = index.entries.get(rel_path)
+
+                        p_sha = entry.content_hash if entry else None
+                        p_size = entry.size if entry else None
+                        p_mtime_ns = entry.mtime_ns if entry else None
+
+                        futures.append(executor.submit(
+                            _add_file_worker,
+                            repo_root,
+                            dg_dir,
+                            file_path,
+                            p_sha,
+                            p_size,
+                            p_mtime_ns
+                        ))
+
+                    for future in as_completed(futures):
+                        results.append(future.result())
+
+                actual_results = [r for r in results if r[1] is not None]
+
+                if actual_results:
+                    add_multiple_to_index(dg_dir, actual_results)
+
+            print(f"Deep: Auto-staged {len(files_to_update)} modified and {len(files_to_remove)} deleted files.")
+
     from deep.storage.transaction import TransactionManager
     from deep.core.errors import DeepError
     from deep.core.telemetry import TelemetryCollector, Timer
