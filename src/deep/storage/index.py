@@ -55,6 +55,10 @@ class DeepIndexEntry:
     flags: int = 0   # Bit 0: skip-worktree, Bit 1: executable (Reserved for v2)
 
     @property
+    def skip_worktree(self) -> bool:
+        return bool(self.flags & 0x01)
+
+    @property
     def is_executable(self) -> bool:
         return bool(self.flags & 0x02)
 
@@ -77,8 +81,12 @@ class DeepIndex:
             path_bytes = path.encode("utf-8")
             entry_header = struct.pack(">H", len(path_bytes))
             entry_body = path_bytes
+            
+            # RULE: Pad 40-char SHA1 to 32 bytes ONLY for storage
+            c_hash_padded = entry.content_hash.ljust(64, '0')
+            
             entry_body += struct.pack(">32sQQQ",
-                bytes.fromhex(entry.content_hash),
+                bytes.fromhex(c_hash_padded),
                 entry.mtime_ns,
                 entry.size,
                 entry.path_hash
@@ -153,6 +161,9 @@ class DeepIndex:
                 # [Content_Hash 32s][MTIME_NS Q][Size Q][Path_Hash Q] = 56 bytes
                 content_hash_bytes, mtime_ns, size, path_hash = struct.unpack(">32sQQQ", body[offset : offset + 56])
                 content_hash = content_hash_bytes.hex()
+                # RULE: Unpad immediately after reading (strip 24 trailing zeros from 64-char hex)
+                if content_hash.endswith('0' * 24):
+                    content_hash = content_hash[:40]
                 offset += 56
                 
                 entries[path] = DeepIndexEntry(
@@ -196,10 +207,8 @@ class DeepIndex:
             path = data[offset + 62 : offset + 62 + path_len].decode("utf-8")
             offset += 62 + path_len
             
-            # Upgrade hashes to 32 bytes (pad with zeros or re-hash if we want to be strict)
-            # For migration, we'll pad with zeros so the index remains "readable" but technically invalid hashes.
-            # Alternatively, we could just drop them, but that's not friendly.
-            c_hash_v2 = c_hash_bin.hex().ljust(64, '0')
+            # RULE: Store 40-char SHA1 in memory.
+            c_hash_v2 = c_hash_bin.hex()
             # path_hash v2 is uint64. v1 path_hash was SHA1 hex. 
             # We'll just re-calculate path_hash v2 correctly from path.
             p_hash_v2 = int(hashlib.sha256(path.encode("utf-8")).hexdigest()[:16], 16)
@@ -226,8 +235,8 @@ class DeepIndex:
             path = data[offset : offset + path_len].decode("utf-8")
             offset += path_len
             
-            mtime_ns = int(mtime * 1e9)
-            c_hash_v2 = sha.hex().ljust(64, '0')
+            # RULE: Store 40-char SHA1 in memory.
+            c_hash_v2 = sha.hex()
             p_hash_v2 = int(hashlib.sha256(path.encode("utf-8")).hexdigest()[:16], 16)
             
             entries[path] = DeepIndexEntry(
@@ -350,11 +359,7 @@ def add_multiple_to_index(dg_dir: Path, entries: List[Tuple[str, str, int, int]]
             p_hash_full = hashlib.sha256(rel_path.encode("utf-8")).digest()
             path_hash = struct.unpack(">Q", p_hash_full[:8])[0]
             
-            # Note: sha here is expected to be hex string. 
-            # If it's SHA1 (40 chars), we pad it. If it's SHA256 (64 chars), we use it.
-            if len(sha) == 40:
-                sha = sha.ljust(64, '0')
-                
+            # RULE: Store 40-char SHA1 in memory. No padding here.
             index.entries[rel_path] = DeepIndexEntry(
                 content_hash=sha,
                 mtime_ns=mtime_ns,

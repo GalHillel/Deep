@@ -177,5 +177,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         actual_results = [r for r in results if r[1] is not None]
         
         if actual_results:
+            for r in actual_results:
+                assert len(r[1]) == 40, f"Invalid SHA length for {r[0]}: {len(r[1])}"
             add_multiple_to_index(dg_dir, actual_results)
             print(f"Deep: added {len(actual_results)} files to the index.")

@@ -33,6 +33,10 @@ from deep.utils.utils import AtomicWriter, get_local_timezone_offset, hash_bytes
 
 _SHA_RE = re.compile(r'^[0-9a-f]{40}$')
 
+class CorruptObjectError(Exception):
+    """Raised when an object is found to be corrupted on disk or during parsing."""
+    pass
+
 # Maximum delta-chain depth before aborting reconstruction.
 # Prevents memory overflow from pathological or cyclic delta chains.
 MAX_DELTA_CHAIN_DEPTH = 50
@@ -182,8 +186,14 @@ class TreeEntry:
     sha: str
 
     def __post_init__(self):
+        # RULE: Fix SHA1 alignment if leaked from index (strip padding)
+        if len(self.sha) == 64 and self.sha.endswith('0' * 24):
+            self.sha = self.sha[:40]
+            
+        if len(self.sha) != 40:
+             raise ValueError(f"Invalid SHA-1 length in TreeEntry: {len(self.sha)} chars (expected 40)")
+
         # Normalize mode (Deep trees use "40000" for directories)
-        # However, for serialization we must be consistent.
         if self.mode == "040000":
             self.mode = "40000"
         
@@ -241,6 +251,11 @@ class Tree(DeepObject):
             # 3. Convert to binary
             mode_bytes = entry.mode.encode("ascii")
             name_bytes = safe_name.encode("utf-8")
+            
+            # RULE: Objects MUST use 20-byte raw SHA-1. No padding allowed here.
+            if len(entry.sha) != 40:
+                raise CorruptObjectError(f"Tree entry {entry.name} contains invalid SHA-1 length: {len(entry.sha)}")
+                
             sha_bytes = bytes.fromhex(entry.sha)
             
             # 4. Construct entry: <mode> <name>\0<sha>
@@ -254,18 +269,29 @@ class Tree(DeepObject):
         entries: list[TreeEntry] = []
         idx: int = 0
         limit: int = len(content)
-        while cast(Any, idx) < cast(Any, limit): # type: ignore
-            # Find the null byte separating <mode> <name> from the SHA.
-            null_idx: int = content.index(b"\x00", idx)
-            mode_name: str = cast(Any, content)[idx:null_idx].decode("utf-8") # type: ignore
-            mode, name = mode_name.split(" ", 1)
-            # Use slice with explicit bounds to satisfy linter
-            sha_start: int = null_idx + 1
-            sha_end: int = null_idx + 21
-            sha_bytes: bytes = cast(Any, content)[sha_start:sha_end] # type: ignore
-            sha: str = sha_bytes.hex()
-            entries.append(TreeEntry(mode=mode, name=name, sha=sha))
-            idx = int(sha_end) # type: ignore
+        EXPECTED_SHA_BYTES = 20
+        
+        while idx < limit:
+            try:
+                # Find the null byte separating <mode> <name> from the SHA.
+                null_idx: int = content.index(b"\x00", idx)
+                mode_name: str = content[idx:null_idx].decode("utf-8")
+                mode, name = mode_name.split(" ", 1)
+                
+                # RULE: Strict bounds check for 20-byte SHA
+                sha_start: int = null_idx + 1
+                sha_end: int = null_idx + 1 + EXPECTED_SHA_BYTES
+                
+                if sha_end > limit:
+                    raise CorruptObjectError(f"Unexpected end of tree data for entry {mode_name}")
+                
+                sha_bytes: bytes = content[sha_start:sha_end]
+                sha: str = sha_bytes.hex()
+                entries.append(TreeEntry(mode=mode, name=name, sha=sha))
+                idx = sha_end
+            except (ValueError, IndexError) as e:
+                raise CorruptObjectError(f"Tree parsing failed at offset {idx}: {e}")
+                
         return cls(entries=entries)
 
 
@@ -610,15 +636,23 @@ def read_object(objects_dir: Path, sha: str) -> DeepObject:
 
     obj_type, content = _deserialize(raw)
 
-    if obj_type == "blob":
-        return Blob(data=content)
-    elif obj_type == "tree":
-        return Tree.from_content(content)
-    elif obj_type == "commit":
-        return Commit.from_content(content)
-    elif obj_type == "tag":
-        return Tag.from_content(content)
-    elif obj_type == "delta":
+    try:
+        if obj_type == "blob":
+            return Blob(data=content)
+        elif obj_type == "tree":
+            return Tree.from_content(content)
+        elif obj_type == "commit":
+            return Commit.from_content(content)
+        elif obj_type == "tag":
+            return Tag.from_content(content)
+    except CorruptObjectError as e:
+        print(f"Warning: Object {sha} is corrupted: {e}")
+        print("Suggest running: deep fsck")
+        raise
+    except Exception as e:
+        raise CorruptObjectError(f"Failed to parse {obj_type} {sha}: {e}")
+
+    if obj_type == "delta":
         delta_obj = DeltaObject.from_content(content)
         # Track delta-chain depth to prevent runaway recursion
         depth = get_delta_depth()

@@ -35,6 +35,7 @@ def _build_tree_recursive(objects_dir: Path, files: dict[str, str]) -> str:
                 children_by_dir[top_dir] = {}
             children_by_dir[top_dir][rest] = sha
         else:
+            assert len(sha) == 40, f"Invalid SHA length for {path}: {len(sha)}"
             tree_entries.append(TreeEntry(mode="100644", name=path, sha=sha))
             
     # Process subdirectories
