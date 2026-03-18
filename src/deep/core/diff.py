@@ -119,7 +119,10 @@ def diff_blobs(
         old_lines = text_a.splitlines()
         new_lines = text_b.splitlines()
         
-        return diff_lines(old_lines, new_lines, f"a/{rel_path}", f"b/{rel_path}")
+        from_label = f"a/{rel_path}" if sha_a else "/dev/null"
+        to_label = f"b/{rel_path}" if sha_b else "/dev/null"
+        
+        return diff_lines(old_lines, new_lines, from_label, to_label)
     except Exception:
         return None
 

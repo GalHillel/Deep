@@ -22,10 +22,29 @@ from deep.core.diff import diff_blob_vs_file
 from deep.ai.analyzer import (
     analyze_diff_text,
     classify_change,
-    extract_keywords,
+    extract_diff_semantics,
     score_complexity,
     ChangeStats,
 )
+
+
+def infer_scope_from_path(file_path: str) -> str:
+    path = file_path.lower()
+
+    if "test" in path:
+        return "test"
+    if "api" in path:
+        return "api"
+    if "db" in path:
+        return "db"
+    if "config" in path:
+        return "config"
+    if "ui" in path or "frontend" in path:
+        return "ui"
+    if "core" in path:
+        return "core"
+
+    return ""
 
 
 @dataclass
@@ -96,7 +115,14 @@ class DeepAI:
                     added, removed = analyze_diff_text(diff_text)
                     stats.lines_added += added
                     stats.lines_removed += removed
-                    stats.files_modified += 1
+                    
+                    if not old_sha:
+                        stats.files_added += 1
+                    elif not new_sha:
+                        stats.files_deleted += 1
+                    else:
+                        stats.files_modified += 1
+                        
                     all_diff += diff_text + "\n"
                 else:
                     # Likely a new file if old_sha is empty
@@ -119,36 +145,109 @@ class DeepAI:
         start = time.perf_counter()
 
         all_diff, stats = self._get_staged_diff()
-        
+        index = read_index(self.dg_dir)
+        staged_files = list(index.entries.keys())
+
         if not stats.total_files and not all_diff:
             latency = (time.perf_counter() - start) * 1000
             self._record_metric(latency, 0.1)
             return AISuggestion("commit_msg", "chore: no changes staged", 0.1)
 
-        files = [p for p in stats.file_types] # Simplified
-        change_type = classify_change(list(read_index(self.dg_dir).entries.keys()), all_diff)
-        keywords = extract_keywords(all_diff)
+        # 1. Handle infrastructure files FIRST
+        infra_map = {
+            "requirements.txt": "chore(deps): update dependencies",
+            "package.json": "chore(deps): update dependencies",
+            "pipfile": "chore(deps): update dependencies",
+            "poetry.lock": "chore(deps): update dependencies",
+            ".gitignore": "chore(config): update ignore rules",
+            ".dockerignore": "chore(config): update ignore rules",
+        }
+        
+        for f in staged_files:
+            base = Path(f).name.lower()
+            if base in infra_map:
+                latency = (time.perf_counter() - start) * 1000
+                self._record_metric(latency, 0.95)
+                return AISuggestion("commit_msg", infra_map[base], 0.95, [f"Detected infra file: {f}"], latency)
 
-        # Build message
-        scope = stats.dominant_type if stats.dominant_type != "misc" else ""
+        # 2. Run semantic extraction
+        semantics = extract_diff_semantics(all_diff)
+        
+        # 3. Change Magnitude Scoring (Phase 3)
+        total_lines = stats.lines_added + stats.lines_removed
+        if total_lines < 20:
+            magnitude = "small"
+        elif total_lines <= 100:
+            magnitude = "medium"
+        else:
+            magnitude = "large"
+
+        # 4. Infer Scope
+        scope = ""
+        for f in staged_files:
+            s = infer_scope_from_path(f)
+            if s:
+                scope = s
+                break
         scope_part = f"({scope})" if scope else ""
 
-        if keywords:
-            summary = ", ".join(keywords[:3])
-            msg = f"{change_type}{scope_part}: {summary}"
+        # 5. Message Decision Tree (Phase 4)
+        msg = ""
+        confidence = 0.5
+
+        if semantics["breaking_change"]:
+            msg = f"refactor!{scope_part}: breaking change in {scope or 'system'}"
+            confidence = 0.90
+        elif semantics["new_files"] and not any([semantics["logic_changes"], semantics["condition_changes"], semantics["deleted_files"]]):
+            msg = f"feat{scope_part}: add new functionality"
+            confidence = 0.85
+        elif semantics["deleted_files"] and not any([semantics["logic_changes"], semantics["condition_changes"], semantics["new_files"]]):
+            msg = f"refactor{scope_part}: remove obsolete components"
+            confidence = 0.85
+        elif semantics["exceptions_added"]:
+            msg = f"fix{scope_part}: improve error handling"
+            confidence = 0.80
+        elif semantics["logic_changes"] or semantics["condition_changes"]:
+            if semantics["functions"]:
+                func_name = semantics["functions"][0]
+                msg = f"fix{scope_part}: update {func_name} logic"
+            else:
+                msg = f"fix{scope_part}: adjust application logic"
+            confidence = 0.80
+        elif semantics["imports_added"]:
+            msg = f"chore{scope_part}: add required dependencies"
+            confidence = 0.75
+        elif semantics["classes"]:
+            cls_name = semantics["classes"][0]
+            msg = f"refactor{scope_part}: update {cls_name} implementation"
+            confidence = 0.85
+        elif len(staged_files) > 1:
+            change_type = classify_change(staged_files, all_diff)
+            msg = f"{change_type}{scope_part}: update {len(staged_files)} files"
+            confidence = 0.60
         else:
-            msg = f"{change_type}{scope_part}: update {stats.total_files} file(s)"
+            change_type = classify_change(staged_files, all_diff)
+            msg = f"{change_type}{scope_part}: update system components"
+            confidence = 0.50
 
-        details = [
-            f"Files: +{stats.files_added} ~{stats.files_modified} -{stats.files_deleted}",
-            f"Lines: +{stats.lines_added} -{stats.lines_removed}",
-        ]
+        # Adjust confidence based on magnitude for large refactors (Phase 3/4)
+        if magnitude == "large" and confidence > 0.7:
+            confidence = min(0.99, confidence + 0.05)
 
-        confidence = min(0.9, 0.3 + len(keywords) * 0.1 + (0.1 if scope else 0))
+        # 6. Formatting Rules
+        msg = msg[:72].lower()
+
         latency = (time.perf_counter() - start) * 1000
         self._record_metric(latency, confidence)
+        
+        details = [
+            f"Magnitude: {magnitude} ({total_lines} lines)",
+            f"Semantics: {semantics}",
+            f"Files: {len(staged_files)}"
+        ]
 
         return AISuggestion("commit_msg", msg, confidence, details, latency)
+
 
     def analyze_quality(self) -> AISuggestion:
         """Analyze staged files for code quality issues."""

@@ -68,22 +68,73 @@ def classify_change(files: list[str], diff_text: str = "") -> str:
     return "feat"
 
 
-def extract_keywords(diff_text: str, max_keywords: int = 5) -> list[str]:
-    """Extract meaningful keywords from diff content."""
-    words = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]{3,}\b', diff_text)
-    # Filter common noise
-    noise = {"self", "return", "import", "from", "None", "True", "False",
-             "class", "func", "print", "else", "elif", "with", "pass",
-             "lambda", "yield", "async", "await", "def", "for", "while",
-             "break", "continue", "raise", "except", "finally", "try",
-             "assert", "global", "nonlocal", "del", "not", "and", "is", "in"}
-    filtered = [w for w in words if w.lower() not in noise and not w.startswith("__")]
-    # Count frequency
-    freq: dict[str, int] = {}
-    for w in filtered:
-        freq[w] = freq.get(w, 0) + 1
-    sorted_words = sorted(freq.items(), key=lambda x: -x[1])
-    return [w for w, _ in sorted_words[:max_keywords]]
+def extract_diff_semantics(diff_text: str) -> dict:
+    """
+    Deterministically analyze unified diff and extract structural intent.
+    """
+
+    import re
+
+    semantics = {
+        "functions": [],
+        "classes": [],
+        "imports_added": False,
+        "exceptions_added": False,
+        "logic_changes": False,
+        "condition_changes": False,
+        "returns_changed": False,
+        "breaking_change": False,
+        "new_files": False,
+        "deleted_files": False,
+        "renamed": False
+    }
+
+    for line in diff_text.splitlines():
+
+        # Detect new/deleted files
+        if line.startswith("+++ /dev/null"):
+            semantics["deleted_files"] = True
+        if line.startswith("--- /dev/null"):
+            semantics["new_files"] = True
+
+        # Hunk context extraction OR definition in added/context lines
+        if line.startswith("@@") or line.startswith("+") or line.startswith(" "):
+
+            func = re.search(r"(def|function)\s+([a-zA-Z0-9_]+)", line)
+            cls = re.search(r"(class)\s+([a-zA-Z0-9_]+)", line)
+
+            if func and func.group(2) not in semantics["functions"]:
+                semantics["functions"].append(func.group(2))
+
+            if cls and cls.group(2) not in semantics["classes"]:
+                semantics["classes"].append(cls.group(2))
+
+
+        # Added lines analysis
+        if line.startswith("+"):
+            code = line[1:].strip()
+
+            if re.match(r"(import |from .* import)", code):
+                semantics["imports_added"] = True
+
+            if re.match(r"(raise |throw )", code):
+                semantics["exceptions_added"] = True
+
+            if "return" in code:
+                semantics["returns_changed"] = True
+
+            if any(op in code for op in ["==", "!=", ">", "<"]):
+                semantics["logic_changes"] = True
+
+            if any(k in code for k in ["if ", "elif ", "switch", "case"]):
+                semantics["condition_changes"] = True
+
+            # Breaking change heuristic
+            if any(k in code for k in ["remove", "delete", "drop"]):
+                semantics["breaking_change"] = True
+
+    return semantics
+
 
 
 def score_complexity(content: str) -> float:

@@ -4,7 +4,7 @@ import subprocess, sys, os
 import pytest
 
 from deep.ai.assistant import DeepAI
-from deep.ai.analyzer import classify_change, extract_keywords, score_complexity
+from deep.ai.analyzer import classify_change, score_complexity
 from deep.core.repository import DEEP_DIR
 
 

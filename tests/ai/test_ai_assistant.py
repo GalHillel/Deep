@@ -5,7 +5,7 @@ import pytest
 
 from deep.ai.assistant import DeepAI
 from deep.ai.analyzer import (
-    analyze_diff_text, classify_change, extract_keywords, score_complexity
+    analyze_diff_text, classify_change, score_complexity
 )
 from deep.core.repository import DEEP_DIR
 
@@ -41,10 +41,6 @@ def test_classify_change_feat():
     assert classify_change(["app.py", "utils.py"]) == "feat"
 
 
-def test_extract_keywords():
-    keywords = extract_keywords("def calculate_total(items):\n    total = sum(items)\n    return total")
-    assert isinstance(keywords, list)
-    assert len(keywords) > 0
 
 
 def test_score_complexity():

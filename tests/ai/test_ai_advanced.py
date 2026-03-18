@@ -4,7 +4,7 @@ import subprocess, sys, os
 import pytest
 
 from deep.ai.assistant import DeepAI
-from deep.ai.analyzer import score_complexity, extract_keywords, classify_change
+from deep.ai.analyzer import score_complexity, classify_change
 from deep.core.repository import DEEP_DIR
 
 
@@ -52,11 +52,6 @@ def test_complexity_comparison():
     assert s1 <= s2 <= s3
 
 
-def test_keyword_extraction_consistency():
-    diff = "def calculate_total(items):\n    total = sum(items)\n    return total"
-    k1 = extract_keywords(diff)
-    k2 = extract_keywords(diff)
-    assert k1 == k2  # Deterministic
 
 
 def test_change_classification_coverage():
