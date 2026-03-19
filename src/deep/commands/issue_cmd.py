@@ -23,6 +23,31 @@ from deep.core.errors import DeepCLIException
 
 GITHUB_API_BASE = "https://api.github.com/repos"
 
+def get_description() -> str:
+    """Return a color-coded description for the issue command."""
+    return "Manage issues locally and optionally sync with GitHub."
+
+def get_epilog() -> str:
+    """Return a color-coded epilog with usage examples."""
+    examples_title = Color.wrap(Color.CYAN, "Examples:")
+    note_title = Color.wrap(Color.RED, "Note:")
+    
+    # Use Color.wrap for all examples as requested
+    create_ex = f"  {Color.wrap(Color.YELLOW, 'deep issue create')}   {Color.wrap(Color.GREEN, '# Create a new issue interactively')}"
+    list_ex   = f"  {Color.wrap(Color.YELLOW, 'deep issue list')}     {Color.wrap(Color.GREEN, '# List all local issues')}"
+    show_ex   = f"  {Color.wrap(Color.YELLOW, 'deep issue show 5')}   {Color.wrap(Color.GREEN, '# Show detailed info for issue #5')}"
+    close_ex  = f"  {Color.wrap(Color.YELLOW, 'deep issue close 5')}  {Color.wrap(Color.GREEN, '# Close issue #5')}"
+    reopen_ex = f"  {Color.wrap(Color.YELLOW, 'deep issue reopen 5')} {Color.wrap(Color.GREEN, '# Reopen issue #5')}"
+    sync_ex   = f"  {Color.wrap(Color.YELLOW, 'deep issue sync')}     {Color.wrap(Color.GREEN, '# Sync local issues with GitHub')}"
+    
+    token_ex  = f"\n{Color.wrap(Color.CYAN, 'Setup Token (Windows):')}\n" \
+                f"  {Color.wrap(Color.YELLOW, '$env:GH_TOKEN=\"...\"')}  {Color.wrap(Color.GREEN, '# PowerShell')}\n" \
+                f"  {Color.wrap(Color.YELLOW, 'set GH_TOKEN=...')}      {Color.wrap(Color.GREEN, '# CMD')}"
+
+    sync_note = f"\n{note_title} 'sync' requires a GitHub remote and GH_TOKEN/DEEP_TOKEN. \n      Without these, all operations remain local-only."
+    
+    return f"\n{examples_title}\n{create_ex}\n{list_ex}\n{show_ex}\n{close_ex}\n{reopen_ex}\n{sync_ex}\n{token_ex}\n{sync_note}\n"
+
 class LocalIssueManager:
     """Manages local persistent issue storage in .deep/issues.json."""
     

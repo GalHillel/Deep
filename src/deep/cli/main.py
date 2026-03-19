@@ -566,16 +566,12 @@ Examples:
     p_pr.add_argument("id", nargs="?", help="The numerical ID of the Pull Request")
 
     # ── issue ────────────────────────────────~~~~~~~~~~~~~~~~~~~~~~~~
+    from deep.commands import issue_cmd
     p_issue = sub.add_parser(
         "issue",
         help="Manage platform Issues",
-        description="Track bugs, tasks, and feature requests using Deep platform-integrated issues.",
-        epilog="""
-Examples:
-  deep issue create          # Open a new issue interactively
-  deep issue list            # List all open issues for the current repository
-  deep issue show 456        # Display details for issue #456
-""",
+        description=issue_cmd.get_description(),
+        epilog=issue_cmd.get_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_issue.add_argument("issue_command", choices=["create", "list", "show", "close", "reopen", "sync"], help="The issue tracking action to perform")
