@@ -45,7 +45,7 @@ def run(args) -> None:
     try:
         from deep.core.gc import collect_garbage
         gc_start = time.time()
-        removed, kept = collect_garbage(dg_dir, verbose=True)
+        removed, kept = collect_garbage(repo_root, verbose=True)
         gc_time = time.time() - gc_start
         print(f"  {Color.wrap(Color.GREEN, '✓')} Removed {removed} unreachable objects, kept {kept} ({gc_time:.2f}s)\n")
     except Exception as e:
@@ -69,9 +69,9 @@ def run(args) -> None:
             print(f"  {Color.wrap(Color.DIM, '–')} Only {len(loose_shas)} loose objects, skipping repack.\n")
         else:
             writer = PackWriter(dg_dir)
-            pack_path = writer.write_pack(loose_shas)
+            pack_sha, _ = writer.create_pack(loose_shas)
             repack_time = time.time() - repack_start
-            print(f"  {Color.wrap(Color.GREEN, '✓')} Packed {len(loose_shas)} objects into {pack_path.name} ({repack_time:.2f}s)\n")
+            print(f"  {Color.wrap(Color.GREEN, '✓')} Packed {len(loose_shas)} objects into pack-{pack_sha}.pack ({repack_time:.2f}s)\n")
     except Exception as e:
         print(f"  {Color.wrap(Color.YELLOW, '⚠')} Repack skipped: {e}\n")
 
@@ -82,12 +82,11 @@ def run(args) -> None:
     print(Color.wrap(Color.DIM, "  WHAT: Walks all commits, builds a binary index for fast lookups.\n"))
 
     try:
-        from deep.storage.commit_graph import DeepHistoryGraph
+        from deep.storage.commit_graph import build_history_graph
         cg_start = time.time()
-        cg = DeepHistoryGraph(dg_dir)
-        cg.rebuild()
+        num_commits = build_history_graph(dg_dir)
         cg_time = time.time() - cg_start
-        print(f"  {Color.wrap(Color.GREEN, '✓')} Commit graph rebuilt ({cg_time:.2f}s)\n")
+        print(f"  {Color.wrap(Color.GREEN, '✓')} Commit graph rebuilt for {num_commits} commits ({cg_time:.2f}s)\n")
     except Exception as e:
         print(f"  {Color.wrap(Color.YELLOW, '⚠')} Commit graph skipped: {e}\n")
 

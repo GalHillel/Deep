@@ -778,15 +778,14 @@ Examples:
     # ── ultra ────────────────────────────────────────────────────────
     p_ultra = sub.add_parser(
         "ultra",
-        help="Advanced AI code optimization tools",
-        description="Access 'Ultra' level AI tools for high-end code refactoring, optimization, and structural analysis.",
+        help="Advanced system optimization tools",
+        description="Access 'Ultra' level tools to run aggressive garbage collection, object repacking, and commit graph rebuilding in a single optimized pass.",
         epilog="""
 Examples:
-  deep ultra optimize        # Apply AI-powered performance optimizations to the codebase
+  deep ultra                 # Run the full Deep optimization suite
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_ultra.add_argument("ultra_command", help="The Ultra AI command to execute")
 
     # ── batch ────────────────────────────────────────────────────────
     p_batch = sub.add_parser(
@@ -959,42 +958,9 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.benchmark_cmd import run # type: ignore[import]
     elif args.command == "daemon":
         from deep.commands.daemon_cmd import run # type: ignore[import]
-    elif args.command == "clone":
-        from deep.commands.clone_cmd import run # type: ignore[import]
-    elif args.command == "push":
-        from deep.commands.push_cmd import run # type: ignore[import]
-    elif args.command == "fetch":
-        from deep.commands.fetch_cmd import run # type: ignore[import]
-    elif args.command == "pull":
-        from deep.commands.pull_cmd import run # type: ignore[import]
-    elif args.command == "remote":
-        from deep.commands.remote_cmd import run # type: ignore[import]
-    elif args.command == "web":
-        from deep.commands.web_cmd import run # type: ignore[import]
-    elif args.command == "server":
-        from deep.commands.server_cmd import run # type: ignore[import]
-    elif args.command == "user":
-        from deep.commands.user_cmd import run # type: ignore[import]
-    elif args.command == "auth":
-        from deep.commands.auth_cmd import run # type: ignore[import]
-    elif args.command == "repo":
-        from deep.commands.repo_cmd import run # type: ignore[import]
-    elif args.command == "pr":
-        from deep.commands.pr_cmd import run # type: ignore[import]
-    elif args.command == "issue":
-        from deep.commands.issue_cmd import run # type: ignore[import]
-    elif args.command == "ai":
-        from deep.commands.ai_cmd import run # type: ignore[import]
-    elif args.command == "p2p":
-        from deep.commands.p2p_cmd import run # type: ignore[import]
-    elif args.command == "pipeline":
-        from deep.commands.pipeline_cmd import run # type: ignore[import]
-    elif args.command == "search":
-        from deep.commands.search_cmd import run # type: ignore[import]
-    elif args.command == "mirror":
-        from deep.commands.mirror_cmd import run # type: ignore[import]
-    elif args.command == "sync":
-        from deep.commands.sync_cmd import run # type: ignore[import]
+    elif args.command in ("clone", "push", "fetch", "pull", "remote", "ls-remote", "mirror", "daemon", "p2p", "sync", "server", "user", "auth", "repo", "pr", "issue", "pipeline", "web"):
+        print("P2P is currently disabled (experimental feature)", file=sys.stderr)
+        raise DeepCLIException(1)
     elif args.command == "audit":
         from deep.commands.audit_cmd import run # type: ignore[import]
     elif args.command == "ultra":
@@ -1106,6 +1072,14 @@ def main(argv: list[str] | None = None) -> None:
             raise
         print(f"Deep: internal error: {e}", file=sys.stderr)
         raise DeepCLIException(1)
+        
+    # Phase 6: State Consistency Guarantee
+    if args.command in ("merge", "rollback", "checkout"):
+        from deep.core.status import compute_status # type: ignore[import]
+        status = compute_status(repo_root)
+        if status.staged_new or status.staged_modified or status.staged_deleted or status.modified or status.deleted:
+            print("Deep: error: State consistency validation failed: HEAD, INDEX, and WORKING TREE do not match.", file=sys.stderr)
+            raise DeepCLIException(1)
     
     # --- Background Auto-Maintenance Hook ---
     # Triggered after some commands if enough time has passed.

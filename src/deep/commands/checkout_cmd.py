@@ -3,6 +3,7 @@ import sys
 
 from deep.core.repository import find_repo
 from deep.utils.utils import DeepError
+from deep.core.errors import DeepCLIException
 
 
 def setup_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -44,5 +45,5 @@ def run(args: argparse.Namespace) -> None:
             print(f"Deep: switched to branch '{target}'")
 
     except DeepError as exc:
-        print(f"DeepError: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         raise DeepCLIException(1)

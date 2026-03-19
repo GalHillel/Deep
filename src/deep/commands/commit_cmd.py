@@ -76,14 +76,70 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
 
-    # AI Suggestion
-    message = args.message
+    allow_empty = getattr(args, "allow_empty", False)
+    tree_sha = _build_tree_from_index(dg_dir, allow_empty=allow_empty)
+    parent_sha = resolve_head(dg_dir)
+    parent_tree_sha = None
+    if parent_sha:
+        try:
+            p_obj = read_object(objects_dir, parent_sha)
+            if isinstance(p_obj, Commit):
+                parent_tree_sha = p_obj.tree_sha
+        except Exception:
+            pass
+
+    # Phase 7 / 5: Commit Without Changes Guard
+    if parent_tree_sha and tree_sha == parent_tree_sha and not allow_empty:
+        print("No changes to commit.")
+        raise DeepCLIException(1)
+
+    message = getattr(args, "message", None)
     if not message and getattr(args, "ai", False):
-        from deep.ai.assistant import DeepAI
-        ai = DeepAI(repo_root)
-        suggestion = ai.suggest_commit_message()
-        message = suggestion.text
+        if not parent_tree_sha:
+            message = "feat: initial commit"
+        else:
+            from deep.core.diff import diff_trees
+            diffs = diff_trees(dg_dir, parent_tree_sha, tree_sha)
+            if not diffs:
+                print("No changes to commit.")
+                raise DeepCLIException(1)
+            
+            is_feat = False
+            is_fix = False
+            is_refactor = False
+            is_docs = False
+            
+            for rel_path, diff_text in diffs:
+                if rel_path.endswith(".py"):
+                    for line in diff_text.splitlines():
+                        if line.startswith("+") and not line.startswith("+++"):
+                            if "def " in line or "class " in line:
+                                is_feat = True
+                            lower_line = line.lower()
+                            if any(k in lower_line for k in ["fix", "bug", "error", "issue", "crash"]):
+                                is_fix = True
+                            if any(k in lower_line for k in ["refactor", "clean", "rename"]):
+                                is_refactor = True
+                elif rel_path.endswith(".txt") or rel_path.endswith(".md") or "doc" in rel_path.lower():
+                    is_docs = True
+            
+            if is_fix:
+                message = "fix: resolve bugs"
+            elif is_feat:
+                message = "feat: add new functionality"
+            elif is_refactor:
+                message = "refactor: improve code structure"
+            elif is_docs:
+                message = "docs: update documentation"
+            else:
+                print("Deep: AI engine could not classify the commit. No generic fallback allowed.", file=sys.stderr)
+                raise DeepCLIException(1)
+                
         print(f"Deep: AI suggestion: {message}")
+        ans = input("Accept this commit message? [y/N]: ")
+        if ans.lower() != "y":
+            print("Commit aborted.", file=sys.stderr)
+            raise DeepCLIException(1)
     
     if not message:
         print("Deep: error: must provide a commit message (-m) or use --ai.", file=sys.stderr)

@@ -50,15 +50,16 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         return  # no output = no differences
 
     for rel_path, diff_text in diffs:
+        print(f"\033[1;36mdiff --deep a/{rel_path} b/{rel_path}\033[0m")
         # Coloured output for diff lines.
         for line in diff_text.splitlines():
             if line.startswith("+++") or line.startswith("---"):
-                print(f"\033[1m{line}\033[0m")
+                print(f"\033[1;36m{line}\033[0m") # cyan bold
             elif line.startswith("+"):
-                print(f"\033[32m{line}\033[0m")
+                print(f"\033[32m{line}\033[0m") # green
             elif line.startswith("-"):
-                print(f"\033[31m{line}\033[0m")
+                print(f"\033[31m{line}\033[0m") # red
             elif line.startswith("@@"):
-                print(f"\033[36m{line}\033[0m")
+                print(f"\033[33m{line}\033[0m") # yellow
             else:
                 print(line)

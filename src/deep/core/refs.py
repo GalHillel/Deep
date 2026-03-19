@@ -181,6 +181,19 @@ def update_head(dg_dir: Path, value: str) -> None:
         update_head_no_lock(dg_dir, value)
 
 
+def write_head(dg_dir: Path, ref: str) -> None:
+    """Implement write_head for compatibility with commands.
+    If ref is a valid branch name, writes a symbolic ref.
+    Otherwise, writes the SHA directly.
+    """
+    # Simple check if it's a 40-char SHA
+    if len(ref) == 40 and all(c in "0123456789abcdef" for c in ref.lower()):
+        update_head(dg_dir, ref)
+    else:
+        update_head(dg_dir, f"ref: refs/heads/{ref}")
+
+
+
 # ── Branch helpers ───────────────────────────────────────────────────
 
 def _branch_path(dg_dir: Path, name: str) -> Path:
