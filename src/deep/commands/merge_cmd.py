@@ -34,6 +34,7 @@ from deep.core.config import Config
 from deep.core.telemetry import TelemetryCollector, Timer
 from deep.core.audit import AuditLog
 from deep.core.hooks import run_hook
+from deep.core.state import validate_repo_state
 
 
 def _restore_tree_to_workdir(
@@ -204,6 +205,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                         update_head(dg_dir, target_sha)
 
                     txlog.commit(tx_id)
+                    validate_repo_state(repo_root)
                     audit.record(author_name, "merge", ref=current_branch or "HEAD", details=f"FF merged {target_branch}")
                     run_hook(dg_dir, "post-merge", args=[target_sha])
                 except Exception as e:
@@ -264,6 +266,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                     update_head(dg_dir, merge_commit_sha)
 
                 txlog.commit(tx_id)
+                validate_repo_state(repo_root)
                 audit.record(author_name, "merge", ref=current_branch or "HEAD", details=f"merged {target_branch}")
                 run_hook(dg_dir, "post-merge", args=[merge_commit_sha])
             except Exception as e:

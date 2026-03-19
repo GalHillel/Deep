@@ -132,5 +132,8 @@ def run(args) -> None:
     else:
         write_head(dg_dir, target_sha)
 
+    from deep.core.state import validate_repo_state
+    validate_repo_state(repo_root)
+
     print(f"{Color.wrap(Color.SUCCESS, 'Rollback complete.')} HEAD is now at {target_sha[:7]}")
     print(f"  Files restored: {len(target_files)}")

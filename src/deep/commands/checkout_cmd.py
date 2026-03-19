@@ -35,7 +35,9 @@ def run(args: argparse.Namespace) -> None:
         force = getattr(args, "force", False)
         
         from deep.core.repository import checkout
+        from deep.core.state import validate_repo_state
         checkout(repo_root, target, create_branch=create_branch, force=force)
+        validate_repo_state(repo_root)
         
         if create_branch:
             print(f"Deep: switched to a new branch '{target}'")

@@ -21,10 +21,12 @@ class Issue:
     description: str
     type: str  # bug, feature, task
     author: str
-    status: str = "open"  # open, closed
+    status: str = "open"  # open, closed, in-progress
     created_at: str = field(default_factory=lambda: datetime.datetime.now().isoformat())
     assignee: Optional[str] = None
     labels: List[str] = field(default_factory=list)
+    linked_prs: List[int] = field(default_factory=list)
+    timeline: List[Dict[str, Any]] = field(default_factory=list)
 
 class IssueManager:
     """Manages Issues for a repository."""
@@ -98,5 +100,20 @@ class IssueManager:
         if not issue:
             raise ValueError(f"Issue #{issue_id} not found.")
         issue.status = "open"
+        self.save_issue(issue)
+        return issue
+
+    def add_timeline_event(self, issue_id: int, event: str, **kwargs):
+        """Add an event to the issue timeline."""
+        issue = self.get_issue(issue_id)
+        if not issue:
+            raise ValueError(f"Issue #{issue_id} not found.")
+        
+        entry = {
+            "event": event,
+            "timestamp": datetime.datetime.now().isoformat(),
+        }
+        entry.update(kwargs)
+        issue.timeline.append(entry)
         self.save_issue(issue)
         return issue

@@ -22,6 +22,8 @@ from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.utils.ux import Color
 from deep.core.gc import mark_reachable
+from deep.core.pr import PRManager
+from deep.core.issue import IssueManager
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
@@ -115,6 +117,34 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     except Exception as e:
         print(Color.wrap(Color.RED, f"Error: Index read failure: {e}"))
         errors += 1
+
+    print("Checking Pull Requests...")
+    pm = PRManager(dg_dir)
+    branches = list_branches(dg_dir)
+    for pr in pm.list_prs():
+        # Check branches
+        if pr.head not in branches:
+            print(Color.wrap(Color.RED, f"Error: PR #{pr.id} head branch '{pr.head}' missing"))
+            errors += 1
+        if pr.base not in branches:
+            print(Color.wrap(Color.RED, f"Error: PR #{pr.id} base branch '{pr.base}' missing"))
+            errors += 1
+        
+        # Check linked issue
+        if pr.linked_issue:
+            im = IssueManager(dg_dir)
+            if not im.get_issue(pr.linked_issue):
+                print(Color.wrap(Color.YELLOW, f"Warning: PR #{pr.id} linked to missing Issue #{pr.linked_issue}"))
+                warnings += 1
+
+    print("Checking Issues...")
+    im = IssueManager(dg_dir)
+    for issue in im.list_issues():
+        # Check linked PRs
+        for pr_id in issue.linked_prs:
+            if not pm.get_pr(pr_id):
+                print(Color.wrap(Color.YELLOW, f"Warning: Issue #{issue.id} linked to missing PR #{pr_id}"))
+                warnings += 1
         
     reachable = mark_reachable(dg_dir)
     dangling = all_shas - reachable - corrupt

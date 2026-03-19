@@ -40,6 +40,9 @@ class PullRequest:
     comments: List[PRComment] = field(default_factory=list)
     created_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%d %H:%M:%S"))
     updated_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%d %H:%M:%S"))
+    linked_issue: Optional[int] = None
+    commits: List[str] = field(default_factory=list)
+    merged_at: Optional[str] = None
 
 class PRManager:
     """Manages Pull Requests for a repository."""
@@ -56,7 +59,7 @@ class PRManager:
         ids = [int(p.stem) for p in existing]
         return max(ids) + 1
 
-    def create_pr(self, title: str, author: str, head: str, base: str, body: str = "") -> PullRequest:
+    def create_pr(self, title: str, author: str, head: str, base: str, body: str = "", linked_issue: Optional[int] = None, commits: List[str] = None) -> PullRequest:
         prs = self.list_prs()
         next_id = max([p.id for p in prs], default=0) + 1
         
@@ -67,10 +70,26 @@ class PRManager:
             head=head,
             base=base,
             body=body,
-            status="open"
+            status="open",
+            linked_issue=linked_issue,
+            commits=commits or []
         )
+        self.save_issue_link(pr)
         self.save_pr(pr)
         return pr
+
+    def save_issue_link(self, pr: PullRequest):
+        """Link PR to issue if linked_issue is set."""
+        if pr.linked_issue:
+            import deep.core.issue as issue_core
+            issue_manager = issue_core.IssueManager(self.dg_dir)
+            issue = issue_manager.get_issue(pr.linked_issue)
+            if issue:
+                if pr.id not in issue.linked_prs:
+                    issue.linked_prs.append(pr.id)
+                    issue.status = "in-progress"
+                    issue_manager.add_timeline_event(issue.id, "linked_pr", pr=pr.id)
+                    issue_manager.save_issue(issue)
 
     def save_pr(self, pr: PullRequest):
         path = self.prs_dir / f"{pr.id}.json"

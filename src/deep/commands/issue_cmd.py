@@ -97,6 +97,7 @@ def interactive_create(manager: IssueManager, repo_root: Path) -> Issue:
 
     author = get_author(repo_root)
     issue = manager.create_issue(title, description, itype, author)
+    manager.add_timeline_event(issue.id, "created")
     
     # Optional GitHub Sync
     gh_repo = net.get_github_remote(repo_root)
@@ -177,7 +178,39 @@ def run(args: Any) -> None:
         print(f"Title:  {issue.title}")
         print("-" * 20)
         print(issue.description)
-        print("-" * 20 + "\n")
+        print("-" * 20)
+
+        if issue.linked_prs:
+            print(f"Linked PRs: {', '.join(f'#{pr_id}' for pr_id in issue.linked_prs)}")
+
+        if issue.timeline:
+            print(f"\nTimeline:")
+            for event in issue.timeline:
+                ts = event.get("timestamp", "")
+                if ts:
+                    try:
+                        dt = datetime.datetime.fromisoformat(ts)
+                        ts = dt.strftime("%Y-%m-%d %H:%M")
+                    except Exception:
+                        pass
+                
+                ev_type = event.get("event", "unknown")
+                if ev_type == "created":
+                    print(f"  - {ts} Created")
+                elif ev_type == "linked_pr":
+                    print(f"  - {ts} PR #{event.get('pr')} linked")
+                elif ev_type == "closed_by_pr":
+                    print(f"  - {ts} PR #{event.get('pr')} merged, issue closed")
+                elif ev_type == "commit_linked":
+                    sha = event.get("sha", "unknown")[:7]
+                    print(f"  - {ts} Commit {sha} added")
+                elif ev_type == "closed":
+                    print(f"  - {ts} Issue closed")
+                elif ev_type == "reopened":
+                    print(f"  - {ts} Issue reopened")
+                else:
+                    print(f"  - {ts} {ev_type.capitalize()}")
+        print("")
 
     elif cmd == "close":
         if not args.id:

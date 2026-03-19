@@ -327,6 +327,41 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
                 tx.commit()
 
+        # Commit Intelligence (Part 4)
+        import re
+        patterns = [
+            (r"(?i)fix\s+#(\d+)", "fixed"),
+            (r"(?i)closes\s+#(\d+)", "closed"),
+            (r"(?i)resolve\s+issue\s+#(\d+)", "resolved"),
+        ]
+        
+        from deep.core.issue import IssueManager
+        im = IssueManager(dg_dir)
+        
+        found_issues = []
+        for pattern, action in patterns:
+            matches = re.finditer(pattern, message)
+            for match in matches:
+                try:
+                    issue_id = int(match.group(1))
+                    found_issues.append((issue_id, action))
+                except Exception: pass
+        
+        for issue_id, action in found_issues:
+            try:
+                issue = im.get_issue(issue_id)
+                if issue:
+                    im.add_timeline_event(issue.id, "commit_linked", sha=commit_sha)
+                    if "fix" in message.lower() or "close" in message.lower():
+                        issue.status = "closed"
+                        im.add_timeline_event(issue.id, "closed", reason=f"Commit {commit_sha[:7]} {action}")
+                        im.save_issue(issue)
+                        print(f"✔ Linked Issue #{issue_id} {action} automatically")
+                    else:
+                        print(f"✔ Linked Commit {commit_sha[:7]} to Issue #{issue_id}")
+            except Exception:
+                pass
+
         audit.record(author_name, "commit", ref=branch or "HEAD", sha=commit_sha)
         short = commit_sha[:7]
         sig_status = " (signed ✅)" if signature else ""

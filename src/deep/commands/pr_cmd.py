@@ -98,7 +98,7 @@ def run(args) -> None:
             print_error("Source branch cannot be determined.")
             raise DeepCLIException(1)
 
-        # 4. Validations
+        # 4. Validations (Part 7)
         if head not in branches:
             print_error(f"Branch '{head}' does not exist.")
             raise DeepCLIException(1)
@@ -107,7 +107,7 @@ def run(args) -> None:
             raise DeepCLIException(1)
             
         if head == base:
-            print_error("Source and target branches cannot be the same.")
+            print_error("No changes between branches. PR not created.")
             raise DeepCLIException(1)
             
         # Changes difference check
@@ -123,6 +123,37 @@ def run(args) -> None:
             print_error("No changes between branches. PR not created.")
             raise DeepCLIException(1)
 
+        # 4b. PR ↔ Issue Linking (Part 2)
+        linked_issue_id = None
+        issue_id_str = input("Link issue (optional) [#id]: ").strip()
+        if issue_id_str:
+            if issue_id_str.startswith("#"):
+                issue_id_str = issue_id_str[1:]
+            try:
+                linked_issue_id = int(issue_id_str)
+                from deep.core.issue import IssueManager
+                issue_manager = IssueManager(dg_dir)
+                issue = issue_manager.get_issue(linked_issue_id)
+                if not issue:
+                    print_error(f"Issue #{linked_issue_id} not found")
+                    linked_issue_id = None
+                else:
+                    # Suggest issue title as PR title if PR title was auto-generated
+                    if title.startswith("feat: merge"):
+                        print_info(f"Suggesting issue title: {issue.title}")
+                        use_issue_title = input("Use issue title? [Y/n]: ").strip().lower()
+                        if use_issue_title != 'n':
+                            title = issue.title
+            except ValueError:
+                print_error(f"Invalid issue ID: {issue_id_str}")
+                linked_issue_id = None
+
+        # 4c. Commit Tracking (Part 9)
+        from deep.core.refs import log_history
+        all_head_commits = log_history(dg_dir, head_sha)
+        all_base_commits = set(log_history(dg_dir, base_sha))
+        pr_commits = [c for c in all_head_commits if c not in all_base_commits]
+
         # 5. Summary & Confirmation
         print(f"\nSummary:")
         print(f"  {Color.wrap(Color.YELLOW, head)} \u2192 {Color.wrap(Color.GREEN, base)}")
@@ -135,7 +166,7 @@ def run(args) -> None:
 
         # 6. Creation
         author = config.get("user.name") or "unknown"
-        pr = manager.create_pr(title, author, head, base, body or "")
+        pr = manager.create_pr(title, author, head, base, body or "", linked_issue=linked_issue_id, commits=pr_commits)
         print_success(f"\nLocal PR #{pr.id} created")
         print(f"{pr.head} \u2192 {pr.base}")
         
@@ -225,6 +256,25 @@ def run(args) -> None:
         print(f"Flow:     {pr.head} \u2192 {pr.base}")
         if pr.github_id:
             print(f"GitHub:   #{pr.github_id} ({pr.github_url or 'N/A'})")
+        if pr.linked_issue:
+            print(f"Issue:    #{pr.linked_issue}")
+            
+        print(f"\n{Color.wrap(Color.BOLD, 'Commits:')}")
+        if not pr.commits:
+            print("  No commits found.")
+        else:
+            from deep.storage.objects import read_object, Commit
+            objects_dir = dg_dir / "objects"
+            for sha in pr.commits:
+                try:
+                    obj = read_object(objects_dir, sha)
+                    if isinstance(obj, Commit):
+                        short_sha = sha[:7]
+                        msg = obj.message.split("\n")[0]
+                        print(f"  - {Color.wrap(Color.YELLOW, short_sha)} {msg}")
+                except Exception:
+                    print(f"  - {Color.wrap(Color.YELLOW, sha[:7])} [Object not found]")
+
         print(f"\n{Color.wrap(Color.BOLD, 'Description:')}")
         print(f"{pr.body or 'No description provided.'}\n")
 
@@ -279,10 +329,22 @@ def run(args) -> None:
             # 5. Update PR metadata only on success
             pr_obj.status = "merged"
             pr_obj.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
+            pr_obj.merged_at = pr_obj.updated_at
             manager.save_pr(pr_obj)
 
-            print_success(f"\n✔ Merge completed successfully")
-            print_success(f"✔ PR #{pr_id} marked as merged")
+            # Auto Close Issue on Merge (Part 3)
+            if pr_obj.linked_issue:
+                from deep.core.issue import IssueManager
+                im = IssueManager(dg_dir)
+                issue = im.get_issue(pr_obj.linked_issue)
+                if issue:
+                    issue.status = "closed"
+                    im.add_timeline_event(issue.id, "closed_by_pr", pr=pr_obj.id)
+                    im.save_issue(issue)
+                    print_success(f"\u2714 Linked Issue #{issue.id} closed automatically")
+
+            print_success(f"\n\u2714 Merge completed successfully")
+            print_success(f"\u2714 PR #{pr_id} marked as merged")
 
         except Exception as e:
             print_error(f"\nMerge failed: {e}")
