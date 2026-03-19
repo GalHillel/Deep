@@ -9,27 +9,22 @@ from __future__ import annotations
 
 import json
 import time
+import datetime
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
 @dataclass
-class IssueComment:
-    author: str
-    text: str
-    timestamp: float = field(default_factory=time.time)
-
-@dataclass
 class Issue:
     id: int
     title: str
+    description: str
+    type: str  # bug, feature, task
     author: str
-    status: str = "open" # open, closed
+    status: str = "open"  # open, closed
+    created_at: str = field(default_factory=lambda: datetime.datetime.now().isoformat())
     assignee: Optional[str] = None
     labels: List[str] = field(default_factory=list)
-    description: str = ""
-    comments: List[IssueComment] = field(default_factory=list)
-    created_at: float = field(default_factory=time.time)
 
 class IssueManager:
     """Manages Issues for a repository."""
@@ -43,36 +38,49 @@ class IssueManager:
         existing = list(self.issues_dir.glob("*.json"))
         if not existing:
             return 1
-        ids = [int(p.stem) for p in existing]
-        return max(ids) + 1
+        ids = []
+        for p in existing:
+            try:
+                ids.append(int(p.stem))
+            except ValueError:
+                continue
+        return max(ids) + 1 if ids else 1
 
-    def create_issue(self, title: str, author: str, description: str = "", assignee: Optional[str] = None, labels: List[str] = None) -> Issue:
+    def create_issue(self, title: str, description: str, type: str, author: str, assignee: Optional[str] = None, labels: List[str] = None) -> Issue:
         issue_id = self._get_next_id()
-        issue = Issue(id=issue_id, title=title, author=author, description=description, assignee=assignee, labels=labels or [])
+        issue = Issue(
+            id=issue_id,
+            title=title,
+            description=description,
+            type=type,
+            author=author,
+            status="open",
+            assignee=assignee,
+            labels=labels or []
+        )
         self.save_issue(issue)
         return issue
 
     def save_issue(self, issue: Issue):
         path = self.issues_dir / f"{issue.id}.json"
-        with open(path, "w") as f:
-            json.dump(asdict_deep(issue), f, indent=2)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(asdict(issue), f, indent=2, ensure_ascii=False)
 
     def get_issue(self, issue_id: int) -> Optional[Issue]:
         path = self.issues_dir / f"{issue_id}.json"
         if not path.exists():
             return None
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # Reconstruct Issue
-            comments = [IssueComment(**c) for c in data.get("comments", [])]
-            data["comments"] = comments
             return Issue(**data)
 
     def list_issues(self) -> List[Issue]:
         issues = []
         for p in self.issues_dir.glob("*.json"):
             try:
-                issues.append(self.get_issue(int(p.stem)))
+                issue = self.get_issue(int(p.stem))
+                if issue:
+                    issues.append(issue)
             except Exception:
                 continue
         return sorted(issues, key=lambda x: x.id)
@@ -84,10 +92,11 @@ class IssueManager:
         issue.status = "closed"
         self.save_issue(issue)
         return issue
-
-def asdict_deep(obj):
-    if isinstance(obj, list):
-        return [asdict_deep(i) for i in obj]
-    if hasattr(obj, "__dict__"):
-        return {k: asdict_deep(v) for k, v in obj.__dict__.items()}
-    return obj
+    
+    def reopen_issue(self, issue_id: int):
+        issue = self.get_issue(issue_id)
+        if not issue:
+            raise ValueError(f"Issue #{issue_id} not found.")
+        issue.status = "open"
+        self.save_issue(issue)
+        return issue
