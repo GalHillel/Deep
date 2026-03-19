@@ -91,6 +91,13 @@ class PRManager:
         )
         self.save_issue_link(pr)
         self.save_pr(pr)
+        
+        # Timeline (PR)
+        if pr.linked_issue:
+            import deep.core.issue as issue_core
+            im = issue_core.IssueManager(self.dg_dir)
+            im.add_timeline_event(pr.linked_issue, "pr_created", pr=pr.id, title=pr.title)
+            
         return pr
 
     def save_issue_link(self, pr: PullRequest):

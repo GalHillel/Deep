@@ -157,6 +157,16 @@ def run(args) -> None:
                 print_error(f"Invalid issue ID: {issue_id_str}")
                 linked_issue_id = None
 
+        # 4c. Commit Tracking (Part 9)
+        from deep.core.refs import log_history
+        all_head_commits = log_history(dg_dir, head_sha)
+        all_base_commits = set(log_history(dg_dir, base_sha))
+        pr_commits = [c for c in all_head_commits if c not in all_base_commits]
+
+        if not pr_commits:
+            print_error("No commits between branches. PR not created.")
+            raise DeepCLIException(1)
+
         # 4d. Reviewer Assignment (Part 7)
         reviewers_str = input("Assign reviewers (comma separated, optional): ").strip()
         requested_reviewers = [r.strip() for r in reviewers_str.split(",")] if reviewers_str else []
@@ -174,12 +184,16 @@ def run(args) -> None:
             return
 
         # 6. Creation
-        author = config.get("user.name") or "unknown"
-        pr = manager.create_pr(title, author, head, base, body or "", 
-                               linked_issue=linked_issue_id, commits=pr_commits,
-                               requested_reviewers=requested_reviewers)
-        print_success(f"\nLocal PR #{pr.id} created")
-        print(f"{pr.head} \u2192 {pr.base}")
+        try:
+            author = config.get("user.name") or "unknown"
+            pr = manager.create_pr(title, author, head, base, body or "", 
+                                   linked_issue=linked_issue_id, commits=pr_commits,
+                                   requested_reviewers=requested_reviewers)
+            print_success(f"\nLocal PR #{pr.id} created")
+            print(f"{pr.head} \u2192 {pr.base}")
+        except Exception as e:
+            print_error(f"Failed to create PR: {e}")
+            raise DeepCLIException(1)
         
         # 7. Optional GitHub Sync
         gh_repo = net.get_github_remote(repo_root)
