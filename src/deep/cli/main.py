@@ -580,6 +580,9 @@ Examples:
     )
     p_issue.add_argument("issue_command", choices=["create", "list", "show", "close", "reopen"], help="The issue tracking action to perform")
     p_issue.add_argument("id", nargs="?", help="The numerical ID of the issue")
+    p_issue.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
+    p_issue.add_argument("-m", "--message", dest="title", help="Issue title (for create)")
+    p_issue.add_argument("-d", "--description", help="Issue description (for create)")
 
     # ── pipeline ────────────────────────────────────────────────────
     p_pipeline = sub.add_parser(
@@ -961,7 +964,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "web":
         from deep.commands import web_cmd # type: ignore[import]
         web_cmd.run(args)
-    elif args.command in ("clone", "push", "fetch", "pull", "remote", "ls-remote", "mirror", "daemon", "p2p", "sync", "server", "user", "auth", "repo", "pr", "issue", "pipeline"):
+    elif args.command == "issue":
+        from deep.commands.issue_cmd import run
+    elif args.command in ("clone", "push", "fetch", "pull", "remote", "ls-remote", "mirror", "daemon", "p2p", "sync", "server", "user", "auth", "repo", "pr", "pipeline"):
         print("P2P is currently disabled (experimental feature)", file=sys.stderr)
         raise DeepCLIException(1)
     elif args.command == "audit":
