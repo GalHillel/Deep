@@ -25,8 +25,12 @@ class GraphNode:
     tags: List[str] = field(default_factory=list)
     message: str = ""
 
-def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: int = 100, all_refs: bool = False) -> List[GraphNode]:
+def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: Optional[int] = 100, all_refs: bool = False) -> List[GraphNode]:
     """Traverse commits and build a graph structure for rendering."""
+    if max_count is not None and not isinstance(max_count, int):
+        from deep.core.errors import DeepCLIException
+        raise DeepCLIException(1)
+    
     from deep.storage.commit_graph import DeepHistoryGraph
     
     objects_dir = dg_dir / "objects"
@@ -94,7 +98,7 @@ def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: 
         _push_commit(sha)
     
     nodes: Dict[str, GraphNode] = {}
-    while pq and len(nodes) < max_count:
+    while pq and (max_count is None or len(nodes) < max_count):
         neg_ts, sha = heapq.heappop(pq)
         if sha in processed:
             continue
