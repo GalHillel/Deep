@@ -30,15 +30,16 @@ class PRComment:
 class PullRequest:
     id: int
     title: str
-    author: str
-    source_branch: str
-    target_branch: str
+    head: str  # Source branch
+    base: str  # Target branch
     status: str = "open" # open, merged, closed
-    description: str = ""
-    comments: List[PRComment] = field(default_factory=list)
-    created_at: float = field(default_factory=time.time)
-    updated_at: float = field(default_factory=time.time)
+    body: str = ""
+    author: str = "unknown"
     github_id: Optional[int] = None
+    github_url: Optional[str] = None
+    comments: List[PRComment] = field(default_factory=list)
+    created_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%d %H:%M:%S"))
+    updated_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%d %H:%M:%S"))
 
 class PRManager:
     """Manages Pull Requests for a repository."""
@@ -55,9 +56,19 @@ class PRManager:
         ids = [int(p.stem) for p in existing]
         return max(ids) + 1
 
-    def create_pr(self, title: str, author: str, source: str, target: str, description: str = "") -> PullRequest:
-        pr_id = self._get_next_id()
-        pr = PullRequest(id=pr_id, title=title, author=author, source_branch=source, target_branch=target, description=description)
+    def create_pr(self, title: str, author: str, head: str, base: str, body: str = "") -> PullRequest:
+        prs = self.list_prs()
+        next_id = max([p.id for p in prs], default=0) + 1
+        
+        pr = PullRequest(
+            id=next_id,
+            title=title,
+            author=author,
+            head=head,
+            base=base,
+            body=body,
+            status="open"
+        )
         self.save_pr(pr)
         return pr
 
@@ -86,17 +97,46 @@ class PRManager:
                 continue
         return sorted(prs, key=lambda x: x.id)
 
-    def merge_pr(self, pr_id: int):
+    def merge_pr(self, pr_id: int) -> PullRequest:
+        """Perform a local merge of head into base."""
         pr = self.get_pr(pr_id)
         if not pr:
-            raise ValueError(f"PR #{pr_id} not found.")
+            raise ValueError(f"PR #{pr_id} not found")
         if pr.status != "open":
-            raise ValueError(f"PR #{pr_id} is already {pr.status}.")
+            raise ValueError(f"PR #{pr_id} is already {pr.status}")
+
+        from deep.core.refs import resolve_revision, update_branch, get_branch
+        from deep.core.merge import recursive_merge
         
-        # In a real system, this would perform a 'deep merge'
-        # For our platform simulation, we mark as merged.
+        head_sha = resolve_revision(self.dg_dir, pr.head)
+        base_sha = resolve_revision(self.dg_dir, pr.base)
+        
+        if not head_sha or not base_sha:
+            raise ValueError("Could not resolve branches to commits")
+            
+        # Recursive merge
+        objects_dir = self.dg_dir / "objects"
+        merged_tree, conflicts = recursive_merge(objects_dir, base_sha, head_sha)
+        
+        if conflicts:
+            raise ValueError(f"Merge conflicts in: {', '.join(conflicts)}")
+            
+        # Create merge commit
+        from deep.storage.objects import Commit
+        merge_commit = Commit(
+            tree_sha=merged_tree,
+            parent_shas=[base_sha, head_sha],
+            author=pr.author, # Use PR author as committer for simplicity? 
+            message=f"Merge PR #{pr.id}: {pr.title}",
+            timestamp=int(time.time())
+        )
+        merge_sha = merge_commit.write(objects_dir)
+        
+        # Update base branch
+        update_branch(self.dg_dir, pr.base, merge_sha)
+        
         pr.status = "merged"
-        pr.updated_at = time.time()
+        pr.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
         self.save_pr(pr)
         return pr
 
@@ -105,7 +145,7 @@ class PRManager:
         if not pr:
             raise ValueError(f"PR #{pr_id} not found.")
         pr.status = "closed"
-        pr.updated_at = time.time()
+        pr.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
         self.save_pr(pr)
         return pr
 
@@ -114,6 +154,6 @@ class PRManager:
         if not pr:
             raise ValueError(f"PR #{pr_id} not found.")
         pr.status = "open"
-        pr.updated_at = time.time()
+        pr.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
         self.save_pr(pr)
         return pr

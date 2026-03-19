@@ -8,18 +8,20 @@ from __future__ import annotations
 from deep.core.errors import DeepCLIException
 
 import sys
+import time
 from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.core.pr import PRManager
 from deep.core.config import Config
+from deep.core.refs import list_branches, get_current_branch, find_merge_base, resolve_revision, get_all_branches, update_head
 from deep.utils.ux import Color, print_error, print_success, print_info
 import deep.utils.network as net
 
 def get_description() -> str:
     """Return a color-coded description for the pr command."""
-    return "Manage Pull Requests locally and optionally sync with GitHub."
+    return "Transform Pull Requests into a production-grade local/GitHub workflow."
 
 def get_epilog() -> str:
     """Return a color-coded epilog with usage examples."""
@@ -57,59 +59,154 @@ def run(args) -> None:
     cmd = getattr(args, "pr_command", "list")
     
     if cmd == "create":
+        print(f"\n{Color.wrap(Color.BOLD, '--- Create Pull Request ---')}\n")
+        
+        # 1. Branch Detection
+        current = get_current_branch(dg_dir)
+        branches = get_all_branches(dg_dir)
+        
+        print(f"Detected current branch: {Color.wrap(Color.CYAN, current or 'detached')}")
+        print("\nAvailable branches:")
+        for b in branches:
+            print(f"  - {b}")
+        print("")
+
+        # 2. PR Information
         title = getattr(args, "title", None)
-        desc = getattr(args, "description", None)
-        source = getattr(args, "source", "feature")
-        target = getattr(args, "target", "main")
+        body = getattr(args, "description", None) or getattr(args, "body", None)
         
         if not title:
-            print_info("Creating new Pull Request...")
             title = input("PR Title: ").strip()
-            if not desc:
-                desc = input("Description (optional): ").strip()
-        
+        if not body:
+            body = input("Description: ").strip()
+            
         if not title:
             print_error("PR Title cannot be empty.")
             raise DeepCLIException(1)
-            
-        author = config.get("user.name") or "unknown"
-        pr = manager.create_pr(title, author, source, target, desc or "")
-        print_success(f"Pull Request #{pr.id} created locally: {pr.title}")
-        print(f"  {pr.source_branch} -> {pr.target_branch}")
+
+        # 3. Branch Selection
+        head = getattr(args, "source", None) or getattr(args, "head", None)
+        base = getattr(args, "target", None) or getattr(args, "base", None)
         
+        if not head:
+            head = input(f"Source branch (head) [{current or ''}]: ").strip() or current
+        if not base:
+            base = input(f"Target branch (base) [main]: ").strip() or "main"
+            
+        if not head:
+            print_error("Source branch cannot be determined.")
+            raise DeepCLIException(1)
+
+        # 4. Validations
+        if head not in branches:
+            print_error(f"Branch '{head}' does not exist.")
+            raise DeepCLIException(1)
+        if base not in branches:
+            print_error(f"Branch '{base}' does not exist.")
+            raise DeepCLIException(1)
+            
+        if head == base:
+            print_error("Source and target branches cannot be the same.")
+            raise DeepCLIException(1)
+            
+        # Changes difference check
+        head_sha = resolve_revision(dg_dir, head)
+        base_sha = resolve_revision(dg_dir, base)
+        
+        if not head_sha or not base_sha:
+            print_error("Could not resolve branch revisions.")
+            raise DeepCLIException(1)
+
+        lca = find_merge_base(dg_dir, head_sha, base_sha)
+        if lca == head_sha:
+            print_error("No changes between branches. PR not created.")
+            raise DeepCLIException(1)
+
+        # 5. Summary & Confirmation
+        print(f"\nSummary:")
+        print(f"  {Color.wrap(Color.YELLOW, head)} \u2192 {Color.wrap(Color.GREEN, base)}")
+        print(f"  Title: {title}")
+        
+        confirm = input("\nConfirm PR creation? [y/N]: ").strip().lower()
+        if confirm != 'y':
+            print_info("PR creation cancelled.")
+            return
+
+        # 6. Creation
+        author = config.get("user.name") or "unknown"
+        pr = manager.create_pr(title, author, head, base, body or "")
+        print_success(f"\nLocal PR #{pr.id} created")
+        print(f"{pr.head} \u2192 {pr.base}")
+        
+        # 7. Optional GitHub Sync
+        gh_repo = net.get_github_remote(repo_root)
+        if gh_repo:
+            push_confirm = input(f"\nPush PR to GitHub ({gh_repo})? [y/N]: ").strip().lower()
+            if push_confirm == 'y':
+                token = net.get_token()
+                if not token:
+                    print_error("Sync requires GH_TOKEN or DEEP_TOKEN environment variable.")
+                else:
+                    print_info(f"Syncing to GitHub...")
+                    path = f"{gh_repo}/pulls"
+                    res = net.api_request(path, method="POST", data={
+                        "title": pr.title,
+                        "body": pr.body,
+                        "head": pr.head,
+                        "base": pr.base
+                    }, verbose=verbose)
+                    
+                    if res and isinstance(res, dict) and "html_url" in res:
+                        pr.github_id = res.get("number")
+                        pr.github_url = res.get("html_url")
+                        manager.save_pr(pr)
+                        print_success(f"GitHub PR created: {res['html_url']}")
+                    elif res and isinstance(res, dict) and "status" in res:
+                        status = res["status"]
+                        msg = res.get("message", "Unknown error")
+                        if status == 422:
+                            print_error("GitHub Error: Branch not pushed? Run: deep push origin " + pr.head)
+                        elif status == 401:
+                            print_error("GitHub Error: Invalid GitHub token")
+                        else:
+                            print_error(f"GitHub Error ({status}): {msg}")
+                    else:
+                        print_error("GitHub sync failed with an unexpected response.")
+
     elif cmd == "list":
         prs = manager.list_prs()
-        print(Color.wrap(Color.CYAN, f"\nRepository: {repo_root}"))
-        open_count = len([p for p in prs if p.status == "open"])
-        print(Color.wrap(Color.CYAN, f"Pull Requests: {len(prs)} total | {open_count} open\n"))
+        print(Color.wrap(Color.CYAN, f"\nPull Requests ({repo_root.name})"))
+        print("-" * 65)
         
         if not prs:
             print("No pull requests found.")
             return
 
-        print(f"{'ID':<5} {'Status':<10} {'Author':<15} {'Branches'}")
-        print("-" * 75)
         for pr in prs:
             if pr.status == "open":
                 col = Color.GREEN
+                stat = "OPEN"
             elif pr.status == "merged":
-                col = Color.PURPLE
+                col = Color.CYAN
+                stat = "MERGED"
             else:
                 col = Color.RED
+                stat = "CLOSED"
             
-            branches = f"{pr.source_branch} -> {pr.target_branch}"
-            print(f"#{pr.id:<4} {Color.wrap(col, pr.status.upper()):<10} {pr.author:<15} {branches}")
-            print(f"      {pr.title}\n")
+            flow = f"{pr.head} \u2192 {pr.base}"
+            print(f"#{pr.id:<3} [{Color.wrap(col, stat):<10}] {flow:<20} {pr.title}")
+        print("")
             
     elif cmd == "show":
-        if not args.id:
+        id_val = getattr(args, "id", None)
+        if not id_val:
             print_error("Missing PR ID.")
             raise DeepCLIException(1)
         
         try:
-            pr_id = int(args.id)
+            pr_id = int(id_val)
         except ValueError:
-            print_error(f"Invalid ID: {args.id}")
+            print_error(f"Invalid ID: {id_val}")
             raise DeepCLIException(1)
             
         pr = manager.get_pr(pr_id)
@@ -117,44 +214,62 @@ def run(args) -> None:
             print_error(f"PR #{pr_id} not found locally.")
             raise DeepCLIException(1)
             
-        if pr.status == "open":
-            col = Color.GREEN
-        elif pr.status == "merged":
-            col = Color.PURPLE
-        else:
-            col = Color.RED
+        status_col = Color.GREEN if pr.status == "open" else (Color.CYAN if pr.status == "merged" else Color.RED)
 
         print(Color.wrap(Color.CYAN, f"\nPR #{pr.id}: {pr.title}"))
-        print(Color.wrap(Color.CYAN, "-" * 65))
-        print(f"Status:   {Color.wrap(col, pr.status.upper())}")
+        print("-" * 65)
+        print(f"Status:   {Color.wrap(status_col, pr.status.upper())}")
         print(f"Author:   {pr.author}")
-        print(f"Branches: {pr.source_branch} -> {pr.target_branch}")
+        print(f"Created:  {pr.created_at}")
+        print(f"Flow:     {pr.head} \u2192 {pr.base}")
         if pr.github_id:
-            print(f"GitHub:   #{pr.github_id}")
+            print(f"GitHub:   #{pr.github_id} ({pr.github_url or 'N/A'})")
         print(f"\n{Color.wrap(Color.BOLD, 'Description:')}")
-        print(f"{pr.description or 'No description provided.'}\n")
+        print(f"{pr.body or 'No description provided.'}\n")
 
-    elif cmd in ("close", "reopen", "merge"):
-        if not args.id:
-            print_error(f"Missing PR ID for {cmd}.")
+    elif cmd == "merge":
+        id_val = getattr(args, "id", None)
+        if not id_val:
+            print_error("Missing PR ID for merge.")
             raise DeepCLIException(1)
         
         try:
-            pr_id = int(args.id)
+            pr_id = int(id_val)
         except ValueError:
-            print_error(f"Invalid ID: {args.id}")
+            print_error(f"Invalid ID: {id_val}")
+            raise DeepCLIException(1)
+        
+        pr = manager.get_pr(pr_id)
+        if not pr:
+            print_error(f"PR #{pr_id} not found.")
             raise DeepCLIException(1)
 
+        print_info(f"Merging PR #{pr_id} locally...")
+        
         try:
-            if cmd == "close":
-                pr = manager.close_pr(pr_id)
-            elif cmd == "reopen":
-                pr = manager.reopen_pr(pr_id)
-            else:
-                pr = manager.merge_pr(pr_id)
-            print_success(f"Pull Request #{pr_id} is now {pr.status}.")
-        except ValueError as e:
-            print_error(str(e))
+            # 1. Checkout base
+            print_info(f"Checking out base branch: {pr.base}")
+            update_head(dg_dir, f"ref: refs/heads/{pr.base}")
+            
+            # 2. Perform merge
+            pr = manager.merge_pr(pr_id)
+            print_success(f"Pull Request #{pr_id} merged into {pr.base} successfully.")
+        except Exception as e:
+            print_error(f"Merge failed: {e}")
+            raise DeepCLIException(1)
+
+    elif cmd == "close":
+        id_val = getattr(args, "id", None)
+        if not id_val:
+            print_error("Missing PR ID for close.")
+            raise DeepCLIException(1)
+        
+        try:
+            pr_id = int(id_val)
+            pr = manager.close_pr(pr_id)
+            print_success(f"Pull Request #{pr_id} is now closed.")
+        except Exception as e:
+            print_error(f"Error: {e}")
             raise DeepCLIException(1)
 
     elif cmd == "sync":
@@ -169,29 +284,18 @@ def run(args) -> None:
         prs = manager.list_prs()
         synced_count = 0
         for pr in prs:
-            if not pr.github_id:
-                # Create on GitHub
+            if pr.status == "open" and not pr.github_id:
                 path = f"{gh_repo}/pulls"
                 res = net.api_request(path, method="POST", data={
                     "title": pr.title,
-                    "body": pr.description,
-                    "head": pr.source_branch,
-                    "base": pr.target_branch
+                    "body": pr.body,
+                    "head": pr.head,
+                    "base": pr.base
                 }, verbose=verbose)
                 
                 if res and isinstance(res, dict) and "number" in res:
                     pr.github_id = res["number"]
+                    pr.github_url = res.get("html_url")
                     manager.save_pr(pr)
                     synced_count += 1
-            else:
-                # Update state on GitHub if closed/merged
-                path = f"{gh_repo}/pulls/{pr.github_id}"
-                if pr.status == "closed":
-                    net.api_request(path, method="PATCH", data={"state": "closed"}, verbose=verbose)
-                elif pr.status == "merged":
-                    # GitHub merge is separate
-                    merge_path = f"{path}/merge"
-                    net.api_request(merge_path, method="PUT", data={}, verbose=verbose)
-                synced_count += 1
-
-        print_success(f"Successfully synced {synced_count} PRs with GitHub.")
+        print_success(f"Successfully synced {synced_count} PRs.")

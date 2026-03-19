@@ -563,6 +563,8 @@ Examples:
     p_pr.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
     p_pr.add_argument("-m", "--message", dest="title", help="PR title (for create)")
     p_pr.add_argument("-d", "--description", help="PR description (for create)")
+    p_pr.add_argument("--head", help="Source branch (for create)")
+    p_pr.add_argument("--base", help="Target branch (for create)")
 
     # ── issue ────────────────────────────────~~~~~~~~~~~~~~~~~~~~~~~~
     from deep.commands import issue_cmd

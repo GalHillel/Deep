@@ -269,6 +269,11 @@ def list_branches(dg_dir: Path) -> list[str]:
     return sorted(p.name for p in heads_dir.iterdir() if p.is_file() and not p.name.endswith(".lock"))
 
 
+def get_all_branches(dg_dir: Path) -> list[str]:
+    """Helper for PR system to get all local branches."""
+    return list_branches(dg_dir)
+
+
 def get_branch(dg_dir: Path, name: str) -> Optional[str]:
     """Return the commit SHA a branch points to, or ``None`` if it doesn't exist."""
     bp = _branch_path(dg_dir, name)
