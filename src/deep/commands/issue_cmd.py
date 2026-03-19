@@ -20,8 +20,7 @@ from deep.core.config import Config
 from deep.core.repository import find_repo
 from deep.utils.ux import Color, print_error, print_success, print_info
 from deep.core.errors import DeepCLIException
-
-GITHUB_API_BASE = "https://api.github.com/repos"
+import deep.utils.network as net
 
 def get_description() -> str:
     """Return a color-coded description for the issue command."""
@@ -265,8 +264,8 @@ def run(args: Any) -> None:
         print_success(f"Issue #{issue_id} is now {new_state}.")
 
     elif cmd == "sync":
-        gh_repo = get_github_remote(repo_root)
-        token = get_token()
+        gh_repo = net.get_github_remote(repo_root)
+        token = net.get_token()
         
         if not gh_repo or not token:
             print_error("Sync requires a GitHub remote and GH_TOKEN.")
@@ -282,7 +281,7 @@ def run(args: Any) -> None:
             # Only sync if not already on GitHub
             if not issue.get("github_id"):
                 path = f"{gh_repo}/issues"
-                res = api_request(path, method="POST", data={
+                res = net.api_request(path, method="POST", data={
                     "title": issue["title"],
                     "body": f"{issue['body']}\n\n---\n*Synced from DeepDVCS local issue #{issue['id']}*"
                 }, verbose=verbose)
@@ -293,7 +292,7 @@ def run(args: Any) -> None:
             else:
                 # Update existing GitHub issue state?
                 path = f"{gh_repo}/issues/{issue['github_id']}"
-                api_request(path, method="PATCH", data={"state": issue["state"]}, verbose=verbose)
+                net.api_request(path, method="PATCH", data={"state": issue["state"]}, verbose=verbose)
                 synced_count += 1
                 
         manager.save_all(issues)

@@ -550,20 +550,19 @@ Examples:
     p_auth.add_argument("auth_command", choices=["login", "logout", "status", "token"], help="The authentication action to perform")
 
     # ── pr ───────────────────────────────────────────────────────────
+    from deep.commands import pr_cmd
     p_pr = sub.add_parser(
         "pr",
         help="Manage platform Pull Requests",
-        description="Create, review, and interact with Pull Requests on the Deep platform.",
-        epilog="""
-Examples:
-  deep pr create             # Open a new Pull Request for the current branch
-  deep pr list               # View all open Pull Requests for this repository
-  deep pr show 123           # Display detailed information for Pull Request #123
-""",
+        description=pr_cmd.get_description(),
+        epilog=pr_cmd.get_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_pr.add_argument("pr_command", choices=["create", "list", "show", "merge", "close"], help="The Pull Request action to perform")
+    p_pr.add_argument("pr_command", choices=["create", "list", "show", "merge", "close", "reopen", "sync"], help="The Pull Request action to perform")
     p_pr.add_argument("id", nargs="?", help="The numerical ID of the Pull Request")
+    p_pr.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
+    p_pr.add_argument("-m", "--message", dest="title", help="PR title (for create)")
+    p_pr.add_argument("-d", "--description", help="PR description (for create)")
 
     # ── issue ────────────────────────────────~~~~~~~~~~~~~~~~~~~~~~~~
     from deep.commands import issue_cmd
@@ -581,21 +580,18 @@ Examples:
     p_issue.add_argument("-d", "--description", help="Issue description (for create)")
 
     # ── pipeline ────────────────────────────────────────────────────
+    from deep.commands import pipeline_cmd
     p_pipeline = sub.add_parser(
         "pipeline",
         help="Interact with CI/CD Pipelines",
-        description="Run, monitor, and manage automated CI/CD pipelines on the Deep platform.",
-        epilog="""
-Examples:
-  deep pipeline run          # Trigger a pipeline run for the local changes
-  deep pipeline status       # Show the status of the most recent pipeline runs
-  deep pipeline log 789      # Download and display logs for pipeline run #789
-""",
+        description=pipeline_cmd.get_description(),
+        epilog=pipeline_cmd.get_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_pipeline.add_argument("pipe_command", choices=["run", "list", "status", "log"], help="The CI/CD pipeline action to perform")
-    p_pipeline.add_argument("run_id", nargs="?", help="The specific Pipeline Run ID") 
+    p_pipeline.add_argument("pipe_command", choices=["run", "trigger", "list", "status", "sync"], help="The CI/CD pipeline action to perform")
+    p_pipeline.add_argument("id", nargs="?", help="The specific Pipeline Run ID") 
     p_pipeline.add_argument("--commit", help="Target a specific commit SHA for the pipeline run")
+    p_pipeline.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
 
     # ── web ──────────────────────────────────────────────────────────
     p_web = sub.add_parser(
@@ -962,8 +958,14 @@ def main(argv: list[str] | None = None) -> None:
         web_cmd.run(args)
     elif args.command == "issue":
         from deep.commands.issue_cmd import run
-    elif args.command in ("clone", "push", "fetch", "pull", "remote", "ls-remote", "mirror", "daemon", "p2p", "sync", "server", "user", "auth", "repo", "pr", "pipeline"):
-        print("P2P is currently disabled (experimental feature)", file=sys.stderr)
+    elif args.command == "pr":
+        from deep.commands.pr_cmd import run
+    elif args.command == "pipeline":
+        from deep.commands.pipeline_cmd import run
+    elif args.command == "p2p":
+        from deep.commands.p2p_cmd import run
+    elif args.command in ("clone", "push", "fetch", "pull", "remote", "ls-remote", "mirror", "daemon", "sync", "server", "user", "auth", "repo"):
+        print("P2P/Server is currently disabled (experimental feature)", file=sys.stderr)
         raise DeepCLIException(1)
     elif args.command == "audit":
         from deep.commands.audit_cmd import run # type: ignore[import]

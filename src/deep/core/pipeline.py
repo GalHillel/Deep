@@ -20,6 +20,12 @@ from pathlib import Path
 from deep.core.constants import DEEP_DIR
 from typing import Dict, List, Optional, Any
 
+def asdict_deep(obj):
+    if isinstance(obj, list):
+        return [asdict_deep(i) for i in obj]
+    if hasattr(obj, "__dict__"):
+        return {k: asdict_deep(v) for k, v in obj.__dict__.items()}
+    return obj
 
 @dataclass
 class PipelineJob:
@@ -37,6 +43,7 @@ class PipelineRun:
     jobs: List[PipelineJob] = field(default_factory=list)
     status: str = "pending"
     start_time: float = field(default_factory=time.time)
+    github_run_id: Optional[int] = None
 
 
 class PipelineRunner:
@@ -219,13 +226,3 @@ except Exception as e:
                         threading.Thread(target=sib_runner.run_pipeline, args=(run,), daemon=True).start()
                         cascaded.append(sibling.name)
         return cascaded
-
-import threading
-
-
-def asdict_deep(obj):
-    if isinstance(obj, list):
-        return [asdict_deep(i) for i in obj]
-    if hasattr(obj, "__dict__"):
-        return {k: asdict_deep(v) for k, v in obj.__dict__.items()}
-    return obj

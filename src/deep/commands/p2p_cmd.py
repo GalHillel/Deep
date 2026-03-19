@@ -2,18 +2,40 @@ import asyncio
 import socket
 import threading
 import sys
-from deep.core.errors import DeepCLIException
 import time
 from pathlib import Path
-
+from deep.core.errors import DeepCLIException
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.network.p2p import P2PEngine
 from deep.network.daemon import DeepDaemon
+from deep.utils.ux import Color, print_error, print_info, print_success
 
+def get_description() -> str:
+    """Return a description for the p2p command."""
+    return "Experimental P2P sync and discovery (P2P Mesh Network)."
+
+def get_epilog() -> str:
+    """Return an epilog with usage examples."""
+    examples_title = Color.wrap(Color.CYAN, "Examples:")
+    warn_title = Color.wrap(Color.RED, "WARNING:")
+    
+    start_ex = f"  {Color.wrap(Color.YELLOW, 'deep p2p start')}     {Color.wrap(Color.GREEN, '# Start P2P node and daemon')}"
+    list_ex  = f"  {Color.wrap(Color.YELLOW, 'deep p2p list')}      {Color.wrap(Color.GREEN, '# Discover and list active peers')}"
+    sync_ex  = f"  {Color.wrap(Color.YELLOW, 'deep p2p sync')}      {Color.wrap(Color.GREEN, '# Sync objects with discovered peers')}"
+    
+    token_ex  = f"\n{Color.wrap(Color.CYAN, 'Setup Token (Windows):')}\n" \
+                f"  {Color.wrap(Color.YELLOW, '$env:GH_TOKEN=\"...\"')}  {Color.wrap(Color.GREEN, '# PowerShell')}\n" \
+                f"  {Color.wrap(Color.YELLOW, 'set GH_TOKEN=...')}      {Color.wrap(Color.GREEN, '# CMD')}"
+
+    p2p_warn = f"\n{warn_title} P2P is an experimental feature and may be unstable."
+    
+    return f"\n{examples_title}\n{start_ex}\n{list_ex}\n{sync_ex}\n{token_ex}\n{p2p_warn}\n"
 
 def run(args) -> None:
     """Execute the ``p2p`` command."""
+    print(f"\n{Color.wrap(Color.RED, '[EXPERIMENTAL]')} {Color.wrap(Color.YELLOW, 'P2P mesh networking is in alpha state.')}\n")
+    
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:

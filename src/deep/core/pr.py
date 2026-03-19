@@ -13,6 +13,13 @@ from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
+def asdict_deep(obj):
+    if isinstance(obj, list):
+        return [asdict_deep(i) for i in obj]
+    if hasattr(obj, "__dict__"):
+        return {k: asdict_deep(v) for k, v in obj.__dict__.items()}
+    return obj
+
 @dataclass
 class PRComment:
     author: str
@@ -30,6 +37,8 @@ class PullRequest:
     description: str = ""
     comments: List[PRComment] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+    github_id: Optional[int] = None
 
 class PRManager:
     """Manages Pull Requests for a repository."""
@@ -87,12 +96,24 @@ class PRManager:
         # In a real system, this would perform a 'deep merge'
         # For our platform simulation, we mark as merged.
         pr.status = "merged"
+        pr.updated_at = time.time()
         self.save_pr(pr)
         return pr
 
-def asdict_deep(obj):
-    if isinstance(obj, list):
-        return [asdict_deep(i) for i in obj]
-    if hasattr(obj, "__dict__"):
-        return {k: asdict_deep(v) for k, v in obj.__dict__.items()}
-    return obj
+    def close_pr(self, pr_id: int) -> PullRequest:
+        pr = self.get_pr(pr_id)
+        if not pr:
+            raise ValueError(f"PR #{pr_id} not found.")
+        pr.status = "closed"
+        pr.updated_at = time.time()
+        self.save_pr(pr)
+        return pr
+
+    def reopen_pr(self, pr_id: int) -> PullRequest:
+        pr = self.get_pr(pr_id)
+        if not pr:
+            raise ValueError(f"PR #{pr_id} not found.")
+        pr.status = "open"
+        pr.updated_at = time.time()
+        self.save_pr(pr)
+        return pr
