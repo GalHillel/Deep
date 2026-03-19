@@ -1,7 +1,7 @@
 """
 deep.core.gc
 ~~~~~~~~~~~~~~~~~
-Mark-and-sweep garbage collection for DeepBridge.
+Mark-and-sweep garbage collection for Deep.
 """
 
 from __future__ import annotations
@@ -96,7 +96,7 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
     txlog = TransactionLog(dg_dir)
     if txlog.log_path.exists() and txlog.needs_recovery():
         if verbose:
-            print("DeepBridge: skipping GC — active WAL transaction detected. Run recovery first.")
+            print("Deep: skipping GC — active WAL transaction detected. Run recovery first.")
         return 0, 0
 
     # Safety: Acquire repository lock to prevent concurrent operations during GC
@@ -106,7 +106,7 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
         repo_lock.acquire()
     except TimeoutError:
         if verbose:
-            print("DeepBridge: skipping GC — could not acquire repository lock.")
+            print("Deep: skipping GC — could not acquire repository lock.")
         return 0, 0
     
     # Identify ALL loose objects on disk BEFORE packing/unlinking

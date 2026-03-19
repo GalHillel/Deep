@@ -1,13 +1,12 @@
 """
 deep.network.client
 ~~~~~~~~~~~~~~~~~~~~~~~
-Git Transport Client for interacting with remote repositories.
+Transport client for interacting with remote repositories.
 
-Provides GitTransportClient for native Git protocol operations (SSH + HTTPS)
+Provides transport clients for native protocol operations (SSH + HTTPS)
 and RemoteClient for Deep daemon connections.
 
-The DeepBridge (git CLI wrapper) has been REMOVED and replaced with
-the pure-Python GitTransportClient.
+All operations are pure-Python with zero external VCS dependencies.
 """
 
 from __future__ import annotations
@@ -28,8 +27,8 @@ from deep.storage.pack import create_pack, unpack
 from deep.network.protocol import PktLineStream, SidebandStream, encode_pkt, decode_pkt, BAND_DATA, BAND_PROGRESS, BAND_ERROR
 
 
-class DeepBridgeError(Exception):
-    """Raised when a Deep bridge operation fails."""
+class DeepRemoteError(Exception):
+    """Raised when a Deep remote operation fails."""
     pass
 
 
@@ -324,6 +323,6 @@ def get_remote_client(url: str, auth_token: Optional[str] = None):
         return RemoteClient(url, auth_token=auth_token)
     else:
         if os.environ.get("DEEP_DEBUG"):
-            print(f"[DEEP_DEBUG] get_remote_client: returning GitTransportClient for {url}", file=sys.stderr)
-        from deep.network.git_protocol import GitTransportClient
-        return GitTransportClient(url, token=auth_token)
+            print(f"[DEEP_DEBUG] get_remote_client: returning SmartTransportClient for {url}", file=sys.stderr)
+        from deep.network.smart_protocol import SmartTransportClient
+        return SmartTransportClient(url, token=auth_token)

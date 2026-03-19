@@ -3,13 +3,13 @@ deep.commands.fetch_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep fetch`` command implementation.
 
-Native Git protocol fetch:
+Native smart protocol fetch:
 1. Discover remote refs
 2. Compare with local refs
 3. Request missing objects via upload-pack
 4. Update remote tracking branches
 
-No git CLI dependency.
+No external VCS CLI dependency.
 """
 
 from __future__ import annotations

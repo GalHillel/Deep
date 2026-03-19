@@ -365,7 +365,7 @@ class TransactionLog:
             stat = full.stat()
             current_index.entries[p] = DeepIndexEntry(
                 content_hash=sha,
-                mtime_ns=int(stat.st_mtime * 1e9),
+                mtime_ns=stat.st_mtime_ns,
                 size=stat.st_size,
                 path_hash=_hashlib.sha1(p.encode()).hexdigest(),
             )

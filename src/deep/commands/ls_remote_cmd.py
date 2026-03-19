@@ -3,8 +3,8 @@ deep.commands.ls_remote_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep ls-remote <url>`` command implementation.
 
-Uses native Git smart protocol (SSH/HTTPS) for remote ref discovery.
-No git CLI dependency.
+Uses native smart protocol (SSH/HTTPS) for remote ref discovery.
+No external VCS CLI dependency.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             _ls_remote_local(target)
             return
 
-    # Remote URL — use Git smart protocol
+    # Remote URL — use smart protocol
     try:
         from deep.network.client import get_remote_client
         client = get_remote_client(url)

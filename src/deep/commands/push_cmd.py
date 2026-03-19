@@ -3,14 +3,14 @@ deep.commands.push_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep push`` command implementation.
 
-Native Git protocol push:
+Native smart protocol push:
 1. Discover remote refs
 2. Compute missing objects via DAG walk
-3. Build Git v2 packfile
+3. Build v2 packfile
 4. Send via receive-pack protocol
 5. Parse status response
 
-No git CLI dependency.
+No external VCS CLI dependency.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         run_hook(dg_dir, "pre-push", args=[url, branch])
         with Timer(telemetry, "push"):
-            # Use native Git protocol
+            # Use native smart protocol
             from deep.network.client import get_remote_client
             from deep.network.auth import get_auth_token
 

@@ -1,7 +1,7 @@
 """
 deep.core.pipeline
 ~~~~~~~~~~~~~~~~~~~~~~
-CI/CD Pipeline runner for DeepBridge.
+CI/CD Pipeline runner for Deep.
 
 Loads pipeline definitions from `.deep/pipelines/*.json` or `.deep/pipeline.json`
 and executes them sequentially or in parallel.

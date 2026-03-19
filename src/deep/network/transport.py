@@ -2,16 +2,16 @@
 deep.network.transport
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Transport layer for Git smart protocol.
+Transport layer for Deep smart protocol.
 
 Supports two transport mechanisms:
-1. SSH — via system `ssh` subprocess (NOT git CLI)
+1. SSH — via system `ssh` subprocess (NOT external VCS CLI)
 2. HTTPS — via urllib (stdlib, no external dependencies)
 
 URL formats:
-    SSH:   git@github.com:user/repo.git
-           ssh://git@github.com/user/repo.git
-    HTTPS: https://github.com/user/repo.git
+    SSH:   user@github.com:user/repo
+           ssh://user@github.com/user/repo
+    HTTPS: https://github.com/user/repo
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ class AuthenticationError(TransportError):
 # ── URL Parsing ────────────────────────────────────────────────────
 
 def parse_git_url(url: str) -> Tuple[str, str, str, str]:
-    """Parse a Git URL into (transport, host, port, path).
+    """Parse a remote URL into (transport, host, port, path).
 
     Returns:
         (transport: "ssh" | "https" | "http",
@@ -54,10 +54,10 @@ def parse_git_url(url: str) -> Tuple[str, str, str, str]:
          port: port string or "",
          path: repository path on server)
     """
-    # ssh://git@host:port/path
+    # ssh://user@host:port/path
     m = re.match(r'^ssh://([^@]+@)?([^:/]+)(?::(\d+))?(/.*)', url)
     if m:
-        user = m.group(1) or "git@"
+        user = m.group(1) or "user@"
         return "ssh", f"{user}{m.group(2)}", m.group(3) or "", m.group(4)
 
     # file://path
@@ -65,7 +65,7 @@ def parse_git_url(url: str) -> Tuple[str, str, str, str]:
     if m:
         return "file", "", "", m.group(1)
 
-    # git@host:user/repo.git (SCP-style)
+    # user@host:user/repo (SCP-style)
     m = re.match(r'^([^@]+@[^:]+):(.+)', url)
     if m:
         return "ssh", m.group(1), "", f"/{m.group(2)}"
@@ -83,11 +83,11 @@ def parse_git_url(url: str) -> Tuple[str, str, str, str]:
     if os.path.exists(url) or url.startswith("C:\\") or url.startswith("/") or "\\" in url:
         return "file", "", "", url
 
-    raise TransportError(f"Cannot parse Git URL: {url}")
+    raise TransportError(f"Cannot parse remote URL: {url}")
 
 
 def _normalize_repo_url(url: str) -> str:
-    """Ensure .git suffix on repository URL."""
+    """Ensure repository URL has valid suffix."""
     if not url.endswith(".git"):
         url += ".git"
     return url
@@ -98,8 +98,8 @@ def _normalize_repo_url(url: str) -> str:
 class SSHTransport:
     """Transport via SSH subprocess.
 
-    Connects to a Git server using the system's `ssh` command.
-    Does NOT use git CLI — only ssh for the raw pipe.
+    Connects to a remote server using the system's `ssh` command.
+    Does NOT use external VCS CLI — only ssh for the raw pipe.
     """
 
     def __init__(self, url: str):
@@ -112,15 +112,15 @@ class SSHTransport:
         self.stdout: Optional[BinaryIO] = None
 
     def connect_upload_pack(self) -> None:
-        """Connect to git-upload-pack on the remote."""
+        """Connect to upload-pack service on the remote."""
         self._connect("git-upload-pack")
 
     def connect_receive_pack(self) -> None:
-        """Connect to git-receive-pack on the remote."""
+        """Connect to receive-pack service on the remote."""
         self._connect("git-receive-pack")
 
     def _connect(self, service: str) -> None:
-        """Spawn ssh process for the given Git service."""
+        """Spawn ssh process for the given remote service."""
         repo_path = self.path.lstrip("/")
         if not repo_path.endswith(".git"):
             repo_path += ".git"
@@ -185,7 +185,7 @@ class SSHTransport:
 class HTTPSTransport:
     """Transport via HTTPS using urllib.
 
-    Uses Git's smart HTTP protocol:
+    Uses the smart HTTP protocol:
     - GET /info/refs?service=<service> for ref discovery
     - POST /<service> for data exchange
 
@@ -251,7 +251,7 @@ class HTTPSTransport:
         service: str,
         data: bytes,
     ) -> BinaryIO:
-        """POST to a Git service endpoint.
+        """POST to a remote service endpoint.
 
         POST /<service>
 

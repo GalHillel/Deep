@@ -389,8 +389,8 @@ class SandboxRunner:
                 env[var] = os.environ[var]
 
         # Set sandbox markers
-        env["DEEPBRIDGE_SANDBOX"] = "1"
-        env["DEEPBRIDGE_SANDBOX_ALLOWED_PATHS"] = os.pathsep.join(
+        env["DEEP_SANDBOX"] = "1"
+        env["DEEP_SANDBOX_ALLOWED_PATHS"] = os.pathsep.join(
             str(p) for p in self.allowed_write_paths
         )
         return env

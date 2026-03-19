@@ -2,13 +2,13 @@
 deep.objects.hash_object
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Git-compatible object hashing, reading and writing.
+Standard object hashing, reading and writing.
 
-Objects are stored in the canonical Git format:
+Objects are stored in the canonical format:
     <type> <size>\0<content>
 
 Hashed with SHA-1 and stored zlib-compressed under:
-    .deep/objects/xx/yyyy...  (Level 1 fan-out, Git-compatible)
+    .deep/objects/xx/yyyy...  (Level 1 fan-out)
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from typing import Tuple, Optional
 
 
 def hash_object(data: bytes, obj_type: str = "blob") -> str:
-    """Compute the SHA-1 hash of a Git object.
+    """Compute the SHA-1 hash of an object.
 
     Args:
         data: Raw content bytes (without header).
@@ -36,7 +36,7 @@ def hash_object(data: bytes, obj_type: str = "blob") -> str:
 
 
 def format_object(data: bytes, obj_type: str = "blob") -> bytes:
-    """Format data as a Git object (header + null + content).
+    """Format data as an object (header + null + content).
 
     Returns:
         The full serialized object bytes.
@@ -46,9 +46,9 @@ def format_object(data: bytes, obj_type: str = "blob") -> bytes:
 
 
 def write_object(objects_dir: Path, data: bytes, obj_type: str = "blob") -> str:
-    """Write a Git-format object to the object store.
+    """Write a formatted object to the object store.
 
-    Uses Level 1 fan-out (xx/yyyy...) matching Git's standard layout.
+    Uses Level 1 fan-out (xx/yyyy...) standard layout.
 
     Args:
         objects_dir: Path to the objects directory (.deep/objects/).
@@ -61,7 +61,7 @@ def write_object(objects_dir: Path, data: bytes, obj_type: str = "blob") -> str:
     store = format_object(data, obj_type)
     sha = hashlib.sha1(store).hexdigest()
 
-    # Git-compatible Level 1 fan-out: objects/xx/yyyy...
+    # Level 1 fan-out: objects/xx/yyyy...
     dest = objects_dir / sha[0:2] / sha[2:]
     if dest.exists():
         return sha
@@ -83,7 +83,7 @@ def write_object(objects_dir: Path, data: bytes, obj_type: str = "blob") -> str:
 
 
 def read_raw_object(objects_dir: Path, sha: str) -> Tuple[str, bytes]:
-    """Read a raw Git object from the object store.
+    """Read a raw object from the object store.
 
     Tries Level 1 fan-out first (xx/yyyy...), then Level 2 (xx/yy/zzzz...).
 
@@ -101,7 +101,7 @@ def read_raw_object(objects_dir: Path, sha: str) -> Tuple[str, bytes]:
     if not sha or len(sha) != 40:
         raise ValueError(f"Invalid SHA: {sha!r}")
 
-    # Try Level 1 fan-out (Git standard)
+    # Try Level 1 fan-out (standard)
     path = objects_dir / sha[0:2] / sha[2:]
     if not path.exists():
         # Try Level 2 fan-out (Deep legacy)

@@ -313,11 +313,11 @@ class Commit(DeepObject):
     signature: Optional[str] = None
 
     def serialize_content(self) -> bytes:
-        """Serialize commit in Git-compatible format.
+        """Serialize commit in standard VCS format.
 
-        Standard Git headers: tree, parent, author, committer.
+        Standard headers: tree, parent, author, committer.
         Deep-specific metadata stored as optional x-deep-* headers
-        for full Git interoperability.
+        for full interoperability.
         """
         lines: list[str] = [f"tree {self.tree_sha}"]
         for p in self.parent_shas:
@@ -327,7 +327,7 @@ class Commit(DeepObject):
             f"committer {self.committer} {self.timestamp} {self.timezone}"
         )
         # Deep-specific metadata as optional x-deep-* headers
-        # These are ignored by Git but preserved by Deep
+        # Deep-specific metadata preserved in custom headers
         if self.sequence_id:
             lines.append(f"x-deep-sequence {self.sequence_id}")
         sig: Optional[str] = self.signature

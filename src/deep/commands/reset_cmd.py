@@ -129,7 +129,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                     stat = full.stat()
                     new_index.entries[p] = DeepIndexEntry(
                         content_hash=sha, 
-                        mtime_ns=int(stat.st_mtime * 1e9),
+                        mtime_ns=stat.st_mtime_ns,
                         size=stat.st_size, 
                         path_hash=struct.unpack(">Q", hashlib.sha256(p.encode()).digest()[:8])[0]
                     )

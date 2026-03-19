@@ -17,20 +17,20 @@ def run_maintenance(repo_root: Path, force: bool = False):
     if not force and not should_run_maintenance(dg_dir):
         return
 
-    print("DeepBridge: Starting background maintenance...")
+    print("Deep: Starting background maintenance...")
     
     # 1. Commit Graph
-    print("DeepBridge: Updating commit-graph...")
+    print("Deep: Updating commit-graph...")
     cg.build_history_graph(dg_dir)
     
     # 2. Repack if too many loose objects
     if force or count_loose_objects(dg_dir) > 100:
-        print("DeepBridge: Auto-repacking loose objects...")
+        print("Deep: Auto-repacking loose objects...")
         repack_repository(dg_dir)
         
     # Update last run time
     update_maintenance_time(dg_dir)
-    print("DeepBridge: Maintenance complete.")
+    print("Deep: Maintenance complete.")
 
 def should_run_maintenance(dg_dir: Path) -> bool:
     """Check if maintenance should run (e.g. once every 24 hours)."""

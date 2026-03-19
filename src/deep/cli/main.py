@@ -100,7 +100,7 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_commit.add_argument("-m", "--message", help="The commit message describing the changes")
-    p_commit.add_argument("-a", "--all", action="store_true", help="Automatically stage modified and deleted tracked files before committing (like Git). Does NOT include untracked files.")
+    p_commit.add_argument("-a", "--all", action="store_true", help="Automatically stage modified and deleted tracked files before committing (auto-stage). Does NOT include untracked files.")
     p_commit.add_argument("--ai", action="store_true", help="Automatically generate a commit message using Deep AI")
     p_commit.add_argument("-S", "--sign", action="store_true", help="Digitally sign the commit using your identity key")
 
@@ -344,7 +344,7 @@ Examples:
         description="Create a local copy of a remote Deep repository, including all history and metadata.",
         epilog="""
 Examples:
-  deep clone https://deepbridge.com/user/project  # Clone from a remote URL
+  deep clone https://deep-vcs.dev/user/project  # Clone from a remote URL
   deep clone /path/to/local/repo                  # Clone from a local directory path
   deep clone repo --depth 1                       # Create a shallow clone with truncated history
 """,
@@ -433,7 +433,7 @@ Examples:
         description="Create a complete mirror of a Deep repository, including all references, branches, and internal metadata.",
         epilog="""
 Examples:
-  deep mirror https://deepbridge.com/repo /local/mirror # Create a mirror at the specified path
+  deep mirror https://deep-vcs.dev/repo /local/mirror # Create a mirror at the specified path
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -678,7 +678,7 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_audit.add_argument("audit_command", choices=["show", "report"], nargs="?", default="show", help="The audit action to perform (default: show)")
+    p_audit.add_argument("audit_command", choices=["show", "report", "scan"], nargs="?", default="show", help="The audit action to perform (default: show)")
 
     # ── verify ───────────────────────────────────────────────────────
     p_verify = sub.add_parser(
@@ -748,6 +748,7 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    p_rollback.add_argument("commit", nargs="?", default=None, help="The commit to rollback to (default: parent of current HEAD)")
     p_rollback.add_argument("--verify", action="store_true", help="Perform a verification check on the WAL state before rolling back")
 
     # ── ai ──────────────────────────────────────────────────────────

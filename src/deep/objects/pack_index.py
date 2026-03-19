@@ -2,7 +2,7 @@
 deep.objects.pack_index
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Git pack index (.idx) file format, version 2.
+Pack index (.idx) file format, version 2.
 
 Provides:
 - PackIndex: read and query existing .idx files
@@ -33,7 +33,7 @@ IDX_VERSION = 2
 
 
 class PackIndex:
-    """Read and query a Git pack index file."""
+    """Read and query a pack index file."""
 
     def __init__(self, idx_path: Path):
         self._path = idx_path
@@ -132,7 +132,7 @@ class PackIndex:
 
 
 class PackIndexWriter:
-    """Create a Git pack index (v2) from a list of (sha, offset, crc32) entries."""
+    """Create a pack index (v2) from a list of (sha, offset, crc32) entries."""
 
     @staticmethod
     def create(

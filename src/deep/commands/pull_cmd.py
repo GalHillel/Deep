@@ -4,11 +4,11 @@ deep.commands.pull_cmd
 ``deep pull <remote> <branch>`` command implementation.
 
 Native fetch + merge:
-1. Discover remote refs via Git protocol
+1. Discover remote refs via smart protocol
 2. Fetch missing objects
 3. Merge remote branch into current
 
-No git CLI dependency.
+No external VCS CLI dependency.
 """
 
 from __future__ import annotations

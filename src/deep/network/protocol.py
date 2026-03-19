@@ -1,7 +1,7 @@
 """
 deep.network.protocol
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-DeepBridge Wire Protocol v1 based on PKT-LINE framing.
+Deep Wire Protocol v1 based on PKT-LINE framing.
 
 Each packet is prefixed by a 4-byte hex length (including the 4 bytes).
 "0000" is a flush-pkt (special signal).

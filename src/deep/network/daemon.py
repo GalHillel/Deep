@@ -1,7 +1,7 @@
 """
 deep.network.daemon
 ~~~~~~~~~~~~~~~~~~~~~~~
-DeepBridge Distributed Daemon using asyncio.
+Deep Distributed Daemon using asyncio.
 
 Handles push/fetch requests via PKT-LINE and packfiles.
 """
@@ -30,7 +30,7 @@ from deep.network.protocol import AsyncPktLineStream, AsyncSidebandStream, BAND_
 
 
 class DeepDaemon:
-    """Async TCP server for DeepBridge remote operations."""
+    """Async TCP server for Deep remote operations."""
 
     def __init__(self, repo_root: Path, host: str = "0.0.0.0", port: int = 8888):
         self.repo_root = repo_root

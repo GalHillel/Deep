@@ -2,7 +2,7 @@
 deep.network.auth
 ~~~~~~~~~~~~~~~~~
 
-Authentication support for Git protocol transports.
+Authentication support for smart protocol transports.
 
 Supports:
 - PAT (Personal Access Token) via HTTPS Basic Auth

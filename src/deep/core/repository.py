@@ -6,7 +6,7 @@ Repository initialization, discovery, and path management.
 
 This module handles the creation of the internal ``.deep`` directory structure
 and provides utilities to find the repository root from any sub-directory.
-The on-disk layout is designed for DeepBridge consistency and performance.
+The on-disk layout is designed for Deep consistency and performance.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ def init_repo(path: Union[str, Path] = ".", bare: bool = False) -> Path:
 
 
 def find_repo(start: Union[str, Path] | None = None) -> Path:
-    """Walk up from *start* (default: cwd) to find an internal DeepBridge directory.
+    """Walk up from *start* (default: cwd) to find an internal Deep directory.
 
     Args:
         start: Directory to begin the search from.
@@ -190,7 +190,7 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
         try:
             # Crash hook: before working directory update
             if os.environ.get("DEEP_CRASH_TEST") == "CHECKOUT_BEFORE_WD_UPDATE":
-                raise BaseException("DeepBridge: simulated crash before working directory update")
+                raise BaseException("Deep: simulated crash before working directory update")
 
             # 4. Update Working Directory
             from deep.utils.sparse import load_sparse_patterns, matches_sparse_patterns
@@ -232,7 +232,7 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                     obj = read_object(objects_dir, sha)
                     full.write_bytes(obj.serialize_content())
                     stat = full.stat()
-                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=stat.st_size, mtime_ns=int(stat.st_mtime * 1e9), path_hash=p_hash_val, flags=0)
+                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=stat.st_size, mtime_ns=stat.st_mtime_ns, path_hash=p_hash_val, flags=0)
                 else:
                     # Skip worktree (bit 0 = 0x01)
                     new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=0, mtime_ns=0, path_hash=p_hash_val, flags=0x01)
@@ -253,7 +253,7 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
 
             # Crash hook: after HEAD update, before WAL commit
             if os.environ.get("DEEP_CRASH_TEST") == "CHECKOUT_AFTER_HEAD_UPDATE":
-                raise BaseException("DeepBridge: simulated crash after HEAD update")
+                raise BaseException("Deep: simulated crash after HEAD update")
 
             txlog.commit(tx_id)
         except Exception as e:

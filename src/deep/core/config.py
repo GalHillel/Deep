@@ -1,7 +1,7 @@
 """
 deep.core.config
 ~~~~~~~~~~~~~~~~~~~~~
-Configuration system for DeepBridge.
+Configuration system for Deep.
 
 Hierarchy:
 1. Local: `.deep/config`

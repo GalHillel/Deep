@@ -2,9 +2,9 @@
 deep.network.pkt_line
 ~~~~~~~~~~~~~~~~~~~~~
 
-Git pkt-line protocol implementation.
+PKT-line protocol implementation for Deep.
 
-The pkt-line format is the wire protocol framing used by Git:
+The pkt-line format is the wire protocol framing:
 - Each packet has a 4-byte hex length prefix (including the 4 bytes itself)
 - Payload follows immediately after the length
 - Special packets:
@@ -12,7 +12,7 @@ The pkt-line format is the wire protocol framing used by Git:
   0001 = delimiter-pkt (v2 protocol)
   0002 = response-end (v2 protocol)
 
-Reference: https://git-scm.com/docs/protocol-common
+Reference: Standard VCS wire protocol (pkt-line framing)
 """
 
 from __future__ import annotations

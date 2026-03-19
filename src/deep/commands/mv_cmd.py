@@ -77,7 +77,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
             to_update[rel_dest] = DeepIndexEntry(
                 content_hash=entry.content_hash, 
-                mtime_ns=int(stat.st_mtime * 1e9),
+                mtime_ns=stat.st_mtime_ns,
                 size=stat.st_size, 
                 path_hash=path_hash_int
             )
@@ -94,7 +94,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                         path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
                         to_update[new_path] = DeepIndexEntry(
                             content_hash=entry.content_hash, 
-                            mtime_ns=int(stat.st_mtime * 1e9),
+                            mtime_ns=stat.st_mtime_ns,
                             size=stat.st_size, 
                             path_hash=path_hash_int
                         )

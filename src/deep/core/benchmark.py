@@ -1,7 +1,7 @@
 """
 deep.core.benchmark
 ~~~~~~~~~~~~~~~~~~~~~~~~
-Internal benchmarking engine for DeepBridge.
+Internal benchmarking engine for Deep.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ def run_benchmarks(verbose: bool = False, compare_git: bool = False) -> Dict[str
     """Run a suite of performance benchmarks and return results."""
     results: Dict[str, Any] = {}
     
-    # DeepBridge Benchmarks
+    # Deep Benchmarks
     temp_repo_root = Path(tempfile.mkdtemp(prefix="deep_bench_"))
     try:
         init_repo(temp_repo_root)

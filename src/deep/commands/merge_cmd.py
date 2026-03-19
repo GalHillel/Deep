@@ -55,7 +55,7 @@ def _restore_tree_to_workdir(
             import struct
             index.entries[rel_path] = DeepIndexEntry(
                 content_hash=entry.sha,
-                mtime_ns=int(stat.st_mtime * 1e9),
+                mtime_ns=stat.st_mtime_ns,
                 size=stat.st_size,
                 path_hash=struct.unpack(">Q", hashlib.sha256(rel_path.encode()).digest()[:8])[0]
             )
@@ -108,7 +108,7 @@ def _apply_tree_to_workdir(
         import struct
         new_index.entries[p] = DeepIndexEntry(
             content_hash=sha, 
-            mtime_ns=int(stat.st_mtime * 1e9),
+            mtime_ns=stat.st_mtime_ns,
             size=stat.st_size, 
             path_hash=struct.unpack(">Q", hashlib.sha256(p.encode()).digest()[:8])[0]
         )

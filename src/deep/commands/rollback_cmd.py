@@ -1,21 +1,43 @@
 """
 deep.commands.rollback_cmd
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-``deep rollback --verify`` — Perform verified rollback with WAL
-signature validation before restoring state.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``deep rollback [<commit>]`` command implementation.
+
+Hard-reset rollback: moves HEAD, resets INDEX, and resets WORKING DIRECTORY
+to match the target commit. Default target is HEAD~1 (parent of current HEAD).
 """
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 
+import hashlib
+import struct
 import sys
 from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import Color
+
+
+def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
+    """Recursively collect {rel_path: blob_sha} from a tree object."""
+    from deep.storage.objects import read_object, Tree
+    tree = read_object(objects_dir, tree_sha)
+    if not isinstance(tree, Tree):
+        return {}
+    files: dict[str, str] = {}
+    for entry in tree.entries:
+        rel = f"{prefix}/{entry.name}" if prefix else entry.name
+        if entry.mode == "40000":
+            files.update(_get_tree_files(objects_dir, entry.sha, rel))
+        else:
+            files[rel] = entry.sha
+    return files
 
 
 def run(args) -> None:
+    """Execute the rollback command (hard reset to target commit)."""
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
@@ -23,63 +45,92 @@ def run(args) -> None:
         raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
-    verify = getattr(args, "verify", False)
+    objects_dir = dg_dir / "objects"
 
-    from deep.storage.txlog import TransactionLog
-    txlog = TransactionLog(dg_dir)
+    from deep.core.refs import resolve_head, get_current_branch, update_branch, write_head
+    from deep.storage.objects import read_object, Commit
+    from deep.storage.index import DeepIndex, DeepIndexEntry, write_index
 
-    incomplete = txlog.get_incomplete()
-    if not incomplete:
-        print("No incomplete transactions to recover.")
-        print("Attempting to rollback the last successful commit...")
-        success = txlog.rollback(reason="Manual rollback via CLI")
-        if success:
-            print("Successfully rolled back the last transaction.")
-            
-            # Log to audit
-            from deep.core.audit import AuditLog
-            audit = AuditLog(dg_dir)
-            audit.record(
-                user="system",
-                action="rollback",
-                details="manual_rollback_successful",
-            )
-        else:
-            print("Rollback failed. No prior transaction found.")
-        return
+    # 1. Determine target commit
+    target_arg = getattr(args, "commit", None)
+    head_sha = resolve_head(dg_dir)
 
-    print(f"Found {len(incomplete)} incomplete transaction(s).")
+    if head_sha is None:
+        print("Deep: error: no commits to rollback to", file=sys.stderr)
+        raise DeepCLIException(1)
 
-    if verify:
-        print("\n🔐 Verifying WAL signatures before rollback...")
-        all_valid = True
-        for record in incomplete:
-            is_valid = txlog.verify_record_signature(record)
-            status = "✅" if is_valid else "❌"
-            print(f"  {record.tx_id}: {status}")
-            if not is_valid:
-                all_valid = False
-
-        if not all_valid:
-            print("\n⚠ Some WAL entries have invalid signatures!")
-            print("  Rollback will skip entries with invalid signatures.")
-
-    print("\nPerforming crash recovery...")
-    txlog.recover()
-    print("Recovery complete.")
-
-    # Verify state after recovery
-    remaining = txlog.get_incomplete()
-    if remaining:
-        print(f"\n⚠ {len(remaining)} transaction(s) still incomplete.")
+    if target_arg and target_arg != "HEAD~1":
+        # Try to resolve as a revision
+        from deep.core.refs import resolve_revision
+        resolved = resolve_revision(dg_dir, target_arg)
+        if not resolved:
+            print(f"Deep: error: cannot resolve '{target_arg}'", file=sys.stderr)
+            raise DeepCLIException(1)
+        target_sha = resolved
     else:
-        print("\n✅ All transactions resolved.")
+        # Default: parent of HEAD
+        head_commit = read_object(objects_dir, head_sha)
+        if not isinstance(head_commit, Commit) or not head_commit.parent_shas:
+            print("Deep: error: HEAD has no parent to rollback to", file=sys.stderr)
+            raise DeepCLIException(1)
+        target_sha = head_commit.parent_shas[0]
 
-    # Log to audit
-    from deep.core.audit import AuditLog
-    audit = AuditLog(dg_dir)
-    audit.record(
-        user="system",
-        action="rollback",
-        details=f"verified={verify} resolved={len(incomplete) - len(remaining)}",
-    )
+    # Verify target is a valid commit
+    target_commit = read_object(objects_dir, target_sha)
+    if not isinstance(target_commit, Commit):
+        print(f"Deep: error: {target_sha[:7]} is not a commit", file=sys.stderr)
+        raise DeepCLIException(1)
+
+    print(f"Rolling back to {Color.wrap(Color.YELLOW, target_sha[:7])}: {target_commit.message.split(chr(10))[0]}")
+
+    # 2. Collect target tree files
+    target_files = _get_tree_files(objects_dir, target_commit.tree_sha)
+
+    # 3. Reset WORKING DIRECTORY
+    # Remove files not in target
+    from deep.storage.index import read_index
+    current_index = read_index(dg_dir)
+    for p in list(current_index.entries.keys()):
+        if p not in target_files:
+            full = repo_root / p
+            if full.exists():
+                full.unlink()
+                # Clean empty parent dirs
+                parent = full.parent
+                while parent != repo_root:
+                    try:
+                        parent.rmdir()
+                    except OSError:
+                        break
+                    parent = parent.parent
+
+    # Write target files to working directory
+    for p, sha in target_files.items():
+        full = repo_root / p
+        full.parent.mkdir(parents=True, exist_ok=True)
+        blob = read_object(objects_dir, sha)
+        full.write_bytes(blob.serialize_content())
+
+    # 4. Reset INDEX to match target tree
+    new_index = DeepIndex()
+    for p, sha in target_files.items():
+        full = repo_root / p
+        stat = full.stat()
+        p_hash = struct.unpack(">Q", hashlib.sha256(p.encode()).digest()[:8])[0]
+        new_index.entries[p] = DeepIndexEntry(
+            content_hash=sha,
+            mtime_ns=stat.st_mtime_ns,
+            size=stat.st_size,
+            path_hash=p_hash,
+        )
+    write_index(dg_dir, new_index)
+
+    # 5. Move HEAD to target commit
+    branch = get_current_branch(dg_dir)
+    if branch:
+        update_branch(dg_dir, branch, target_sha)
+    else:
+        write_head(dg_dir, target_sha)
+
+    print(f"{Color.wrap(Color.SUCCESS, 'Rollback complete.')} HEAD is now at {target_sha[:7]}")
+    print(f"  Files restored: {len(target_files)}")

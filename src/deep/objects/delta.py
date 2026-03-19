@@ -2,14 +2,14 @@
 deep.objects.delta
 ~~~~~~~~~~~~~~~~~~
 
-Git-compatible delta compression engine.
+Delta compression engine for Deep.
 
-Implements the Git delta format used inside packfiles:
+Implements the delta format used inside packfiles:
 - Variable-length size encoding for source/target sizes
 - COPY instructions (high bit set): copy from base object
 - INSERT instructions (high bit clear): insert literal data
 
-This is the standard Git OFS_DELTA / REF_DELTA undelta format.
+This is the standard OFS_DELTA / REF_DELTA undelta format.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from typing import Tuple
 
 
 def _read_varint_le(data: bytes, offset: int) -> Tuple[int, int]:
-    """Read a Git-style variable-length integer (little-endian, MSB continuation).
+    """Read a variable-length integer (little-endian, MSB continuation).
 
     Each byte contributes 7 bits. The high bit indicates more bytes follow.
 
@@ -41,7 +41,7 @@ def _read_varint_le(data: bytes, offset: int) -> Tuple[int, int]:
 
 
 def apply_delta(base: bytes, delta: bytes) -> bytes:
-    """Apply a Git delta to a base object to produce the target.
+    """Apply a delta to a base object to produce the target.
 
     The delta format is:
     1. Source (base) size — varint
@@ -114,7 +114,7 @@ def apply_delta(base: bytes, delta: bytes) -> bytes:
                 copy_size |= delta[idx] << 16
                 idx += 1
 
-            # Size of 0 means 0x10000 (65536) in Git's encoding
+            # Size of 0 means 0x10000 (65536) in delta encoding
             if copy_size == 0:
                 copy_size = 0x10000
 
@@ -146,7 +146,7 @@ def apply_delta(base: bytes, delta: bytes) -> bytes:
 
 
 def create_delta(source: bytes, target: bytes) -> bytes:
-    """Create a Git-format delta that transforms source into target.
+    """Create a delta that transforms source into target.
 
     Uses a simple rolling-hash approach to find matching blocks.
 
@@ -155,7 +155,7 @@ def create_delta(source: bytes, target: bytes) -> bytes:
         target: The desired target content.
 
     Returns:
-        Delta instruction bytes in Git format.
+        Delta instruction bytes in standard format.
     """
     delta = bytearray()
 
@@ -228,7 +228,7 @@ def create_delta(source: bytes, target: bytes) -> bytes:
 
 
 def _encode_varint_le(value: int) -> bytes:
-    """Encode an integer as Git-style variable-length LE bytes."""
+    """Encode an integer as variable-length LE bytes."""
     result = bytearray()
     while True:
         byte = value & 0x7F
@@ -253,7 +253,7 @@ def _emit_inserts(delta: bytearray, data: bytes, start: int, end: int) -> None:
 
 
 def _emit_copy(delta: bytearray, offset: int, size: int) -> None:
-    """Emit a COPY instruction with Git's bitmask encoding."""
+    """Emit a COPY instruction with bitmask encoding."""
     cmd = 0x80
     offset_bytes = bytearray()
     size_bytes = bytearray()

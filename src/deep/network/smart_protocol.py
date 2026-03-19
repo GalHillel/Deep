@@ -2,7 +2,7 @@
 deep.network.git_protocol
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Git smart protocol client implementation.
+Deep smart protocol client implementation.
 
 Implements:
 1. **Upload-pack** (fetch/clone): ref discovery → want/have negotiation → receive packfile
@@ -15,7 +15,7 @@ Supports:
 - thin pack resolution
 - Capability negotiation
 
-No git CLI or external library dependency.
+No external VCS CLI or library dependency.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ from deep.objects.hash_object import (
 
 
 class ProtocolError(Exception):
-    """Raised on Git protocol errors."""
+    """Raised on Deep protocol errors."""
     pass
 
 
@@ -79,7 +79,7 @@ CLIENT_CAPABILITIES = [
 # ── Ref Advertisement Parser ──────────────────────────────────────
 
 def parse_ref_advertisement(data: bytes) -> Tuple[Dict[str, str], Set[str]]:
-    """Parse Git smart HTTP ref advertisement response.
+    """Parse smart HTTP ref advertisement response.
 
     For HTTPS, the response includes a service announcement header
     followed by ref lines.
@@ -97,7 +97,7 @@ def parse_ref_advertisement(data: bytes) -> Tuple[Dict[str, str], Set[str]]:
     capabilities: Set[str] = set()
     first_line = True
 
-    # Skip service announcement line (e.g., "# service=git-upload-pack")
+    # Skip service announcement line (e.g., "# service=deep-upload-pack")
     try:
         first_pkt = read_pkt_line(stream)
         if first_pkt and first_pkt.startswith(b"# "):
@@ -179,11 +179,11 @@ def parse_ssh_ref_advertisement(
 
 # ── Upload-Pack Client (fetch/clone) ──────────────────────────────
 
-class GitTransportClient:
-    """High-level Git smart protocol client.
+class SmartTransportClient:
+    """High-level Deep smart protocol client.
 
     Supports clone, fetch, push, and ls-remote operations
-    over SSH and HTTPS without any git CLI dependency.
+    over SSH and HTTPS without any external VCS CLI dependency.
     """
 
     def __init__(self, url: str, token: Optional[str] = None):
@@ -204,7 +204,7 @@ class GitTransportClient:
 
     def _ls_remote_https(self) -> Dict[str, str]:
         transport = HTTPSTransport(self.url, token=self.token)
-        data, content_type = transport.get_refs("git-upload-pack")
+        data, content_type = transport.get_refs("deep-upload-pack")
         refs, _ = parse_ref_advertisement(data)
         return refs
 
@@ -244,7 +244,7 @@ class GitTransportClient:
         transport = HTTPSTransport(self.url, token=self.token)
 
         # Step 1: Discover refs
-        data, _ = transport.get_refs("git-upload-pack")
+        data, _ = transport.get_refs("deep-upload-pack")
         refs, server_caps = parse_ref_advertisement(data)
 
         if not refs:
@@ -263,8 +263,8 @@ class GitTransportClient:
             refs, set(), server_caps, depth
         )
 
-        # Step 3: POST to git-upload-pack
-        resp = transport.post_service("git-upload-pack", request_body)
+        # Step 3: POST to deep-upload-pack
+        resp = transport.post_service("deep-upload-pack", request_body)
 
         # Step 4: Parse response and extract packfile
         pack_data = self._receive_pack_https(resp, server_caps)
@@ -346,7 +346,7 @@ class GitTransportClient:
         have_shas: Optional[List[str]],
     ) -> int:
         transport = HTTPSTransport(self.url, token=self.token)
-        data, _ = transport.get_refs("git-upload-pack")
+        data, _ = transport.get_refs("deep-upload-pack")
         refs, server_caps = parse_ref_advertisement(data)
 
         if not refs:
@@ -367,7 +367,7 @@ class GitTransportClient:
         request_body = self._build_upload_request(
             refs, local_shas, server_caps, want_refs=wants
         )
-        resp = transport.post_service("git-upload-pack", request_body)
+        resp = transport.post_service("deep-upload-pack", request_body)
         pack_data = self._receive_pack_https(resp, server_caps)
 
         if pack_data:
@@ -442,7 +442,7 @@ class GitTransportClient:
         transport = HTTPSTransport(self.url, token=self.token)
 
         # Discover remote refs
-        data, _ = transport.get_refs("git-receive-pack")
+        data, _ = transport.get_refs("deep-receive-pack")
         refs, server_caps = parse_ref_advertisement(data)
 
         # Build push request
@@ -450,7 +450,7 @@ class GitTransportClient:
             objects_dir, ref, old_sha, new_sha, server_caps
         )
 
-        resp = transport.post_service("git-receive-pack", request_body)
+        resp = transport.post_service("deep-receive-pack", request_body)
         return self._parse_push_response(resp)
 
     def _push_ssh(
@@ -497,7 +497,7 @@ class GitTransportClient:
         depth: Optional[int] = None,
         want_refs: Optional[Set[str]] = None,
     ) -> bytes:
-        """Build the POST body for git-upload-pack (HTTPS)."""
+        """Build the POST body for deep-upload-pack (HTTPS)."""
         buf = io.BytesIO()
 
         # Determine which SHAs to want
@@ -711,7 +711,7 @@ class GitTransportClient:
         new_sha: str,
         server_caps: Set[str],
     ) -> bytes:
-        """Build the POST body for git-receive-pack."""
+        """Build the POST body for deep-receive-pack."""
         buf = io.BytesIO()
 
         # Send update command with capabilities
@@ -812,7 +812,7 @@ class GitTransportClient:
     # ── Internal: Push Response Parsing ────────────────────────────
 
     def _parse_push_response(self, resp: BinaryIO) -> str:
-        """Parse git-receive-pack HTTPS response."""
+        """Parse deep-receive-pack HTTPS response."""
         body = resp.read()
         stream = io.BytesIO(body)
 
@@ -869,7 +869,7 @@ class GitTransportClient:
         stream: BinaryIO,
         server_caps: Set[str],
     ) -> str:
-        """Parse git-receive-pack SSH response."""
+        """Parse deep-receive-pack SSH response."""
         use_sideband = "side-band-64k" in server_caps
 
         while True:

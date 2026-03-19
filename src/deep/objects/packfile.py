@@ -2,9 +2,9 @@
 deep.objects.packfile
 ~~~~~~~~~~~~~~~~~~~~~
 
-Git v2 packfile parser and writer.
+Standard v2 packfile parser and writer.
 
-Implements the full Git packfile format:
+Implements the full standard packfile format:
 - 4-byte PACK signature
 - 4-byte version (2)
 - 4-byte object count
@@ -19,7 +19,7 @@ Object types:
     6 = OBJ_OFS_DELTA (offset delta)
     7 = OBJ_REF_DELTA (reference delta)
 
-All without external git CLI or library dependency.
+All without external CLI or library dependency.
 """
 
 from __future__ import annotations
@@ -34,9 +34,9 @@ from typing import (
 )
 from pathlib import Path
 
-from deep.objects.delta import apply_delta as git_apply_delta
+from deep.objects.delta import apply_delta as deep_apply_delta
 
-# Git packfile constants
+# Packfile constants
 PACK_SIGNATURE = b"PACK"
 PACK_VERSION = 2
 
@@ -67,10 +67,10 @@ class PackfileError(Exception):
     pass
 
 
-# ── Variable-length integer encoding (Git MSB format) ──────────────
+# ── Variable-length integer encoding (MSB format) ──────────────
 
 def _read_type_and_size(stream: BinaryIO) -> Tuple[int, int]:
-    """Read the Git packfile object type and size.
+    """Read the packfile object type and size.
 
     First byte: bits 6-4 = type, bits 3-0 = size (low 4 bits).
     Continuation bytes: bit 7 = more, bits 6-0 = size continuation.
@@ -103,7 +103,7 @@ def _read_byte(stream: BinaryIO) -> int:
 def _read_ofs_delta_offset(stream: BinaryIO) -> int:
     """Read the negative offset for OFS_DELTA objects.
 
-    Git encodes this as a variable-length integer where each
+    Encoded as a variable-length integer where each
     continuation byte adds (value + 1) << 7.
     """
     byte = _read_byte(stream)
@@ -173,7 +173,7 @@ def _decompress_object(stream: BinaryIO, expected_size: int) -> bytes:
 # ── Packfile Parser ────────────────────────────────────────────────
 
 class PackfileParser:
-    """Parse a Git v2 packfile and extract all objects.
+    """Parse a v2 packfile and extract all objects.
 
     Usage:
         parser = PackfileParser(stream)
@@ -257,7 +257,7 @@ class PackfileParser:
 
                 if base_offset in self._objects:
                     base_type, base_data = self._objects[base_offset]
-                    resolved = git_apply_delta(base_data, delta_data)
+                    resolved = deep_apply_delta(base_data, delta_data)
                     self._objects[entry_offset] = (base_type, resolved)
 
                     header = f"{base_type} {len(resolved)}".encode("ascii")
@@ -281,7 +281,7 @@ class PackfileParser:
                 for off, sha in self._sha_by_offset.items():
                     if sha == base_sha:
                         base_type, base_data = self._objects[off]
-                        target = git_apply_delta(base_data, delta_data)
+                        target = deep_apply_delta(base_data, delta_data)
                         self._objects[entry_offset] = (base_type, target)
 
                         header = f"{base_type} {len(target)}".encode("ascii")
@@ -308,7 +308,7 @@ class PackfileParser:
             for idx, dtype, base_offset, delta_data in pending_deltas:
                 if base_offset in self._objects:
                     base_type, base_data = self._objects[base_offset]
-                    resolved = git_apply_delta(base_data, delta_data)
+                    resolved = deep_apply_delta(base_data, delta_data)
                     # We don't know the exact offset for this entry anymore,
                     # but we can store by index
                     results[idx] = (base_type, resolved)
@@ -410,7 +410,7 @@ class PackfileParser:
 # ── Packfile Writer ────────────────────────────────────────────────
 
 def build_pack(objects: List[Tuple[str, bytes]]) -> bytes:
-    """Build a Git v2 packfile from a list of (type_str, data) tuples.
+    """Build a v2 packfile from a list of (type_str, data) tuples.
 
     Args:
         objects: List of ("commit"/"tree"/"blob"/"tag", raw_content) tuples.
@@ -446,7 +446,7 @@ def build_pack(objects: List[Tuple[str, bytes]]) -> bytes:
 
 
 def _encode_type_size(obj_type: int, size: int) -> bytes:
-    """Encode object type and size in Git packfile format."""
+    """Encode object type and size in packfile format."""
     result = bytearray()
 
     # First byte: bits 6-4 = type, bits 3-0 = size low 4 bits
@@ -536,7 +536,7 @@ def unpack_to_store(
                 pass
 
         if base_data is not None and base_type is not None:
-            target = git_apply_delta(base_data, delta_data)
+            target = deep_apply_delta(base_data, delta_data)
             write_object(objects_dir, target, base_type)
             count += 1
             # Update results list

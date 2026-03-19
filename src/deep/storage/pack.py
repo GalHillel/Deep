@@ -1,7 +1,7 @@
 """
 deep.core.pack
 ~~~~~~~~~~~~~~~~~~~
-Packfile implementation for DeepBridge.
+Packfile implementation for Deep.
 
 A packfile stores multiple objects in a single file, optimized for 
 concurrency and storage efficiency using delta compression.

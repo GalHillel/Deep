@@ -41,7 +41,7 @@ def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sh
 
     # Read and hash content
     data = file_path.read_bytes()
-    sha = hashlib.sha1(data).hexdigest()
+    sha = Blob(data=data).sha
     
     if sha == previous_sha:
         # Content hasn't changed, just return the existing info with updated stat

@@ -1,7 +1,7 @@
 """
 deep.core.locks
 ~~~~~~~~~~~~~~~~~~~
-Cross-platform file locking primitives for DeepBridge repository operations.
+Cross-platform file locking primitives for Deep repository operations.
 
 Includes stale lock detection: if a lock file contains PID+timestamp metadata
 and the owning process no longer exists, the lock is automatically broken.
@@ -142,7 +142,7 @@ class BaseLock:
         held = _get_held_lock_levels()
         if any(l >= self.level for l in held):
             raise LockHierarchyViolation(
-                f"DeepBridge: Lock hierarchy violation (deadlock prevention): "
+                f"Deep: Lock hierarchy violation (deadlock prevention): "
                 f"attempting to acquire level {self.level} while holding tighter/equal locks {held}"
             )
             
@@ -179,7 +179,7 @@ class BaseLock:
                     
                     if time.time() - start_time > self.timeout:
                         cast(Any, self._file_handle).close() # type: ignore
-                        raise TimeoutError(f"DeepBridge: failed to acquire lock {self.lock_path} within {self.timeout}s")
+                        raise TimeoutError(f"Deep: failed to acquire lock {self.lock_path} within {self.timeout}s")
                     time.sleep(0.05 + random.random() * 0.1)
         else:
             import fcntl
@@ -195,7 +195,7 @@ class BaseLock:
                         
                     if time.time() - start_time > self.timeout:
                         cast(Any, self._file_handle).close() # type: ignore
-                        raise TimeoutError(f"DeepBridge: failed to acquire lock {self.lock_path} within {self.timeout}s")
+                        raise TimeoutError(f"Deep: failed to acquire lock {self.lock_path} within {self.timeout}s")
                     time.sleep(0.05 + random.random() * 0.1)
 
         held.append(self.level)

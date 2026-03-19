@@ -3,14 +3,14 @@ deep.commands.clone_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep clone`` command implementation.
 
-Full native Git protocol clone pipeline:
+Full native smart protocol clone pipeline:
 1. Discover refs via smart protocol
 2. Choose HEAD ref
 3. Request packfile (want/done)
-4. Parse Git packfile → write objects to Deep store
+4. Parse standard packfile → write objects to Deep store
 5. Reconstruct working directory from tree
 
-No git CLI dependency.
+No external VCS CLI dependency.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     url = args.url
     # Derive name from URL
     name = url.split("/")[-1]
-    if name.endswith(".git"):
+    if name.endswith(".deep") or name.endswith(".git"):
         name = name[:-4]
     if name.endswith(".deep"):
         name = name[:-5]
@@ -54,7 +54,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         dg_dir = target_dir / DEEP_DIR
         objects_dir = dg_dir / "objects"
 
-        # Use native Git protocol
+        # Use native smart protocol
         from deep.network.client import get_remote_client
         from deep.network.auth import get_auth_token
 
