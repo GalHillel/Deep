@@ -9,6 +9,7 @@ from deep.core.errors import DeepCLIException
 
 import sys
 import time
+import argparse
 from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
@@ -239,23 +240,53 @@ def run(args) -> None:
             print_error(f"Invalid ID: {id_val}")
             raise DeepCLIException(1)
         
-        pr = manager.get_pr(pr_id)
-        if not pr:
+        pr_obj = manager.get_pr(pr_id)
+        if not pr_obj:
             print_error(f"PR #{pr_id} not found.")
             raise DeepCLIException(1)
 
-        print_info(f"Merging PR #{pr_id} locally...")
-        
+        # Safety checks
+        if pr_obj.status == "merged":
+            print_error(f"PR #{pr_id} is already merged.")
+            return
+        if pr_obj.status == "closed":
+            print_error(f"PR #{pr_id} is closed.")
+            return
+
+        print_info(f"Merging PR #{pr_id}...")
+        print_info(f"base: {pr_obj.base}")
+        print_info(f"head: {pr_obj.head}")
+
         try:
-            # 1. Checkout base
-            print_info(f"Checking out base branch: {pr.base}")
-            update_head(dg_dir, f"ref: refs/heads/{pr.base}")
-            
-            # 2. Perform merge
-            pr = manager.merge_pr(pr_id)
-            print_success(f"Pull Request #{pr_id} merged into {pr.base} successfully.")
+            # 1. Import commands
+            from deep.commands.checkout_cmd import run as checkout_run
+            from deep.commands.merge_cmd import run as merge_run
+            from deep.core.state import validate_repo_state
+
+            # 2. Checkout base branch
+            print_info(f"Stepping into base branch: {pr_obj.base}")
+            checkout_args = argparse.Namespace(target=pr_obj.base, branch=False, force=False)
+            checkout_run(checkout_args)
+
+            # 3. Perform real merge
+            print_info(f"Executing repository merge from {pr_obj.head}...")
+            merge_args = argparse.Namespace(branch=pr_obj.head, no_ff=False, message=None)
+            merge_run(merge_args)
+
+            # 4. State Validation
+            validate_repo_state(repo_root)
+
+            # 5. Update PR metadata only on success
+            pr_obj.status = "merged"
+            pr_obj.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
+            manager.save_pr(pr_obj)
+
+            print_success(f"\n✔ Merge completed successfully")
+            print_success(f"✔ PR #{pr_id} marked as merged")
+
         except Exception as e:
-            print_error(f"Merge failed: {e}")
+            print_error(f"\nMerge failed: {e}")
+            print_error("PR status remains 'open'. No metadata updated.")
             raise DeepCLIException(1)
 
     elif cmd == "close":
