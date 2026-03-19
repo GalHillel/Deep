@@ -12,7 +12,7 @@ Commands:
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 
-import sys
+import time
 from pathlib import Path
 
 from deep.core.constants import DEEP_DIR

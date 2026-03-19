@@ -2,6 +2,7 @@ import asyncio
 import socket
 import threading
 import sys
+from deep.core.errors import DeepCLIException
 import time
 from pathlib import Path
 

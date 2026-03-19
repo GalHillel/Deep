@@ -958,7 +958,10 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.benchmark_cmd import run # type: ignore[import]
     elif args.command == "daemon":
         from deep.commands.daemon_cmd import run # type: ignore[import]
-    elif args.command in ("clone", "push", "fetch", "pull", "remote", "ls-remote", "mirror", "daemon", "p2p", "sync", "server", "user", "auth", "repo", "pr", "issue", "pipeline", "web"):
+    elif args.command == "web":
+        from deep.commands import web_cmd # type: ignore[import]
+        web_cmd.run(args)
+    elif args.command in ("clone", "push", "fetch", "pull", "remote", "ls-remote", "mirror", "daemon", "p2p", "sync", "server", "user", "auth", "repo", "pr", "issue", "pipeline"):
         print("P2P is currently disabled (experimental feature)", file=sys.stderr)
         raise DeepCLIException(1)
     elif args.command == "audit":

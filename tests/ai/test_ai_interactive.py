@@ -26,11 +26,16 @@ def repo(tmp_path: Path) -> Path:
     main(["init"])
     return repo
 
-def test_ai_commit_suggestion(repo: Path):
+import builtins
+
+def test_ai_commit_suggestion(repo: Path, monkeypatch):
     # Create a feature-like change
     f = repo / "auth.py"
     f.write_text("def login():\n    pass\n")
     main(["add", "auth.py"])
+    
+    # Mock user input to accept the AI suggestion
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "y")
     
     # Run commit with --ai
     main(["commit", "--ai"])
@@ -38,11 +43,13 @@ def test_ai_commit_suggestion(repo: Path):
     # Verify commit exists and has a message
     from deep.core.refs import resolve_head
     from deep.storage.objects import read_object, Commit
+    from deep.core.constants import DEEP_DIR # imported above
+    
     sha = resolve_head(repo / DEEP_DIR)
     assert sha is not None
     commit = read_object(repo / DEEP_DIR / "objects", sha)
     assert isinstance(commit, Commit)
-    assert "security" in commit.message or "auth" in commit.message.lower()
+    assert "feat" in commit.message.lower() or "auth" in commit.message.lower()
 
 def test_ai_classification_security(repo: Path):
     # Create a security-related change

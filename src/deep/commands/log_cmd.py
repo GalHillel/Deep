@@ -29,6 +29,16 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
 
+    if getattr(args, "graph", False):
+        from deep.core.graph import get_history_graph, render_graph
+        max_count = getattr(args, "max_count", 100)
+        nodes = get_history_graph(dg_dir, max_count=max_count)
+        if not nodes:
+            print("No commits yet.")
+        else:
+            render_graph(nodes)
+        return
+
     shas = log_history(dg_dir)
     if not shas:
         print("No commits yet.")

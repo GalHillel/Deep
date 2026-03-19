@@ -17,6 +17,21 @@ from deep.storage.index import read_index
 from deep.storage.objects import Blob, read_object
 from deep.core.constants import DEEP_DIR
 
+def robust_decode(raw_bytes: bytes) -> str:
+    """Decode bytes gracefully, handling UTF-16 BOMs and UTF-8."""
+    if not raw_bytes:
+        return ""
+    if raw_bytes.startswith((b'\xff\xfe', b'\xfe\xff')):
+        try:
+            return raw_bytes.decode('utf-16')
+        except UnicodeDecodeError:
+            pass
+    try:
+        return raw_bytes.decode('utf-8')
+    except UnicodeDecodeError:
+        return raw_bytes.decode('utf-8', errors='replace')
+
+
 
 def diff_lines(
     old_lines: list[str],
@@ -67,12 +82,13 @@ def diff_blob_vs_file(
         return None
 
     try:
-        old_text = obj.data.decode("utf-8", errors="replace")
+        old_text = robust_decode(obj.data)
     except Exception:
         old_text = ""
 
     try:
-        new_text = file_path.read_text(encoding="utf-8", errors="replace")
+        new_bytes = file_path.read_bytes()
+        new_text = robust_decode(new_bytes)
     except FileNotFoundError:
         new_text = ""
 
@@ -112,12 +128,18 @@ def diff_blobs(
     try:
         obj_a = read_object(objects_dir, sha_a) if sha_a else None
         obj_b = read_object(objects_dir, sha_b) if sha_b else None
+        try:
+            old_text = robust_decode(obj_a.data) if isinstance(obj_a, Blob) else ""
+        except Exception:
+            old_text = ""
+
+        try:
+            new_text = robust_decode(obj_b.data) if isinstance(obj_b, Blob) else ""
+        except Exception:
+            new_text = ""
         
-        text_a = obj_a.data.decode("utf-8", errors="replace") if isinstance(obj_a, Blob) else ""
-        text_b = obj_b.data.decode("utf-8", errors="replace") if isinstance(obj_b, Blob) else ""
-        
-        old_lines = text_a.splitlines()
-        new_lines = text_b.splitlines()
+        old_lines = old_text.splitlines()
+        new_lines = new_text.splitlines()
         
         from_label = f"a/{rel_path}" if sha_a else "/dev/null"
         to_label = f"b/{rel_path}" if sha_b else "/dev/null"

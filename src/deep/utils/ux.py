@@ -27,6 +27,8 @@ class Color:
     RESET = "\033[0m"
     BOLD = "\033[1m"
     DIM = "\033[2m"
+    PURPLE = MAGENTA
+    GRAY = DIM
     UL = "\033[4m"
 
     # Semantic names for better readability

@@ -141,20 +141,53 @@ def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: 
 
 
 def render_graph(nodes: List[GraphNode]) -> None:
-    """Render a list of GraphNodes as a simple ASCII graph."""
-    for node in nodes:
+    """Render a list of GraphNodes as a Unicode topology graph."""
+    try:
+        from deep.utils.ux import Color
+    except ImportError:
+        class Color:
+            CYAN = GREEN = YELLOW = BOLD = DIM = ""
+            @staticmethod
+            def wrap(c, text): return text
+
+    for i, node in enumerate(nodes):
         decorations = []
-        if node.branches:
-            decorations.extend(node.branches)
+        heads = [b for b in node.branches if b == "HEAD"]
+        others = [b for b in node.branches if b != "HEAD"]
+        
+        if heads and others:
+            decorations.append(Color.wrap(Color.CYAN, f"HEAD -> {others[0]}"))
+            for o in others[1:]:
+                decorations.append(Color.wrap(Color.GREEN, o))
+        elif heads:
+            decorations.append(Color.wrap(Color.CYAN, "HEAD"))
+        else:
+            for o in others:
+                decorations.append(Color.wrap(Color.GREEN, o))
+                
         if node.tags:
-            decorations.extend(f"tag: {t}" for t in node.tags)
+            for t in node.tags:
+                decorations.append(Color.wrap(Color.YELLOW, f"tag: {t}"))
         
-        dec_str = f" ({', '.join(decorations)})" if decorations else ""
-        msg_first_line = node.message.split("\n")[0] if node.message else ""
-        print(f"● {node.sha[:7]}{dec_str} {msg_first_line}")
+        dec_str = ""
+        if decorations:
+            paren_start = Color.wrap(Color.YELLOW, "(")
+            paren_end = Color.wrap(Color.YELLOW, ")")
+            dec_str = f" {paren_start}{', '.join(decorations)}{paren_end}"
+            
+        msg_title = node.message.split("\n")[0] if node.message else ""
+        sha_str = Color.wrap(Color.YELLOW, node.sha[:7])
         
-        if node.parents:
+        print(f"● {sha_str}{dec_str} {msg_title}")
+        
+        author_str = node.commit.author if hasattr(node.commit, 'author') else "Unknown"
+        print(f"│ {Color.wrap(Color.BOLD, 'Author:')} {Color.wrap(Color.CYAN, author_str)}")
+        
+        if node.parents and len(node.parents) > 1:
             for p in node.parents[1:]:
-                print(f"├─ {p[:7]}")
-            print(f"│")
+                # Merge commit visualization
+                print(f"├─ {Color.wrap(Color.DIM, 'Merge: ' + p[:7])}")
+                
+        if i < len(nodes) - 1:
+            print("│")
 

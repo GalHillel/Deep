@@ -9,8 +9,9 @@ from __future__ import annotations
 from deep.core.errors import DeepCLIException
 
 import asyncio
-import sys
+import time
 from pathlib import Path
+import sys
 
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.network.daemon import DeepDaemon
