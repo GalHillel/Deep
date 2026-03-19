@@ -1,7 +1,7 @@
 """
 deep.commands.issue_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-GitHub-native ``deep issue`` implementation.
+Hybrid Local + GitHub Issue Management for Deep.
 """
 
 from __future__ import annotations
@@ -11,6 +11,8 @@ import json
 import os
 import sys
 import re
+import time
+import shutil
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
@@ -21,16 +23,67 @@ from deep.core.errors import DeepCLIException
 
 GITHUB_API_BASE = "https://api.github.com/repos"
 
+class LocalIssueManager:
+    """Manages local persistent issue storage in .deep/issues.json."""
+    
+    def __init__(self, repo_root: Path):
+        self.repo_root = repo_root
+        self.issue_file = repo_root / ".deep" / "issues.json"
+        self.dg_dir = repo_root / ".deep"
+        
+    def _ensure_dir(self):
+        if not self.dg_dir.exists():
+            self.dg_dir.mkdir(parents=True, exist_ok=True)
+
+    def load_all(self) -> List[Dict[str, Any]]:
+        """Load all issues from the local JSON file."""
+        if not self.issue_file.exists():
+            return []
+        try:
+            with open(self.issue_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if not isinstance(data, list):
+                    raise ValueError("Issues file must be a JSON list.")
+                return data
+        except (json.JSONDecodeError, ValueError) as e:
+            bak_path = self.issue_file.with_suffix(".json.bak")
+            shutil.copy(self.issue_file, bak_path)
+            print_error(f"Issue storage corrupted: {e}")
+            print_info(f"Existing file backed up to {bak_path.name}. Resetting local issues.")
+            return []
+        except Exception as e:
+            print_error(f"Failed to load issues: {e}")
+            return []
+
+    def save_all(self, issues: List[Dict[str, Any]]):
+        """Save all issues to the local JSON file with Windows-safe encoding."""
+        self._ensure_dir()
+        try:
+            with open(self.issue_file, "w", encoding="utf-8") as f:
+                json.dump(issues, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print_error(f"Failed to save issues: {e}")
+            raise DeepCLIException(1)
+
+    def get_next_id(self, issues: List[Dict[str, Any]]) -> int:
+        """Calculate the next available issue ID."""
+        if not issues:
+            return 1
+        return max(issue.get("id", 0) for issue in issues) + 1
+
+    def find_by_id(self, issues: List[Dict[str, Any]], issue_id: int) -> Optional[Dict[str, Any]]:
+        """Find an issue by its numeric ID."""
+        for issue in issues:
+            if issue.get("id") == issue_id:
+                return issue
+        return None
+
 def get_github_remote(repo_root: Path) -> str | None:
     """Extract owner/repo from remote.origin.url."""
     config = Config(repo_root)
     url = config.get("remote.origin.url")
     if not url:
         return None
-    
-    # Supported patterns:
-    # https://github.com/owner/repo(.git)
-    # git@github.com:owner/repo(.git)
     pattern = r"(?:https://github\.com/|git@github\.com:)([^/]+)/([^/.]+)(?:\.git)?"
     match = re.search(pattern, url)
     if match:
@@ -38,21 +91,14 @@ def get_github_remote(repo_root: Path) -> str | None:
     return None
 
 def get_token() -> str | None:
-    """Retrieve GitHub token from environment."""
     return os.environ.get("GH_TOKEN") or os.environ.get("DEEP_TOKEN")
 
 def api_request(path: str, method: str = "GET", data: Optional[Dict[str, Any]] = None, verbose: bool = False) -> Any:
-    """Perform a GitHub API request using urllib."""
     token = get_token()
     if not token:
-        print_error("Missing authentication token.")
-        print(Color.wrap(Color.DIM, "Please set GH_TOKEN or DEEP_TOKEN environment variable."))
-        raise DeepCLIException(1)
+        return None  # Silent fail for sync detection if no token
 
     url = f"{GITHUB_API_BASE}/{path}"
-    if verbose:
-        print_info(f"API Request: {method} {url}")
-
     headers = {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github.v3+json",
@@ -61,33 +107,23 @@ def api_request(path: str, method: str = "GET", data: Optional[Dict[str, Any]] =
 
     req_data = None
     if data:
-        # Support mixed Windows/UTF-8 by ensuring UTF-8 encoding
         req_data = json.dumps(data).encode("utf-8")
         headers["Content-Type"] = "application/json"
 
     req = urllib.request.Request(url, data=req_data, headers=headers, method=method)
 
     try:
+        if verbose:
+            print_info(f"GitHub Sync: {method} {url}")
         with urllib.request.urlopen(req) as response:
             if response.status == 204:
-                return None
+                return True
             res_body = response.read().decode("utf-8")
             return json.loads(res_body)
-    except urllib.error.HTTPError as e:
-        status = e.code
-        try:
-            error_data = json.loads(e.read().decode("utf-8"))
-            msg = error_data.get("message", str(e))
-        except Exception:
-            msg = str(e)
-        print_error(f"GitHub API Error {status}: {msg}")
-        raise DeepCLIException(1)
-    except urllib.error.URLError as e:
-        print_error(f"Network error: {e.reason}")
-        raise DeepCLIException(1)
     except Exception as e:
-        print_error(f"Unexpected error: {e}")
-        raise DeepCLIException(1)
+        if verbose:
+            print_error(f"GitHub API error: {e}")
+        return None
 
 def run(args: Any) -> None:
     """Execute the ``issue`` command."""
@@ -97,109 +133,143 @@ def run(args: Any) -> None:
         print_error("Not a Deep repository.")
         raise DeepCLIException(1)
 
-    gh_repo = get_github_remote(repo_root)
-    if not gh_repo:
-        print_error("Could not find a valid GitHub remote (remote.origin.url).")
-        print(Color.wrap(Color.DIM, "Expected: https://github.com/owner/repo or git@github.com:owner/repo"))
-        raise DeepCLIException(1)
-
+    manager = LocalIssueManager(repo_root)
+    issues = manager.load_all()
+    
     cmd = getattr(args, "issue_command", "list")
     verbose = getattr(args, "verbose", False)
 
     if cmd == "list":
-        # List issues, skipping PRs
-        path = f"{gh_repo}/issues"
-        issues = api_request(path, verbose=verbose)
+        open_count = sum(1 for i in issues if i.get("state") == "open")
+        closed_count = len(issues) - open_count
+        
+        print(Color.wrap(Color.CYAN, f"\nRepository Issues: {repo_root}"))
+        print(Color.wrap(Color.CYAN, f"Total: {len(issues)} | {Color.wrap(Color.GREEN, f'Open: {open_count}')} | {Color.wrap(Color.RED, f'Closed: {closed_count}')}"))
+        print(Color.wrap(Color.CYAN, "=" * 65))
+        
         if not issues:
-            print(Color.wrap(Color.YELLOW, "No open issues found."))
-            return
-
-        print(Color.wrap(Color.CYAN, f"\nIssues for {gh_repo}"))
-        print(Color.wrap(Color.CYAN, "=" * 60))
-        
-        found_any = False
-        for issue in issues:
-            # GitHub API returns PRs in the issues endpoint unless filtered
-            if "pull_request" in issue:
-                continue
-            
-            found_any = True
-            num = issue.get("number")
-            title = issue.get("title", "No Title")
-            state = issue.get("state", "unknown")
-            user = issue.get("user", {}).get("login", "unknown")
-            
-            state_col = Color.GREEN if state == "open" else Color.RED
-            state_label = Color.wrap(state_col, f"[{state.upper()}]")
-            
-            # Print with nice fixed-width columns
-            print(f"#{num:<5} {state_label:<15} {title[:45]:<45} ({user})")
-        
-        if not found_any:
-            print(Color.wrap(Color.YELLOW, "No issues found (only Pull Requests)."))
-        print()
-
-    elif cmd == "show":
-        if not args.id:
-            print_error("Missing issue ID. Usage: deep issue show <id>")
-            raise DeepCLIException(1)
-        
-        path = f"{gh_repo}/issues/{args.id}"
-        issue = api_request(path, verbose=verbose)
-        
-        num = issue.get("number")
-        title = issue.get("title")
-        state = issue.get("state")
-        author = issue.get("user", {}).get("login")
-        html_url = issue.get("html_url")
-        body = issue.get("body") or "No description provided."
-        
-        print(Color.wrap(Color.CYAN, f"\nIssue #{num}: {title}"))
-        print(Color.wrap(Color.CYAN, "-" * 60))
-        print(f"Status:  {Color.wrap(Color.GREEN if state == 'open' else Color.RED, state)}")
-        print(f"Author:  {author}")
-        print(f"URL:     {Color.wrap(Color.UL, html_url)}")
-        print(f"\n{Color.wrap(Color.BOLD, 'Description:')}\n{body}")
+            print(Color.wrap(Color.DIM, " No local issues found."))
+        else:
+            # Sorted by ID ascending
+            for issue in sorted(issues, key=lambda x: x.get("id", 0)):
+                state = issue.get("state", "open")
+                col = Color.GREEN if state == "open" else Color.RED
+                state_label = Color.wrap(col, f"[{state.upper()}]")
+                created = time.strftime('%Y-%m-%d', time.localtime(issue.get("created_at", 0)))
+                
+                print(f"#{issue.get('id'):<5} {state_label:<15} {issue.get('title')[:40]:<40} ({created})")
         print()
 
     elif cmd == "create":
-        title = getattr(args, "title", None)
-        body = getattr(args, "description", "")
+        title = getattr(args, "title", "").strip()
+        body = getattr(args, "description", "").strip()
         
         if not title:
-            print(Color.wrap(Color.BOLD, "Creating new GitHub Issue"))
             try:
+                print(Color.wrap(Color.BOLD, "New Local Issue"))
                 title = input("Title: ").strip()
                 if not title:
-                    print_error("Title is required.")
+                    print_error("Title cannot be empty.")
                     return
-                if not body:
-                    print(Color.wrap(Color.DIM, "(Tip: You can also use -d/--description)"))
-                    body = input("Description: ").strip()
+                body = input("Description: ").strip()
             except KeyboardInterrupt:
-                print("\nOperation cancelled.")
+                print("\nAborted.")
                 return
 
-        path = f"{gh_repo}/issues"
-        issue = api_request(path, method="POST", data={"title": title, "body": body}, verbose=verbose)
-        
-        print_success(f"Issue #{issue.get('number')} created!")
-        print(f"Link: {Color.wrap(Color.GREEN, issue.get('html_url'))}")
+        now = time.time()
+        new_issue = {
+            "id": manager.get_next_id(issues),
+            "title": title,
+            "body": body,
+            "state": "open",
+            "created_at": now,
+            "updated_at": now,
+            "github_id": None
+        }
+        issues.append(new_issue)
+        manager.save_all(issues)
+        print_success(f"Issue #{new_issue['id']} saved locally.")
 
-    elif cmd == "close":
+    elif cmd == "show":
         if not args.id:
-            print_error("Missing issue ID. Usage: deep issue close <id>")
+            print_error("Missing issue ID.")
             raise DeepCLIException(1)
         
-        path = f"{gh_repo}/issues/{args.id}"
-        api_request(path, method="PATCH", data={"state": "closed"}, verbose=verbose)
-        print_success(f"Issue #{args.id} successfully closed.")
+        try:
+            issue_id = int(args.id)
+        except ValueError:
+            print_error(f"Invalid ID format: {args.id}")
+            raise DeepCLIException(1)
+            
+        issue = manager.find_by_id(issues, issue_id)
+        if not issue:
+            print_error(f"Issue #{issue_id} not found locally.")
+            raise DeepCLIException(1)
+            
+        col = Color.GREEN if issue.get("state") == "open" else Color.RED
+        print(Color.wrap(Color.CYAN, f"\nIssue #{issue['id']}: {issue['title']}"))
+        print(Color.wrap(Color.CYAN, "-" * 65))
+        print(f"Status:  {Color.wrap(col, issue['state'].upper())}")
+        print(f"Created: {time.ctime(issue.get('created_at', 0))}")
+        print(f"Updated: {time.ctime(issue.get('updated_at', 0))}")
+        if issue.get("github_id"):
+            print(f"GitHub:  #{issue['github_id']}")
+        print(f"\n{Color.wrap(Color.BOLD, 'Description:')}")
+        print(f"{issue.get('body') or 'No description provided.'}\n")
 
-    elif cmd == "reopen":
+    elif cmd in ("close", "reopen"):
         if not args.id:
-            print_error("Missing issue ID. Usage: deep issue reopen <id>")
+            print_error(f"Missing issue ID for {cmd}.")
             raise DeepCLIException(1)
         
-        path = f"{gh_repo}/issues/{args.id}"
-        api_request(path, method="PATCH", data={"state": "open"}, verbose=verbose)
-        print_success(f"Issue #{args.id} successfully reopened.")
+        try:
+            issue_id = int(args.id)
+        except ValueError:
+            print_error(f"Invalid ID format: {args.id}")
+            raise DeepCLIException(1)
+
+        issue = manager.find_by_id(issues, issue_id)
+        if not issue:
+            print_error(f"Issue #{issue_id} not found.")
+            raise DeepCLIException(1)
+            
+        new_state = "closed" if cmd == "close" else "open"
+        issue["state"] = new_state
+        issue["updated_at"] = time.time()
+        manager.save_all(issues)
+        print_success(f"Issue #{issue_id} is now {new_state}.")
+
+    elif cmd == "sync":
+        gh_repo = get_github_remote(repo_root)
+        token = get_token()
+        
+        if not gh_repo or not token:
+            print_error("Sync requires a GitHub remote and GH_TOKEN.")
+            if not gh_repo:
+                print("No GitHub remote found in config.")
+            if not token:
+                print("No GH_TOKEN or DEEP_TOKEN found in environment.")
+            raise DeepCLIException(1)
+            
+        print_info(f"Syncing local issues with {gh_repo}...")
+        synced_count = 0
+        for issue in issues:
+            # Only sync if not already on GitHub
+            if not issue.get("github_id"):
+                path = f"{gh_repo}/issues"
+                res = api_request(path, method="POST", data={
+                    "title": issue["title"],
+                    "body": f"{issue['body']}\n\n---\n*Synced from DeepDVCS local issue #{issue['id']}*"
+                }, verbose=verbose)
+                
+                if res and isinstance(res, dict) and "number" in res:
+                    issue["github_id"] = res["number"]
+                    synced_count += 1
+            else:
+                # Update existing GitHub issue state?
+                path = f"{gh_repo}/issues/{issue['github_id']}"
+                api_request(path, method="PATCH", data={"state": issue["state"]}, verbose=verbose)
+                synced_count += 1
+                
+        manager.save_all(issues)
+        print_success(f"Successfully synced {synced_count} issues with GitHub.")

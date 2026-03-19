@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 import json
 import io
+import time
 from pathlib import Path
 from deep.commands import issue_cmd
 
@@ -60,80 +61,105 @@ class TestIssueCmd(unittest.TestCase):
         req = args[0]
         self.assertEqual(req.get_header("Authorization"), "token token123")
 
-    @patch("deep.commands.issue_cmd.api_request")
     @patch("deep.commands.issue_cmd.get_github_remote")
     @patch("deep.commands.issue_cmd.find_repo")
-    def test_run_list_skips_prs(self, mock_find_repo, mock_get_remote, mock_api):
-        mock_find_repo.return_value = self.repo_root
-        mock_get_remote.return_value = "owner/repo"
-        
-        # Mock API returning an issue and a PR
-        mock_api.return_value = [
-            {"number": 1, "title": "Real Issue", "state": "open", "user": {"login": "alice"}},
-            {"number": 2, "title": "Pull Request", "state": "open", "user": {"login": "bob"}, "pull_request": {}}
-        ]
-        
-        self.args.issue_command = "list"
-        
-        with patch("sys.stdout", new=io.StringIO()) as fake_out:
-            issue_cmd.run(self.args)
-            output = fake_out.getvalue()
+    def test_run_list(self, mock_find_repo, mock_get_remote):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            mock_find_repo.return_value = tmp_path
             
-            self.assertIn("#1", output)
-            self.assertIn("Real Issue", output)
-            self.assertNotIn("#2", output)
-            self.assertNotIn("Pull Request", output)
+            manager = issue_cmd.LocalIssueManager(tmp_path)
+            issues = [
+                {"id": 1, "title": "Local 1", "state": "open", "created_at": time.time()},
+                {"id": 2, "title": "Local 2", "state": "closed", "created_at": time.time()}
+            ]
+            manager.save_all(issues)
+            
+            self.args.issue_command = "list"
+            with patch("sys.stdout", new=io.StringIO()) as fake_out:
+                issue_cmd.run(self.args)
+                output = fake_out.getvalue()
+                self.assertIn("#1", output)
+                self.assertIn("Local 1", output)
+                self.assertIn("#2", output)
+                self.assertIn("[CLOSED]", output)
 
-    @patch("deep.commands.issue_cmd.api_request")
-    @patch("deep.commands.issue_cmd.get_github_remote")
     @patch("deep.commands.issue_cmd.find_repo")
-    def test_run_show(self, mock_find_repo, mock_get_remote, mock_api):
-        mock_find_repo.return_value = self.repo_root
-        mock_get_remote.return_value = "owner/repo"
-        mock_api.return_value = {
-            "number": 123, "title": "Test Show", "state": "open", 
-            "user": {"login": "alice"}, "html_url": "url", "body": "Hello world"
-        }
-        
-        self.args.issue_command = "show"
-        self.args.id = "123"
-        
-        with patch("sys.stdout", new=io.StringIO()) as fake_out:
+    def test_run_show(self, mock_find_repo):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            mock_find_repo.return_value = tmp_path
+            
+            manager = issue_cmd.LocalIssueManager(tmp_path)
+            issue = {"id": 123, "title": "Test Show", "state": "open", "created_at": time.time(), "body": "Hello"}
+            manager.save_all([issue])
+            
+            self.args.issue_command = "show"
+            self.args.id = "123"
+            
+            with patch("sys.stdout", new=io.StringIO()) as fake_out:
+                issue_cmd.run(self.args)
+                output = fake_out.getvalue()
+                self.assertIn("#123", output)
+                self.assertIn("Test Show", output)
+
+    @patch("deep.commands.issue_cmd.find_repo")
+    def test_run_create(self, mock_find_repo):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            mock_find_repo.return_value = tmp_path
+            
+            self.args.issue_command = "create"
+            self.args.title = "New Issue"
+            self.args.description = "Desc"
+            
             issue_cmd.run(self.args)
-            output = fake_out.getvalue()
-            self.assertIn("#123", output)
-            self.assertIn("Test Show", output)
-            self.assertIn("Hello world", output)
+            
+            manager = issue_cmd.LocalIssueManager(tmp_path)
+            issues = manager.load_all()
+            self.assertEqual(len(issues), 1)
+            self.assertEqual(issues[0]["title"], "New Issue")
+
+    @patch("deep.commands.issue_cmd.shutil.copy")
+    def test_local_manager_corruption(self, mock_copy):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            manager = issue_cmd.LocalIssueManager(tmp_path)
+            manager.dg_dir.mkdir(parents=True, exist_ok=True)
+            
+            with open(manager.issue_file, "w") as f:
+                f.write("{ invalid json")
+                
+            loaded = manager.load_all()
+            self.assertEqual(loaded, [])
+            mock_copy.assert_called()
 
     @patch("deep.commands.issue_cmd.api_request")
     @patch("deep.commands.issue_cmd.get_github_remote")
+    @patch("deep.commands.issue_cmd.get_token")
     @patch("deep.commands.issue_cmd.find_repo")
-    def test_run_create(self, mock_find_repo, mock_get_remote, mock_api):
-        mock_find_repo.return_value = self.repo_root
-        mock_get_remote.return_value = "owner/repo"
-        mock_api.return_value = {"number": 1, "html_url": "url"}
-        
-        self.args.issue_command = "create"
-        self.args.title = "New Issue"
-        self.args.description = "Desc"
-        
-        issue_cmd.run(self.args)
-        
-        mock_api.assert_called_with("owner/repo/issues", method="POST", data={"title": "New Issue", "body": "Desc"}, verbose=False)
-
-    @patch("deep.commands.issue_cmd.api_request")
-    @patch("deep.commands.issue_cmd.get_github_remote")
-    @patch("deep.commands.issue_cmd.find_repo")
-    def test_run_close(self, mock_find_repo, mock_get_remote, mock_api):
-        mock_find_repo.return_value = self.repo_root
-        mock_get_remote.return_value = "owner/repo"
-        
-        self.args.issue_command = "close"
-        self.args.id = "1"
-        
-        issue_cmd.run(self.args)
-        
-        mock_api.assert_called_with("owner/repo/issues/1", method="PATCH", data={"state": "closed"}, verbose=False)
+    def test_run_sync(self, mock_find_repo, mock_get_token, mock_get_remote, mock_api):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            mock_find_repo.return_value = tmp_path
+            mock_get_token.return_value = "token123"
+            mock_get_remote.return_value = "owner/repo"
+            
+            manager = issue_cmd.LocalIssueManager(tmp_path)
+            issue = {"id": 1, "title": "Local", "body": "B", "state": "open", "github_id": None}
+            manager.save_all([issue])
+            
+            mock_api.return_value = {"number": 456}
+            self.args.issue_command = "sync"
+            issue_cmd.run(self.args)
+            
+            updated_issues = manager.load_all()
+            self.assertEqual(updated_issues[0]["github_id"], 456)
 
 if __name__ == "__main__":
     unittest.main()

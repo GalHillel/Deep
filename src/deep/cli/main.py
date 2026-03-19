@@ -578,7 +578,7 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_issue.add_argument("issue_command", choices=["create", "list", "show", "close", "reopen"], help="The issue tracking action to perform")
+    p_issue.add_argument("issue_command", choices=["create", "list", "show", "close", "reopen", "sync"], help="The issue tracking action to perform")
     p_issue.add_argument("id", nargs="?", help="The numerical ID of the issue")
     p_issue.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
     p_issue.add_argument("-m", "--message", dest="title", help="Issue title (for create)")
