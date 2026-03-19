@@ -8,6 +8,7 @@ No git CLI dependency.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -46,7 +47,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
     except Exception as e:
         print(f"Deep: error: ls-remote failed: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
 
 def _ls_remote_local(dg_dir: Path) -> None:

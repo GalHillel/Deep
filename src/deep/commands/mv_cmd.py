@@ -7,6 +7,7 @@ Moves or renames a file, directory, or symlink and updates the index.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import os
 import sys
@@ -27,7 +28,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -40,7 +41,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
     if not src_path.exists():
         print(f"Deep: error: bad source, source={src_path_str}, destination={dest_path_str}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     rel_src = src_path.relative_to(repo_root).as_posix()
 
@@ -51,7 +52,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
     if dest_path.exists():
         print(f"Deep: error: destination exists, source={src_path_str}, destination={dest_path_str}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     # 1. Move file on disk
     shutil.move(str(src_path), str(dest_path))

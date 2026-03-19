@@ -102,9 +102,28 @@ def find_all_lcas(objects_dir: Path, sha_a: str, sha_b: str) -> list[str]:
 
 
 def find_lca(objects_dir: Path, sha_a: str, sha_b: str) -> Optional[str]:
-    """Compatibility wrapper that returns the first LCA found."""
+    """Find LCA, creating a virtual base via recursive merge if multiple exist."""
     lcas = find_all_lcas(objects_dir, sha_a, sha_b)
-    return lcas[0] if lcas else None
+    if not lcas:
+        return None
+    if len(lcas) == 1:
+        return lcas[0]
+        
+    import time
+    from deep.storage.objects import Commit
+    
+    # Merge first two LCAs
+    v_tree, _ = recursive_merge(objects_dir, lcas[0], lcas[1])
+    v_commit = Commit(tree_sha=v_tree, parent_shas=[lcas[0], lcas[1]], message="virtual base", timestamp=int(time.time()))
+    v_sha = v_commit.write(objects_dir)
+    
+    # Merge remaining LCAs
+    for i in range(2, len(lcas)):
+        v_tree, _ = recursive_merge(objects_dir, v_sha, lcas[i])
+        v_commit = Commit(tree_sha=v_tree, parent_shas=[v_sha, lcas[i]], message="virtual base", timestamp=int(time.time()))
+        v_sha = v_commit.write(objects_dir)
+        
+    return v_sha
 
 
 def _tree_entries_map_full(objects_dir: Path, tree_sha: str | None) -> dict[str, TreeEntry]:
@@ -197,7 +216,7 @@ def recursive_merge(objects_dir: Path, sha_a: str, sha_b: str) -> tuple[str, lis
         base_tree = read_object(objects_dir, lcas[0]).tree_sha
     else:
         # Multiple LCAs! Recursive merge them into a virtual base.
-        print(f"DeepBridge: Recursive merge for {len(lcas)} LCAs...")
+        print(f"Recursive merge for {len(lcas)} LCAs...")
         
         # Merge first two LCAs
         v_tree, _ = recursive_merge(objects_dir, lcas[0], lcas[1])

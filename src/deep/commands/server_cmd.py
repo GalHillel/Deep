@@ -6,6 +6,7 @@ The Deep Platform Server - handles Deep protocol, REST API, and Web UI.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import asyncio
 import sys
@@ -49,7 +50,7 @@ def run_mirror_sync(repo_root: Path):
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     host = getattr(args, "host", "127.0.0.1")
     port = getattr(args, "port", 8080)
@@ -76,4 +77,4 @@ def run_mirror_sync(repo_root: Path):
         print("\nServer stopped by user.")
     except Exception as e:
         print(f"Fatal error in server: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

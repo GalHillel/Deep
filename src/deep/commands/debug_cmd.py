@@ -5,6 +5,7 @@ Debug tooling for inspecting internal Deep state.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
 
@@ -18,7 +19,7 @@ def run_debug_tree(args) -> None:
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -28,7 +29,7 @@ def run_debug_tree(args) -> None:
         sha = resolve_head(dg_dir)
         if not sha:
             print("Deep: error: HEAD is not set", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
         
         # If HEAD is a commit, get its tree
         obj = read_object(objects_dir, sha)

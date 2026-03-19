@@ -5,6 +5,7 @@ Manage the commit-graph index.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
 from rich.console import Console
@@ -17,7 +18,7 @@ def run(args):
     repo_root = find_repo(Path.cwd())
     if not repo_root:
         console.print("[red]Deep: error: not a Deep repository[/red]")
-        sys.exit(1)
+        raise DeepCLIException(1)
         
     from deep.core.constants import DEEP_DIR
     dg_dir = repo_root / DEEP_DIR

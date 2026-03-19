@@ -534,6 +534,12 @@ class GitTransportClient:
             write_pkt_line(buf, f"deepen {depth}".encode("ascii"))
             write_flush(buf)
 
+        # Filter
+        filter_spec = kwargs.get("filter_spec")
+        if filter_spec:
+            write_pkt_line(buf, f"filter {filter_spec}".encode("ascii"))
+            write_flush(buf)
+
         # Send have lines
         for sha in sorted(have_shas):
             write_pkt_line(buf, f"have {sha}".encode("ascii"))
@@ -581,6 +587,13 @@ class GitTransportClient:
         if depth:
             write_pkt_line(transport.stdin,
                           f"deepen {depth}".encode("ascii"))
+            write_flush(transport.stdin)
+
+        # Filter
+        filter_spec = kwargs.get("filter_spec")
+        if filter_spec:
+            write_pkt_line(transport.stdin,
+                          f"filter {filter_spec}".encode("ascii"))
             write_flush(transport.stdin)
 
         for sha in sorted(have_shas):

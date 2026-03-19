@@ -5,6 +5,7 @@ deep.commands.diff_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -19,7 +20,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     from deep.core.refs import resolve_revision
@@ -33,13 +34,13 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         rev2 = resolve_revision(dg_dir, revisions[1])
         if not rev1 or not rev2:
             print(f"Deep: error: Invalid revisions {revisions}", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
         diffs = diff_trees(dg_dir, rev1, rev2)
     elif len(revisions) == 1:
         rev1 = resolve_revision(dg_dir, revisions[0])
         if not rev1:
             print(f"Deep: error: Invalid revision {revisions[0]}", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
         # diff <rev> is rev vs working tree (via index)
         diffs = diff_trees(dg_dir, rev1, "HEAD")
     else:

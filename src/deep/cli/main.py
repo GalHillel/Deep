@@ -14,6 +14,7 @@ and registered here for a cohesive distribution.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import argparse
 import sys
@@ -897,7 +898,7 @@ def main(argv: list[str] | None = None) -> None:
             parser.print_help()
         except ImportError:
             parser.print_help()
-        sys.exit(0)
+        return 0
 
     # Dynamic import to keep startup fast.
     if args.command == "init":
@@ -1023,7 +1024,7 @@ def main(argv: list[str] | None = None) -> None:
             run_maintenance(repo_root, force=getattr(args, "force", False))
         except FileNotFoundError:
             print("Deep: error: not a repository", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
         return
     elif args.command == "help":
         try:
@@ -1042,7 +1043,7 @@ def main(argv: list[str] | None = None) -> None:
             pass
         else:
             parser.print_help()
-            sys.exit(1)
+            raise DeepCLIException(1)
 
     from deep.core.repository import find_repo, DEEP_DIR # type: ignore[import]
     try:
@@ -1071,7 +1072,7 @@ def main(argv: list[str] | None = None) -> None:
                         read_object_safe(objects_dir, head_sha)
                     except (FileNotFoundError, ValueError) as e:
                         print(f"FATAL: Repository corrupted. HEAD points to invalid object {head_sha}. ({e})", file=sys.stderr)
-                        sys.exit(1)
+                        raise DeepCLIException(1)
                         
                 for branch in list_branches(dg_dir):
                     branch_sha = get_branch(dg_dir, branch)
@@ -1080,7 +1081,7 @@ def main(argv: list[str] | None = None) -> None:
                             read_object_safe(objects_dir, branch_sha)
                         except (FileNotFoundError, ValueError) as e:
                             print(f"FATAL: Repository corrupted. Branch '{branch}' points to invalid object {branch_sha}. ({e})", file=sys.stderr)
-                            sys.exit(1)
+                            raise DeepCLIException(1)
     except FileNotFoundError:
         pass 
 
@@ -1096,14 +1097,14 @@ def main(argv: list[str] | None = None) -> None:
         run(args)
     except DeepError as e:
         print(f"Deep: error: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
     except Exception as e:
         # Don't silence unexpected exceptions in dev mode if requested,
         # but for CLI users, show a clean internal error.
         if os.environ.get("DEEP_DEBUG"):
             raise
         print(f"Deep: internal error: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
     
     # --- Background Auto-Maintenance Hook ---
     # Triggered after some commands if enough time has passed.
@@ -1125,4 +1126,4 @@ if __name__ == "__main__":
 
 def legacy_main(argv: list[str] | None = None) -> None:
     print("This command has been renamed to 'deep' (Deep). Please use `deep`.", file=sys.stderr)
-    sys.exit(1)
+    raise DeepCLIException(1)

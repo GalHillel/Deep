@@ -5,6 +5,7 @@ deep.commands.daemon_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import asyncio
 import sys
@@ -21,7 +22,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     host = getattr(args, "host", "127.0.0.1")
     port = getattr(args, "port", 8888)
@@ -37,4 +38,4 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print("\nDaemon stopped by user.")
     except Exception as e:
         print(f"Fatal error in daemon: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

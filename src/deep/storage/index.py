@@ -85,11 +85,20 @@ class DeepIndex:
             # RULE: Pad 40-char SHA1 to 32 bytes ONLY for storage
             c_hash_padded = entry.content_hash.ljust(64, '0')
             
+            # RULE: Handle legacy string path_hashes (hex) gracefully during conversion
+            p_hash = entry.path_hash
+            if isinstance(p_hash, str):
+                try:
+                    p_hash = int(p_hash, 16)
+                except ValueError:
+                    # If it's a 40-char SHA string, truncate or re-hash
+                    p_hash = struct.unpack(">Q", hashlib.sha256(path_bytes).digest()[:8])[0]
+            
             entry_body += struct.pack(">32sQQQ",
                 bytes.fromhex(c_hash_padded),
                 int(entry.mtime_ns or 0),
                 int(entry.size or 0),
-                int(entry.path_hash or 0)
+                int(p_hash or 0)
             )
             
             body_parts.append(entry_header + entry_body)
@@ -211,7 +220,7 @@ class DeepIndex:
             c_hash_v2 = c_hash_bin.hex()
             # path_hash v2 is uint64. v1 path_hash was SHA1 hex. 
             # We'll just re-calculate path_hash v2 correctly from path.
-            p_hash_v2 = int(hashlib.sha256(path.encode("utf-8")).hexdigest()[:16], 16)
+            p_hash_v2 = struct.unpack(">Q", hashlib.sha256(path.encode("utf-8")).digest()[:8])[0]
             
             entries[path] = DeepIndexEntry(
                 content_hash=c_hash_v2,
@@ -237,7 +246,7 @@ class DeepIndex:
             
             # RULE: Store 40-char SHA1 in memory.
             c_hash_v2 = sha.hex()
-            p_hash_v2 = int(hashlib.sha256(path.encode("utf-8")).hexdigest()[:16], 16)
+            p_hash_v2 = struct.unpack(">Q", hashlib.sha256(path.encode("utf-8")).digest()[:8])[0]
             
             # Convert float mtime to int nsec
             mtime_ns = int(mtime * 1e9)

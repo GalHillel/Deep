@@ -5,6 +5,7 @@ Deep ``log`` command implementation.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -23,7 +24,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"

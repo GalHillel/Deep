@@ -38,11 +38,11 @@ def test_binary_index_migration():
     assert len(index.entries) == 2
     assert index.entries["file1.txt"].content_hash == sha1.hex()
     
-    # 3. Write it (should be binary DPIX)
+    # 3. Write it (should be binary DEEPIDX2)
     write_index(dg_dir, index)
     
     binary_data = (dg_dir / "index").read_bytes()
-    assert binary_data.startswith(b"DPIX")
+    assert binary_data.startswith(b"DEEPIDX2")
     
     # 4. Read it again (binary DPIX)
     index2 = read_index(dg_dir)

@@ -220,21 +220,22 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                         parent = cast(Path, parent).parent # type: ignore
 
             # Apply updates
+            import struct
             import hashlib
             new_index = DeepIndex()
             for p, sha in cast(dict, target_files).items(): # type: ignore
                 is_match = matches_sparse_patterns(p, sparse_patterns)
-                p_hash = hashlib.sha1(p.encode("utf-8")).hexdigest()
+                p_hash_val = struct.unpack(">Q", hashlib.sha256(p.encode("utf-8")).digest()[:8])[0]
                 if is_match:
                     full = repo_root / p
                     full.parent.mkdir(parents=True, exist_ok=True)
                     obj = read_object(objects_dir, sha)
                     full.write_bytes(obj.serialize_content())
                     stat = full.stat()
-                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=stat.st_size, mtime_ns=int(stat.st_mtime * 1e9), path_hash=int(p_hash[:16], 16), flags=0)
+                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=stat.st_size, mtime_ns=int(stat.st_mtime * 1e9), path_hash=p_hash_val, flags=0)
                 else:
                     # Skip worktree (bit 0 = 0x01)
-                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=0, mtime_ns=0, path_hash=int(p_hash[:16], 16), flags=0x01)
+                    new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=0, mtime_ns=0, path_hash=p_hash_val, flags=0x01)
 
             # 5. Update DeepIndex
             write_index_no_lock(dg_dir, new_index)

@@ -12,6 +12,7 @@ import pytest
 
 from deep.core.repository import DEEP_DIR
 from deep.cli.main import main
+from deep.core.errors import DeepCLIException
 
 
 @pytest.fixture()
@@ -83,9 +84,9 @@ def test_stash_pop_with_conflict(repo_with_commit: Path, capsys: pytest.CaptureF
     main(["commit", "-m", "v3 commit"])
     
     # Now pop
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(DeepCLIException) as exc:
         main(["stash", "pop"])
-    assert exc.value.code == 1
+    assert "CLI exited with 1" in str(exc.value)
     
     # Check that it kept OURS (v3)
     content = f.read_text(encoding="utf-8")

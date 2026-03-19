@@ -10,6 +10,7 @@ Commands:
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -26,7 +27,7 @@ def run(args) -> None:
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     runner = PipelineRunner(dg_dir)
@@ -36,7 +37,7 @@ def run(args) -> None:
         sha = args.commit or resolve_head(dg_dir)
         if not sha:
             print("Deep: error: No commit specified and HEAD not resolved.", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
         
         pipeline_run = runner.create_run(sha)
         print(f"🚀 Triggered pipeline run: {pipeline_run.run_id}")
@@ -49,7 +50,7 @@ def run(args) -> None:
         match = [r for r in runs if r.run_id == run_id]
         if not match:
             print(f"Deep: error: Run '{run_id}' not found.", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
         
         r = match[0]
         print(f"Run: {r.run_id} | Status: {r.status} | Commit: {r.commit_sha[:7]}")

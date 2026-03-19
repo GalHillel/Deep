@@ -14,6 +14,7 @@ No git CLI dependency.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 import os
@@ -41,7 +42,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     target_dir = Path(args.dir or name).resolve()
     if target_dir.exists() and any(target_dir.iterdir()):
         print(f"Deep: error: Target directory '{target_dir}' already exists and is not empty", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -66,6 +67,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         refs, head_ref = client.clone(
             objects_dir,
             depth=getattr(args, "depth", None),
+            filter_spec=getattr(args, "filter", None),
         )
 
         # Determine main branch

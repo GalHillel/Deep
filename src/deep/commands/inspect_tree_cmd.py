@@ -15,7 +15,7 @@ def run(args) -> None:
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -25,7 +25,7 @@ def run(args) -> None:
         obj = read_object(objects_dir, sha)
         if not isinstance(obj, Tree):
             print(f"Deep: error: Object {sha} is not a tree ({obj.OBJ_TYPE})", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
         
         print(f"Tree {sha}:")
         for entry in sorted(obj.entries, key=lambda e: e.name):
@@ -39,4 +39,4 @@ def run(args) -> None:
             
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

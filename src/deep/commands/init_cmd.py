@@ -5,6 +5,7 @@ Deep ``init`` command implementation.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -21,4 +22,4 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print(f"Deep: initialized empty repository in {dg}")
     except FileExistsError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

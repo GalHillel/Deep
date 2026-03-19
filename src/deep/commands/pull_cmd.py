@@ -12,6 +12,7 @@ No git CLI dependency.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from argparse import Namespace
@@ -28,7 +29,7 @@ def run(args) -> None:
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     url_or_name = args.url
     config = Config(repo_root)
@@ -53,7 +54,7 @@ def run(args) -> None:
 
         if not remote_sha:
             print(f"Deep: error: Remote branch '{branch}' not found", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
 
         # 2. Determine what we have locally
         have_shas = []
@@ -94,4 +95,4 @@ def run(args) -> None:
 
     except Exception as e:
         print(f"Deep: error: pull failed: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

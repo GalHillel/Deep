@@ -11,6 +11,7 @@ Supports:
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import os
 import sys
@@ -51,11 +52,12 @@ def _restore_tree_to_workdir(
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_bytes(obj.data)
             stat = file_path.stat()
+            import struct
             index.entries[rel_path] = DeepIndexEntry(
                 content_hash=entry.sha,
                 mtime_ns=int(stat.st_mtime * 1e9),
                 size=stat.st_size,
-                path_hash=hashlib.sha1(rel_path.encode()).hexdigest()
+                path_hash=struct.unpack(">Q", hashlib.sha256(rel_path.encode()).digest()[:8])[0]
             )
         elif isinstance(obj, Tree):
             _restore_tree_to_workdir(repo_root, objects_dir, obj, index, prefix=rel_path)
@@ -103,11 +105,12 @@ def _apply_tree_to_workdir(
         full.parent.mkdir(parents=True, exist_ok=True)
         full.write_bytes(read_object(objects_dir, sha).serialize_content())
         stat = full.stat()
+        import struct
         new_index.entries[p] = DeepIndexEntry(
             content_hash=sha, 
             mtime_ns=int(stat.st_mtime * 1e9),
             size=stat.st_size, 
-            path_hash=hashlib.sha1(p.encode()).hexdigest()
+            path_hash=struct.unpack(">Q", hashlib.sha256(p.encode()).digest()[:8])[0]
         )
     return new_index
 
@@ -118,7 +121,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -128,14 +131,14 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     head_sha = resolve_head(dg_dir)
     if head_sha is None:
         print("Deep: error: no commits on current branch.", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     # Resolve target branch.
     from deep.core.refs import resolve_revision
     target_sha = resolve_revision(dg_dir, target_branch)
     if target_sha is None:
         print(f"Deep: error: revision '{target_branch}' not found.", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     if head_sha == target_sha:
         print("Already up to date.")
@@ -156,7 +159,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         repo_lock.acquire()
     except TimeoutError as e:
         print(f"Deep: error: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     try:
         from deep.storage.txlog import TransactionLog
@@ -225,7 +228,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                     _write_conflict_markers(repo_root, objects_dir, conflict_name,
                                             head_commit.tree_sha, target_commit.tree_sha, base_tree_sha)
                 print("Deep: fix conflicts and then run 'deep commit'.", file=sys.stderr)
-                sys.exit(1)
+                raise DeepCLIException(1)
 
             merge_commit = Commit(
                 tree_sha=merged_tree_sha,
@@ -308,7 +311,7 @@ def _write_conflict_markers(
 
     if (ours_raw and _is_binary(ours_raw)) or (theirs_raw and _is_binary(theirs_raw)):
         print(f"Deep: error: cannot merge binary file {name}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     ours_content = ours_raw.decode("utf-8", errors="replace") if ours_raw else ""
     theirs_content = theirs_raw.decode("utf-8", errors="replace") if theirs_raw else ""

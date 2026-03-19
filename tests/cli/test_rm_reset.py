@@ -13,6 +13,7 @@ import pytest
 from deep.storage.index import read_index
 from deep.core.refs import resolve_head
 from deep.cli.main import main
+from deep.core.errors import DeepCLIException
 
 
 @pytest.fixture()
@@ -45,7 +46,7 @@ class TestRm:
     def test_rm_untracked_fails(self, repo: Path) -> None:
         f = repo / "ghost.txt"
         f.write_text("boo")
-        with pytest.raises(SystemExit):
+        with pytest.raises(DeepCLIException):
             main(["rm", str(f)])
 
     def test_rm_multiple_files(self, repo: Path) -> None:
@@ -98,7 +99,7 @@ class TestReset:
 
     def test_reset_invalid_sha(self, repo: Path) -> None:
         _commit(repo, "f.txt", "v1", "c1")
-        with pytest.raises(SystemExit):
+        with pytest.raises(DeepCLIException):
             main(["reset", "0" * 40])
 
     def test_reset_round_trip(self, repo: Path) -> None:

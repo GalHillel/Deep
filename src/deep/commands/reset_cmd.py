@@ -9,10 +9,12 @@ Uses WAL-based crash recovery and proper locking.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import os
 import sys
 import hashlib
+import struct
 from pathlib import Path
 
 from deep.storage.index import (
@@ -50,7 +52,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -66,16 +68,16 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     target_sha = resolve_revision(dg_dir, raw_target)
     if not target_sha:
         print(f"Deep: error: commit '{raw_target}' does not exist.", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     try:
         commit_obj = read_object(objects_dir, target_sha)
     except (ValueError, FileNotFoundError):
         print(f"Deep: error: commit {target_sha} not found.", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
     if not isinstance(commit_obj, Commit):
         print(f"Deep: error: '{target_sha}' is not a commit.", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     target_files = _get_tree_files(objects_dir, commit_obj.tree_sha)
 
@@ -86,7 +88,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         repo_lock.acquire()
     except TimeoutError as e:
         print(f"Deep: error: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     try:
         from deep.storage.txlog import TransactionLog
@@ -129,19 +131,20 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                         content_hash=sha, 
                         mtime_ns=int(stat.st_mtime * 1e9),
                         size=stat.st_size, 
-                        path_hash=int(hashlib.sha256(p.encode()).hexdigest()[:16], 16)
+                        path_hash=struct.unpack(">Q", hashlib.sha256(p.encode()).digest()[:8])[0]
                     )
                 write_index_no_lock(dg_dir, new_index)
                 print(f"Deep: HEAD is now at {target_sha[:7]} (hard reset)")
 
             elif mode == "mixed":
+                # Resets index but NOT working tree
                 new_index = DeepIndex()
                 for p, sha in target_files.items():
                     new_index.entries[p] = DeepIndexEntry(
                         content_hash=sha, 
                         mtime_ns=0,
                         size=0, 
-                        path_hash=int(hashlib.sha256(p.encode()).hexdigest()[:16], 16)
+                        path_hash=struct.unpack(">Q", hashlib.sha256(p.encode()).digest()[:8])[0]
                     )
                 write_index_no_lock(dg_dir, new_index)
                 print(f"Deep: HEAD is now at {target_sha[:7]} (mixed reset)")

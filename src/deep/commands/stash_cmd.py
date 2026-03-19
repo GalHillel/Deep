@@ -5,6 +5,7 @@ deep.commands.stash_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -20,7 +21,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     action = getattr(args, "action", "save") or "save"
 
@@ -49,7 +50,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     elif action == "pop":
         success = pop_stash(repo_root)
         if not success:
-            sys.exit(1)
+            raise DeepCLIException(1)
     else:
         print(f"Unknown stash action: {action}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

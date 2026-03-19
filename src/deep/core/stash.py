@@ -123,8 +123,9 @@ def save_stash(repo_root: Path) -> Optional[str]:
                 with AtomicWriter(p, mode="wb") as aw:
                     aw.write(blob.data)
                 stat = p.stat()
+                import struct
                 new_index.entries[e.name] = DeepIndexEntry(
-                    path_hash=int(hashlib.sha256(e.name.encode()).hexdigest()[:16], 16),
+                    path_hash=struct.unpack(">Q", hashlib.sha256(e.name.encode()).digest()[:8])[0],
                     content_hash=e.sha,
                     mtime_ns=stat.st_mtime_ns,
                     size=stat.st_size,
@@ -207,8 +208,9 @@ def pop_stash(repo_root: Path) -> bool:
                 aw.write(obj.data)
             
             stat = p.stat()
+            import struct
             new_index.entries[name] = DeepIndexEntry(
-                path_hash=int(hashlib.sha256(name.encode()).hexdigest()[:16], 16),
+                path_hash=struct.unpack(">Q", hashlib.sha256(name.encode()).digest()[:8])[0],
                 content_hash=sha,
                 mtime_ns=stat.st_mtime_ns,
                 size=stat.st_size,
@@ -225,8 +227,9 @@ def pop_stash(repo_root: Path) -> bool:
                     with AtomicWriter(p, mode="wb") as aw:
                         aw.write(sub_blob.data)
                     stat = p.stat()
+                    import struct
                     new_index.entries[sub_path] = DeepIndexEntry(
-                        path_hash=int(hashlib.sha256(sub_path.encode()).hexdigest()[:16], 16),
+                        path_hash=struct.unpack(">Q", hashlib.sha256(sub_path.encode()).digest()[:8])[0],
                         content_hash=sub_sha,
                         mtime_ns=stat.st_mtime_ns,
                         size=stat.st_size,

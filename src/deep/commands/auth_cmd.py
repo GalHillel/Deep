@@ -5,6 +5,7 @@ deep.commands.auth_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -21,7 +22,7 @@ def run(args) -> None:
         repo_root = find_repo()
     except FileNotFoundError:
         print("Deep: error: Not a Deep repository.", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     manager = UserManager(dg_dir)
@@ -40,4 +41,4 @@ def run(args) -> None:
             print(Color.wrap(Color.GREEN, f"Successfully logged in as {user.username}."))
         else:
             print(Color.wrap(Color.RED, "Invalid authentication token."), file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)

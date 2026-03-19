@@ -5,6 +5,7 @@ deep.commands.tag_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 import time
@@ -23,7 +24,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -38,7 +39,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     target_sha = resolve_head(dg_dir)
     if not target_sha:
         print("Deep: error: no commits to tag", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     tag_name = args.name
 
@@ -63,11 +64,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             create_tag(dg_dir, tag_name, tag_sha)
         except FileExistsError as e:
             print(f"Deep: error: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
     else:
         # Lightweight tag
         try:
             create_tag(dg_dir, tag_name, target_sha)
         except FileExistsError as e:
             print(f"Deep: error: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)

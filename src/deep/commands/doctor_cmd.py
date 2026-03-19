@@ -7,6 +7,7 @@ Verifies the integrity of the repository: refs, index, and objects.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import argparse
 import os
@@ -29,7 +30,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -160,5 +161,5 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print(Color.wrap(Color.GREEN, f"Repository consistent. {warnings} warnings."))
     else:
         print(Color.wrap(Color.RED, f"Integrity compromised. {errors} errors, {warnings} warnings."))
-        sys.exit(1)
+        raise DeepCLIException(1)
 

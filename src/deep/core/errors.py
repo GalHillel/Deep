@@ -30,3 +30,9 @@ class ProtocolError(DeepError):
 class ConfigError(DeepError):
     """Raised when configuration is invalid or missing."""
     pass
+
+class DeepCLIException(Exception):
+    """Raised when the CLI exits via sys.exit()."""
+    def __init__(self, code: int):
+        self.code = code
+        super().__init__(f"CLI exited with {code}")

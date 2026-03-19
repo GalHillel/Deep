@@ -7,6 +7,7 @@ ECDSA signing for Deep-native commits.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import os
 import sys
@@ -57,7 +58,7 @@ def _build_tree_from_index(dg_dir: Path, allow_empty: bool = False) -> str:
     index = read_index_no_lock(dg_dir)
     if not index.entries and not allow_empty:
         print("Deep: error: nothing to commit (no staged changes).", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     objects_dir = dg_dir / "objects"
     files = {path: entry.content_hash for path, entry in index.entries.items()}
@@ -70,7 +71,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -86,7 +87,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     
     if not message:
         print("Deep: error: must provide a commit message (-m) or use --ai.", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     if getattr(args, "all", False):
         from deep.core.status import compute_status

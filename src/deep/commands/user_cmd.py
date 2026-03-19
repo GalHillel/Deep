@@ -5,6 +5,7 @@ deep.commands.user_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -22,7 +23,7 @@ def run(args) -> None:
         # Allow global user management if no repo found? 
         # For now, let's assume it's per-server (repo root).
         print("Deep: error: Not a Deep repository (or parent).", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     manager = UserManager(dg_dir)
@@ -36,7 +37,7 @@ def run(args) -> None:
             print(f"Auth Token: {user.token} (Keep this secret!)")
         except ValueError as e:
             print(f"Deep: error: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
             
     elif cmd == "remove":
         try:
@@ -44,7 +45,7 @@ def run(args) -> None:
             print(Color.wrap(Color.YELLOW, f"User '{args.username}' removed."))
         except ValueError as e:
             print(f"Deep: error: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
             
     elif cmd == "list":
         users = manager.list_users()

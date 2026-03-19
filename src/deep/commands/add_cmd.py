@@ -5,6 +5,7 @@ Deep ``add`` command implementation.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import os
 import sys
@@ -71,7 +72,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -93,14 +94,14 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             except ValueError:
                 # Path is outside repo
                 print(f"Deep: error: {file_path_str} is outside repository", file=sys.stderr)
-                sys.exit(1)
+                raise DeepCLIException(1)
                 
             if rel_path in index.entries:
                 paths_to_remove.append(rel_path)
                 continue
             else:
                 print(f"Deep: error: {file_path_str} does not exist", file=sys.stderr)
-                sys.exit(1)
+                raise DeepCLIException(1)
             
         if path.is_file():
             files_to_add.append(path)

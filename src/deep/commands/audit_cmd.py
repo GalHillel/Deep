@@ -7,6 +7,7 @@ GOD MODE: Supports 'report' subcommand for Merkle-chained audit report.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -22,7 +23,7 @@ def run(args) -> None:
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     audit = AuditLog(dg_dir)

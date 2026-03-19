@@ -13,6 +13,7 @@ No git CLI dependency.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -28,7 +29,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     url_or_name = args.url
     config = Config(repo_root)
@@ -94,4 +95,4 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
     except Exception as e:
         print(f"Deep: error: fetch failed: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

@@ -5,6 +5,7 @@ Deep ``branch`` command implementation.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -26,7 +27,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
 
@@ -52,7 +53,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             print(f"Deleted branch '{args.name}'.")
         except Exception as e:
             print(f"Deep: error: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
         return
 
     # 3. Rename branch
@@ -75,7 +76,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         old_sha = get_branch(dg_dir, old_name)
         if not old_sha:
             print(f"Deep: error: branch '{old_name}' not found.", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
             
         update_branch(dg_dir, new_name, old_sha)
         
@@ -95,7 +96,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     
     if target_sha is None:
         print(f"Deep: error: Not a valid object name: '{start_point}'", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
         
     update_branch(dg_dir, args.name, target_sha)
     print(f"Created branch '{args.name}' at {target_sha[:7]}")

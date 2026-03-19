@@ -10,6 +10,8 @@ corruption occurs.
 from __future__ import annotations
 
 import threading
+import struct
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -28,7 +30,6 @@ from deep.core.repository import init_repo
 
 def _update_index_entry(dg_dir: Path, key: str, sha: str, size: int, mtime: float) -> None:
     """Helper: add a single entry to the index using the DEEP-native API."""
-    import hashlib
     mtime_ns = int(mtime * 1e9)
     add_to_index(dg_dir, key, sha, size, mtime_ns)
 
@@ -67,7 +68,7 @@ class TestIndexBasic:
         import hashlib
         idx = DeepIndex(entries={
             "foo.py": DeepIndexEntry(
-                path_hash=hashlib.sha1(b"foo.py").hexdigest(),
+                path_hash=struct.unpack(">Q", hashlib.sha256(b"foo.py").digest()[:8])[0],
                 mtime_ns=12345000000000,
                 size=100,
                 content_hash="ab" * 20,

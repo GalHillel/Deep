@@ -5,6 +5,7 @@ deep.commands.repo_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -33,7 +34,7 @@ def run(args) -> None:
                 print(Color.wrap(Color.GREEN, f"Repository '{args.name}' created at {path}"))
             except ValueError as e:
                 print(f"Error: {e}", file=sys.stderr)
-                sys.exit(1)
+                raise DeepCLIException(1)
                 
         elif cmd == "delete":
             try:
@@ -41,7 +42,7 @@ def run(args) -> None:
                 print(Color.wrap(Color.YELLOW, f"Repository '{args.name}' deleted."))
             except ValueError as e:
                 print(f"Error: {e}", file=sys.stderr)
-                sys.exit(1)
+                raise DeepCLIException(1)
                 
         elif cmd == "list":
             repos = manager.list_repos()
@@ -75,15 +76,15 @@ def run(args) -> None:
                 
                 if not repo_path.exists():
                     print(Color.wrap(Color.RED, f"Error: Repository metadata not found at {repo_path}"), file=sys.stderr)
-                    sys.exit(1)
+                    raise DeepCLIException(1)
                     
                 access = AccessManager(repo_path)
                 access.set_permission(user, role)
                 print(Color.wrap(Color.GREEN, f"Permission set: {user} is now a {role} for {repo_path.parent.name}."))
             except Exception as e:
                 print(Color.wrap(Color.RED, f"Error setting permission: {e}"), file=sys.stderr)
-                sys.exit(1)
+                raise DeepCLIException(1)
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

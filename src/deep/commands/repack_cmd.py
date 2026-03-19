@@ -5,6 +5,7 @@ Repack loose objects into packfiles and generate reachability bitmaps.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
 from rich.console import Console
@@ -20,7 +21,7 @@ def run(args):
     repo_root = find_repo(Path.cwd())
     if not repo_root:
         console.print("[red]Error: not a deep repository[/red]")
-        sys.exit(1)
+        raise DeepCLIException(1)
         
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"

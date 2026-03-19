@@ -45,4 +45,4 @@ def run(args: argparse.Namespace) -> None:
 
     except DeepError as exc:
         print(f"DeepError: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

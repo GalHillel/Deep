@@ -5,6 +5,7 @@ deep.commands.config_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 
@@ -22,7 +23,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     except FileNotFoundError:
         if not is_global:
             print("Deep: error: not in a Deep repository and --global not specified.", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
         config = Config(None)
 
     key = args.key
@@ -36,5 +37,5 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     else:
         val = config.get(key)
         if val is None:
-            sys.exit(1)
+            raise DeepCLIException(1)
         print(val)

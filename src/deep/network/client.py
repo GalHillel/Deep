@@ -125,8 +125,8 @@ class RemoteClient:
         """Alias for ls_refs for protocol parity."""
         return self.ls_refs()
 
-    def clone(self, objects_dir: Path, depth: Optional[int] = None) -> Tuple[Dict[str, str], str]:
-        """Clone via Deep protocol."""
+    def clone(self, objects_dir: Path, depth: Optional[int] = None, filter_spec: Optional[str] = None) -> tuple[dict[str, str], str]:
+        """Clone a remote repository."""
         self.connect()
         try:
             refs = self.ls_refs()
@@ -143,7 +143,7 @@ class RemoteClient:
                         head_ref = r
                         break
             
-            self.fetch(objects_dir, want_shas=[latest_sha] if latest_sha else [], depth=depth)
+            self.fetch(objects_dir, want_shas=[latest_sha] if latest_sha else [], depth=depth, filter_spec=filter_spec)
             return refs, head_ref
         finally:
             self.disconnect()
@@ -157,7 +157,7 @@ class RemoteClient:
                 refs = self.ls_refs()
                 target_shas = list(refs.values())
             else:
-                target_shas = want_shas
+                target_shas = [want_shas] if isinstance(want_shas, str) else want_shas
             
             count = 0
             for sha in target_shas:

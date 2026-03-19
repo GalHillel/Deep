@@ -5,6 +5,7 @@ deep.commands.pr_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -21,7 +22,7 @@ def run(args) -> None:
         repo_root = find_repo()
     except FileNotFoundError:
         print("Deep: error: Not a Deep repository.", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     manager = PRManager(dg_dir)
@@ -59,4 +60,4 @@ def run(args) -> None:
             print(Color.wrap(Color.PURPLE, f"Pull Request #{pr.id} merged successfully!"))
         except ValueError as e:
             print(f"Deep: error: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)

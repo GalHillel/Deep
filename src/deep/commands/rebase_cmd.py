@@ -5,6 +5,7 @@ deep.commands.rebase_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -30,7 +31,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -40,7 +41,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     head_sha = resolve_head(dg_dir)
     if not head_sha:
         print("Deep: error: no commits on current branch.", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     target_sha = get_branch(dg_dir, target_branch)
     if not target_sha:
@@ -48,7 +49,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         target_sha = target_branch if len(target_branch) == 40 else ""
         if not target_sha:
             print(f"Deep: error: branch or SHA '{target_branch}' not found.", file=sys.stderr)
-            sys.exit(1)
+            raise DeepCLIException(1)
 
     if head_sha == target_sha:
         print("Current branch is up to date.")
@@ -58,7 +59,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     status = compute_status(repo_root)
     if status.staged_new or status.staged_modified or status.staged_deleted or status.modified or status.deleted:
         print("Deep: error: working directory not clean.", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     try:
         from deep.core.merge import find_lca
@@ -78,7 +79,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 print("Windows Path Sanitization applied.")
     except RuntimeError as e:
         print(f"Rebase aborted: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     # Update branch pointer and checkout
     curr_branch = get_current_branch(dg_dir)

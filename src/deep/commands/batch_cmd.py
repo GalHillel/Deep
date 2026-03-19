@@ -11,6 +11,7 @@ Script format (.dgit):
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import shlex
 import sys
@@ -24,13 +25,13 @@ def run(args) -> None:
     script_path = Path(args.script)
     if not script_path.exists():
         print(f"Deep: error: Script '{script_path}' not found", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
 

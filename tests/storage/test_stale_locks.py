@@ -5,6 +5,11 @@ import pytest
 from pathlib import Path
 from deep.core.locks import BaseLock, STALE_LOCK_THRESHOLD_SECONDS
 
+def _dummy():
+    """Dummy function for multiprocessing tests."""
+    pass
+
+
 def test_lock_metadata_writing(tmp_path):
     """Verify that acquire() writes correct JSON metadata."""
     lock_path = tmp_path / "test.lock"
@@ -27,10 +32,11 @@ def test_break_dead_pid_lock(tmp_path):
     # Manually create a lock file with a likely dead PID
     # On Windows, PIDs are reuseable but 999999 is usually safe for a short test.
     # Alternatively, get a PID from a finished process.
-    import subprocess
-    proc = subprocess.Popen(["cmd.exe", "/c", "exit 0"])
+    import multiprocessing
+    proc = multiprocessing.Process(target=_dummy)
+    proc.start()
     dead_pid = proc.pid
-    proc.wait()
+    proc.join()
     
     metadata = {
         "pid": dead_pid,

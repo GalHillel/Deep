@@ -14,6 +14,7 @@ No git CLI dependency.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -31,7 +32,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     url_or_name = args.url
     config = Config(repo_root)
@@ -41,7 +42,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     local_sha = get_branch(repo_root / DEEP_DIR, branch)
     if not local_sha:
         print(f"Deep: error: Branch '{branch}' not found locally", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
 
@@ -64,6 +65,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
             auth_token = config.get("auth.token") or get_auth_token()
             client = get_remote_client(url, auth_token=auth_token)
+            client.connect()
 
             # Discover remote refs
             print(f"Checking remote {branch} state...")
@@ -91,7 +93,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                               "Remote has diverged. Use 'deep pull' first or push with --force."),
                               file=sys.stderr)
                         if not getattr(args, 'force', False):
-                            sys.exit(1)
+                            raise DeepCLIException(1)
 
             print(f"Pushing {branch} to {url}...")
             resp = client.push(
@@ -113,4 +115,4 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     except Exception as e:
         txlog.rollback(tx_id, str(e))
         print(f"Deep: error: push failed: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

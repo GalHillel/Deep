@@ -5,6 +5,7 @@ deep.commands.ai_cmd
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -17,7 +18,7 @@ def run(args) -> None:
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     from deep.ai.assistant import DeepAI
 
@@ -98,4 +99,4 @@ def run(args) -> None:
                 break
     else:
         print(f"Unknown AI command: {sub}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)

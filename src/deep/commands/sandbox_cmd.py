@@ -6,6 +6,7 @@ with filesystem restrictions, timeout, and operation logging.
 """
 
 from __future__ import annotations
+from deep.core.errors import DeepCLIException
 
 import sys
 from pathlib import Path
@@ -19,14 +20,14 @@ def run(args) -> None:
         repo_root = find_repo()
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     script_path = Path(args.script).resolve()
 
     if not script_path.exists():
         print(f"Deep: error: Script not found: {script_path}", file=sys.stderr)
-        sys.exit(1)
+        raise DeepCLIException(1)
 
     from deep.core.security import SandboxRunner
 
