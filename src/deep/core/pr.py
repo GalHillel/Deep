@@ -21,10 +21,19 @@ def asdict_deep(obj):
     return obj
 
 @dataclass
-class PRComment:
+class PRReply:
     author: str
     text: str
-    timestamp: float = field(default_factory=time.time)
+    created_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%d %H:%M:%S"))
+
+@dataclass
+class PRThread:
+    id: int
+    author: str
+    text: str
+    created_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%d %H:%M:%S"))
+    resolved: bool = False
+    replies: List[PRReply] = field(default_factory=list)
 
 @dataclass
 class PullRequest:
@@ -37,7 +46,10 @@ class PullRequest:
     author: str = "unknown"
     github_id: Optional[int] = None
     github_url: Optional[str] = None
-    comments: List[PRComment] = field(default_factory=list)
+    threads: List[PRThread] = field(default_factory=list)
+    reviews: Dict[str, Dict[str, Any]] = field(default_factory=dict) # author -> {status, comment, timestamp}
+    requested_reviewers: List[str] = field(default_factory=list)
+    approvals_required: int = 1
     created_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%d %H:%M:%S"))
     updated_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%d %H:%M:%S"))
     linked_issue: Optional[int] = None
@@ -59,7 +71,9 @@ class PRManager:
         ids = [int(p.stem) for p in existing]
         return max(ids) + 1
 
-    def create_pr(self, title: str, author: str, head: str, base: str, body: str = "", linked_issue: Optional[int] = None, commits: List[str] = None) -> PullRequest:
+    def create_pr(self, title: str, author: str, head: str, base: str, body: str = "", 
+                  linked_issue: Optional[int] = None, commits: List[str] = None,
+                  requested_reviewers: List[str] = None) -> PullRequest:
         prs = self.list_prs()
         next_id = max([p.id for p in prs], default=0) + 1
         
@@ -72,7 +86,8 @@ class PRManager:
             body=body,
             status="open",
             linked_issue=linked_issue,
-            commits=commits or []
+            commits=commits or [],
+            requested_reviewers=requested_reviewers or []
         )
         self.save_issue_link(pr)
         self.save_pr(pr)
@@ -102,9 +117,15 @@ class PRManager:
             return None
         with open(path, "r") as f:
             data = json.load(f)
-            # Reconstruct PR
-            comments = [PRComment(**c) for c in data.get("comments", [])]
-            data["comments"] = comments
+            # Reconstruct threads
+            threads_data = data.pop("threads", [])
+            threads = []
+            for t in threads_data:
+                replies_data = t.pop("replies", [])
+                replies = [PRReply(**r) for r in replies_data]
+                threads.append(PRThread(replies=replies, **t))
+            
+            data["threads"] = threads
             return PullRequest(**data)
 
     def list_prs(self) -> List[PullRequest]:
@@ -176,3 +197,79 @@ class PRManager:
         pr.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
         self.save_pr(pr)
         return pr
+    def add_thread(self, pr_id: int, author: str, text: str) -> PRThread:
+        pr = self.get_pr(pr_id)
+        if not pr: raise ValueError(f"PR #{pr_id} not found")
+        
+        thread_id = len(pr.threads) + 1
+        thread = PRThread(id=thread_id, author=author, text=text)
+        pr.threads.append(thread)
+        pr.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.save_pr(pr)
+        
+        # Timeline Sync (Issue)
+        if pr.linked_issue:
+            import deep.core.issue as issue_core
+            im = issue_core.IssueManager(self.dg_dir)
+            im.add_timeline_event(pr.linked_issue, "thread_created", pr=pr.id, thread=thread_id, author=author)
+            
+        return thread
+
+    def add_reply(self, pr_id: int, thread_id: int, author: str, text: str) -> PRReply:
+        pr = self.get_pr(pr_id)
+        if not pr: raise ValueError(f"PR #{pr_id} not found")
+        
+        thread = next((t for t in pr.threads if t.id == thread_id), None)
+        if not thread: raise ValueError(f"Thread #{thread_id} not found in PR #{pr_id}")
+        
+        reply = PRReply(author=author, text=text)
+        thread.replies.append(reply)
+        pr.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.save_pr(pr)
+        
+        # Timeline Sync (Issue)
+        if pr.linked_issue:
+            import deep.core.issue as issue_core
+            im = issue_core.IssueManager(self.dg_dir)
+            im.add_timeline_event(pr.linked_issue, "reply_added", pr=pr.id, thread=thread_id, author=author)
+            
+        return reply
+
+    def resolve_thread(self, pr_id: int, thread_id: int):
+        pr = self.get_pr(pr_id)
+        if not pr: raise ValueError(f"PR #{pr_id} not found")
+        
+        thread = next((t for t in pr.threads if t.id == thread_id), None)
+        if not thread: raise ValueError(f"Thread #{thread_id} not found in PR #{pr_id}")
+        
+        thread.resolved = True
+        pr.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.save_pr(pr)
+        
+        # Timeline Sync (Issue)
+        if pr.linked_issue:
+            import deep.core.issue as issue_core
+            im = issue_core.IssueManager(self.dg_dir)
+            im.add_timeline_event(pr.linked_issue, "thread_resolved", pr=pr.id, thread=thread_id)
+
+    def add_review(self, pr_id: int, author: str, status: str, comment: str = ""):
+        pr = self.get_pr(pr_id)
+        if not pr: raise ValueError(f"PR #{pr_id} not found")
+        
+        is_update = author in pr.reviews
+        
+        # Overwrite previous review by same author (Part 3)
+        pr.reviews[author] = {
+            "status": status,
+            "comment": comment,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        pr.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.save_pr(pr)
+        
+        # Timeline Sync (Issue)
+        if pr.linked_issue:
+            import deep.core.issue as issue_core
+            im = issue_core.IssueManager(self.dg_dir)
+            event = "review_updated" if is_update else "review_added"
+            im.add_timeline_event(pr.linked_issue, event, pr=pr.id, author=author, status=status)

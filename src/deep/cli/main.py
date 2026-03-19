@@ -558,8 +558,9 @@ Examples:
         epilog=pr_cmd.get_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_pr.add_argument("pr_command", choices=["create", "list", "show", "merge", "close", "reopen", "sync"], help="The Pull Request action to perform")
+    p_pr.add_argument("pr_command", choices=["create", "list", "show", "merge", "close", "reopen", "sync", "comment", "reply", "resolve", "review"], help="The Pull Request action to perform")
     p_pr.add_argument("id", nargs="?", help="The numerical ID of the Pull Request")
+    p_pr.add_argument("thread", nargs="?", help="The numerical ID of the Thread (for reply/resolve)")
     p_pr.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
     p_pr.add_argument("-m", "--message", dest="title", help="PR title (for create)")
     p_pr.add_argument("-d", "--description", help="PR description (for create)")

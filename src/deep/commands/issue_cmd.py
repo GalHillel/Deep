@@ -21,16 +21,30 @@ from deep.core.issue import IssueManager, Issue
 import deep.utils.network as net
 
 def get_description() -> str:
-    return "Smart, production-grade hybrid issue management engine."
+    return f"{Color.wrap(Color.CYAN, 'Hybrid Local-First Issue Tracking Engine')}\n" \
+           f"Seamlessly manage tasks and bugs locally with optional GitHub synchronization."
 
 def get_epilog() -> str:
-    examples_title = Color.wrap(Color.CYAN, "Examples:")
-    create_ex = f"  {Color.wrap(Color.YELLOW, 'deep issue create')}   {Color.wrap(Color.GREEN, '# Interactive smart creation')}"
-    list_ex   = f"  {Color.wrap(Color.YELLOW, 'deep issue list')}     {Color.wrap(Color.GREEN, '# List local issues with status colors')}"
-    show_ex   = f"  {Color.wrap(Color.YELLOW, 'deep issue show 1')}   {Color.wrap(Color.GREEN, '# Show issue details')}"
-    close_ex  = f"  {Color.wrap(Color.YELLOW, 'deep issue close 1')}  {Color.wrap(Color.GREEN, '# Close an issue')}"
+    header = lambda s: Color.wrap(Color.BOLD + Color.CYAN, f"\n[{s}]")
+    cmd = lambda c, d: f"  {Color.wrap(Color.YELLOW, f'deep issue {c:<10}')} {Color.wrap(Color.GREEN, f'# {d}')}"
     
-    return f"\n{examples_title}\n{create_ex}\n{list_ex}\n{show_ex}\n{close_ex}\n"
+    res = []
+    res.append(header("CORE COMMANDS"))
+    res.append(cmd("create", "Open a smart, interactive issue template"))
+    res.append(cmd("list", "Display all local issues with status colors"))
+    res.append(cmd("show <id>", "Display detailed report, description, and timeline"))
+    
+    res.append(header("WORKFLOW"))
+    res.append(cmd("close <id>", "Mark an issue as resolved (locally)"))
+    res.append(cmd("reopen <id>", "Resume work on a closed issue"))
+    res.append(cmd("sync", "Synchronize local issues with GitHub remote"))
+    
+    res.append(header("WHY LOCAL-FIRST?"))
+    res.append(f"  - {Color.wrap(Color.WHITE, 'Instant responsiveness')} (no network lag)")
+    res.append(f"  - {Color.wrap(Color.WHITE, 'Full offline support')} for deep work")
+    res.append(f"  - {Color.wrap(Color.WHITE, 'Native integration')} with Deep PRs and commits")
+    
+    return "\n".join(res) + "\n"
 
 def get_author(repo_root: Path) -> str:
     """Get the current user name from config."""
@@ -208,8 +222,18 @@ def run(args: Any) -> None:
                     print(f"  - {ts} Issue closed")
                 elif ev_type == "reopened":
                     print(f"  - {ts} Issue reopened")
+                elif ev_type == "thread_created":
+                    print(f"  - {ts} Thread #{event.get('thread')} started (PR #{event.get('pr')})")
+                elif ev_type == "reply_added":
+                    print(f"  - {ts} Reply added to Thread #{event.get('thread')} (PR #{event.get('pr')})")
+                elif ev_type == "thread_resolved":
+                    print(f"  - {ts} Thread #{event.get('thread')} resolved (PR #{event.get('pr')})")
+                elif ev_type == "review_added":
+                    print(f"  - {ts} PR #{event.get('pr')} reviewed: {Color.wrap(Color.BOLD, event.get('status', '').upper())}")
+                elif ev_type == "review_updated":
+                    print(f"  - {ts} PR #{event.get('pr')} review updated: {Color.wrap(Color.BOLD, event.get('status', '').upper())}")
                 else:
-                    print(f"  - {ts} {ev_type.capitalize()}")
+                    print(f"  - {ts} {ev_type.replace('_', ' ').capitalize()}")
         print("")
 
     elif cmd == "close":
