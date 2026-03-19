@@ -7,6 +7,7 @@ deep.commands.pr_cmd
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 
+import os
 import sys
 import time
 import argparse
@@ -53,6 +54,18 @@ def get_epilog() -> str:
     
     return "\n".join(res) + "\n"
 
+
+def get_author(repo_root: Path) -> str:
+    """Get the current user name from config or environment."""
+    config = Config(repo_root)
+    name = config.get("user.name")
+    if name: return name
+    try:
+        import os
+        return os.getlogin()
+    except Exception:
+        return "unknown"
+
 def run(args) -> None:
     """Execute the ``pr`` command."""
     try:
@@ -64,6 +77,7 @@ def run(args) -> None:
     dg_dir = repo_root / DEEP_DIR
     manager = PRManager(dg_dir)
     config = Config(repo_root)
+    author_name = get_author(repo_root)
     verbose = getattr(args, "verbose", False)
     
     cmd = getattr(args, "pr_command", "list")
@@ -185,8 +199,7 @@ def run(args) -> None:
 
         # 6. Creation
         try:
-            author = config.get("user.name") or "unknown"
-            pr = manager.create_pr(title, author, head, base, body or "", 
+            pr = manager.create_pr(title, author_name, head, base, body or "", 
                                    linked_issue=linked_issue_id, commits=pr_commits,
                                    requested_reviewers=requested_reviewers)
             print_success(f"\nLocal PR #{pr.id} created")
@@ -287,22 +300,28 @@ def run(args) -> None:
         # Part 5: Elite PR Show UX (Summary Block)
         approvals = [a for a in pr.reviews if pr.reviews[a]["status"] == "approved"]
         changes_req = [a for a in pr.reviews if pr.reviews[a]["status"] == "changes_requested"]
-        unresolved = [t for t in pr.threads if not t.resolved]
+        unresolved = pr.unresolved_count
         
         print(f"\n{Color.wrap(Color.BOLD, 'Review Summary:')}")
         print(f"  {Color.wrap(Color.GREEN, '✔')} Approvals: {len(approvals)}/{pr.approvals_required}")
         if changes_req:
             print(f"  {Color.wrap(Color.RED, '❌')} Changes Requested: {len(changes_req)}")
-        if unresolved:
-            print(f"  {Color.wrap(Color.YELLOW, '⚠')} Unresolved Threads: {len(unresolved)}")
+        if unresolved > 0:
+            print(f"  {Color.wrap(Color.YELLOW, '⚠')} Unresolved Threads: {unresolved}")
             
         # Merge Status
-        is_blocked = bool(changes_req) or (len(approvals) < pr.approvals_required) or bool(unresolved)
+        is_blocked = bool(changes_req) or (len(approvals) < pr.approvals_required) or (unresolved > 0)
         print(f"\n{Color.wrap(Color.BOLD, 'Merge Status:')}")
         if is_blocked:
             print(f"  {Color.wrap(Color.RED, 'BLOCKED')}")
+            if changes_req:
+                print(f"    - Requested by: {', '.join(changes_req)}")
+            if len(approvals) < pr.approvals_required:
+                print(f"    - Missing approvals")
+            if unresolved > 0:
+                print(f"    - {unresolved} unresolved threads")
         else:
-            print(f"  {Color.wrap(Color.GREEN, 'READY')}")
+            print(f"  {Color.wrap(Color.GREEN, 'READY TO MERGE')}")
 
         print(f"\n{'-' * 20}")
         print(f"{Color.wrap(Color.BOLD, 'Reviews:')}")
@@ -373,11 +392,12 @@ def run(args) -> None:
         # Smart Merge Engine (Part 4)
         approvals = [author for author, r in pr_obj.reviews.items() if r["status"] == "approved"]
         changes_req = [author for author, r in pr_obj.reviews.items() if r["status"] == "changes_requested"]
-        unresolved = [t for t in pr_obj.threads if not t.resolved]
+        unresolved = pr_obj.unresolved_count
         
-        # If reviewers were assigned, only count approvals from them
+        # If reviewers were assigned, only count approvals from them (Case-Insensitive)
         if pr_obj.requested_reviewers:
-            effective_approvals = [a for a in approvals if a in pr_obj.requested_reviewers]
+            requested_lower = [r.lower() for r in pr_obj.requested_reviewers]
+            effective_approvals = [a for a in approvals if a.lower() in requested_lower]
         else:
             effective_approvals = approvals
             
@@ -386,15 +406,15 @@ def run(args) -> None:
         
         if changes_req:
             is_blocked = True
-            reasons.append(f"❌ Changes requested by: {', '.join(changes_req)}")
+            reasons.append(f"{Color.wrap(Color.RED, '❌')} Changes requested by: {', '.join(changes_req)}")
         
         if len(effective_approvals) < pr_obj.approvals_required:
             is_blocked = True
-            reasons.append(f"❌ Approvals: {len(effective_approvals)}/{pr_obj.approvals_required}")
+            reasons.append(f"{Color.wrap(Color.RED, '❌')} Approvals: {len(effective_approvals)}/{pr_obj.approvals_required}")
             
-        if unresolved:
+        if unresolved > 0:
             is_blocked = True
-            reasons.append(f"⚠ {len(unresolved)} unresolved threads")
+            reasons.append(f"⚠ {unresolved} unresolved threads")
             
         if is_blocked:
             print(f"\n{Color.wrap(Color.BOLD, 'Merge Status: ')}{Color.wrap(Color.RED, 'BLOCKED')}")
@@ -472,15 +492,21 @@ def run(args) -> None:
             print_error("Missing PR ID.")
             raise DeepCLIException(1)
             
-        text = input("Comment: ").strip()
+        try:
+            pr_id = int(id_val)
+        except ValueError:
+            print_error(f"Invalid ID: {id_val}")
+            raise DeepCLIException(1)
+
+        print(f"\n--- Start Discussion Thread (PR #{pr_id}) ---")
+        text = input("Message: ").strip()
         if not text:
             print_error("Comment cannot be empty.")
             return
             
         try:
-            author = config.get("user.name") or "unknown"
-            thread = manager.add_thread(int(id_val), author, text)
-            print_success(f"✔ Comment added to PR #{id_val} (Thread #{thread.id})")
+            thread = manager.add_thread(pr_id, author_name, text)
+            print_success(f"✔ Comment added (Thread #{thread.id})")
         except Exception as e:
             print_error(str(e))
             raise DeepCLIException(1)
@@ -489,18 +515,25 @@ def run(args) -> None:
         id_val = getattr(args, "id", None)
         thread_id = getattr(args, "thread", None)
         if not id_val or not thread_id:
-            print_error("Missing PR ID or Thread ID.")
+            print_error("Usage: deep pr reply <pr_id> <thread_id>")
             raise DeepCLIException(1)
             
+        try:
+            pr_id = int(id_val)
+            tid = int(thread_id)
+        except ValueError:
+            print_error("IDs must be numerical.")
+            raise DeepCLIException(1)
+
+        print(f"\n--- Reply to Thread #{tid} (PR #{pr_id}) ---")
         text = input("Reply: ").strip()
         if not text:
             print_error("Reply cannot be empty.")
             return
             
         try:
-            author = config.get("user.name") or "unknown"
-            manager.add_reply(int(id_val), int(thread_id), author, text)
-            print_success(f"✔ Reply added to Thread #{thread_id}")
+            manager.add_reply(pr_id, tid, author_name, text)
+            print_success(f"✔ Reply added to Thread #{tid}")
         except Exception as e:
             print_error(str(e))
             raise DeepCLIException(1)
@@ -509,7 +542,7 @@ def run(args) -> None:
         id_val = getattr(args, "id", None)
         thread_id = getattr(args, "thread", None)
         if not id_val or not thread_id:
-            print_error("Missing PR ID or Thread ID.")
+            print_error("Usage: deep pr resolve <pr_id> <thread_id>")
             raise DeepCLIException(1)
             
         try:
@@ -522,59 +555,59 @@ def run(args) -> None:
     elif cmd == "review":
         id_val = getattr(args, "id", None)
         if not id_val:
-            print_error("Missing PR ID.")
+            print_error("Usage: deep pr review <id>")
             raise DeepCLIException(1)
             
-        pr = manager.get_pr(int(id_val))
+        try:
+            pr_id = int(id_val)
+            pr = manager.get_pr(pr_id)
+        except ValueError:
+            print_error(f"Invalid ID: {id_val}")
+            raise DeepCLIException(1)
+
         if not pr:
-            print_error(f"PR #{id_val} not found.")
+            print_error(f"PR #{pr_id} not found.")
             raise DeepCLIException(1)
             
-        author = config.get("user.name") or "unknown"
+        print(f"\n{Color.wrap(Color.BOLD, f'--- Review PR #{pr.id}: {pr.title} ---')}\n")
         
-        print(f"\n{Color.wrap(Color.BOLD, f'--- Review PR #{pr.id} ---')}\n")
-        print(f"Title:  {pr.title}")
-        print(f"Flow:   {pr.head} \u2192 {pr.base}")
-        print(f"Status: {pr.status.upper()}")
-        
-        current_review = pr.reviews.get(author)
+        current_review = pr.reviews.get(author_name)
         if current_review:
-            print(f"\n{Color.wrap(Color.YELLOW, 'You already reviewed this PR:')} {current_review['status'].upper()}")
+            print(f"{Color.wrap(Color.YELLOW, 'You already reviewed this PR:')} {current_review['status'].upper()}")
             update = input("Update your review? [y/N]: ").strip().lower()
             if update != 'y': return
 
         # Smart Review UX (Part 6) - suggestions
-        unresolved = [t for t in pr.threads if not t.resolved]
-        if not pr.reviews and not unresolved and len(pr.commits) < 5:
+        if not pr.reviews and pr.unresolved_count == 0 and len(pr.commits) < 5:
             print_info("Suggestion: This looks like a small, clean PR. Consider APPROVING.")
         elif len(pr.commits) > 20 and not pr.body:
             print_info("Suggestion: Large PR with no description. Consider CHANGES_REQUESTED.")
 
-        print("\nSelect action:")
-        print("1. Approve")
-        print("2. Request changes")
-        print("3. Comment only")
+        print("\nSelect Action:")
+        print(f"1. {Color.wrap(Color.GREEN, 'Approve')}")
+        print(f"2. {Color.wrap(Color.RED, 'Request Changes')}")
+        print(f"3. {Color.wrap(Color.YELLOW, 'Comment Only')}")
         
         choice = input("\nChoice [1-3]: ").strip()
-        
-        if choice == '1':
-            comment = input("Comment (optional): ").strip()
-            manager.add_review(pr.id, author, "approved", comment)
-            print_success(f"✔ PR #{pr.id} approved")
-        elif choice == '2':
-            comment = input("Required comment: ").strip()
-            if not comment:
-                print_error("Comment required for requested changes.")
-                return
-            manager.add_review(pr.id, author, "changes_requested", comment)
-            print_success(f"✔ Changes requested for PR #{pr.id}")
-        elif choice == '3':
-            text = input("Comment: ").strip()
-            if text:
-                manager.add_thread(pr.id, author, text)
-                print_success("✔ Comment added")
+        status = "commented"
+        if choice == "1": status = "approved"
+        elif choice == "2": status = "changes_requested"
+        elif choice == "3": status = "commented"
         else:
             print_error("Invalid choice.")
+            return
+
+        comment = input("Review Comment (optional): ").strip()
+        if status == "changes_requested" and not comment:
+            print_error("Comment required for requested changes.")
+            return
+
+        try:
+            manager.add_review(pr.id, author_name, status, comment)
+            print_success(f"✔ Review submitted as {status.upper()}")
+        except Exception as e:
+            print_error(f"Failed to submit review: {e}")
+            raise DeepCLIException(1)
 
     elif cmd == "sync":
         gh_repo = net.get_github_remote(repo_root)

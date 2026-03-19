@@ -56,6 +56,10 @@ class PullRequest:
     commits: List[str] = field(default_factory=list)
     merged_at: Optional[str] = None
 
+    @property
+    def unresolved_count(self) -> int:
+        return len([t for t in self.threads if not t.resolved])
+
 class PRManager:
     """Manages Pull Requests for a repository."""
 
