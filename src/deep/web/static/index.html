@@ -105,9 +105,13 @@
                     </aside>
                     <main id="ide-main">
                         <div id="monaco-container"></div>
+                        <div id="diff-container" class="hidden" style="height: calc(100% - 60px); width: 100%; border-bottom: 1px solid var(--border);"></div>
                         <footer id="commit-panel">
                             <input type="text" id="commit-msg" placeholder="What did you change?">
-                            <button id="commit-btn" onclick="commitChanges()">Commit Changes</button>
+                            <div class="panel-actions">
+                                <button id="diff-btn" class="btn-secondary" onclick="UI.toggleDiff()">View Diff</button>
+                                <button id="commit-btn" onclick="commitChanges()">Commit Changes</button>
+                            </div>
                         </footer>
                     </main>
                 </div>
