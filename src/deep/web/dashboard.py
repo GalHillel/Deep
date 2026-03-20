@@ -29,18 +29,18 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         """Mute standard HTTP logging to keep terminal clean."""
         pass
 
-    def _send_res(self, res: dict[str, Any], status: int = 200):
-        """Unified response sender."""
-        body = json.dumps(res, default=str).encode("utf-8")
-        if not res.get("success", True) and status == 200:
-            status = 422
-            
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(body)
+    def send_json(self, data: dict[str, Any], status: int = 200):
+        """Standard JSON response sender with error awareness."""
+        try:
+            body = json.dumps(data, default=str).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception as e:
+            print(f"CRITICAL: Failed to send JSON response: {e}")
 
     def _serve_file(self, path: Path, content_type: str):
         try:
@@ -54,80 +54,71 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_error(500)
 
     def do_GET(self):
-        parsed = urlparse(self.path)
-        path = parsed.path.rstrip("/")
-        qs = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+        try:
+            parsed = urlparse(self.path)
+            path = parsed.path.rstrip("/")
+            qs = {k: v[0] for k, v in parse_qs(parsed.query).items()}
 
-        if path == "" or path == "/index.html":
-            return self._serve_file(STATIC_DIR / "index.html", "text/html")
+            if path == "" or path == "/index.html":
+                return self._serve_file(STATIC_DIR / "index.html", "text/html")
 
-        if path == "/api/tree": return self._send_res(self.service.get_tree())
-        
-        if path == "/api/file":
-            filepath = qs.get("path")
-            if not filepath: return self._send_res({"success": False, "error": "Missing path"}, 400)
-            filepath = urllib.parse.unquote(filepath)
-            return self._send_res(self.service.get_file(filepath))
+            if path == "/api/tree": return self.send_json(self.service.get_tree())
             
-        if path == "/api/graph": return self._send_res(self.service.get_graph())
-        if path == "/api/status": return self._send_res(self.service.get_full_status())
-        if path == "/api/diff": return self._send_res(self.service.get_diff())
-        if path == "/api/prs/local": return self._send_res(self.service.get_prs_local())
-        if path == "/api/issues/local": return self._send_res(self.service.get_issues_local())
+            if path == "/api/file":
+                filepath = qs.get("path")
+                if not filepath: return self.send_json({"success": False, "error": "Missing path"}, 400)
+                decoded_path = urllib.parse.unquote(filepath)
+                return self.send_json(self.service.get_file_content(decoded_path))
+                
+            if path == "/api/graph": return self.send_json(self.service.get_graph())
+            if path == "/api/status": return self.send_json(self.service.get_full_status())
+            if path == "/api/diff": return self.send_json(self.service.get_diff())
+            if path == "/api/prs/local": return self.send_json(self.service.get_prs_local())
+            if path == "/api/issues/local": return self.send_json(self.service.get_issues_local())
 
-        fpath = STATIC_DIR / path.lstrip("/")
-        if fpath.exists() and fpath.is_file():
-            ctype = "text/css" if fpath.suffix == ".css" else \
-                    "application/javascript" if fpath.suffix == ".js" else \
-                    "text/plain"
-            return self._serve_file(fpath, ctype)
-        
-        return self.send_error(404)
+            if path.startswith("/api/"):
+                return self.send_json({"success": False, "error": f"API route not found: {path}"}, 404)
+
+            fpath = STATIC_DIR / path.lstrip("/")
+            if fpath.exists() and fpath.is_file():
+                ctype = "text/css" if fpath.suffix == ".css" else \
+                        "application/javascript" if fpath.suffix == ".js" else \
+                        "text/plain"
+                return self._serve_file(fpath, ctype)
+            
+            return self.send_error(404)
+        except Exception as e:
+            traceback.print_exc()
+            return self.send_json({"success": False, "error": f"Server GET Error: {str(e)}"}, 500)
 
     def do_POST(self):
-        parsed = urlparse(self.path)
-        path = parsed.path.rstrip("/")
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = {}
-        if content_length > 0:
-            try:
-                body = json.loads(self.rfile.read(content_length).decode("utf-8"))
-            except Exception:
-                return self._send_res({"success": False, "error": "Invalid JSON"}, 400)
+        try:
+            parsed = urlparse(self.path)
+            path = parsed.path.rstrip("/")
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = {}
+            if content_length > 0:
+                try:
+                    body = json.loads(self.rfile.read(content_length).decode("utf-8"))
+                except Exception:
+                    return self.send_json({"success": False, "error": "Invalid JSON"}, 400)
 
-        # FINAL ROUTES
-        if path == "/api/commit":
-            # Support both separate save and direct commit
-            return self._send_res(self.service.commit_enhanced(body))
-            
-        if path == "/api/file/save":
-            return self._send_res(self.service.save_file_only(body.get("filepath") or body.get("path", ""), body.get("content", "")))
-            
-        if path == "/api/branch/checkout":
-            return self._send_res(self.service.checkout_branch_forced(body.get("branch") or body.get("name", "")))
-            
-        if path == "/api/branch/create":
-            return self._send_res(self.service.create_branch(body.get("name", "")))
-            
-        if path == "/api/merge":
-            return self._send_res(self.service.merge_branch(body.get("branch") or body.get("name", "")))
-            
-        if path == "/api/pr/create":
-            return self._send_res(self.service.create_pr_enhanced(body))
-            
-        if path == "/api/pr/review":
-            return self._send_res(self.service.review_pr(body))
+            # FINAL ROUTES
+            if path == "/api/commit": return self.send_json(self.service.commit_enhanced(body))
+            if path == "/api/file/save": return self.send_json(self.service.save_file_only(body.get("filepath") or body.get("path", ""), body.get("content", "")))
+            if path == "/api/branch/checkout": return self.send_json(self.service.checkout_branch_forced(body.get("branch") or body.get("name", "")))
+            if path == "/api/branch/create": return self.send_json(self.service.create_branch(body.get("name", "")))
+            if path == "/api/merge": return self.send_json(self.service.merge_branch(body.get("branch") or body.get("name", "")))
+            if path == "/api/pr/create": return self.send_json(self.service.create_pr_enhanced(body))
+            if path == "/api/pr/review": return self.send_json(self.service.review_pr(body))
+            if path == "/api/pr/merge": return self.send_json(self.service.merge_local_pr(body))
+            if path == "/api/issue/create": return self.send_json(self.service.create_issue(body))
+            if path == "/api/issue/manage": return self.send_json(self.service.manage_issue(body))
 
-        if path == "/api/pr/merge":
-            return self._send_res(self.service.merge_local_pr(body))
-            
-        if path == "/api/issue/create":
-            return self._send_res(self.service.create_issue(body))
-
-        if path == "/api/issue/manage":
-            return self._send_res(self.service.manage_issue(body))
-
-        return self.send_error(404)
+            return self.send_error(404)
+        except Exception as e:
+            traceback.print_exc()
+            return self.send_json({"success": False, "error": f"Server POST Error: {str(e)}"}, 500)
 
     def do_OPTIONS(self):
         self.send_response(204)

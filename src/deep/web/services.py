@@ -65,17 +65,53 @@ class DashboardService:
                 current_level[f] = {"_type": "file", "path": (rel_root / f).as_posix()}
         return {"tree": tree_dict}
 
+    def get_file_content(self, filepath: str) -> Dict[str, Any]:
+        """Wrap bulletproof fetching in _safe envelope."""
+        return self._safe(self._get_file_content_internal, filepath)
+
+    def _get_file_content_internal(self, filepath: str) -> Dict[str, Any]:
+        """Internal bulletproof logic."""
+        # Prevent path traversal and resolve safely
+        clean_path = filepath.lstrip('/').replace('\\', '/')
+        full_path = (self.repo_root / clean_path).resolve()
+        
+        # Security: Ensure path is within repo
+        if not str(full_path).startswith(str(self.repo_root)):
+            raise ValueError("Path traversal denied")
+
+        if not full_path.exists(): 
+            raise FileNotFoundError(f"File not found on disk: {filepath}")
+        
+        if full_path.is_dir():
+            raise IsADirectoryError("Cannot open a directory in the editor.")
+
+        if full_path.stat().st_size > 2 * 1024 * 1024:
+            return {"content": "File too large to display (>2MB).", "isBinary": True}
+
+        with open(full_path, 'rb') as f: 
+            raw = f.read()
+
+        # Check for Windows BOMs
+        is_utf16_le = raw.startswith(b'\xff\xfe')
+        is_utf16_be = raw.startswith(b'\xfe\xff')
+        is_utf8_bom = raw.startswith(b'\xef\xbb\xbf')
+
+        # Heuristic for binary (contains null bytes and is not UTF-16)
+        if b'\0' in raw[:1024] and not (is_utf16_le or is_utf16_be):
+            return {"content": "Binary file cannot be displayed.", "isBinary": True}
+
+        if is_utf16_le or is_utf16_be:
+            content = raw.decode('utf-16', errors='replace')
+        elif is_utf8_bom:
+            content = raw[3:].decode('utf-8', errors='replace')
+        else:
+            content = raw.decode('utf-8', errors='replace')
+
+        return {"content": content, "isBinary": False}
+
     def get_file(self, path: str) -> Dict[str, Any]:
-        file_path = self.repo_root / path.lstrip("/")
-        if not file_path.exists():
-            return {"success": False, "error": f"File not found: {path}"}
-        try:
-            data = file_path.read_bytes()
-            is_binary = b'\x00' in data[:8000]
-            if is_binary: return {"path": path, "content": "[Binary File]", "isBinary": True}
-            content = data.decode('utf-8', errors='replace')
-            return {"path": path, "content": content, "isBinary": False}
-        except Exception as e: return {"success": False, "error": str(e)}
+        """Legacy wrapper for get_file_content."""
+        return self.get_file_content(path)
 
     def save_file_only(self, path: str, content: str) -> Dict[str, Any]:
         """Independent file saving without committing (VSCode parity)."""

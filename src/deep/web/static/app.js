@@ -125,15 +125,32 @@ const App = {
     },
 
     async openFile(path) {
-        if (!this.state.editor) return;
+        if (!this.state.editor) {
+            this.toast("Editor is still initializing, please wait...", true);
+            return;
+        }
+        
         this.state.currentFile = path;
-        document.getElementById('editor-header').innerHTML = `<i class="fa-regular fa-file-code mr-2"></i> ${path}`;
+        const header = document.getElementById('editor-header');
+        if(header) header.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2 text-cyan-400"></i> Loading ${path}...`;
+        
         const data = await this.api(`/api/file?path=${encodeURIComponent(path)}`);
-        if (!data) return;
-        this.state.editor.setValue(data.isBinary ? `// Binary or unreadable file\n// ${data.content}` : data.content);
-        this.state.editor.updateOptions({ readOnly: data.isBinary });
-        const ext = path.split('.').pop();
-        const langs = { py: 'python', js: 'javascript', html: 'html', css: 'css', json: 'json', md: 'markdown' };
+        
+        if (!data || data.error) {
+            // Error is already toasted by this.api() or data.error exists
+            if(header) header.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-2 text-red-400"></i> Failed to load ${path}`;
+            if(data?.error) this.toast(data.error, true);
+            return;
+        }
+
+        if(header) header.innerHTML = `<i class="fa-regular fa-file-code mr-2 text-cyan-400"></i> ${path}`;
+
+        this.state.editor.setValue(data.isBinary ? `// System Note: ${data.content}` : data.content);
+        this.state.editor.updateOptions({ readOnly: !!data.isBinary });
+        
+        // Set Syntax Highlighting
+        const ext = path.split('.').pop().toLowerCase();
+        const langs = { py: 'python', js: 'javascript', ts: 'typescript', html: 'html', css: 'css', json: 'json', md: 'markdown', txt: 'plaintext' };
         monaco.editor.setModelLanguage(this.state.editor.getModel(), langs[ext] || 'plaintext');
     },
 
