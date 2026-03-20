@@ -3,18 +3,20 @@
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("Deep Platform Initializing...");
     
-    // 1. Initial Data Load
+    // 1. Initialize Reactive UI
+    UI.init();
+    
+    // 2. Initial Data Load
     try {
         await Promise.all([
-            API.loadRefs(),
-            API.loadWork()
+            UI.loadRefs(),
+            UI.loadWork()
         ]);
-        UI.renderBranches();
     } catch (e) {
         console.error("Initialization failed:", e);
     }
     
-    // 2. Setup Navigation
+    // 3. Setup Navigation
     document.querySelectorAll('.nav-item, .tab-btn').forEach(item => {
         item.addEventListener('click', () => {
             const tab = item.dataset.tab;
@@ -22,15 +24,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // 3. Global Actions
+    // 4. Global Actions
     window.saveFile = async () => {
-        if (!state.selectedFile || !state.monacoInstance) return;
-        const content = state.monacoInstance.getValue();
+        const { selectedFile, monacoInstance, fileContent } = window.store.state;
+        if (!selectedFile || !monacoInstance) return;
+        
+        const content = monacoInstance.getValue();
         try {
-            await API.saveFile(state.selectedFile, content);
-            state.fileContent = content;
-            state.isDirty = false;
-            UI.updateCommitPanel();
+            await API.saveFile(selectedFile, content);
+            window.store.set({ fileContent: content, isDirty: false });
             UI.showToast("File saved", "success");
         } catch (e) {}
     };
@@ -41,14 +43,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             await API.commit(message);
             msgInput.value = '';
-            state.isDirty = false;
-            UI.updateCommitPanel();
+            window.store.set({ isDirty: false });
             UI.showToast("Changes committed", "success");
-            UI.loadTree(); // Refresh tree
+            UI.loadTree();
+            UI.loadWork();
+            UI.loadLog(); 
         } catch (e) {}
     };
 
-    // 4. Keyboard Shortcuts
+    // 5. Keyboard Shortcuts
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
@@ -56,6 +59,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // 5. Initial Render
-    UI.switchTab(state.activeTab);
+    // 6. Initial Render
+    UI.switchTab(window.store.state.activeTab);
 });
