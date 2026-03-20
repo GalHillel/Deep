@@ -77,7 +77,9 @@ def test_dashboard_index(dashboard_server):
 def test_api_log(dashboard_server):
     port, _ = dashboard_server
     resp = urlopen(f"http://127.0.0.1:{port}/api/log")
-    data = json.loads(resp.read())
+    res = json.loads(resp.read())
+    assert res["success"] is True
+    data = res["data"]
     assert isinstance(data, list)
     assert len(data) >= 3
     assert "sha" in data[0]
@@ -88,7 +90,9 @@ def test_api_log(dashboard_server):
 def test_api_refs(dashboard_server):
     port, _ = dashboard_server
     resp = urlopen(f"http://127.0.0.1:{port}/api/refs")
-    data = json.loads(resp.read())
+    res = json.loads(resp.read())
+    assert res["success"] is True
+    data = res["data"]
     assert "head" in data
     assert "branches" in data
     assert "main" in data["branches"]
@@ -98,27 +102,33 @@ def test_api_refs(dashboard_server):
 def test_api_object(dashboard_server):
     port, _ = dashboard_server
     # Get HEAD sha from refs
-    refs = json.loads(urlopen(f"http://127.0.0.1:{port}/api/refs").read())
-    head_sha = refs["head"]
+    refs_res = json.loads(urlopen(f"http://127.0.0.1:{port}/api/refs").read())
+    head_sha = refs_res["data"]["head"]
     resp = urlopen(f"http://127.0.0.1:{port}/api/object/{head_sha}")
-    data = json.loads(resp.read())
+    res = json.loads(resp.read())
+    assert res["success"] is True
+    data = res["data"]
     assert data["type"] == "commit"
     assert data["sha"] == head_sha
 
 
 def test_api_diff(dashboard_server):
     port, _ = dashboard_server
-    refs = json.loads(urlopen(f"http://127.0.0.1:{port}/api/refs").read())
-    head_sha = refs["head"]
+    refs_res = json.loads(urlopen(f"http://127.0.0.1:{port}/api/refs").read())
+    head_sha = refs_res["data"]["head"]
     resp = urlopen(f"http://127.0.0.1:{port}/api/diff/{head_sha}")
-    data = json.loads(resp.read())
+    res = json.loads(resp.read())
+    assert res["success"] is True
+    data = res["data"]
     assert isinstance(data, list)
 
 
 def test_api_metrics(dashboard_server):
     port, _ = dashboard_server
     resp = urlopen(f"http://127.0.0.1:{port}/api/metrics")
-    data = json.loads(resp.read())
+    res = json.loads(resp.read())
+    assert res["success"] is True
+    data = res["data"]
     assert isinstance(data, dict)
 
 
@@ -132,7 +142,9 @@ def test_api_multi_repo(dashboard_server):
     subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=sibling, env=env, check=True)
     
     resp = urlopen(f"http://127.0.0.1:{port}/api/multi-repo")
-    data = json.loads(resp.read())
+    res = json.loads(resp.read())
+    assert res["success"] is True
+    data = res["data"]
     assert isinstance(data, list)
     names = [r["name"] for r in data]
     assert "repo" in names
@@ -142,7 +154,9 @@ def test_api_multi_repo(dashboard_server):
 def test_api_heatmap(dashboard_server):
     port, _ = dashboard_server
     resp = urlopen(f"http://127.0.0.1:{port}/api/heatmap")
-    data = json.loads(resp.read())
+    res = json.loads(resp.read())
+    assert res["success"] is True
+    data = res["data"]
     assert isinstance(data, list)
     assert len(data) > 0
     assert "file" in data[0]
@@ -151,7 +165,9 @@ def test_api_heatmap(dashboard_server):
 def test_api_commit_heatmap(dashboard_server):
     port, _ = dashboard_server
     resp = urlopen(f"http://127.0.0.1:{port}/api/commit-heatmap")
-    data = json.loads(resp.read())
+    res = json.loads(resp.read())
+    assert res["success"] is True
+    data = res["data"]
     assert isinstance(data, dict)
     assert len(data) > 0
     # Values represent commit counts per day

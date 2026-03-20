@@ -1,380 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Deep Platform</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box
-    }
-
-    :root {
-      --bg: #0d1117;
-      --surface: #161b22;
-      --border: #30363d;
-      --text: #c9d1d9;
-      --text-muted: #8b949e;
-      --accent: #58a6ff;
-      --green: #3fb950;
-      --purple: #bc8cff;
-      --red: #f85149;
-      --orange: #d29922;
-      --radius: 8px
-    }
-
-    body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      display: flex;
-      height: 100vh;
-      overflow: hidden
-    }
-
-    #sidebar {
-      width: 260px;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0
-    }
-
-    #sidebar h1 {
-      padding: 20px;
-      font-size: 18px;
-      border-bottom: 1px solid var(--border);
-      background: linear-gradient(135deg, #58a6ff22, #bc8cff22)
-    }
-
-    #sidebar h1 span {
-      background: linear-gradient(90deg, var(--accent), var(--purple));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent
-    }
-
-    .nav-section {
-      padding: 12px 16px
-    }
-
-    .nav-section h3 {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--text-muted);
-      margin-bottom: 8px
-    }
-
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      border-radius: var(--radius);
-      cursor: pointer;
-      font-size: 13px;
-      transition: background .15s;
-      color: var(--text)
-    }
-
-    .nav-item:hover {
-      background: #ffffff08
-    }
-
-    .nav-item.active {
-      background: var(--accent);
-      color: #fff
-    }
-
-    .badge {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      font-weight: 600;
-      min-width: 18px;
-      text-align: center
-    }
-
-    .badge-repo {
-      background: var(--purple);
-      color: #000
-    }
-
-    .badge-branch {
-      background: var(--green);
-      color: #000
-    }
-
-    .badge-tag {
-      background: var(--orange);
-      color: #000
-    }
-
-    #main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden
-    }
-
-    #toolbar {
-      padding: 12px 20px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 12px
-    }
-
-    #repo-selector {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 6px 12px;
-      border-radius: var(--radius);
-      font-size: 13px;
-      cursor: pointer
-    }
-
-    #toolbar input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: var(--radius);
-      width: 300px;
-      font-size: 13px
-    }
-
-    #content {
-      display: flex;
-      flex: 1;
-      overflow: hidden
-    }
-
-    #dag-container {
-      flex: 1;
-      overflow: auto;
-      padding: 20px
-    }
-
-    #dag {
-      position: relative;
-      min-height: 100%
-    }
-
-    .commit-node {
-      position: absolute;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 14px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      cursor: pointer;
-      transition: all .15s;
-      font-size: 13px;
-      white-space: nowrap
-    }
-
-    .commit-node:hover {
-      border-color: var(--accent);
-      transform: translateX(2px)
-    }
-
-    .commit-node.selected {
-      border-color: var(--accent);
-      background: #58a6ff15
-    }
-
-    .commit-sha {
-      font-family: monospace;
-      color: var(--accent);
-      font-size: 12px
-    }
-
-    #detail-panel {
-      width: 380px;
-      background: var(--surface);
-      border-left: 1px solid var(--border);
-      overflow-y: auto;
-      display: none;
-      flex-direction: column
-    }
-
-    #detail-panel.open {
-      display: flex
-    }
-
-    #detail-header {
-      padding: 16px;
-      border-bottom: 1px solid var(--border)
-    }
-
-    #detail-body {
-      padding: 16px
-    }
-
-    .detail-section {
-      margin-bottom: 16px
-    }
-
-    .detail-section h4 {
-      font-size: 11px;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: 6px
-    }
-
-    .detail-section pre {
-      background: var(--bg);
-      padding: 10px;
-      border-radius: var(--radius);
-      font-size: 12px;
-      overflow-x: auto
-    }
-  </style>
+  <title>Deep Platform — Developer Dashboard</title>
+  <meta name="description" content="Deep Platform Developer Dashboard — Git graph, PR reviews, issue tracking, and live workflow monitor.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
 </head>
-
 <body>
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Left Sidebar -->
   <div id="sidebar">
     <h1>🔱 <span>Deep</span></h1>
     <div class="nav-section">
-      <h3>Repositories</h3>
-      <div id="repo-list"></div>
-    </div>
-    <div class="nav-section" id="collab-nav">
-      <h3>Collaboration</h3>
-      <div class="nav-item" onclick="showView('commits')">Commits</div>
-      <div class="nav-item" onclick="showView('issues')">Issues <span class="badge"
-          style="background:#30363d;margin-left:auto">1</span></div>
-      <div class="nav-item" onclick="showView('prs')">Pull Requests <span class="badge"
-          style="background:#30363d;margin-left:auto">1</span></div>
+      <h3>Navigation</h3>
+      <div class="nav-item" data-tab="graph" onclick="switchTab('graph')">
+        <span class="nav-icon">◆</span> Graph <kbd>G</kbd>
+      </div>
+      <div class="nav-item" data-tab="prs" onclick="switchTab('prs')">
+        <span class="nav-icon">⑂</span> Pull Requests <span id="pr-count" class="badge badge-count">0</span> <kbd>P</kbd>
+      </div>
+      <div class="nav-item" data-tab="issues" onclick="switchTab('issues')">
+        <span class="nav-icon">◉</span> Issues <span id="issue-count" class="badge badge-count">0</span> <kbd>I</kbd>
+      </div>
+      <div class="nav-item" data-tab="work" onclick="switchTab('work')">
+        <span class="nav-icon">⚡</span> Work <kbd>W</kbd>
+      </div>
     </div>
     <div class="nav-section">
-      <h3>Refs</h3>
-      <div id="ref-list"></div>
+      <h3>Branches</h3>
+      <div id="branch-list"></div>
+    </div>
+    <div class="nav-section sidebar-bottom">
+      <div id="health-status" class="health-badge" title="System health">● OK</div>
     </div>
   </div>
+
+  <!-- Main Area -->
   <div id="main">
-    <div id="toolbar">
-      <select id="repo-selector" onchange="switchRepo(this.value)"></select>
-      <input type="text" id="search" placeholder="Search...">
+    <!-- Top Bar -->
+    <div id="topbar">
+      <div class="topbar-tabs">
+        <button class="tab-btn active" data-tab="graph" onclick="switchTab('graph')">◆ Graph</button>
+        <button class="tab-btn" data-tab="prs" onclick="switchTab('prs')">⑂ Pull Requests</button>
+        <button class="tab-btn" data-tab="issues" onclick="switchTab('issues')">◉ Issues</button>
+        <button class="tab-btn" data-tab="work" onclick="switchTab('work')">⚡ Work</button>
+      </div>
+      <div class="topbar-actions">
+        <input type="text" id="search-input" placeholder="Search commits, PRs, issues…" />
+      </div>
     </div>
-    <div id="content">
-      <div id="dag-container">
-        <div id="dag"></div>
-      </div>
-      <div id="detail-panel">
-        <div id="detail-header">
-          <h2 id="detail-title"></h2>
-          <div id="detail-sha" style="font-family:monospace;font-size:11px;color:var(--accent)"></div>
+
+    <!-- Content Area -->
+    <div id="content-area">
+      <!-- Graph Tab -->
+      <div class="tab-content active" id="tab-graph">
+        <div id="graph-container">
+          <div id="dag"></div>
         </div>
-        <div id="detail-body"></div>
       </div>
+
+      <!-- PRs Tab -->
+      <div class="tab-content" id="tab-prs">
+        <div class="list-header">
+          <h2>Pull Requests</h2>
+          <div class="filter-bar">
+            <select id="pr-status-filter" onchange="loadPRs()">
+              <option value="">All Status</option>
+              <option value="open">Open</option>
+              <option value="merged">Merged</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+        </div>
+        <div id="pr-list" class="card-list"></div>
+      </div>
+
+      <!-- Issues Tab -->
+      <div class="tab-content" id="tab-issues">
+        <div class="list-header">
+          <h2>Issues</h2>
+          <div class="filter-bar">
+            <select id="issue-type-filter" onchange="loadIssues()">
+              <option value="">All Types</option>
+              <option value="bug">🐛 Bug</option>
+              <option value="feature">✨ Feature</option>
+              <option value="task">📋 Task</option>
+            </select>
+            <select id="issue-status-filter" onchange="loadIssues()">
+              <option value="">All Status</option>
+              <option value="open">Open</option>
+              <option value="in-progress">In Progress</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+        </div>
+        <div id="issue-list" class="card-list"></div>
+      </div>
+
+      <!-- Work Tab -->
+      <div class="tab-content" id="tab-work">
+        <div id="work-dashboard"></div>
+        <div class="work-section">
+          <h3>Activity Feed</h3>
+          <div id="activity-feed" class="card-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Detail Panel -->
+    <div id="detail-panel">
+      <div id="detail-close" onclick="closeDetail()">✕</div>
+      <div id="detail-header"></div>
+      <div id="detail-body"></div>
     </div>
   </div>
-  <script>
-    let currentRepo = '';
-    let repos = [], commits = [], refs = {};
 
-    async function api(path) {
-      const url = path + (path.includes('?') ? '&' : '?') + (currentRepo ? `repo=${currentRepo}` : '');
-      const r = await fetch(url);
-      return r.json();
-    }
-
-    async function loadRepos() {
-      repos = await api('/api/repos');
-      const list = document.getElementById('repo-list');
-      const sel = document.getElementById('repo-selector');
-      list.innerHTML = '';
-      sel.innerHTML = '<option value="">(Platform Root)</option>';
-      repos.forEach(r => {
-        const item = document.createElement('div');
-        item.className = 'nav-item' + (currentRepo === r.name ? ' active' : '');
-        item.innerHTML = `<span class="badge badge-repo">R</span> ${r.name}`;
-        item.onclick = () => switchRepo(r.name);
-        list.appendChild(item);
-        sel.innerHTML += `<option value="${r.name}" ${currentRepo === r.name ? 'selected' : ''}>${r.name}</option>`;
-      });
-    }
-
-    async function loadData() {
-      [commits, refs] = await Promise.all([api('/api/log'), api('/api/refs')]);
-      renderRefs();
-      renderDAG();
-    }
-
-    function renderRefs() {
-      const list = document.getElementById('ref-list');
-      list.innerHTML = '';
-      for (const [n, s] of Object.entries(refs.branches || {})) {
-        const item = document.createElement('div');
-        item.className = 'nav-item';
-        item.innerHTML = `<span class="badge badge-branch">B</span> ${n}`;
-        item.onclick = () => scrollToCommit(s);
-        list.appendChild(item);
-      }
-    }
-
-    function renderDAG() {
-      const dag = document.getElementById('dag');
-      dag.innerHTML = '';
-      const ROW_H = 50;
-      commits.forEach((c, i) => {
-        const node = document.createElement('div');
-        node.className = 'commit-node' + (selectedSha === c.sha ? ' selected' : '');
-        node.style.top = (i * ROW_H) + 'px';
-        node.style.left = '40px';
-        node.innerHTML = `<span class="commit-sha">${c.sha.slice(0, 7)}</span> <span>${c.message.split('\n')[0]}</span>`;
-        node.onclick = () => selectCommit(c.sha);
-        node.id = 'node-' + c.sha;
-        dag.appendChild(node);
-      });
-    }
-
-    let selectedSha = null;
-    async function selectCommit(sha) {
-      selectedSha = sha;
-      document.querySelectorAll('.commit-node.selected').forEach(n => n.classList.remove('selected'));
-      document.getElementById('node-' + sha)?.classList.add('selected');
-      const detail = await api('/api/object/' + sha);
-      const diff = await api('/api/diff/' + sha);
-      const panel = document.getElementById('detail-panel');
-      panel.classList.add('open');
-      document.getElementById('detail-title').textContent = detail.message || sha;
-      document.getElementById('detail-sha').textContent = sha;
-      let html = `<div class="detail-section"><h4>Author</h4><p>${detail.author}</p></div>`;
-      html += `<div class="detail-section"><h4>Date</h4><p>${new Date(detail.timestamp * 1000).toLocaleString()}</p></div>`;
-      if (diff && diff.length) {
-        html += `<div class="detail-section"><h4>Changes</h4><pre>${diff.map(d => `${d.status.toUpperCase()} ${d.path}`).join('\n')}</pre></div>`;
-      }
-      document.getElementById('detail-body').innerHTML = html;
-    }
-
-    function switchRepo(name) {
-      currentRepo = name;
-      loadRepos();
-      loadData();
-    }
-
-    function showView(view) {
-      alert('View: ' + view + ' (Coming soon in Phase 5/6)');
-    }
-
-    function scrollToCommit(sha) {
-      document.getElementById('node-' + sha)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    loadRepos();
-    loadData();
-  </script>
+  <script src="/app.js"></script>
 </body>
-
 </html>

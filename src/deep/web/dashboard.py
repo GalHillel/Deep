@@ -1,34 +1,30 @@
 """
 deep.web.dashboard
 ~~~~~~~~~~~~~~~~~~~~~~
-HTTP + WebSocket server for the Deep Web Dashboard.
+HTTP server for the Deep Web Dashboard.
 
-Serves a single-page interactive DAG explorer and exposes REST API
-endpoints for querying repository state.
+Serves a single-page interactive Developer Platform UI and exposes
+REST API endpoints for querying and mutating repository state.
+All data access goes through DashboardService — no direct file access here.
 """
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import json
 import os
 import traceback
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from typing import Optional, ClassVar, Any, cast
+from urllib.parse import urlparse, parse_qs
 
-from deep.storage.objects import read_object, read_object_safe, Commit, Tree, Blob, Tag # type: ignore[import]
-from deep.core.refs import resolve_head, list_branches, get_branch, list_tags # type: ignore[import]
-from deep.core.repository import find_repo # type: ignore[import]
-from deep.core.constants import DEEP_DIR # type: ignore[import]
-from deep.core.issue import IssueManager  # type: ignore[import]
-from deep.core.pr import PRManager  # type: ignore[import]
+from deep.storage.objects import read_object, Commit, Tree, Blob, Tag  # type: ignore[import]
+from deep.core.refs import resolve_head, list_branches, get_branch, list_tags  # type: ignore[import]
+from deep.core.repository import find_repo  # type: ignore[import]
+from deep.core.constants import DEEP_DIR  # type: ignore[import]
 from deep.storage.index import read_index  # type: ignore[import]
 from deep.core.search import search_history  # type: ignore[import]
-from deep.network.p2p import P2PEngine  # type: ignore[import]
-from deep.core.blame import get_blame  # type: ignore[import]
-from deep.ai.assistant import DeepAI  # type: ignore[import]
+from deep.web.services import DashboardService  # type: ignore[import]
 
 
 def _tree_entries_flat(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
@@ -51,7 +47,7 @@ def _tree_entries_flat(objects_dir: Path, tree_sha: str, prefix: str = "") -> di
 
 # ── REST API Helpers ─────────────────────────────────────────────────
 
-def _gather_log(dg_dir: Path, max_count: int = 500) -> list[dict]:
+def _gather_log(dg_dir: Path, max_count: int = 300) -> list[dict]:
     """Walk the commit DAG and return a serialisable list."""
     head_sha = resolve_head(dg_dir)
     if not head_sha:
@@ -106,8 +102,7 @@ def _gather_refs(dg_dir: Path) -> dict:
             if f.is_file():
                 tags[f.name] = f.read_text().strip()
 
-    # Detect current branch
-    from deep.core.refs import get_current_branch # type: ignore
+    from deep.core.refs import get_current_branch  # type: ignore
     current_branch = get_current_branch(dg_dir)
 
     return {
@@ -146,7 +141,7 @@ def _object_detail(dg_dir: Path, sha: str) -> dict:
     except Exception as e:
         return {"error": str(e)}
 
-    info: dict = {"sha": sha, "type": cast(Any, obj).OBJ_TYPE} # type: ignore
+    info: dict = {"sha": sha, "type": cast(Any, obj).OBJ_TYPE}  # type: ignore
     if isinstance(obj, Commit):
         info.update({
             "message": obj.message.strip(),
@@ -216,66 +211,65 @@ def _commit_diff(dg_dir: Path, sha: str) -> list[dict]:
 def _get_repo_dg_dir(repo_root: Path, repo_name: Optional[str]) -> Path:
     """Safely resolve repository DG_DIR and prevent path traversal."""
     if not repo_name:
-        # Fallback to main repo if no repo parameter is provided
-        from deep.core.constants import DEEP_DIR # type: ignore[import]
         return repo_root / DEEP_DIR
-    
-    from deep.core.constants import DEEP_DIR # type: ignore[import]
-    # Ensure relative path doesn't contain traversal
+
     repos_base = (repo_root / "repos").resolve()
     target_repo_dir = (repos_base / repo_name).resolve()
-    
+
     if not target_repo_dir.is_relative_to(repos_base):
         raise ValueError("Security Violation: Path traversal detected in repo parameter")
-    
+
     return target_repo_dir / DEEP_DIR
+
 
 STATIC_DIR = Path(__file__).parent / "static"
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
     """Serve the Web Dashboard SPA and REST API."""
-    
+
     dg_dir: ClassVar[Path]
     repo_root: ClassVar[Path]
+    service: ClassVar[DashboardService]
+
+    # ── GET ───────────────────────────────────────────────────────
 
     def do_GET(self):
         try:
             self._handle_get()
         except Exception as e:
-            try:
-                body = json.dumps({"error": str(e)}).encode("utf-8")
-                self.send_response(500)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-            except Exception:
-                pass
+            self._error_response(500, str(e))
 
     def _handle_get(self):
-        if self.path == "/" or self.path == "/index.html":
+        parsed = urlparse(self.path)
+        path = parsed.path
+        qs = parse_qs(parsed.query)
+
+        def _repo_param() -> Optional[str]:
+            return qs.get("repo", [None])[0]
+
+        # ── Static files ────────────────────────────────────────
+        if path == "/" or path == "/index.html":
             self._serve_file(STATIC_DIR / "index.html", "text/html")
-        elif self.path.startswith("/api/log"):
-            from urllib.parse import urlparse, parse_qs
-            repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = _get_repo_dg_dir(self.repo_root, repo_name)
-            self._json_response(_gather_log(dg))
-        elif self.path.startswith("/api/refs"):
-            from urllib.parse import urlparse, parse_qs
-            repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = _get_repo_dg_dir(self.repo_root, repo_name)
-            self._json_response(_gather_refs(dg))
-        elif self.path.startswith("/api/object/"):
-            sha = self.path.split("/")[-1]
-            from urllib.parse import urlparse, parse_qs
-            repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = _get_repo_dg_dir(self.repo_root, repo_name)
-            self._json_response(_object_detail(dg, sha))
-        elif self.path == "/api/projects":
-            from deep.platform.platform import PlatformManager # type: ignore[import]
-            from deep.core.repository import find_repo # type: ignore[import]
-            from deep.core.constants import DEEP_DIR # type: ignore[import]
+            return
+
+        # ── Legacy / graph endpoints ────────────────────────────
+        if path.startswith("/api/log"):
+            dg = _get_repo_dg_dir(self.repo_root, _repo_param())
+            self._success(_gather_log(dg))
+        elif path.startswith("/api/refs"):
+            dg = _get_repo_dg_dir(self.repo_root, _repo_param())
+            self._success(_gather_refs(dg))
+        elif path.startswith("/api/object/"):
+            sha = path.split("/")[-1]
+            dg = _get_repo_dg_dir(self.repo_root, _repo_param())
+            self._success(_object_detail(dg, sha))
+        elif path.startswith("/api/diff/"):
+            sha = path.split("/")[-1]
+            dg = _get_repo_dg_dir(self.repo_root, _repo_param())
+            self._success(_commit_diff(dg, sha))
+        elif path == "/api/projects":
+            from deep.platform.platform import PlatformManager  # type: ignore[import]
             res = []
             manager = PlatformManager(self.repo_root)
             repos = manager.list_repos()
@@ -283,63 +277,74 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 dg = self.repo_root / "repos" / r / DEEP_DIR
                 head = resolve_head(dg)
                 res.append({"name": r, "head": head[:7] if head else "none"})
-            self._json_response(res)
+            self._success(res)
+        elif path == "/api/multi-repo":
+            self._success(_gather_multi_repo_data(self.repo_root))
 
-        # ── Collaboration API placeholders ──────────────────────────
-        elif self.path.startswith("/api/issues"):
-            from urllib.parse import urlparse, parse_qs
-            repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = (self.repo_root / "repos" / repo_name / DEEP_DIR) if repo_name else self.dg_dir
-            from deep.core.issue import IssueManager # type: ignore[import]
-            im = IssueManager(dg)
-            self._json_response([{"id": i.id, "title": i.title} for i in im.list_issues()])
-        elif self.path.startswith("/api/prs"):
-            from urllib.parse import urlparse, parse_qs
-            repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = (self.repo_root / "repos" / repo_name / DEEP_DIR) if repo_name else self.dg_dir
-            from deep.core.pr import PRManager # type: ignore[import]
-            prm = PRManager(dg)
-            self._json_response([{"id": p.id, "title": p.title} for p in prm.list_prs()])
+        # ── Service-backed endpoints ────────────────────────────
+        elif path == "/api/tree":
+            self._success(self.service.get_tree())
+        elif path == "/api/file":
+            filepath = qs.get("path", [""])[0]
+            if not filepath:
+                self._error_response(400, "Missing path parameter")
+                return
+            content = self.service.get_file(filepath)
+            if content is None:
+                self._error_response(404, "File not found")
+            else:
+                self._success({"content": content})
+        elif path.startswith("/api/prs"):
+        elif path.startswith("/api/issues"):
+            type_filter = qs.get("type", [None])[0]
+            status_filter = qs.get("status", [None])[0]
+            self._success(self.service.get_issues(type_filter=type_filter, status=status_filter))
+        elif path == "/api/work":
+            self._success(self.service.get_work())
+        elif path == "/api/activity":
+            self._success(self.service.get_activity())
+        elif path == "/api/health":
+            self._success(self.service.get_health())
 
-        elif self.path == "/api/multi-repo":
-            self._json_response(_gather_multi_repo_data(self.repo_root))
+        # ── PR detail: /api/pr/<id> ─────────────────────────────
+        elif path.startswith("/api/pr/"):
+            parts = path.rstrip("/").split("/")
+            try:
+                pr_id = int(parts[3])
+            except (IndexError, ValueError):
+                self._error_response(400, "Invalid PR ID")
+                return
+            detail = self.service.get_pr_detail(pr_id)
+            if detail is None:
+                self._error_response(404, f"PR #{pr_id} not found")
+            else:
+                self._success(detail)
 
-        # ── Heatmap API ─────────────────────────────────────────────
-        elif self.path == "/api/heatmap":
-            from deep.ai.analyzer import score_complexity # type: ignore[import]
-            from deep.storage.index import read_index # type: ignore[import]
+        # ── Heatmap API ─────────────────────────────────────────
+        elif path == "/api/heatmap":
+            from deep.ai.analyzer import score_complexity  # type: ignore[import]
             heatmap = []
-            objects_dir = cast(Any, self).dg_dir / "objects" # type: ignore
+            objects_dir = self.dg_dir / "objects"
             index = read_index(self.dg_dir)
-            for path, entry in index.entries.items():
+            for fpath, entry in index.entries.items():
                 try:
                     obj = read_object(objects_dir, entry.content_hash)
                     if isinstance(obj, Blob):
-                        # Quick binary check before scoring
                         if b"\0" not in obj.data:
                             content = obj.data.decode("utf-8", errors="ignore")
                             comp = score_complexity(content)
-                            heatmap.append({"file": path, "complexity": comp, "lines": len(content.splitlines())})
-                except Exception: pass
-            self._json_response(heatmap)
+                            heatmap.append({"file": fpath, "complexity": comp, "lines": len(content.splitlines())})
+                except Exception:
+                    pass
+            self._success(heatmap)
 
-        elif self.path.startswith("/api/diff/"):
-            sha = self.path.split("/")[-1].split("?")[0]
-            from urllib.parse import urlparse, parse_qs
-            repo_name = parse_qs(urlparse(self.path).query).get("repo", [None])[0]
-            dg = _get_repo_dg_dir(self.repo_root, repo_name)
-            self._json_response(_commit_diff(dg, sha))
-
-        elif self.path.startswith("/api/history"):
-            sha = self.path.split("/")[-1]
-            self._json_response(_commit_diff(self.dg_dir, sha))
-        elif self.path.startswith("/api/search"):
-            # /api/search?q=pattern
-            from urllib.parse import urlparse, parse_qs
-            query = parse_qs(urlparse(self.path).query).get("q", [""])[0]
-            from deep.core.search import search_history # type: ignore[import]
+        elif path.startswith("/api/history"):
+            sha = path.split("/")[-1]
+            self._success(_commit_diff(self.dg_dir, sha))
+        elif path.startswith("/api/search"):
+            query = qs.get("q", [""])[0]
             res = search_history(self.dg_dir, query)
-            self._json_response([
+            self._success([
                 {
                     "commit_sha": r.commit_sha,
                     "rel_path": r.rel_path,
@@ -347,27 +352,24 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     "content": r.content
                 } for r in res
             ])
-        elif self.path == "/api/metrics":
-            self._json_response(self._load_metrics())
-        elif self.path.startswith("/api/p2p/nodes"):
-            from deep.network.p2p import P2PEngine # type: ignore[import]
+        elif path == "/api/metrics":
+            self._success(self._load_metrics())
+        elif path.startswith("/api/p2p/nodes"):
+            from deep.network.p2p import P2PEngine  # type: ignore[import]
             from dataclasses import asdict
             engine = P2PEngine(self.dg_dir)
-            self._json_response([asdict(p) for p in engine.get_peers()])
-        elif self.path == "/api/p2p/presence":
-            from deep.network.p2p import P2PEngine # type: ignore[import]
+            self._success([asdict(p) for p in engine.get_peers()])
+        elif path == "/api/p2p/presence":
+            from deep.network.p2p import P2PEngine  # type: ignore[import]
             engine = P2PEngine(self.dg_dir)
             peers = engine.get_peers()
             presence = {}
             for p in peers:
                 presence.update(p.presence)
-            self._json_response(presence)
-        elif self.path == "/api/dag-3d":
-            # Return 3D coordinates for the DAG (X=time, Y=branch, Z=depth)
+            self._success(presence)
+        elif path == "/api/dag-3d":
             log = _gather_log(self.dg_dir)
             branches = _gather_refs(self.dg_dir)["branches"]
-            branch_map = {sha: name for name, sha in branches.items()}
-            
             nodes_3d = []
             for i, entry in enumerate(log):
                 branch_idx = list(branches.values()).index(entry["sha"]) if entry["sha"] in branches.values() else 0
@@ -378,12 +380,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     "z": len(entry["parents"]) * 5,
                     "message": entry["message"]
                 })
-            self._json_response(nodes_3d)
-        elif self.path.startswith("/api/blame/"):
-            rel_path = cast(Any, self).path[len("/api/blame/"):] # type: ignore
-            from deep.core.blame import get_blame # type: ignore[import]
+            self._success(nodes_3d)
+        elif path.startswith("/api/blame/"):
+            rel_path = path[len("/api/blame/"):]
+            from deep.core.blame import get_blame  # type: ignore[import]
             hunks = get_blame(self.dg_dir, rel_path)
-            self._json_response([
+            self._success([
                 {
                     "commit_sha": h.commit_sha,
                     "author": h.author,
@@ -392,25 +394,25 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     "num_lines": h.num_lines
                 } for h in hunks
             ])
-        elif self.path == "/api/commit-heatmap":
-            self._json_response(self._calculate_heatmap())
-        elif self.path == "/api/ai/review":
-            from deep.ai.assistant import DeepAI # type: ignore[import]
+        elif path == "/api/commit-heatmap":
+            self._success(self._calculate_heatmap())
+        elif path == "/api/ai/review":
+            from deep.ai.assistant import DeepAI  # type: ignore[import]
             ai = DeepAI(self.dg_dir.parent)
             res = ai.review_changes()
-            self._json_response({
+            self._success({
                 "text": res.text,
                 "confidence": res.confidence,
                 "details": res.details,
                 "latency_ms": res.latency_ms
             })
-        elif self.path == "/api/ai/metrics":
-            from deep.ai.assistant import DeepAI # type: ignore[import]
+        elif path == "/api/ai/metrics":
+            from deep.ai.assistant import DeepAI  # type: ignore[import]
             ai = DeepAI(self.dg_dir.parent)
-            self._json_response(ai.get_metrics())
+            self._success(ai.get_metrics())
         else:
             # Try to serve static file
-            fpath = STATIC_DIR / self.path.lstrip("/")
+            fpath = STATIC_DIR / path.lstrip("/")
             if fpath.exists() and fpath.is_file():
                 ctype = "text/css" if fpath.suffix == ".css" else \
                         "application/javascript" if fpath.suffix == ".js" else \
@@ -419,14 +421,146 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             else:
                 self.send_error(404)
 
-    def _json_response(self, data):
-        body = json.dumps(data, default=str).encode("utf-8")
+    # ── POST ──────────────────────────────────────────────────────
+
+    def do_POST(self):
+        try:
+            self._handle_post()
+        except Exception as e:
+            self._error_response(500, str(e))
+
+    def _handle_post(self):
+        path = urlparse(self.path).path
+
+        # Read JSON body
+        content_length = int(self.headers.get("Content-Length", 0))
+        body: dict = {}
+        if content_length > 0:
+            raw = self.rfile.read(content_length)
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except Exception:
+                self._error_response(400, "Invalid JSON body")
+                return
+
+        # POST /api/pr/<id>/approve
+        # POST /api/pr/<id>/request_changes
+        # POST /api/pr/<id>/resolve_thread
+        # POST /api/pr/<id>/merge
+        import re
+        
+        # IDE / Workspace Actions
+        if path == "/api/commit":
+            path_val = body.get("path")
+            content = body.get("content")
+            message = body.get("message")
+            author = body.get("author", "WebIDE")
+            if not path_val or content is None or not message:
+                self._error_response(400, "Missing required fields (path, content, message)")
+                return
+            result = self.service.create_commit(path_val, content, message, author)
+            if "error" in result:
+                self._error_response(422, result["error"])
+            else:
+                self._success(result)
+            return
+        elif path == "/api/branch/create":
+            name = body.get("name")
+            author = body.get("author", "WebIDE")
+            if not name:
+                self._error_response(400, "Missing branch name")
+                return
+            result = self.service.create_branch(name, author)
+            if "error" in result:
+                self._error_response(422, result["error"])
+            else:
+                self._success(result)
+            return
+        elif path == "/api/branch/checkout":
+            name = body.get("name")
+            author = body.get("author", "WebIDE")
+            if not name:
+                self._error_response(400, "Missing branch name")
+                return
+            result = self.service.checkout_branch(name, author)
+            if "error" in result:
+                self._error_response(422, result["error"])
+            else:
+                self._success(result)
+            return
+
+        # PR Actions
+        m = re.match(r"^/api/pr/(\d+)/(approve|request_changes|resolve_thread|merge)$", path)
+        if not m:
+            self._error_response(404, "Unknown POST endpoint")
+            return
+
+        pr_id = int(m.group(1))
+        action = m.group(2)
+
+        if action == "approve":
+            author = body.get("author", "")
+            if not author:
+                self._error_response(400, "Missing 'author' in request body")
+                return
+            result = self.service.approve_pr(pr_id, author)
+        elif action == "request_changes":
+            author = body.get("author", "")
+            comment = body.get("comment", "")
+            if not author:
+                self._error_response(400, "Missing 'author' in request body")
+                return
+            result = self.service.request_changes_pr(pr_id, author, comment)
+        elif action == "resolve_thread":
+            thread_id = body.get("thread_id")
+            if thread_id is None:
+                self._error_response(400, "Missing 'thread_id' in request body")
+                return
+            result = self.service.resolve_thread_pr(pr_id, int(thread_id))
+        elif action == "merge":
+            author = body.get("author", "")
+            result = self.service.merge_pr(pr_id, author)
+        else:
+            self._error_response(404, "Unknown action")
+            return
+
+        if "error" in result:
+            self._error_response(422, result["error"])
+        else:
+            self._success(result)
+
+    # ── Response helpers ──────────────────────────────────────────
+
+    def _success(self, data: Any):
+        body = json.dumps({"success": True, "data": data}, default=str).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(body)
+
+    def _error_response(self, status: int, message: str):
+        try:
+            body = json.dumps({"success": False, "error": message}).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception:
+            pass
+
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests."""
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
 
     def _serve_file(self, path: Path, content_type: str):
         try:
@@ -450,14 +584,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def _calculate_heatmap(self) -> dict:
         """Calculate commit density per day for the last 365 days."""
-        from deep.core.refs import resolve_head # type: ignore[import]
-        from deep.storage.objects import read_object_safe # type: ignore[import]
-        
         counts = {}
         head = resolve_head(self.dg_dir)
         if not head:
             return counts
-            
+
         visited = set()
         queue = [head]
         import datetime
@@ -466,9 +597,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if sha in visited:
                 continue
             visited.add(sha)
-            
+
             try:
-                obj = read_object(self.dg_dir / "objects", sha) # type: ignore
+                obj = read_object(self.dg_dir / "objects", sha)  # type: ignore
                 if isinstance(obj, Commit):
                     date_str = datetime.datetime.fromtimestamp(obj.timestamp).strftime("%Y-%m-%d")
                     counts[date_str] = counts.get(date_str, 0) + 1
@@ -486,8 +617,9 @@ def start_dashboard(repo_root: Path, host: str = "127.0.0.1", port: int = 9000):
     dg_dir = repo_root / DEEP_DIR
     DashboardHandler.dg_dir = dg_dir
     DashboardHandler.repo_root = repo_root
+    DashboardHandler.service = DashboardService(dg_dir, repo_root)
 
-    server = HTTPServer((host, port), DashboardHandler)
+    server = ThreadingHTTPServer((host, port), DashboardHandler)
     print(f"Deep Dashboard running at http://{host}:{port}")
     print("Press Ctrl+C to stop.")
     try:
