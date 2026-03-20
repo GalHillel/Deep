@@ -282,7 +282,28 @@ class DashboardService:
 
     def _serialize_dc(self, obj: Any) -> Dict[str, Any]:
         from dataclasses import asdict
-        return asdict(obj)
+        data = asdict(obj)
+        # Normalize status -> state for frontend consistency
+        if "status" in data:
+            data["state"] = data["status"].upper() # VSCode style
+        
+        # Normalize PR description field
+        if "body" in data and "desc" not in data:
+            data["desc"] = data["body"]
+        
+        # Normalize PR reviews from Dict to List for easier frontend mapping
+        if "reviews" in data and isinstance(data["reviews"], dict):
+            review_list = []
+            for author, r in data["reviews"].items():
+                review_list.append({
+                    "reviewer": author,
+                    "state": r.get("status", "COMMENTED").upper(),
+                    "comment": r.get("comment", ""),
+                    "timestamp": r.get("timestamp", "")
+                })
+            data["reviews"] = review_list
+            
+        return data
 
     def create_pr_enhanced(self, data: Dict[str, Any]) -> Dict[str, Any]:
         return self._safe(self._create_pr_enhanced_internal, data)

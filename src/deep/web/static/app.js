@@ -360,18 +360,64 @@ const App = {
         c.innerHTML = html;
     },
 
-    /* --- COLLABORATION HUB --- */
+    /* --- ISSUES MANAGEMENT --- */
     async loadIssues() {
         const data = await this.api('/api/issues/local');
-        let html = `<div class="flex justify-between items-center mb-6"><h3 class="text-lg font-bold text-white"><i class="fa-regular fa-circle-dot text-green-500 mr-2"></i> Local Issues</h3><button onclick="App.showCreateIssueModal()" class="bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded font-bold text-xs"><i class="fa-solid fa-plus mr-1"></i> New Issue</button></div><div class="space-y-3">`;
-        if (!data || !data.issues || data.issues.length === 0) { html += "<div class='text-gray-500 text-center p-4 italic'>No issues found.</div>"; }
-        else {
+        let html = `
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white"><i class="fa-regular fa-circle-dot text-green-500 mr-2"></i> Local Issues</h3>
+                <button onclick="App.showCreateIssueModal()" class="bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded font-bold text-sm transition-colors"><i class="fa-solid fa-plus mr-1"></i> New Issue</button>
+            </div>
+            <div class="grid gap-3">
+        `;
+        if (!data || !data.issues || data.issues.length === 0) {
+            html += "<div class='text-gray-500 bg-gray-900/50 p-4 rounded border border-gray-800 text-center'>No local issues found.</div>";
+        } else {
             data.issues.forEach(iss => {
-                const isO = (iss.status || iss.state) === "open" || (iss.status || iss.state) === "OPEN";
-                html += `<div class="bg-gray-900/60 p-4 rounded-xl border border-gray-800 flex justify-between items-start transition-all hover:border-gray-700"><div class="flex-1"><div class="font-bold text-white mb-1"><span class="${isO?'text-green-400':'text-purple-400'}">[${(iss.status || iss.state).toUpperCase()}]</span> #${iss.id} ${iss.title}</div><div class="text-gray-500 text-sm italic">${iss.description || iss.body || 'No description.'}</div></div><button onclick="App.manageIssue(${iss.id}, '${isO?'close':'reopen'}')" class="text-[10px] bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded-lg text-gray-300 font-bold uppercase tracking-wider transition-colors ml-3">${isO?'Close':'Reopen'}</button></div>`;
+                const color = iss.state === "OPEN" ? "text-green-400" : "text-purple-400";
+                html += `
+                <div class="bg-gray-800 p-4 rounded-lg border border-gray-700 hover:border-green-500 transition-colors cursor-pointer" onclick="App.showIssueDetails(${iss.id})">
+                    <div class="font-bold text-white mb-2"><span class="${color}">[${iss.state}]</span> #${iss.id} ${iss.title}</div>
+                    <div class="text-gray-400 text-sm truncate">${iss.body || 'No description'}</div>
+                </div>`;
             });
         }
-        document.getElementById('panel-issues').innerHTML = `<div class="p-6 overflow-y-auto h-full">${html}</div></div>`;
+        document.getElementById('issues-content').innerHTML = html + "</div>";
+    },
+
+    async showIssueDetails(issueId) {
+        const data = await this.api('/api/issues/local');
+        if(!data || !data.issues) return;
+        const iss = data.issues.find(i => i.id == issueId);
+        if(!iss) return;
+
+        const isOpen = iss.state === 'OPEN';
+        const stateColor = isOpen ? 'text-green-400 bg-green-900/30 border-green-700' : 'text-purple-400 bg-purple-900/30 border-purple-700';
+
+        const modalHtml = `
+            <div id="issue-detail-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] fade-in">
+                <div class="bg-gray-900 border border-gray-700 rounded-xl w-[600px] shadow-2xl flex flex-col">
+                    <div class="p-5 border-b border-gray-700 bg-gray-800 flex justify-between items-start rounded-t-xl">
+                        <div>
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="font-mono text-xs font-bold px-2 py-1 rounded border ${stateColor}">${iss.state}</span>
+                                <h2 class="text-xl font-bold text-white">#${iss.id} ${iss.title}</h2>
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('issue-detail-modal').remove()" class="text-gray-400 hover:text-white text-xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="p-6 bg-gray-950 text-gray-300 min-h-[100px] whitespace-pre-wrap font-mono text-sm border-b border-gray-800">
+                        ${iss.description || iss.body || '<span class="italic text-gray-600">No description provided.</span>'}
+                    </div>
+                    <div class="p-4 bg-gray-900 rounded-b-xl flex justify-end gap-3">
+                        ${isOpen 
+                            ? `<button onclick="App.manageIssue(${iss.id}, 'close'); document.getElementById('issue-detail-modal').remove();" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded font-bold transition-colors"><i class="fa-solid fa-check mr-2"></i>Close Issue</button>` 
+                            : `<button onclick="App.manageIssue(${iss.id}, 'reopen'); document.getElementById('issue-detail-modal').remove();" class="bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded font-bold transition-colors"><i class="fa-solid fa-rotate-left mr-2"></i>Reopen Issue</button>`
+                        }
+                    </div>
+                </div>
+            </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
     },
 
     async showCreateIssueModal() {
@@ -390,17 +436,107 @@ const App = {
         if (await this.api('/api/issue/manage', 'POST', { issue_id, action })) { this.toast(`Issue ${action === 'close' ? 'closed' : 'reopened'}`); this.loadIssues(); }
     },
 
+    /* --- PULL REQUESTS MANAGEMENT --- */
     async loadPRs() {
         const data = await this.api('/api/prs/local');
-        let html = `<div class="flex justify-between items-center mb-6"><h3 class="text-lg font-bold text-white"><i class="fa-solid fa-code-pull-request text-purple-500 mr-2"></i> Local PRs</h3><button onclick="App.showCreatePRModal()" class="bg-purple-700 hover:bg-purple-600 text-white px-3 py-1 rounded font-bold text-xs"><i class="fa-solid fa-plus mr-1"></i> New PR</button></div><div class="grid gap-4">`;
-        if (!data || !data.prs || data.prs.length === 0) { html += "<div class='text-gray-500 text-center p-4 italic'>No PRs found.</div>"; }
-        else {
+        let html = `
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white"><i class="fa-solid fa-code-pull-request text-purple-500 mr-2"></i> Local Pull Requests</h3>
+                <button onclick="App.showCreatePRModal()" class="bg-purple-700 hover:bg-purple-600 text-white px-3 py-1 rounded font-bold text-sm transition-colors"><i class="fa-solid fa-plus mr-1"></i> New PR</button>
+            </div>
+            <div class="grid gap-3">
+        `;
+        if (!data || !data.prs || data.prs.length === 0) {
+            html += "<div class='text-gray-500 bg-gray-900/50 p-4 rounded border border-gray-800 text-center'>No local PRs found.</div>";
+        } else {
             data.prs.forEach(pr => {
-                const c = pr.status === "merged" ? "text-green-400" : "text-amber-400";
-                html += `<div class="bg-gray-900/60 p-4 rounded-xl border border-gray-800 hover:border-purple-900/50 transition-all cursor-pointer" onclick="App.showPRDetails(${pr.id})"><div class="flex justify-between mb-2"><span class="font-bold text-white">#${pr.id} ${pr.title}</span><span class="${c} text-[10px] uppercase font-black">${pr.status}</span></div><div class="text-gray-500 text-xs mb-3 italic">${pr.body || 'No description.'}</div><div class="text-[10px] font-mono text-cyan-500 bg-black/40 px-2 py-1 rounded border border-gray-800 inline-block">${pr.head} → ${pr.base}</div></div>`;
+                const color = pr.state === "APPROVED" ? "text-green-400" : pr.state === "CLOSED" ? "text-red-400" : "text-yellow-400";
+                html += `
+                <div class="bg-gray-800 p-4 rounded-lg border border-gray-700 hover:border-purple-500 transition-colors cursor-pointer" onclick="App.showPRDetails(${pr.id})">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-bold text-lg text-white">#${pr.id} ${pr.title}</span>
+                        <span class="font-mono text-xs font-bold ${color} bg-gray-900 px-2 py-1 rounded border border-gray-700">${pr.state}</span>
+                    </div>
+                    <div class="flex gap-3 text-xs font-mono text-cyan-400 bg-gray-900 inline-flex px-2 py-1 rounded border border-gray-800">
+                        <span>${pr.head}</span> <i class="fa-solid fa-arrow-right text-gray-500"></i> <span>${pr.base}</span>
+                    </div>
+                </div>`;
             });
         }
-        document.getElementById('panel-prs').innerHTML = `<div class="p-6 overflow-y-auto h-full">${html}</div></div>`;
+        document.getElementById('prs-content').innerHTML = html + "</div>";
+    },
+
+    async showPRDetails(prId) {
+        const data = await this.api('/api/prs/local');
+        if(!data || !data.prs) return;
+        const pr = data.prs.find(p => p.id == prId);
+        if(!pr) return;
+
+        const isApproved = pr.state === "APPROVED";
+        const stateColor = isApproved ? 'text-green-400 border-green-700 bg-green-900/30' : pr.state === "CLOSED" ? 'text-red-400 border-red-700 bg-red-900/30' : 'text-yellow-400 border-yellow-700 bg-yellow-900/30';
+        
+        let reviewsHtml = '';
+        if (pr.reviews && pr.reviews.length > 0) {
+            reviewsHtml = pr.reviews.map(r => 
+                `<div class="bg-gray-900 p-3 rounded border border-gray-700 mb-2 flex flex-col">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="font-bold text-xs px-2 py-0.5 rounded border ${r.state === 'APPROVED' ? 'text-green-400 border-green-700' : 'text-yellow-400 border-yellow-700'}">${r.state}</span> 
+                        <span class="text-gray-300 font-bold text-sm"><i class="fa-solid fa-user-astronaut text-gray-500 mr-1"></i>${r.reviewer}</span>
+                    </div>
+                    ${r.comment ? `<p class="text-gray-400 text-sm mt-1 bg-gray-950 p-2 rounded font-mono">${r.comment}</p>` : ''}
+                </div>`
+            ).join('');
+        } else {
+            reviewsHtml = '<div class="text-gray-500 italic text-sm p-4 bg-gray-900/50 rounded border border-gray-800 text-center">No reviews submitted yet.</div>';
+        }
+
+        const modalHtml = `
+            <div id="pr-detail-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] fade-in">
+                <div class="bg-gray-800 border border-gray-700 rounded-xl w-[800px] max-h-[90vh] flex flex-col shadow-2xl">
+                    <div class="p-5 border-b border-gray-700 bg-gray-900 flex justify-between items-start rounded-t-xl shrink-0">
+                        <div>
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="font-mono text-xs font-bold px-2 py-1 rounded border ${stateColor}">${pr.state}</span>
+                                <h2 class="text-2xl font-bold text-white">#${pr.id} ${pr.title}</h2>
+                            </div>
+                            <div class="flex gap-3 text-sm font-mono text-cyan-400 bg-gray-950 inline-flex px-3 py-1 rounded border border-gray-800">
+                                <span>${pr.head}</span> <i class="fa-solid fa-arrow-right text-gray-500"></i> <span>${pr.base}</span>
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('pr-detail-modal').remove()" class="text-gray-400 hover:text-white text-xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    
+                    <div class="p-6 overflow-y-auto space-y-6 bg-gray-800">
+                        <div>
+                            <h3 class="text-gray-400 font-bold uppercase text-xs tracking-wider mb-2"><i class="fa-solid fa-align-left mr-1"></i> Description</h3>
+                            <div class="text-gray-300 bg-gray-900 p-4 rounded border border-gray-700 font-mono text-sm whitespace-pre-wrap">${pr.desc || '<span class="italic text-gray-600">No description provided.</span>'}</div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-gray-400 font-bold uppercase text-xs tracking-wider mb-2"><i class="fa-solid fa-comments mr-1"></i> Reviews</h3>
+                            ${reviewsHtml}
+                        </div>
+                        
+                        ${pr.state !== 'CLOSED' && pr.state !== 'MERGED' && !isApproved ? `
+                        <div class="bg-gray-900 p-4 rounded border border-gray-700">
+                            <h3 class="text-gray-200 font-bold text-sm mb-3">Submit a Review</h3>
+                            <textarea id="review-comment" class="w-full bg-gray-950 border border-gray-800 rounded p-2 text-white mb-3 h-20 focus:border-cyan-500 focus:outline-none placeholder-gray-600" placeholder="Leave a comment (optional)..."></textarea>
+                            <div class="flex gap-3">
+                                <button onclick="App.submitPRReview(${pr.id}, 'APPROVED')" class="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded font-bold text-sm transition-colors shadow-lg"><i class="fa-solid fa-check mr-2"></i>Approve</button>
+                                <button onclick="App.submitPRReview(${pr.id}, 'CHANGES_REQUESTED')" class="bg-yellow-700 hover:bg-yellow-600 text-white px-4 py-2 rounded font-bold text-sm transition-colors shadow-lg"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Request Changes</button>
+                            </div>
+                        </div>` : ''}
+                    </div>
+                    
+                    <div class="p-4 bg-gray-900 border-t border-gray-700 flex justify-end shrink-0 rounded-b-xl">
+                        <button onclick="App.mergePR(${pr.id})" class="${isApproved ? 'bg-purple-600 hover:bg-purple-500 cursor-pointer shadow-lg hover:shadow-purple-500/20' : 'bg-gray-700 text-gray-400 cursor-not-allowed'} text-white px-6 py-2.5 rounded font-bold flex items-center transition-all" ${!isApproved ? 'disabled title="Requires Approval"' : ''}>
+                            <i class="fa-solid fa-code-merge mr-2"></i> Merge Pull Request
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
     },
 
     showCreatePRModal() {
@@ -415,71 +551,8 @@ const App = {
         if (await this.api('/api/pr/create', 'POST', payload)) { this.toast("PR created!"); document.getElementById('create-pr-modal').remove(); this.loadPRs(); }
     },
 
-    async showPRDetails(id) {
-        const data = await this.api('/api/prs/local'); 
-        const pr = data.prs.find(p => p.id == id);
-        if (!pr) return this.toast("PR not found", true);
-        
-        const reviewsHtml = (pr.reviews || []).map(r => `
-            <div class="bg-black/40 p-3 rounded-lg border border-gray-800 text-xs">
-                <div class="flex justify-between mb-1">
-                    <span class="font-bold text-gray-300">${r.author}</span>
-                    <span class="uppercase font-black ${r.state === 'APPROVED' ? 'text-green-500' : 'text-red-500'}">${r.state}</span>
-                </div>
-                <div class="text-gray-500 italic">${r.comment || 'No comment.'}</div>
-            </div>
-        `).join('') || '<div class="text-gray-600 text-xs italic">No reviews yet.</div>';
-
-        const modalHtml = `
-            <div id="pr-detail-modal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-[110] animate-in zoom-in duration-200">
-                <div class="bg-gray-900 border border-gray-700 rounded-2xl w-[600px] max-h-[80vh] overflow-hidden shadow-2xl flex flex-col">
-                    <div class="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <span class="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase">${pr.status}</span>
-                            <h3 class="font-bold text-white">#${pr.id} ${pr.title}</h3>
-                        </div>
-                        <button onclick="document.getElementById('pr-detail-modal').remove()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-                    </div>
-                    <div class="p-6 overflow-y-auto space-y-6 bg-[#0b0f19]">
-                        <div class="space-y-2">
-                            <div class="text-xs font-black text-gray-500 uppercase tracking-widest">Description</div>
-                            <div class="text-gray-300 text-sm bg-black/20 p-4 rounded-xl border border-gray-800">${pr.body || 'No description provided.'}</div>
-                        </div>
-                        
-                        <div class="flex gap-4">
-                            <div class="flex-1 space-y-2">
-                                <div class="text-xs font-black text-gray-500 uppercase tracking-widest">Pipeline</div>
-                                <div class="font-mono text-[11px] text-cyan-400 bg-black p-3 rounded-xl border border-gray-800">
-                                    ${pr.head} <i class="fa-solid fa-arrow-right mx-2 text-gray-600"></i> ${pr.base}
-                                </div>
-                            </div>
-                            <div class="flex-1 space-y-2">
-                                <div class="text-xs font-black text-gray-500 uppercase tracking-widest">Linked Issue</div>
-                                <div class="text-sm ${pr.linked_issue ? 'text-green-400' : 'text-gray-600 italic'} bg-black p-3 rounded-xl border border-gray-800">
-                                    ${pr.linked_issue ? `Issue #${pr.linked_issue}` : 'None'}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-3">
-                            <div class="text-xs font-black text-gray-500 uppercase tracking-widest">Reviews</div>
-                            <div class="space-y-2">${reviewsHtml}</div>
-                        </div>
-
-                        <div class="pt-4 border-t border-gray-800 flex gap-3">
-                            <button onclick="App.submitReview(${pr.id}, 'APPROVED')" class="flex-1 bg-green-700 hover:bg-green-600 text-white font-black py-2 rounded-lg text-[10px] uppercase">Approve</button>
-                            <button onclick="App.submitReview(${pr.id}, 'CHANGES_REQUESTED')" class="flex-1 bg-red-900/50 hover:bg-red-800 text-red-100 font-black py-2 rounded-lg text-[10px] uppercase">Request Changes</button>
-                            <button onclick="App.mergePR(${pr.id})" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-black py-2 rounded-lg text-[10px] uppercase shadow-lg">Merge PR</button>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    },
-
-    async submitReview(pr_id, state) {
-        const comment = prompt("Enter review comment:", state === 'APPROVED' ? "LGTM!" : "Please fix...");
-        if (comment === null) return;
+    async submitPRReview(pr_id, state) {
+        const comment = document.getElementById('review-comment')?.value || (state === 'APPROVED' ? "LGTM!" : "Please fix...");
         if (await this.api('/api/pr/review', 'POST', { pr_id, state, comment })) {
             this.toast("Review submitted!");
             document.getElementById('pr-detail-modal')?.remove();
