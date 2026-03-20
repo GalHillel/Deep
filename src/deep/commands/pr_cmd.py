@@ -183,7 +183,7 @@ def run(args) -> None:
 
         # 4d. Reviewer Assignment (Part 7)
         reviewers_str = input("Assign reviewers (comma separated, optional): ").strip()
-        requested_reviewers = [r.strip() for r in reviewers_str.split(",")] if reviewers_str else []
+        requested_reviewers = [r.strip().lower() for r in reviewers_str.split(",") if r.strip()] if reviewers_str else []
 
         # 5. Summary & Confirmation
         print(f"\nSummary:")
@@ -297,13 +297,22 @@ def run(args) -> None:
         if pr.linked_issue:
             print(f"Issue:    #{pr.linked_issue}")
             
-        # Part 5: Elite PR Show UX (Summary Block)
-        approvals = [a for a in pr.reviews if pr.reviews[a]["status"] == "approved"]
+        # Part 5: Elite PR Show UX (Summary Block) - Refined Approval Counting (Part 4)
+        if pr.requested_reviewers:
+            requested_lower = [r.lower() for r in pr.requested_reviewers]
+            approvals = [a for a in pr.reviews if a.lower() in requested_lower and pr.reviews[a]["status"] == "approved"]
+            other_approvals = [a for a in pr.reviews if a.lower() not in requested_lower and pr.reviews[a]["status"] == "approved"]
+        else:
+            approvals = [a for a in pr.reviews if pr.reviews[a]["status"] == "approved"]
+            other_approvals = []
+
         changes_req = [a for a in pr.reviews if pr.reviews[a]["status"] == "changes_requested"]
         unresolved = pr.unresolved_count
         
         print(f"\n{Color.wrap(Color.BOLD, 'Review Summary:')}")
         print(f"  {Color.wrap(Color.GREEN, '✔')} Approvals: {len(approvals)}/{pr.approvals_required}")
+        if other_approvals:
+            print(f"  {Color.wrap(Color.YELLOW, '⚠')} {Color.wrap(Color.YELLOW, 'Reviewer mismatch: approval by non-assigned user')} ({', '.join(other_approvals)})")
         if changes_req:
             print(f"  {Color.wrap(Color.RED, '❌')} Changes Requested: {len(changes_req)}")
         if unresolved > 0:
@@ -389,18 +398,20 @@ def run(args) -> None:
             print_error(f"PR #{pr_id} is closed.")
             return
 
-        # Smart Merge Engine (Part 4)
-        approvals = [author for author, r in pr_obj.reviews.items() if r["status"] == "approved"]
+        # Smart Merge Engine (Part 4) - Refined Approval Counting
+        if pr_obj.requested_reviewers:
+            requested_lower = [r.lower() for r in pr_obj.requested_reviewers]
+            # ONLY count approvals from requested reviewers
+            effective_approvals = [author for author, r in pr_obj.reviews.items() 
+                                   if author.lower() in requested_lower and r["status"] == "approved"]
+        else:
+            # Count ALL approvals if no reviewers assigned
+            effective_approvals = [author for author, r in pr_obj.reviews.items() 
+                                   if r["status"] == "approved"]
+
         changes_req = [author for author, r in pr_obj.reviews.items() if r["status"] == "changes_requested"]
         unresolved = pr_obj.unresolved_count
         
-        # If reviewers were assigned, only count approvals from them (Case-Insensitive)
-        if pr_obj.requested_reviewers:
-            requested_lower = [r.lower() for r in pr_obj.requested_reviewers]
-            effective_approvals = [a for a in approvals if a.lower() in requested_lower]
-        else:
-            effective_approvals = approvals
-            
         is_blocked = False
         reasons = []
         

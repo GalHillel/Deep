@@ -11,7 +11,7 @@ import json
 import time
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 def asdict_deep(obj):
     if isinstance(obj, list):
@@ -81,6 +81,11 @@ class PRManager:
         prs = self.list_prs()
         next_id = max([p.id for p in prs], default=0) + 1
         
+        # Normalize author and reviewers
+        author = author.lower()
+        if requested_reviewers:
+            requested_reviewers = [r.strip().lower() for r in requested_reviewers if r.strip()]
+
         pr = PullRequest(
             id=next_id,
             title=title,
@@ -137,7 +142,48 @@ class PRManager:
                 threads.append(PRThread(replies=replies, **t))
             
             data["threads"] = threads
-            return PullRequest(**data)
+
+            # Normalize and Migrate reviews (Part 7: Backward Compatibility)
+            reviews_raw = data.get("reviews", {})
+            reviews_final = {}
+            migrated = False
+            if isinstance(reviews_raw, list):
+                # Migrating from old list format to dict
+                migrated = True
+                for r in reviews_raw:
+                    author = r.get("author", "unknown").lower()
+                    reviews_final[author] = {
+                        "status": r.get("status", "commented"),
+                        "comment": r.get("comment", ""),
+                        "timestamp": r.get("timestamp", time.strftime("%Y-%m-%d %H:%M:%S"))
+                    }
+            elif isinstance(reviews_raw, dict):
+                # Ensure all keys are lowercase
+                for author, r in reviews_raw.items():
+                    if author != author.lower():
+                        migrated = True
+                    reviews_final[author.lower()] = r
+            
+            data["reviews"] = reviews_final
+
+            # Normalize requested_reviewers
+            if "requested_reviewers" in data and data["requested_reviewers"]:
+                orig_reviewers = data["requested_reviewers"]
+                data["requested_reviewers"] = [r.lower() for r in data["requested_reviewers"]]
+                if data["requested_reviewers"] != orig_reviewers:
+                    migrated = True
+
+            # Normalize author
+            if "author" in data:
+                orig_author = data["author"]
+                data["author"] = data["author"].lower()
+                if data["author"] != orig_author:
+                    migrated = True
+
+            pr = PullRequest(**data)
+            if migrated:
+                self.save_pr(pr)
+            return pr
 
     def list_prs(self) -> List[PullRequest]:
         prs = []
@@ -212,6 +258,7 @@ class PRManager:
         pr = self.get_pr(pr_id)
         if not pr: raise ValueError(f"PR #{pr_id} not found")
         
+        author = author.lower()
         thread_id = len(pr.threads) + 1
         thread = PRThread(id=thread_id, author=author, text=text)
         pr.threads.append(thread)
@@ -230,6 +277,7 @@ class PRManager:
         pr = self.get_pr(pr_id)
         if not pr: raise ValueError(f"PR #{pr_id} not found")
         
+        author = author.lower()
         thread = next((t for t in pr.threads if t.id == thread_id), None)
         if not thread: raise ValueError(f"Thread #{thread_id} not found in PR #{pr_id}")
         
@@ -267,6 +315,7 @@ class PRManager:
         pr = self.get_pr(pr_id)
         if not pr: raise ValueError(f"PR #{pr_id} not found")
         
+        author = author.lower()
         is_update = author in pr.reviews
         
         # Overwrite previous review by same author (Part 3)
