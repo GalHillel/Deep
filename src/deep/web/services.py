@@ -121,7 +121,9 @@ class DashboardService:
         if not path: raise ValueError("No file specified")
         full_path = self.repo_root / path
         full_path.parent.mkdir(parents=True, exist_ok=True)
-        full_path.write_text(content, encoding='utf-8')
+        # Normalize CRLF to LF to prevent double-spacing on Windows
+        normalized_content = content.replace('\r\n', '\n')
+        full_path.write_text(normalized_content, encoding='utf-8')
         return {"path": path, "status": "success"}
 
     # --- Git Operations ---
