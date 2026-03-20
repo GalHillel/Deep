@@ -9,13 +9,21 @@ const App = {
         currentFile: null,
         editor: null,
         graphInstance: null,
-        workspace: { branch: 'main', dirty: false }
+        workspace: { branch: 'main', dirty: false },
+        activeContextPath: null // Tracks selection in Explorer
     },
 
     async init() {
         console.log("⚓ Deep Studio Final Overhaul Booting...");
         this.initEditor();
         await this.syncWorkspace();
+        
+        // Set Project Name in Sidebar Header
+        const repoRoot = this.state.workspace.repo_path || "Project";
+        const projectName = repoRoot.split(/[\\/]/).pop();
+        const headerName = document.getElementById('explorer-project-name');
+        if(headerName) headerName.textContent = projectName;
+
         this.switchTab('code');
         setInterval(() => this.syncWorkspace(), 5000); 
     },
@@ -97,9 +105,19 @@ const App = {
     async loadTree() {
         const data = await this.api('/api/tree');
         if (!data || !data.tree) return;
-        const renderNode = (nodeMap, name) => {
+        
+        // Define Active Styles for Tailwind
+        const activeItemClasses = "bg-cyan-900/50 text-white font-semibold border border-cyan-700";
+        const hoverItemClasses = "hover:bg-slate-800";
+
+        const renderNode = (nodeMap, name, depth = 0) => {
             const node = nodeMap[name];
-            if (node._type === 'dir') {
+            const isDir = node._type === 'dir';
+            const currentPath = node.path || (isDir ? name : ''); 
+            const isActive = this.state.activeContextPath === currentPath;
+            const indent = depth > 0 ? `style="margin-left: ${depth * 10}px;"` : '';
+
+            if (isDir) {
                 let childHtml = '';
                 const sortedKeys = Object.keys(node.children).sort((a, b) => {
                     const typeA = node.children[a]._type;
@@ -107,21 +125,61 @@ const App = {
                     if (typeA === typeB) return a.localeCompare(b);
                     return typeA === 'dir' ? -1 : 1;
                 });
-                for (const key of sortedKeys) childHtml += renderNode(node.children, key);
-                return `<div class="ml-2 mt-1"><div class="cursor-pointer font-semibold text-slate-300 hover:text-white flex items-center py-1 select-none text-[13px]" onclick="this.nextElementSibling.classList.toggle('hidden')"><i class="fa-solid fa-folder text-cyan-600 mr-2 w-4"></i> ${name}</div><div class="ml-2 pl-2 border-l border-slate-800 hidden">${childHtml}</div></div>`;
+                for (const key of sortedKeys) childHtml += renderNode(node.children, key, depth + 1);
+                
+                return `
+                <div class="mt-1" ${indent}>
+                    <div id="tree-node-${btoa(currentPath)}"
+                         class="cursor-pointer font-semibold text-slate-300 hover:text-white flex items-center py-1 select-none px-2 rounded transition-all ${hoverItemClasses} ${isActive ? activeItemClasses : ''}" 
+                         onclick="App.setExplorerContext('${currentPath}', 'folder'); this.nextElementSibling.classList.toggle('hidden')">
+                        <i class="fa-solid fa-folder text-cyan-600 mr-2 w-4"></i> ${name}
+                    </div>
+                    <div class="hidden border-l border-slate-800 ml-2 pl-2">
+                        ${childHtml}
+                    </div>
+                </div>`;
             } else {
-                return `<div class="ml-2 cursor-pointer text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded px-1 flex items-center py-1 transition-colors select-none text-[13px]" onclick="App.openFile('${node.path}')"><i class="fa-regular fa-file-code text-slate-500 mr-2 w-4"></i> ${name}</div>`;
+                return `
+                <div class="mt-1" ${indent}>
+                    <div id="tree-node-${btoa(currentPath)}"
+                         class="cursor-pointer text-slate-400 hover:text-cyan-400 flex items-center py-1 px-2 rounded transition-all ${hoverItemClasses} ${isActive ? activeItemClasses : ''}" 
+                         onclick="App.setExplorerContext('${currentPath}', 'file')">
+                        <i class="fa-regular fa-file-code text-slate-500 mr-2 w-4"></i> ${name}
+                    </div>
+                </div>`;
             }
         };
+
         const rootKeys = Object.keys(data.tree).sort((a,b) => {
             const typeA = data.tree[a]._type;
             const typeB = data.tree[b]._type;
             if (typeA === typeB) return a.localeCompare(b);
             return typeA === 'dir' ? -1 : 1;
         });
-        let html = '<div class="space-y-1">';
+
+        let html = '<div class="space-y-1 text-[13px] pt-2">';
         for (const key of rootKeys) html += renderNode(data.tree, key);
-        document.getElementById('sidebar-content').innerHTML = html + '</div>';
+        html += '</div>';
+
+        document.getElementById('sidebar-content').innerHTML = html;
+        
+        if(this.state.activeContextPath) {
+            const el = document.getElementById(`tree-node-${btoa(this.state.activeContextPath)}`);
+            if(el) el.scrollIntoView({ block: 'nearest' });
+        }
+    },
+
+    setExplorerContext(path, type) {
+        // Apply active styles visually
+        if(this.state.activeContextPath) {
+            const oldEl = document.getElementById(`tree-node-${btoa(this.state.activeContextPath)}`);
+            if(oldEl) oldEl.classList.remove("bg-cyan-900/50", "text-white", "font-semibold", "border", "border-cyan-700");
+        }
+        this.state.activeContextPath = path;
+        const newEl = document.getElementById(`tree-node-${btoa(path)}`);
+        if(newEl) newEl.classList.add("bg-cyan-900/50", "text-white", "font-semibold", "border", "border-cyan-700");
+
+        if (type === 'file') this.openFile(path);
     },
 
     async openFile(path) {
@@ -158,6 +216,67 @@ const App = {
         if (!this.state.currentFile) return this.toast("No file open.", true);
         const res = await this.api('/api/file/save', 'POST', { filepath: this.state.currentFile, content: this.state.editor.getValue() });
         if (res) { this.toast("File saved (Uncommitted)"); this.syncWorkspace(); }
+    },
+
+    /* --- CONTEXT-AWARE CREATION LOGIC --- */
+
+    createItem(type) {
+        let parentDir = ''; 
+        if (this.state.activeContextPath) {
+            const pathParts = this.state.activeContextPath.split('/');
+            const isFileSelection = pathParts[pathParts.length - 1].includes('.');
+            if (isFileSelection) {
+                pathParts.pop(); 
+                parentDir = pathParts.join('/');
+            } else {
+                parentDir = this.state.activeContextPath;
+            }
+        }
+        parentDir = parentDir.replace(/\\/g, '/');
+        if(parentDir && !parentDir.endsWith('/')) parentDir += '/';
+        this.showCreationModal(type, parentDir);
+    },
+
+    showCreationModal(type, parentDir) {
+        const title = type === 'file' ? 'New File' : 'New Folder';
+        const icon = type === 'file' ? 'fa-file-medical text-cyan-500' : 'fa-folder-plus text-cyan-500';
+        const modalHtml = `
+            <div id="creation-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] animate-in fade-in duration-200">
+                <div class="bg-gray-900 border border-gray-700 rounded-xl w-96 overflow-hidden shadow-2xl flex flex-col">
+                    <div class="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center select-none">
+                        <h3 class="font-bold text-white flex items-center gap-2 text-xs uppercase tracking-widest"><i class="fa-solid ${icon}"></i> ${title}</h3>
+                        <button onclick="document.getElementById('creation-modal').remove()" class="text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="p-4 bg-gray-950">
+                        <div class="text-[10px] text-slate-500 mb-2 font-mono truncate">Creating in: /${parentDir || '(root)'}</div>
+                        <input type="text" id="item-name-input" placeholder="Name (e.g. main.py)" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm focus:outline-none focus:border-cyan-500">
+                    </div>
+                    <div class="p-3 bg-gray-900 border-t border-gray-800 flex justify-end">
+                        <button onclick="App.submitNewItem('${type}', '${parentDir}')" class="bg-cyan-600 hover:bg-cyan-500 text-white rounded px-4 py-1.5 font-bold text-xs uppercase tracking-widest transition-colors shadow-lg">Create</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const input = document.getElementById('item-name-input');
+        input.focus();
+        input.addEventListener('keypress', (e) => { if (e.key === 'Enter') App.submitNewItem(type, parentDir); });
+    },
+
+    async submitNewItem(type, parentDir) {
+        const inputName = document.getElementById('item-name-input').value.trim();
+        document.getElementById('creation-modal')?.remove();
+        if (!inputName) return this.toast("Name required", true);
+        if (inputName.includes('/') || inputName.includes('\\')) return this.toast("Name cannot contain slashes.", true);
+
+        const fullRelPath = parentDir + inputName;
+        this.toast(`Creating ${type}: /${fullRelPath}...`);
+        const res = await this.api('/api/item/create', 'POST', { path: fullRelPath, type: type });
+        if (res && res.status === 'success') {
+            this.toast(`${type.charAt(0).toUpperCase() + type.slice(1)} created successfully.`);
+            this.state.activeContextPath = res.path; 
+            this.loadTree(); 
+        }
     },
 
     async commitCurrentFile() {

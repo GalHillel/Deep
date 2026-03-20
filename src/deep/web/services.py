@@ -126,6 +126,37 @@ class DashboardService:
         full_path.write_text(normalized_content, encoding='utf-8')
         return {"path": path, "status": "success"}
 
+    def create_item(self, path: str, item_type: str) -> Dict[str, Any]:
+        """Context-aware item creation (file/folder)."""
+        return self._safe(self._create_item_internal, path, item_type)
+
+    def _create_item_internal(self, item_path: str, item_type: str) -> Dict[str, Any]:
+        if not item_path: raise ValueError("Path required")
+        
+        # Security: Normalize path and prevent traversal
+        clean_path = item_path.lstrip('/').replace('\\', '/')
+        full_path = (self.repo_root / clean_path).resolve()
+        
+        # Ensure path is within repo
+        if not str(full_path).startswith(str(self.repo_root)):
+            raise ValueError("Path traversal denied")
+
+        if full_path.exists():
+            raise FileExistsError(f"Item already exists: {item_path}")
+
+        if item_type == 'folder':
+            # create parents implicitly to support 'sub/sub2/' input
+            full_path.mkdir(parents=True, exist_ok=True) 
+        elif item_type == 'file':
+            # Create parent directories if needed
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            # Standard 'touch' behavior
+            full_path.touch() 
+        else:
+            raise ValueError(f"Invalid item type: {item_type}")
+
+        return {"status": "success", "path": item_path}
+
     # --- Git Operations ---
 
     def get_full_status(self) -> Dict[str, Any]:
@@ -136,6 +167,7 @@ class DashboardService:
         current_branch = get_current_branch(self.dg_dir) or "DETACHED"
         return {
             "branch": current_branch,
+            "repo_path": str(self.repo_root),
             "staged": status.staged_new + status.staged_modified + status.staged_deleted,
             "modified": status.modified,
             "deleted": status.deleted,
