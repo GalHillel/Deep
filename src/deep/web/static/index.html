@@ -57,9 +57,14 @@
             <div id="panel-code" class="panel active relative">
                 <div id="editor-header" class="h-10 bg-[#1f2937] flex items-center px-4 font-mono text-xs text-cyan-400 border-b border-gray-800">No file selected</div>
                 <div id="monaco-container" class="flex-1 w-full h-full"></div>
-                <div class="h-16 bg-[#111827] border-t border-gray-800 p-3 flex gap-2">
-                    <input type="text" id="commit-input" placeholder="Commit message (e.g. feat: add amazing ui)" class="flex-1 bg-[#030712] border border-gray-700 rounded px-3 text-gray-200 focus:border-cyan-500 focus:outline-none">
-                    <button onclick="App.commitCurrent()" class="bg-cyan-600 hover:bg-cyan-500 text-white px-6 rounded font-bold transition-colors shadow-lg"><i class="fa-solid fa-check mr-2"></i>Commit</button>
+                <div class="h-14 bg-slate-900 border-t border-slate-800 p-2 flex items-center gap-2 shrink-0">
+                    <button onclick="App.saveCurrentFile()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded text-sm font-semibold shadow transition-colors flex items-center gap-2">
+                        <i class="fa-regular fa-floppy-disk"></i> Save
+                    </button>
+                    <input type="text" id="commit-msg-input" placeholder="Commit message..." class="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500">
+                    <button onclick="App.commitCurrentFile()" class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-1.5 rounded text-sm font-semibold shadow flex items-center gap-2">
+                        <i class="fa-solid fa-check"></i> Commit
+                    </button>
                 </div>
             </div>
 
