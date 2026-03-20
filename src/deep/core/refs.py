@@ -48,6 +48,13 @@ def _validate_ref_name(name: str) -> None:
         raise ValueError(f"Reference name contains invalid characters: {name!r}")
 
 
+def is_valid_sha(s: Any) -> bool:
+    """Check if s is a valid SHA-1 hex string (7-40 hex chars)."""
+    if not isinstance(s, str):
+        return False
+    return bool(re.fullmatch(r"[0-9a-f]{7,64}", s.lower()))
+
+
 # ── HEAD helpers ─────────────────────────────────────────────────────
 
 def read_head(dg_dir: Path) -> str:
@@ -266,7 +273,11 @@ def list_branches(dg_dir: Path) -> list[str]:
     heads_dir = dg_dir / "refs" / "heads"
     if not heads_dir.exists():
         return []
-    return sorted(p.name for p in heads_dir.iterdir() if p.is_file() and not p.name.endswith(".lock"))
+    branches = []
+    for p in heads_dir.iterdir():
+        if p.is_file() and not p.name.endswith(".lock") and not p.name.startswith("."):
+            branches.append(p.name)
+    return sorted(branches)
 
 
 def get_all_branches(dg_dir: Path) -> list[str]:
@@ -275,11 +286,14 @@ def get_all_branches(dg_dir: Path) -> list[str]:
 
 
 def get_branch(dg_dir: Path, name: str) -> Optional[str]:
-    """Return the commit SHA a branch points to, or ``None`` if it doesn't exist."""
+    """Return the commit SHA a branch points to, or ``None`` if it doesn't exist or is invalid."""
     bp = _branch_path(dg_dir, name)
     if not bp.exists():
         return None
-    return bp.read_text(encoding="utf-8").strip()
+    content = bp.read_text(encoding="utf-8").strip()
+    if not is_valid_sha(content):
+        return None
+    return content
 
 
 def update_branch_no_lock(dg_dir: Path, name: str, commit_sha: str) -> None:

@@ -104,11 +104,9 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
     from deep.core.locks import RepositoryLock # type: ignore
     import os
     from deep.core.refs import ( # type: ignore
-        get_branch,
-        resolve_head,
-        update_branch,
         update_head,
         resolve_revision,
+        is_valid_sha,
     ) # type: ignore
     from deep.core.status import compute_status # type: ignore
     from deep.storage.index import DeepIndex, DeepIndexEntry, read_index_no_lock, write_index_no_lock # type: ignore
@@ -121,6 +119,9 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
     # 1. Acquire RepositoryLock
     with RepositoryLock(dg_dir):
         # 2. Validate
+        if target.endswith(".lock"):
+            raise ValueError(f"Invalid branch name: {target}")
+
         if create_branch:
             if get_branch(dg_dir, target):
                 raise DeepError(f"branch already exists: {target}")
@@ -132,6 +133,9 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
             commit_sha = resolve_revision(dg_dir, target)
             if not commit_sha:
                 raise DeepError(f"'{target}' is not a branch or a valid commit SHA")
+            
+            if not is_valid_sha(commit_sha):
+                raise ValueError(f"Invalid ref content for branch '{target}'")
 
         # Read the target commit.
         commit_obj = read_object(objects_dir, commit_sha)

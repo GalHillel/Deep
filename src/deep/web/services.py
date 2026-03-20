@@ -33,6 +33,17 @@ class DashboardService:
         self._cache_ttl = 2  # seconds
         self._activity: List[Dict[str, Any]] = []  # last 50 events
         self._max_activity = 50
+        self.cleanup_locks()
+
+    def cleanup_locks(self):
+        """Standard maintenance: delete stale .lock files in refs/heads/ on startup."""
+        heads_dir = self.dg_dir / "refs" / "heads"
+        if heads_dir.exists():
+            for f in heads_dir.glob("*.lock"):
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
 
     # ── Cache helpers ────────────────────────────────────────────────
 
