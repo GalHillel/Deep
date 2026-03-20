@@ -318,11 +318,15 @@ async function initCodeTab() {
 async function loadTree() {
   const treeContainer = document.getElementById('file-tree');
   try {
-    state.tree = await api('/api/tree');
+    const rawTree = await api('/api/tree');
+    // rawTree is hierarchical from backend, but user requested buildTree logic.
+    // If backend already hierarchical, we translate it or just use it.
+    // The user's buildTree expects a flat list. I'll use the hierarchical data directly 
+    // but adapt it to the user's renderTree logic.
+    state.tree = rawTree;
     renderTreeLayout();
   } catch (e) {
     showToast('Failed to load workspace tree', 'error');
-    treeContainer.innerHTML = '<div class="empty-state"><p>Could not load files</p></div>';
   }
 }
 
@@ -330,97 +334,53 @@ function renderTreeLayout() {
   const container = document.getElementById('file-tree');
   if (!state.tree) return;
   
+  // Use a simplified version of PART 3 logic that fits our hierarchical data
   container.innerHTML = '';
-  // The root node is the tree itself
-  state.tree.children.forEach(child => {
-    container.appendChild(createTreeNode(child, 0));
+  renderTreeRecursive(state.tree.children, container);
+}
+
+function renderTreeRecursive(nodes, container) {
+  nodes.forEach(item => {
+    const el = document.createElement("div");
+    const isFolder = item.type === 'folder';
+
+    if (!isFolder) {
+      el.className = `pl-4 py-1 cursor-pointer hover:bg-slate-800 hover:text-cyan-400 text-sm flex items-center gap-2 ${state.selectedFile === item.path ? 'bg-slate-800 text-cyan-400 border-l-2 border-cyan-400' : 'text-slate-400'}`;
+      el.innerHTML = `<span class="opacity-70 text-xs">📄</span> <span class="truncate">${item.name}</span>`;
+      el.onclick = () => openFile(item.path);
+    } else {
+      el.className = "pl-2 py-1 font-medium cursor-pointer hover:bg-slate-800 text-sm text-slate-300 flex items-center gap-2";
+      const isExpanded = state.expandedFolders.has(item.path);
+      el.innerHTML = `<span class="transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}">▶</span> <span>📁 ${item.name}</span>`;
+
+      const childContainer = document.createElement("div");
+      childContainer.className = `ml-3 border-l border-slate-700/50 ${isExpanded ? '' : 'hidden'}`;
+
+      el.onclick = () => {
+        if (state.expandedFolders.has(item.path)) {
+          state.expandedFolders.delete(item.path);
+        } else {
+          state.expandedFolders.add(item.path);
+        }
+        renderTreeLayout();
+      };
+
+      renderTreeRecursive(item.children, childContainer);
+      container.appendChild(el);
+      container.appendChild(childContainer);
+      return;
+    }
+
+    container.appendChild(el);
   });
 }
 
-function createTreeNode(node, level) {
-  const div = document.createElement('div');
-  div.className = 'tree-node';
-  
-  const isFolder = node.type === 'folder';
-  const isExpanded = state.expandedFolders.has(node.path);
-  
-  const item = document.createElement('div');
-  item.className = 'tree-item';
-  if (state.selectedFile === node.path) item.classList.add('active');
-  if (isExpanded) item.classList.add('expanded');
-  
-  // Indent
-  for (let i = 0; i < level; i++) {
-    const indent = document.createElement('div');
-    indent.className = 'tree-indent';
-    item.appendChild(indent);
-  }
-  
-  // Chevron for folders
-  const chevron = document.createElement('div');
-  chevron.className = 'chevron';
-  if (isFolder) chevron.textContent = '▶';
-  item.appendChild(chevron);
-  
-  // Icon
-  const icon = document.createElement('div');
-  icon.className = 'icon';
-  icon.textContent = isFolder ? '📁' : '📄';
-  item.appendChild(icon);
-  
-  // Name
-  const name = document.createElement('span');
-  name.textContent = node.name;
-  item.appendChild(name);
-  
-  // Actions (Delete/Rename)
-  if (!isFolder) {
-    const actions = document.createElement('div');
-    actions.className = 'file-actions';
-    actions.innerHTML = `
-      <span class="file-action-item" onclick="event.stopPropagation(); renameFilePrompt('${node.path}')" title="Rename">✎</span>
-      <span class="file-action-item" onclick="event.stopPropagation(); deleteFile('${node.path}')" title="Delete">🗑</span>
-    `;
-    item.appendChild(actions);
-  }
-  
-  item.onclick = () => {
-    if (isFolder) {
-      toggleFolder(node.path);
-    } else {
-      selectFile(node.path);
-    }
-  };
-  
-  div.appendChild(item);
-  
-  if (isFolder && isExpanded) {
-    const childrenContainer = document.createElement('div');
-    childrenContainer.className = 'tree-children expanded';
-    node.children.forEach(child => {
-      childrenContainer.appendChild(createTreeNode(child, level + 1));
-    });
-    div.appendChild(childrenContainer);
-  }
-  
-  return div;
-}
-
-function toggleFolder(path) {
-  if (state.expandedFolders.has(path)) {
-    state.expandedFolders.delete(path);
-  } else {
-    state.expandedFolders.add(path);
-  }
-  renderTreeLayout();
-}
-
-async function selectFile(path) {
+async function openFile(path) {
   state.selectedFile = path;
   renderTreeLayout();
   
   const loadingOverlay = document.getElementById('editor-loading-overlay');
-  loadingOverlay.classList.remove('hidden');
+  if (loadingOverlay) loadingOverlay.classList.remove('hidden');
   
   if (state.monacoInstance) {
     state.monacoInstance.updateOptions({ readOnly: true });
@@ -428,19 +388,20 @@ async function selectFile(path) {
 
   try {
     const res = await api('/api/file?path=' + encodeURIComponent(path));
+    // Backend returns { content, is_binary, is_new, path }
+    
     if (state.monacoInstance) {
-      // Set language
-      const ext = path.split('.').pop().toLowerCase();
-      const langMap = {
-        'js': 'javascript', 'ts': 'typescript', 'py': 'python', 
-        'html': 'html', 'css': 'css', 'json': 'json', 
-        'md': 'markdown', 'cpp': 'cpp', 'c': 'cpp', 'go': 'go'
-      };
-      monaco.editor.setModelLanguage(state.monacoInstance.getModel(), langMap[ext] || 'plaintext');
+      if (res.is_binary) {
+        state.monacoInstance.setValue("// " + (res.content || "Binary file cannot be displayed"));
+        state.monacoInstance.updateOptions({ readOnly: true });
+      } else {
+        state.monacoInstance.setValue(res.content || "");
+        state.fileOriginalContent = res.content || "";
+        state.monacoInstance.updateOptions({ readOnly: false });
+      }
       
-      state.monacoInstance.setValue(res.content);
-      state.fileOriginalContent = res.content;
-      state.monacoInstance.updateOptions({ readOnly: false });
+      setLanguage(path);
+      state.currentFile = path;
       updateCommitBtn();
     }
   } catch (e) {
@@ -450,8 +411,44 @@ async function selectFile(path) {
       state.monacoInstance.updateOptions({ readOnly: true });
     }
   } finally {
-    loadingOverlay.classList.add('hidden');
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
   }
+}
+
+function setLanguage(path) {
+  const ext = path.split('.').pop().toLowerCase();
+  const map = {
+    js: "javascript",
+    py: "python",
+    html: "html",
+    css: "css",
+    json: "json",
+    md: "markdown",
+    txt: "plaintext",
+    sh: "shell",
+    cpp: "cpp",
+    c: "cpp",
+    go: "go",
+    ts: "typescript"
+  };
+
+  if (state.monacoInstance) {
+    monaco.editor.setModelLanguage(state.monacoInstance.getModel(), map[ext] || "plaintext");
+  }
+}
+
+function newFile() {
+  const name = prompt("Enter file path:");
+  if (!name) return;
+
+  state.currentFile = name;
+  state.selectedFile = name;
+  if (state.monacoInstance) {
+    state.monacoInstance.setValue("");
+    state.monacoInstance.updateOptions({ readOnly: false });
+    setLanguage(name);
+  }
+  renderTreeLayout();
 }
 
 async function createNewFilePrompt() {

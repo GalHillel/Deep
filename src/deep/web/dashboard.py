@@ -461,7 +461,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if not path_val or content is None or not message:
                 self._error_response(400, "Missing required fields (path, content, message)")
                 return
-            result = self.service.create_commit(path_val, content, message, author)
+            result = self.service.save_and_commit(path_val, content, message, author)
             if "error" in result:
                 self._error_response(422, result["error"])
             else:

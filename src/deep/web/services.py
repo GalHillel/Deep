@@ -441,18 +441,105 @@ class DashboardService:
         self._cache_set(cache_key, tree)
         return tree
 
+    def _is_probably_binary(self, data: bytes) -> bool:
+        if not data:
+            return False
+        # Allow UTF-16 BOM
+        if data.startswith((b'\xff\xfe', b'\xfe\xff')):
+            return False
+        # Heuristic: too many null bytes = binary
+        null_ratio = data[:1024].count(b'\x00') / max(1, len(data[:1024]))
+        return null_ratio > 0.3
+
+    def _decode_file(self, raw_bytes: bytes) -> str:
+        # UTF-16 (Windows PowerShell)
+        if raw_bytes.startswith((b'\xff\xfe', b'\xfe\xff')):
+            try:
+                return raw_bytes.decode('utf-16')
+            except Exception:
+                pass
+        # UTF-8
+        try:
+            return raw_bytes.decode('utf-8')
+        except Exception:
+            return raw_bytes.decode('utf-8', errors='replace')
+
     def get_file(self, rel_path: str) -> Dict[str, Any]:
+        """Robust file reader with encoding and binary detection."""
+        MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
         try:
             file_path = self._resolve_safe_path(rel_path)
+            
+            # New file handling
+            if not file_path.exists():
+                return {
+                    "content": "",
+                    "path": rel_path,
+                    "is_new": True,
+                    "is_binary": False
+                }
+                
             if not file_path.is_file():
-                return {"error": f"File not found: {rel_path}"}
+                return {"error": f"Path is not a file: {rel_path}"}
             
             size = file_path.stat().st_size
-            try:
-                content = file_path.read_text(encoding='utf-8')
-                return {"content": content, "path": rel_path, "size": size, "encoding": "utf-8"}
-            except UnicodeDecodeError:
-                return {"error": "Binary file cannot be displayed in editor"}
+            if size > MAX_FILE_SIZE:
+                return {
+                    "is_binary": True,
+                    "content": f"File too large ({size//1024} KB)",
+                    "path": rel_path
+                }
+
+            with open(file_path, 'rb') as f:
+                raw = f.read()
+
+            if self._is_probably_binary(raw):
+                return {
+                    "is_binary": True,
+                    "content": "Binary file cannot be displayed",
+                    "path": rel_path
+                }
+
+            content = self._decode_file(raw)
+            return {
+                "content": content,
+                "path": rel_path,
+                "size": size,
+                "is_binary": False,
+                "is_new": False
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def save_and_commit(self, rel_path: str, content: str, message: str, author: str) -> Dict[str, Any]:
+        """Robust save and commit using internal command runners."""
+        import argparse
+        try:
+            file_path = self._resolve_safe_path(rel_path)
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Save file
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content or "")
+
+            # Deep Add
+            from deep.commands.add_cmd import run as run_add
+            run_add(argparse.Namespace(paths=[rel_path], dg_dir=self.dg_dir, repo_root=self.repo_root))
+
+            # Deep Commit
+            from deep.commands.commit_cmd import run as run_commit
+            run_commit(argparse.Namespace(
+                message=message, 
+                ai=False, 
+                allow_empty=False, 
+                dg_dir=self.dg_dir, 
+                repo_root=self.repo_root,
+                patch=False
+            ))
+
+            self._invalidate("tree", "work")
+            self._log_activity("commit_created", f"{author} committed changes to {rel_path}")
+            return {"message": "Changes committed successfully"}
         except Exception as e:
             return {"error": str(e)}
 
@@ -498,29 +585,7 @@ class DashboardService:
         except Exception as e:
             return {"error": str(e)}
 
-    def create_commit(self, rel_path: str, content: str, message: str, author: str) -> Dict[str, Any]:
-        file_path = self.repo_root / rel_path
-        try:
-            # Save file
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            file_path.write_text(content, encoding='utf-8')
-            
-            # Add and commit
-            import subprocess
-            import sys
-            import os
-            env = os.environ.copy()
-            env["PYTHONPATH"] = str(self.repo_root / "src")
-            subprocess.run([sys.executable, "-m", "deep.cli.main", "add", rel_path], cwd=self.repo_root, env=env, check=True)
-            subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", message], cwd=self.repo_root, env=env, check=True)
-            
-            self._invalidate("tree", "work")
-            self._log_activity("commit_created", f"{author} committed changes to {rel_path}")
-            return {"message": "Commit created successfully"}
-        except subprocess.CalledProcessError as e:
-            return {"error": f"Git engine error: {e}"}
-        except Exception as e:
-            return {"error": str(e)}
+
 
     def create_branch(self, name: str, author: str) -> Dict[str, Any]:
         try:
