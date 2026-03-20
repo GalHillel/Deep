@@ -65,6 +65,12 @@
             </div>
             
             <div class="topbar-actions">
+                <div class="branch-selector">
+                    <span class="nav-icon">branch</span>
+                    <select id="branch-select" onchange="UI.checkoutBranch(this.value)">
+                        <option value="main">main</option>
+                    </select>
+                </div>
                 <input type="text" id="search-input" placeholder="Search files, commits, issues...">
                 <div id="sync-info" class="pr-stats"></div>
             </div>
@@ -76,9 +82,10 @@
                 <div id="ide-container">
                     <div id="ide-sidebar">
                         <div id="file-tree-header">
-                            <span>PROJECT</span>
+                            <span>EXPLORER</span>
                             <div id="file-tree-actions">
-                                <span class="tree-action-btn" onclick="UI.loadTree()">↻</span>
+                                <span class="tree-action-btn" title="Refresh" onclick="UI.loadTree()">↻</span>
+                                <span class="tree-action-btn" title="New File" onclick="UI.createNewFile()">+</span>
                             </div>
                         </div>
                         <div id="file-tree"></div>
@@ -89,8 +96,8 @@
                         <div id="diff-container" class="hidden"></div>
                         <div id="commit-panel">
                             <button id="diff-toggle-btn" class="action-btn hidden" onclick="UI.toggleDiff()">View Diff</button>
-                            <input type="text" id="commit-msg" placeholder="What did you change?">
-                            <button id="commit-btn" onclick="window.commitChanges()">Commit Changes</button>
+                            <input type="text" id="commit-msg" placeholder="Message (Ctrl+Enter to commit)">
+                            <button id="commit-btn" onclick="window.commitChanges()">Commit</button>
                         </div>
                     </div>
                 </div>
@@ -98,8 +105,17 @@
 
             <!-- GRAPH TAB -->
             <div id="graph-tab" class="tab-content hidden">
-                <div id="graph-container">
-                    <div id="dag"></div>
+                <div id="graph-layout">
+                    <div id="graph-container">
+                        <div id="dag"></div>
+                    </div>
+                    <div id="graph-detail" class="hidden">
+                        <div class="detail-header">
+                            <h3>Commit Details</h3>
+                            <span class="close-btn" onclick="UI.hideGraphDetail()">×</span>
+                        </div>
+                        <div id="graph-detail-content"></div>
+                    </div>
                 </div>
             </div>
 
