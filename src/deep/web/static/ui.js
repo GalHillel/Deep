@@ -17,6 +17,7 @@ const UI = {
     if (state.work !== oldState.work) this.renderWorkInfo();
     if (state.refs !== oldState.refs) this.renderRefsInfo();
     if (state.isDirty !== oldState.isDirty) this.updateCommitPanel();
+    if (state.showingDiff !== oldState.showingDiff) this.updateDiffView();
   },
 
   switchTab(tabId) {
@@ -167,12 +168,62 @@ const UI = {
 
   updateCommitPanel() {
     const btn = document.getElementById('commit-btn');
-    const { isDirty, selectedFile } = window.store.state;
+    const diffBtn = document.getElementById('diff-btn');
+    const { isDirty, selectedFile, showingDiff } = window.store.state;
+    
     if (isDirty && selectedFile) {
       btn.classList.add('ready');
+      diffBtn.style.display = 'inline-block';
     } else {
       btn.classList.remove('ready');
+      diffBtn.style.display = 'none';
+      if (showingDiff) window.store.set({ showingDiff: false });
     }
+    
+    diffBtn.textContent = showingDiff ? 'Show Code' : 'View Diff';
+  },
+
+  toggleDiff() {
+    const { showingDiff } = window.store.state;
+    window.store.set({ showingDiff: !showingDiff });
+  },
+
+  async updateDiffView() {
+    const { showingDiff, selectedFile, fileContent, monacoInstance } = window.store.state;
+    const editorEl = document.getElementById('monaco-container');
+    const diffEl = document.getElementById('diff-container');
+    
+    if (showingDiff) {
+      editorEl.classList.add('hidden');
+      diffEl.classList.remove('hidden');
+      await this.renderDiffEditor(selectedFile, fileContent, monacoInstance.getValue());
+    } else {
+      editorEl.classList.remove('hidden');
+      diffEl.classList.add('hidden');
+    }
+  },
+
+  async renderDiffEditor(path, originalContent, modifiedContent) {
+    const container = document.getElementById('diff-container');
+    let { diffEditorInstance } = window.store.state;
+    
+    if (!diffEditorInstance) {
+      diffEditorInstance = monaco.editor.createDiffEditor(container, {
+        theme: 'vs-dark',
+        automaticLayout: true,
+        readOnly: true,
+        renderSideBySide: true
+      });
+      window.store.set({ diffEditorInstance });
+    }
+    
+    const originalModel = monaco.editor.createModel(originalContent, this.getLanguage(path));
+    const modifiedModel = monaco.editor.createModel(modifiedContent, this.getLanguage(path));
+    
+    diffEditorInstance.setModel({
+      original: originalModel,
+      modified: modifiedModel
+    });
   },
 
   // ── PRs ──────────────────────────────────────────────────

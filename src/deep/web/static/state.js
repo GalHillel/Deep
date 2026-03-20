@@ -59,10 +59,12 @@ const initialState = {
   
   // Instances
   monacoInstance: null,
+  diffEditorInstance: null,
   networkInstance: null,
   
   // Flags
   graphLoaded: false,
+  showingDiff: false,
   loading: false,
   error: null
 };
