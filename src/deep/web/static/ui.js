@@ -1,11 +1,9 @@
-/* Deep Platform — ui.js (Reactive 3rd Pane Layout) */
+/* Deep Platform — ui.js (Restored Dashboard Logic) */
 
 const UI = {
   // ── Initialization ──────────────────────────────────────
   init() {
     console.log("UI Initializing...");
-    this.initActivityBar();
-    this.initResizers();
     this.subscribe();
     this.loadInitialData();
   },
@@ -18,86 +16,42 @@ const UI = {
 
   subscribe() {
     window.store.subscribe((state, oldState) => {
+      if (state.activeTab !== oldState.activeTab) this.renderTabChange(state.activeTab);
       if (state.tree !== oldState.tree) this.renderFileTree();
       if (state.selectedFile !== oldState.selectedFile || state.isDirty !== oldState.isDirty) {
-        this.renderTabs();
+        this.renderEditorArea();
       }
-      if (state.work !== oldState.work) {
-        this.renderContextPane();
-        this.renderStatusBar();
-      }
+      if (state.work !== oldState.work) this.renderWorkDashboard();
       if (state.refs !== oldState.refs) this.renderStatusBar();
       if (state.showingDiff !== oldState.showingDiff) this.updateDiffView();
     });
   },
 
-  // ── Layout & Resizers ───────────────────────────────────
-  initActivityBar() {
-    document.querySelectorAll('.activity-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const tool = item.dataset.tool;
-        if (!tool) return;
+  // ── Navigation ──────────────────────────────────────────
+  switchTab(tabId) {
+    window.store.set({ activeTab: tabId });
+    if (tabId === 'graph') this.loadLog();
+    if (tabId === 'prs') this.loadPRs();
+    if (tabId === 'issues') this.loadIssues();
+    if (tabId === 'work') this.loadWork();
+  },
 
-        document.querySelectorAll('.activity-item').forEach(i => i.classList.remove('active'));
-        item.classList.add('active');
-
-        const title = tool.toUpperCase();
-        const titleEl = document.getElementById('sidebar-title');
-        if (titleEl) titleEl.textContent = title;
-
-        document.querySelectorAll('.tool-view').forEach(v => v.classList.add('hidden'));
-        const view = document.getElementById(`${tool}-view`);
-        if (view) view.classList.remove('hidden');
-
-        // Logic based on tool
-        if (tool === 'git') this.loadRefs();
-        if (tool === 'prs') this.loadPRs();
-        if (tool === 'issues') this.loadIssues();
-        if (tool === 'work') this.loadWork();
-      });
+  renderTabChange(tabId) {
+    // Update Sidebar
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.classList.toggle('active', item.dataset.tab === tabId);
+    });
+    // Update Topbar
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    // Update Content
+    document.querySelectorAll('.tab-content').forEach(content => {
+      content.classList.toggle('hidden', content.id !== `${tabId}-tab`);
     });
   },
 
-  initResizers() {
-    const resizerL = document.getElementById('resizer-left');
-    const resizerR = document.getElementById('resizer-right');
-    const sidebar = document.getElementById('sidebar-pane');
-    const context = document.getElementById('context-pane');
-
-    const setupResizer = (resizer, pane, isLeft) => {
-      if (!resizer || !pane) return;
-      let startX, startWidth;
-
-      const onMouseMove = (e) => {
-        const delta = e.clientX - startX;
-        const newWidth = isLeft ? startWidth + delta : startWidth - delta;
-        if (newWidth > 150 && newWidth < 800) {
-          pane.style.width = `${newWidth}px`;
-          if (window.store.state.monacoInstance) window.store.state.monacoInstance.layout();
-          if (window.store.state.diffEditorInstance) window.store.state.diffEditorInstance.layout();
-        }
-      };
-
-      const onMouseUp = () => {
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-        resizer.classList.remove('dragging');
-      };
-
-      resizer.addEventListener('mousedown', (e) => {
-        startX = e.clientX;
-        startWidth = pane.offsetWidth;
-        resizer.classList.add('dragging');
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-      });
-    };
-
-    setupResizer(resizerL, sidebar, true);
-    setupResizer(resizerR, context, false);
-  },
-
-  // ── Rendering ───────────────────────────────────────────
+  // ── IDE / Editor ───────────────────────────────────────
   renderFileTree() {
     const container = document.getElementById('file-tree');
     if (!container) return;
@@ -131,79 +85,7 @@ const UI = {
     buildNodes(tree.children, container);
   },
 
-  renderTabs() {
-    const container = document.getElementById('tabs-container');
-    if (!container) return;
-    const { selectedFile, isDirty } = window.store.state;
-    if (!selectedFile) {
-      container.innerHTML = '';
-      return;
-    }
-
-    const name = selectedFile.split('/').pop();
-    container.innerHTML = `
-      <div class="tab active">
-        <span>📄</span>
-        <span>${name}${isDirty ? ' ●' : ''}</span>
-        <span class="tab-close" onclick="UI.closeFile()">×</span>
-      </div>
-    `;
-    
-    const diffBtn = document.getElementById('diff-toggle-btn');
-    if (diffBtn) diffBtn.classList.toggle('hidden', !isDirty);
-  },
-
-  renderStatusBar() {
-    const { refs, work } = window.store.state;
-    const branchInfo = document.getElementById('status-branch');
-    const syncInfo = document.getElementById('status-sync');
-    
-    if (branchInfo) branchInfo.textContent = `⑂ ${refs.current_branch || 'main'}`;
-    if (syncInfo && work.sync) {
-      syncInfo.textContent = `↑${work.sync.ahead} ↓${work.sync.behind}`;
-    }
-  },
-
-  renderContextPane() {
-    const { work } = window.store.state;
-    const stagedList = document.getElementById('staged-list');
-    const changedList = document.getElementById('changed-list');
-    const commitBtn = document.getElementById('commit-primary-btn');
-
-    if (stagedList) {
-      stagedList.innerHTML = work.staged_files.length ? '' : '<div class="text-dark" style="font-size:11px; padding:4px 8px;">No staged changes</div>';
-      work.staged_files.forEach(f => {
-        const item = document.createElement('div');
-        item.className = 'mini-item truncate';
-        item.innerHTML = `<span style="color:var(--success)">M</span> ${f}`;
-        item.onclick = () => this.openFile(f);
-        stagedList.appendChild(item);
-      });
-    }
-
-    if (changedList) {
-      changedList.innerHTML = work.changed_files.length ? '' : '<div class="text-dark" style="font-size:11px; padding:4px 8px;">Clean working tree</div>';
-      work.changed_files.forEach(f => {
-        const item = document.createElement('div');
-        item.className = 'mini-item truncate';
-        item.innerHTML = `
-          <span style="color:var(--warning)">M</span> ${f}
-          <span class="icon-btn" onclick="UI.stageFile(event, '${f}')" style="margin-left:auto; font-size:12px;">+</span>
-        `;
-        item.onclick = () => this.openFile(f);
-        changedList.appendChild(item);
-      });
-    }
-
-    if (commitBtn) {
-      commitBtn.disabled = work.staged_files.length === 0;
-      commitBtn.style.opacity = work.staged_files.length === 0 ? 0.5 : 1;
-    }
-  },
-
-  // ── Actions ─────────────────────────────────────────────
   async openFile(path) {
-    if (window.store.state.selectedFile === path && !window.store.state.loading) return;
     window.store.set({ selectedFile: path, loading: true });
     try {
       const file = await API.loadFile(path);
@@ -225,8 +107,7 @@ const UI = {
         theme: 'vs-dark',
         automaticLayout: true,
         fontSize: 14,
-        minimap: { enabled: false },
-        lineNumbers: 'on'
+        minimap: { enabled: false }
       });
       window.store.set({ monacoInstance: editor });
       editor.onDidChangeModelContent(() => {
@@ -239,24 +120,66 @@ const UI = {
     }
   },
 
-  async stageFile(event, path) {
-    if (event) event.stopPropagation();
+  renderEditorArea() {
+    const diffBtn = document.getElementById('diff-toggle-btn');
+    const { isDirty } = window.store.state;
+    if (diffBtn) diffBtn.classList.toggle('hidden', !isDirty);
+  },
+
+  // ── Git Graph ───────────────────────────────────────────
+  async loadLog() {
+    const log = await API.loadLog();
+    const container = document.getElementById('dag');
+    if (!container) return;
+
+    const nodes = new vis.DataSet(log.map(c => ({
+      id: c.sha,
+      label: c.sha.substring(0, 7),
+      title: `${c.author}: ${c.message}`,
+      color: { background: '#161b22', border: '#58a6ff' },
+      font: { color: '#c9d1d9' }
+    })));
+    const edges = new vis.DataSet();
+    log.forEach(c => c.parents.forEach(p => edges.add({ from: c.sha, to: p, arrows: 'to', color: '#30363d' })));
+
+    const options = {
+      physics: { enabled: true, stabilization: { iterations: 120 } },
+      layout: { hierarchical: { direction: 'LR', sortMethod: 'directed' } }
+    };
+    new vis.Network(container, { nodes, edges }, options);
+  },
+
+  // ── Dashboard / Work ────────────────────────────────────
+  renderWorkDashboard() {
     const { work } = window.store.state;
-    window.store.set({
-      work: {
-        ...work,
-        changed_files: work.changed_files.filter(f => f !== path),
-        staged_files: [...work.staged_files, path]
-      }
-    });
-    try {
-      await API.addFile(path);
-      this.loadWork();
-    } catch (e) {
-      this.loadWork();
+    const branchName = document.getElementById('work-branch-name');
+    const changedList = document.getElementById('work-changed-files');
+    const syncInfo = document.getElementById('sync-info');
+
+    if (branchName) branchName.textContent = work.current_branch || '...';
+    if (syncInfo && work.sync) {
+        syncInfo.innerHTML = `<span>↑${work.sync.ahead}</span> | <span>↓${work.sync.behind}</span>`;
+    }
+
+    if (changedList) {
+        changedList.innerHTML = work.changed_files.length ? '' : '<p class="text-muted">No changes detected.</p>';
+        work.changed_files.forEach(f => {
+            const item = document.createElement('div');
+            item.className = 'card truncate';
+            item.innerHTML = `<span style="color:var(--warning)">M</span> ${f}`;
+            item.onclick = () => this.openFile(f);
+            changedList.appendChild(item);
+        });
     }
   },
 
+  renderStatusBar() {
+    const { refs } = window.store.state;
+    const branchInfo = document.getElementById('current-branch');
+    if (branchInfo) branchInfo.textContent = refs.current_branch || 'main';
+  },
+
+  // ── Utils & Misc ───────────────────────────────────────
   toggleDiff() {
     window.store.set({ showingDiff: !window.store.state.showingDiff });
   },
@@ -280,11 +203,7 @@ const UI = {
     let { diffEditorInstance } = window.store.state;
     const container = document.getElementById('diff-container');
     if (!diffEditorInstance) {
-      diffEditorInstance = monaco.editor.createDiffEditor(container, {
-        theme: 'vs-dark',
-        automaticLayout: true,
-        readOnly: true
-      });
+      diffEditorInstance = monaco.editor.createDiffEditor(container, { theme: 'vs-dark', automaticLayout: true, readOnly: true });
       window.store.set({ diffEditorInstance });
     }
     const lang = this.getLanguage(selectedFile);
@@ -293,20 +212,11 @@ const UI = {
     diffEditorInstance.setModel({ original: originalModel, modified: modifiedModel });
   },
 
-  async loadTree() {
-    const tree = await API.loadTree();
-    window.store.set({ tree });
-  },
-
-  async loadWork() {
-    const work = await API.loadWork();
-    window.store.set({ work });
-  },
-
-  async loadRefs() {
-    const refs = await API.get('/api/refs');
-    window.store.set({ refs });
-  },
+  async loadTree() { const tree = await API.loadTree(); window.store.set({ tree }); },
+  async loadWork() { const work = await API.loadWork(); window.store.set({ work }); },
+  async loadRefs() { const refs = await API.loadRefs(); window.store.set({ refs }); },
+  async loadPRs() { const prs = await API.loadPRs(); window.store.set({ prs }); },
+  async loadIssues() { const issues = await API.loadIssues(); window.store.set({ issues }); },
 
   showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
@@ -315,10 +225,7 @@ const UI = {
     toast.className = `toast ${type}`;
     toast.textContent = message;
     container.appendChild(toast);
-    setTimeout(() => {
-      toast.style.animation = 'toastOut .3s ease forwards';
-      setTimeout(() => toast.remove(), 300);
-    }, 4000);
+    setTimeout(() => toast.remove(), 4000);
   },
 
   getLanguage(path) {
