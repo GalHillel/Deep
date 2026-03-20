@@ -1,30 +1,33 @@
-/* Deep Platform — app.js (Entry Point) */
+/* Deep Platform — app.js (3-Pane Resinizable Edition) */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log("Deep Platform Initializing...");
+    console.log("Deep Platform Mega UI Initializing...");
     
-    // 1. Initialize Reactive UI
+    // 1. Initialize UI
     UI.init();
     
-    // 2. Initial Data Load
-    try {
-        await Promise.all([
-            UI.loadRefs(),
-            UI.loadWork()
-        ]);
-    } catch (e) {
-        console.error("Initialization failed:", e);
-    }
-    
-    // 3. Setup Navigation
-    document.querySelectorAll('.nav-item, .tab-btn').forEach(item => {
-        item.addEventListener('click', () => {
-            const tab = item.dataset.tab;
-            if (tab) UI.switchTab(tab);
-        });
+    // 2. Setup Global Keydown
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+S: Save
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            window.saveFile();
+        }
+        // Ctrl+Enter: Commit
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            if (document.activeElement.id === 'commit-msg-input') {
+                window.commitChanges();
+            }
+        }
+        // Ctrl+E: Explorer
+        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+            e.preventDefault();
+            const explorerBtn = document.querySelector('[data-tool="explorer"]');
+            if (explorerBtn) explorerBtn.click();
+        }
     });
 
-    // 4. Global Actions
+    // 3. Global Action Handlers
     window.saveFile = async () => {
         const { selectedFile, monacoInstance, fileContent } = window.store.state;
         if (!selectedFile || !monacoInstance) return;
@@ -33,32 +36,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             await API.saveFile(selectedFile, content);
             window.store.set({ fileContent: content, isDirty: false });
-            UI.showToast("File saved", "success");
-        } catch (e) {}
+            UI.showToast("File saved successfully", "success");
+        } catch (e) {
+            UI.showToast("Failed to save file", "error");
+        }
     };
 
     window.commitChanges = async () => {
-        const msgInput = document.getElementById('commit-msg');
-        const message = msgInput.value || "IDE update";
+        const msgInput = document.getElementById('commit-msg-input');
+        const message = msgInput.value.trim();
+        if (!message) {
+            UI.showToast("Please enter a commit message", "error");
+            return;
+        }
+
         try {
             await API.commit(message);
             msgInput.value = '';
-            window.store.set({ isDirty: false });
-            UI.showToast("Changes committed", "success");
-            UI.loadTree();
+            UI.showToast("Changes committed!", "success");
             UI.loadWork();
-            UI.loadLog(); 
-        } catch (e) {}
+            UI.loadTree();
+        } catch (e) {
+            UI.showToast("Commit failed", "error");
+        }
     };
 
-    // 5. Keyboard Shortcuts
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();
-            window.saveFile();
-        }
-    });
-
-    // 6. Initial Render
-    UI.switchTab(window.store.state.activeTab);
+    // 4. Initial Tool Selection
+    const defaultTool = document.querySelector('[data-tool="explorer"]');
+    if (defaultTool) defaultTool.click();
 });

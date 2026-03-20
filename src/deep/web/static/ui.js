@@ -1,92 +1,110 @@
-/* Deep Platform — ui.js */
+/* Deep Platform — ui.js (Reactive 3rd Pane Layout) */
 
 const UI = {
   // ── Initialization ──────────────────────────────────────
   init() {
     console.log("UI Initializing...");
+    this.initActivityBar();
+    this.initResizers();
+    this.subscribe();
+    this.loadInitialData();
+  },
+
+  loadInitialData() {
+    this.loadTree();
+    this.loadWork();
+    this.loadRefs();
+  },
+
+  subscribe() {
     window.store.subscribe((state, oldState) => {
-      this.handleStateChange(state, oldState);
+      if (state.tree !== oldState.tree) this.renderFileTree();
+      if (state.selectedFile !== oldState.selectedFile || state.isDirty !== oldState.isDirty) {
+        this.renderTabs();
+      }
+      if (state.work !== oldState.work) {
+        this.renderContextPane();
+        this.renderStatusBar();
+      }
+      if (state.refs !== oldState.refs) this.renderStatusBar();
+      if (state.showingDiff !== oldState.showingDiff) this.updateDiffView();
     });
   },
 
-  handleStateChange(state, oldState) {
-    if (state.activeTab !== oldState.activeTab) this.renderTabChange(state.activeTab);
-    if (state.tree !== oldState.tree) this.renderFileTree();
-    if (state.prs !== oldState.prs) this.renderPRsList();
-    if (state.issues !== oldState.issues) this.renderIssuesList();
-    if (state.work !== oldState.work) this.renderWorkInfo();
-    if (state.refs !== oldState.refs) this.renderRefsInfo();
-    if (state.isDirty !== oldState.isDirty) this.updateCommitPanel();
-    if (state.showingDiff !== oldState.showingDiff) this.updateDiffView();
-  },
+  // ── Layout & Resizers ───────────────────────────────────
+  initActivityBar() {
+    document.querySelectorAll('.activity-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const tool = item.dataset.tool;
+        if (!tool) return;
 
-  switchTab(tabId) {
-    if (window.store.state.activeTab === tabId && tabId !== 'ide') return;
-    window.store.set({ activeTab: tabId });
-    this.refreshCurrentTab();
-  },
+        document.querySelectorAll('.activity-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
 
-  renderTabChange(tabId) {
-    // Update Sidebar
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.tab === tabId);
-    });
-    
-    // Update Topbar
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabId);
-    });
-    
-    // Update Content
-    document.querySelectorAll('.tab-content').forEach(content => {
-      content.classList.toggle('hidden', content.id !== `${tabId}-tab`);
+        const title = tool.toUpperCase();
+        const titleEl = document.getElementById('sidebar-title');
+        if (titleEl) titleEl.textContent = title;
+
+        document.querySelectorAll('.tool-view').forEach(v => v.classList.add('hidden'));
+        const view = document.getElementById(`${tool}-view`);
+        if (view) view.classList.remove('hidden');
+
+        // Logic based on tool
+        if (tool === 'git') this.loadRefs();
+        if (tool === 'prs') this.loadPRs();
+        if (tool === 'issues') this.loadIssues();
+        if (tool === 'work') this.loadWork();
+      });
     });
   },
 
-  refreshCurrentTab() {
-    const tabId = window.store.state.activeTab;
-    if (tabId === 'graph') this.renderGraph();
-    if (tabId === 'ide') this.renderIDE();
-    // PRs and Issues are rendered via subscriptions now, but we can trigger refresh
-    if (tabId === 'prs') this.loadPRs();
-    if (tabId === 'issues') this.loadIssues();
-    if (tabId === 'work') this.loadWork();
+  initResizers() {
+    const resizerL = document.getElementById('resizer-left');
+    const resizerR = document.getElementById('resizer-right');
+    const sidebar = document.getElementById('sidebar-pane');
+    const context = document.getElementById('context-pane');
+
+    const setupResizer = (resizer, pane, isLeft) => {
+      if (!resizer || !pane) return;
+      let startX, startWidth;
+
+      const onMouseMove = (e) => {
+        const delta = e.clientX - startX;
+        const newWidth = isLeft ? startWidth + delta : startWidth - delta;
+        if (newWidth > 150 && newWidth < 800) {
+          pane.style.width = `${newWidth}px`;
+          if (window.store.state.monacoInstance) window.store.state.monacoInstance.layout();
+          if (window.store.state.diffEditorInstance) window.store.state.diffEditorInstance.layout();
+        }
+      };
+
+      const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        resizer.classList.remove('dragging');
+      };
+
+      resizer.addEventListener('mousedown', (e) => {
+        startX = e.clientX;
+        startWidth = pane.offsetWidth;
+        resizer.classList.add('dragging');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+    };
+
+    setupResizer(resizerL, sidebar, true);
+    setupResizer(resizerR, context, false);
   },
 
-  // ── Toasts ───────────────────────────────────────────────
-  showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-      toast.style.animation = 'toastOut .3s ease forwards';
-      setTimeout(() => toast.remove(), 300);
-    }, 4000);
-  },
-
-  // ── IDE / File Tree ──────────────────────────────────────
-  renderIDE() {
-    if (!window.store.state.tree) {
-      this.loadTree();
-    }
-  },
-
-  async loadTree() {
-    try {
-      const tree = await API.loadTree();
-      window.store.set({ tree });
-    } catch (e) {}
-  },
-
+  // ── Rendering ───────────────────────────────────────────
   renderFileTree() {
     const container = document.getElementById('file-tree');
+    if (!container) return;
     container.innerHTML = '';
     const { tree, selectedFile } = window.store.state;
     if (!tree || !tree.children) return;
-    
+
     const buildNodes = (nodes, parentEl, indent = 0) => {
       nodes.sort((a, b) => {
         if (a.type !== b.type) return (a.type === 'directory' || a.type === 'folder') ? -1 : 1;
@@ -94,351 +112,220 @@ const UI = {
       }).forEach(node => {
         const item = document.createElement('div');
         item.className = 'tree-item';
-        item.style.paddingLeft = `${indent * 12 + 10}px`;
+        item.style.paddingLeft = `${indent * 12 + 16}px`;
         if (selectedFile === node.path) item.classList.add('selected');
-        
+
         const isFolder = node.type === 'directory' || node.type === 'folder';
         const icon = isFolder ? '📁' : '📄';
         item.innerHTML = `<span>${icon}</span> <span class="truncate">${node.name}</span>`;
         
         item.onclick = (e) => {
           e.stopPropagation();
-          if (isFolder) {
-            // Folders could be toggled here
-          } else {
-            this.openFile(node.path);
-          }
+          if (!isFolder) this.openFile(node.path);
         };
         
         parentEl.appendChild(item);
-        
-        if (node.children && node.children.length > 0) {
-          buildNodes(node.children, parentEl, indent + 1);
-        }
+        if (node.children) buildNodes(node.children, parentEl, indent + 1);
       });
     };
-    
     buildNodes(tree.children, container);
   },
 
-  async openFile(path) {
-    window.store.set({ selectedFile: path });
+  renderTabs() {
+    const container = document.getElementById('tabs-container');
+    if (!container) return;
+    const { selectedFile, isDirty } = window.store.state;
+    if (!selectedFile) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const name = selectedFile.split('/').pop();
+    container.innerHTML = `
+      <div class="tab active">
+        <span>📄</span>
+        <span>${name}${isDirty ? ' ●' : ''}</span>
+        <span class="tab-close" onclick="UI.closeFile()">×</span>
+      </div>
+    `;
     
+    const diffBtn = document.getElementById('diff-toggle-btn');
+    if (diffBtn) diffBtn.classList.toggle('hidden', !isDirty);
+  },
+
+  renderStatusBar() {
+    const { refs, work } = window.store.state;
+    const branchInfo = document.getElementById('status-branch');
+    const syncInfo = document.getElementById('status-sync');
+    
+    if (branchInfo) branchInfo.textContent = `⑂ ${refs.current_branch || 'main'}`;
+    if (syncInfo && work.sync) {
+      syncInfo.textContent = `↑${work.sync.ahead} ↓${work.sync.behind}`;
+    }
+  },
+
+  renderContextPane() {
+    const { work } = window.store.state;
+    const stagedList = document.getElementById('staged-list');
+    const changedList = document.getElementById('changed-list');
+    const commitBtn = document.getElementById('commit-primary-btn');
+
+    if (stagedList) {
+      stagedList.innerHTML = work.staged_files.length ? '' : '<div class="text-dark" style="font-size:11px; padding:4px 8px;">No staged changes</div>';
+      work.staged_files.forEach(f => {
+        const item = document.createElement('div');
+        item.className = 'mini-item truncate';
+        item.innerHTML = `<span style="color:var(--success)">M</span> ${f}`;
+        item.onclick = () => this.openFile(f);
+        stagedList.appendChild(item);
+      });
+    }
+
+    if (changedList) {
+      changedList.innerHTML = work.changed_files.length ? '' : '<div class="text-dark" style="font-size:11px; padding:4px 8px;">Clean working tree</div>';
+      work.changed_files.forEach(f => {
+        const item = document.createElement('div');
+        item.className = 'mini-item truncate';
+        item.innerHTML = `
+          <span style="color:var(--warning)">M</span> ${f}
+          <span class="icon-btn" onclick="UI.stageFile(event, '${f}')" style="margin-left:auto; font-size:12px;">+</span>
+        `;
+        item.onclick = () => this.openFile(f);
+        changedList.appendChild(item);
+      });
+    }
+
+    if (commitBtn) {
+      commitBtn.disabled = work.staged_files.length === 0;
+      commitBtn.style.opacity = work.staged_files.length === 0 ? 0.5 : 1;
+    }
+  },
+
+  // ── Actions ─────────────────────────────────────────────
+  async openFile(path) {
+    if (window.store.state.selectedFile === path && !window.store.state.loading) return;
+    window.store.set({ selectedFile: path, loading: true });
     try {
       const file = await API.loadFile(path);
-      const { monacoInstance } = window.store.state;
-      window.store.set({ fileContent: file.content, isDirty: false });
-      
-      if (!monacoInstance) {
-        this.initMonaco(file.content, this.getLanguage(path));
-      } else {
-        monacoInstance.setValue(file.content);
-        monaco.editor.setModelLanguage(monacoInstance.getModel(), this.getLanguage(path));
-      }
-    } catch (e) {}
-  },
-
-  initMonaco(content, lang) {
-    const container = document.getElementById('monaco-container');
-    const monacoInstance = monaco.editor.create(container, {
-      value: content,
-      language: lang,
-      theme: 'vs-dark',
-      automaticLayout: true,
-      fontSize: 14,
-      fontFamily: 'JetBrains Mono, Fira Code, monospace',
-      minimap: { enabled: false },
-      scrollbar: { vertical: 'hidden', horizontal: 'hidden' }
-    });
-    
-    window.store.set({ monacoInstance });
-    
-    monacoInstance.onDidChangeModelContent(() => {
-      const currentVal = monacoInstance.getValue();
-      const isDirty = currentVal !== window.store.state.fileContent;
-      window.store.set({ isDirty });
-    });
-  },
-
-  getLanguage(path) {
-    const ext = path.split('.').pop();
-    const map = { js: 'javascript', py: 'python', html: 'html', css: 'css', md: 'markdown', json: 'json' };
-    return map[ext] || 'plaintext';
-  },
-
-  updateCommitPanel() {
-    const btn = document.getElementById('commit-btn');
-    const diffBtn = document.getElementById('diff-btn');
-    const { isDirty, selectedFile, showingDiff } = window.store.state;
-    
-    if (isDirty && selectedFile) {
-      btn.classList.add('ready');
-      diffBtn.style.display = 'inline-block';
-    } else {
-      btn.classList.remove('ready');
-      diffBtn.style.display = 'none';
-      if (showingDiff) window.store.set({ showingDiff: false });
+      window.store.set({ fileContent: file.content, isDirty: false, loading: false });
+      this.initOrUpdateMonaco(file.content, path);
+    } catch (e) {
+      window.store.set({ loading: false });
     }
-    
-    diffBtn.textContent = showingDiff ? 'Show Code' : 'View Diff';
+  },
+
+  initOrUpdateMonaco(content, path) {
+    const { monacoInstance } = window.store.state;
+    const lang = this.getLanguage(path);
+    if (!monacoInstance) {
+      const container = document.getElementById('monaco-container');
+      const editor = monaco.editor.create(container, {
+        value: content,
+        language: lang,
+        theme: 'vs-dark',
+        automaticLayout: true,
+        fontSize: 14,
+        minimap: { enabled: false },
+        lineNumbers: 'on'
+      });
+      window.store.set({ monacoInstance: editor });
+      editor.onDidChangeModelContent(() => {
+        const isDirty = editor.getValue() !== window.store.state.fileContent;
+        window.store.set({ isDirty });
+      });
+    } else {
+      monacoInstance.setValue(content);
+      monaco.editor.setModelLanguage(monacoInstance.getModel(), lang);
+    }
+  },
+
+  async stageFile(event, path) {
+    if (event) event.stopPropagation();
+    const { work } = window.store.state;
+    window.store.set({
+      work: {
+        ...work,
+        changed_files: work.changed_files.filter(f => f !== path),
+        staged_files: [...work.staged_files, path]
+      }
+    });
+    try {
+      await API.addFile(path);
+      this.loadWork();
+    } catch (e) {
+      this.loadWork();
+    }
   },
 
   toggleDiff() {
-    const { showingDiff } = window.store.state;
-    window.store.set({ showingDiff: !showingDiff });
+    window.store.set({ showingDiff: !window.store.state.showingDiff });
   },
 
   async updateDiffView() {
-    const { showingDiff, selectedFile, fileContent, monacoInstance } = window.store.state;
+    const { showingDiff } = window.store.state;
     const editorEl = document.getElementById('monaco-container');
     const diffEl = document.getElementById('diff-container');
-    
     if (showingDiff) {
       editorEl.classList.add('hidden');
       diffEl.classList.remove('hidden');
-      await this.renderDiffEditor(selectedFile, fileContent, monacoInstance.getValue());
+      this.renderDiffEditor();
     } else {
       editorEl.classList.remove('hidden');
       diffEl.classList.add('hidden');
     }
   },
 
-  async renderDiffEditor(path, originalContent, modifiedContent) {
-    const container = document.getElementById('diff-container');
+  async renderDiffEditor() {
+    const { selectedFile, fileContent, monacoInstance } = window.store.state;
     let { diffEditorInstance } = window.store.state;
-    
+    const container = document.getElementById('diff-container');
     if (!diffEditorInstance) {
       diffEditorInstance = monaco.editor.createDiffEditor(container, {
         theme: 'vs-dark',
         automaticLayout: true,
-        readOnly: true,
-        renderSideBySide: true
+        readOnly: true
       });
       window.store.set({ diffEditorInstance });
     }
-    
-    const originalModel = monaco.editor.createModel(originalContent, this.getLanguage(path));
-    const modifiedModel = monaco.editor.createModel(modifiedContent, this.getLanguage(path));
-    
-    diffEditorInstance.setModel({
-      original: originalModel,
-      modified: modifiedModel
-    });
+    const lang = this.getLanguage(selectedFile);
+    const originalModel = monaco.editor.createModel(fileContent, lang);
+    const modifiedModel = monaco.editor.createModel(monacoInstance.getValue(), lang);
+    diffEditorInstance.setModel({ original: originalModel, modified: modifiedModel });
   },
 
-  // ── PRs ──────────────────────────────────────────────────
-  async loadPRs() {
-    try {
-      const prs = await API.loadPRs();
-      window.store.set({ prs });
-    } catch (e) {}
+  async loadTree() {
+    const tree = await API.loadTree();
+    window.store.set({ tree });
   },
 
-  renderPRsList() {
-    const container = document.getElementById('prs-list');
-    const { prs } = window.store.state;
-    container.innerHTML = '';
-    
-    if (prs.length === 0) {
-      container.innerHTML = '<div class="empty-state">No pull requests found</div>';
-      return;
-    }
-    
-    prs.forEach(pr => {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
-        <div class="card-title">
-          <span class="status-badge status-${pr.status}">${pr.status}</span>
-          ${pr.title}
-        </div>
-        <div class="card-meta">
-          <span>#${pr.id} by ${pr.author}</span>
-          <span>${pr.head} → ${pr.base}</span>
-        </div>
-      `;
-      card.onclick = () => this.showPRDetail(pr.id);
-      container.appendChild(card);
-    });
-  },
-
-  async showPRDetail(id) {
-    const panel = document.getElementById('detail-panel');
-    const header = document.getElementById('detail-header');
-    const body = document.getElementById('detail-body');
-    
-    panel.classList.add('open');
-    header.innerHTML = '<h2>Loading...</h2>';
-    body.innerHTML = '<div class="skeleton"></div>';
-    
-    try {
-      const pr = await API.loadPR(id);
-      header.innerHTML = `
-        <span id="detail-close" onclick="UI.hideDetail()">✕</span>
-        <h2>${pr.title}</h2>
-        <div class="detail-subtitle">#${pr.id} | ${pr.head} → ${pr.base}</div>
-      `;
-      
-      body.innerHTML = `
-        <div class="detail-section">
-          <h4>Description</h4>
-          <p>${pr.description || 'No description provided.'}</p>
-        </div>
-        <div class="action-bar">
-          <button class="action-btn approve" onclick="UI.doPRAction(${pr.id}, 'approve')">Approve</button>
-          <button class="action-btn merge" onclick="UI.doPRAction(${pr.id}, 'merge')">Merge</button>
-        </div>
-      `;
-    } catch (e) {}
-  },
-
-  hideDetail() {
-    document.getElementById('detail-panel').classList.remove('open');
-  },
-
-  // ── Work ─────────────────────────────────────────────────
   async loadWork() {
-    try {
-      const work = await API.loadWork();
-      window.store.set({ work });
-    } catch (e) {}
-  },
-
-  renderWorkInfo() {
-    const { work } = window.store.state;
-    document.getElementById('work-branch-name').textContent = work.current_branch;
-    document.getElementById('stat-prs').textContent = work.open_prs;
-    document.getElementById('stat-issues').textContent = work.open_issues;
-    
-    // Update Sync Metrics (from Phase 2 backend)
-    const sync = work.sync || { ahead: 0, behind: 0, staged_count: 0, modified_count: 0 };
-    const syncEl = document.getElementById('sync-info');
-    if (syncEl) {
-        syncEl.innerHTML = `
-            <span title="Ahead">↑${sync.ahead}</span>
-            <span title="Behind">↓${sync.behind}</span>
-        `;
-    }
-
-    const changedList = document.getElementById('work-changed-files');
-    changedList.innerHTML = work.changed_files.length ? '' : '<p class="text-muted">No changes</p>';
-    work.changed_files.forEach(f => {
-      const item = document.createElement('div');
-      item.className = 'activity-item';
-      item.innerHTML = `
-        <span class="text-warning">M</span> 
-        <span class="truncate" style="flex:1; margin-left:8px">${f}</span>
-        <button class="action-btn" onclick="UI.addFile('${f}')">Stage</button>
-      `;
-      changedList.appendChild(item);
-    });
-  },
-
-  async addFile(path) {
-    // OPTIMISTIC UI: Remove from changed, add to staged in local state immediately
-    const { work } = window.store.state;
-    const newWork = {
-      ...work,
-      changed_files: work.changed_files.filter(f => f !== path),
-      staged_files: [...work.staged_files, path]
-    };
-    window.store.set({ work: newWork });
-    this.showToast(`Staging ${path}...`, 'info');
-
-    try {
-      await API.addFile(path);
-      this.showToast(`Staged ${path}`, 'success');
-      this.loadWork(); // Final sync with server
-    } catch (e) {
-      // Rollback on failure
-      window.store.set({ work });
-      this.showToast(`Failed to stage ${path}`, 'error');
-    }
-  },
-
-  // ── Branch Management ───────────────────────────────────
-  async renderRefsInfo() {
-    const { refs } = window.store.state;
-    document.getElementById('current-branch-name').textContent = refs.current_branch;
-    
-    const list = document.getElementById('branches-list');
-    list.innerHTML = '';
-    
-    Object.keys(refs.branches || {}).forEach(name => {
-      const item = document.createElement('div');
-      item.className = 'tree-item';
-      if (name === refs.current_branch) item.classList.add('selected');
-      item.innerHTML = `<span>⑂</span> <span class="truncate">${name}</span>`;
-      item.onclick = async () => {
-        if (name === refs.current_branch) return;
-        try {
-          // OPTIMISTIC UI: Assume switch succeeds
-          const oldRefs = { ...refs };
-          window.store.set({ refs: { ...refs, current_branch: name } });
-          
-          await API.checkoutBranch(name);
-          this.showToast(`Switched to ${name}`, 'success');
-          this.loadRefs();
-          this.loadTree();
-        } catch (e) {
-          window.store.set({ refs: oldState.refs }); // Rollback
-        }
-      };
-      list.appendChild(item);
-    });
+    const work = await API.loadWork();
+    window.store.set({ work });
   },
 
   async loadRefs() {
-    try {
-      const refs = await API.get('/api/refs');
-      window.store.set({ refs });
-    } catch (e) {}
+    const refs = await API.get('/api/refs');
+    window.store.set({ refs });
   },
 
-  promptNewBranch() {
-    const name = prompt("Enter new branch name:");
-    if (name) {
-      API.createBranch(name).then(() => {
-        this.showToast(`Branch ${name} created`, 'success');
-        this.renderBranches();
-      });
-    }
+  showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.animation = 'toastOut .3s ease forwards';
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
   },
 
-  // ── Git Graph ────────────────────────────────────────────
-  async renderGraph() {
-    if (state.graphLoaded) return;
-    
-    const container = document.getElementById('dag');
-    try {
-      const log = await API.loadLog();
-      const nodes = new vis.DataSet(log.map(c => ({
-        id: c.sha,
-        label: c.sha.substring(0, 7),
-        title: `${c.author}: ${c.message}`,
-        color: { background: '#161b22', border: '#58a6ff' },
-        font: { color: '#c9d1d9' }
-      })));
-      
-      const edges = new vis.DataSet();
-      log.forEach(c => {
-        c.parents.forEach(p => {
-          edges.add({ from: c.sha, to: p, arrows: 'to', color: '#30363d' });
-        });
-      });
-      
-      const options = {
-        physics: { enabled: true, stabilization: { iterations: 120 } },
-        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed' } }
-      };
-      
-      state.networkInstance = new vis.Network(container, { nodes, edges }, options);
-      state.networkInstance.once("stabilizationIterationsDone", () => {
-        state.networkInstance.setOptions({ physics: { enabled: false } });
-      });
-      
-      state.graphLoaded = true;
-    } catch (e) {}
+  getLanguage(path) {
+    if (!path) return 'plaintext';
+    const ext = path.split('.').pop();
+    const map = { js: 'javascript', py: 'python', html: 'html', css: 'css', md: 'markdown', json: 'json' };
+    return map[ext] || 'plaintext';
   }
 };
 
