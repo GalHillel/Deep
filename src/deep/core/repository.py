@@ -17,6 +17,18 @@ from typing import Optional, Any, cast, Union, List, Dict
 from deep.utils.utils import AtomicWriter # type: ignore
 
 from deep.core.constants import DEEP_DIR # type: ignore
+from deep.core.refs import ( # type: ignore
+    update_head,
+    get_branch,
+    list_branches,
+    get_tag,
+    list_tags,
+    get_current_branch,
+    update_branch,
+    resolve_head,
+    resolve_revision,
+    is_valid_sha,
+)
 
 
 def _get_dg_path(repo_root: Path) -> Path:
@@ -103,11 +115,6 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
     print(f"DEBUG: checkout({target}) starting")
     from deep.core.locks import RepositoryLock # type: ignore
     import os
-    from deep.core.refs import ( # type: ignore
-        update_head,
-        resolve_revision,
-        is_valid_sha,
-    ) # type: ignore
     from deep.core.status import compute_status # type: ignore
     from deep.storage.index import DeepIndex, DeepIndexEntry, read_index_no_lock, write_index_no_lock # type: ignore
     from deep.storage.objects import Commit, Tree, read_object # type: ignore
