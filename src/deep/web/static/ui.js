@@ -1,401 +1,299 @@
-/* Deep Platform — ui.js (Restored Dashboard Logic Fixed) */
+/* ⚓ Deep V3 — ui.js (Unified Shell & Intelligence) */
 
 const UI = {
-  // ── Initialization ──────────────────────────────────────
-  init() {
-    console.log("UI Initializing...");
-    this.subscribe();
-    this.loadInitialData();
-    // Initial render based on default state
-    this.renderTabChange(window.store.state.activeTab);
-  },
+    // ── Initialization ──────────────────────────────────────
+    async init() {
+        console.log("⚓ UI Initializing...");
+        this.renderTabChange(window.store.state.activeTab);
+        this.subscribe();
+        this.setupListeners();
+    },
 
-  loadInitialData() {
-    this.loadTree();
-    this.loadWork();
-    this.loadRefs();
-  },
+    async loadInitialData() {
+        await Promise.all([this.loadTree(), this.loadWork(), this.loadRefs()]);
+        this.switchTab('work');
+    },
 
-  subscribe() {
-    window.store.subscribe((state, oldState) => {
-      if (state.activeTab !== oldState.activeTab) {
-        this.renderTabChange(state.activeTab);
-        // Refresh visibility-dependent components
-        if (state.activeTab === 'graph') this.loadLog();
-        if (state.activeTab === 'ide') {
-            if (state.monacoInstance) {
-                setTimeout(() => state.monacoInstance.layout(), 50);
-            }
-            if (state.diffEditorInstance) {
-                setTimeout(() => state.diffEditorInstance.layout(), 50);
-            }
-        }
-      }
-      if (state.tree !== oldState.tree) this.renderFileTree();
-      if (state.selectedFile !== oldState.selectedFile || state.isDirty !== oldState.isDirty) {
-        this.renderEditorArea();
-      }
-      if (state.work !== oldState.work) {
-          this.renderWorkDashboard();
-          this.renderBranchSwitcher();
-      }
-      if (state.refs !== oldState.refs) {
-          this.renderStatusBar();
-          this.renderBranchSwitcher();
-      }
-      if (state.showingDiff !== oldState.showingDiff) this.updateDiffView();
-    });
-  },
+    setupListeners() {
+        document.querySelectorAll('.activity-item').forEach(i => i.addEventListener('click', () => {
+            const t = i.dataset.tab; if (t) this.switchTab(t);
+        }));
+        document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+            const t = b.dataset.tab; if (t) this.switchTab(t);
+        }));
 
-  // ── Navigation ──────────────────────────────────────────
-  switchTab(tabId) {
-    window.store.set({ activeTab: tabId });
-    if (tabId === 'prs') this.loadPRs();
-    if (tabId === 'issues') this.loadIssues();
-    if (tabId === 'work' || tabId === 'dashboard') this.loadWork();
-  },
-
-  renderTabChange(tabId) {
-    if (!tabId) return;
-    // Update Sidebar
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.tab === tabId);
-    });
-    // Update Topbar
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabId);
-    });
-    // Update Content
-    document.querySelectorAll('.tab-content').forEach(content => {
-      content.classList.toggle('hidden', content.id !== `${tabId}-tab`);
-    });
-  },
-
-  // ── IDE / Editor ───────────────────────────────────────
-  renderFileTree() {
-    const container = document.getElementById('file-tree');
-    if (!container) return;
-    container.innerHTML = '';
-    const { tree, selectedFile } = window.store.state;
-    if (!tree || !tree.children) {
-      container.innerHTML = '<div style="padding:10px; font-size:11px; color:var(--text-muted)">Loading tree...</div>';
-      return;
-    }
-
-    const buildNodes = (nodes, parentEl, indent = 0) => {
-      nodes.sort((a, b) => {
-        if (a.type !== b.type) return (a.type === 'directory' || a.type === 'folder') ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      }).forEach(node => {
-        const item = document.createElement('div');
-        item.className = 'tree-item';
-        item.style.paddingLeft = `${indent * 12 + 16}px`;
-        if (selectedFile === node.path) item.classList.add('selected');
-
-        const isFolder = node.type === 'directory' || node.type === 'folder';
-        const icon = isFolder ? '📁' : '📄';
-        item.innerHTML = `<span>${icon}</span> <span class="truncate">${node.name}</span>`;
-        
-        item.onclick = (e) => {
-          e.stopPropagation();
-          if (!isFolder) this.openFile(node.path);
-        };
-        
-        parentEl.appendChild(item);
-        if (node.children) buildNodes(node.children, parentEl, indent + 1);
-      });
-    };
-    buildNodes(tree.children, container);
-  },
-
-  async openFile(path) {
-    if (window.store.state.selectedFile === path && !window.store.state.loading) return;
-    window.store.set({ selectedFile: path, loading: true });
-    try {
-      const file = await API.loadFile(path);
-      window.store.set({ fileContent: file.content, isDirty: false, loading: false });
-      this.initOrUpdateMonaco(file.content, path);
-    } catch (e) {
-      window.store.set({ loading: false });
-    }
-  },
-
-  initOrUpdateMonaco(content, path) {
-    const { monacoInstance } = window.store.state;
-    const lang = this.getLanguage(path);
-    if (!monacoInstance) {
-      const container = document.getElementById('monaco-container');
-      const editor = monaco.editor.create(container, {
-        value: content,
-        language: lang,
-        theme: 'vs-dark',
-        automaticLayout: true,
-        fontSize: 14,
-        minimap: { enabled: false }
-      });
-      window.store.set({ monacoInstance: editor });
-      editor.onDidChangeModelContent(() => {
-        const isDirty = editor.getValue() !== window.store.state.fileContent;
-        window.store.set({ isDirty });
-      });
-    } else {
-      monacoInstance.setValue(content);
-      monaco.editor.setModelLanguage(monacoInstance.getModel(), lang);
-    }
-  },
-
-  renderEditorArea() {
-    const diffBtn = document.getElementById('diff-toggle-btn');
-    const { isDirty } = window.store.state;
-    if (diffBtn) diffBtn.classList.toggle('hidden', !isDirty);
-    
-    // Auto-layout on state change to prevent blank screens
-    const { monacoInstance } = window.store.state;
-    if (monacoInstance) {
-        setTimeout(() => monacoInstance.layout(), 10);
-    }
-  },
-
-  async createNewFile() {
-    const name = prompt("Enter file name (relative path):");
-    if (!name) return;
-    try {
-        const res = await API.createFile(name, "User");
-        if (res.success) {
-            this.showToast(res.message, 'success');
-            await this.loadTree();
-            this.openFile(name);
-        } else {
-            this.showToast(res.error, 'error');
-        }
-    } catch (e) {
-        this.showToast("Failed to create file", 'error');
-    }
-  },
-
-  async checkoutBranch(name) {
-    if (!name) return;
-    if (name === window.store.state.work.current_branch) return;
-    
-    this.showToast(`Checking out ${name}...`, 'info');
-    try {
-        const res = await API.checkoutBranch(name, "User");
-        if (res.success) {
-            this.showToast(res.message, 'success');
-            await this.loadInitialData();
-            this.loadLog();
-        } else {
-            this.showToast(res.error, 'error');
-            // Revert selector
-            this.renderBranchSwitcher();
-        }
-    } catch (e) {
-        this.showToast("Checkout failed", 'error');
-    }
-  },
-
-  renderBranchSwitcher() {
-    const select = document.getElementById('branch-select');
-    if (!select) return;
-    const { refs, work } = window.store.state;
-    if (!refs || !refs.branches) return;
-    
-    const current = work.current_branch || refs.current_branch;
-    select.innerHTML = refs.branches.map(b => `<option value="${b}" ${b === current ? 'selected' : ''}>${b}</option>`).join('');
-  },
-
-  // ── Git Graph ───────────────────────────────────────────
-  async loadLog() {
-    const container = document.getElementById('dag');
-    if (!container) return;
-    try {
-      const log = await API.loadLog();
-      window.store.set({ log }); // Store log for detail lookup
-      
-      const nodes = new vis.DataSet(log.map(c => ({
-        id: c.sha,
-        label: c.sha.substring(0, 7),
-        title: c.message,
-        color: { 
-            background: c.sha === window.store.state.refs.head_sha ? '#58a6ff' : '#161b22', 
-            border: '#30363d' 
-        },
-        font: { color: '#c9d1d9' },
-        shape: 'box',
-        margin: 10
-      })));
-      const edges = new vis.DataSet();
-      log.forEach(c => c.parents.forEach(p => edges.add({ from: c.sha, to: p, arrows: 'to', color: '#30363d' })));
-
-      const options = {
-        physics: { enabled: true, stabilization: { iterations: 120 } },
-        layout: { hierarchical: { direction: 'RL', sortMethod: 'directed', levelSeparation: 150 } },
-        interaction: { hover: true, tooltipDelay: 100 }
-      };
-      const network = new vis.Network(container, { nodes, edges }, options);
-      
-      network.on("click", (params) => {
-        if (params.nodes.length > 0) {
-            this.onCommitClick(params.nodes[0]);
-        } else {
-            this.hideGraphDetail();
-        }
-      });
-    } catch (e) {
-        console.error("Graph error", e);
-    }
-  },
-
-  onCommitClick(sha) {
-    const { log } = window.store.state;
-    const commit = log.find(c => c.sha === sha);
-    if (!commit) return;
-    
-    const detail = document.getElementById('graph-detail');
-    const content = document.getElementById('graph-detail-content');
-    if (!detail || !content) return;
-    
-    detail.classList.remove('hidden');
-    content.innerHTML = `
-        <span class="commit-label">SHA</span>
-        <code>${commit.sha}</code>
-        <span class="commit-label">AUTHOR</span>
-        <div style="font-weight:600">${commit.author}</div>
-        <div class="text-muted" style="font-size:11px">${commit.email}</div>
-        <span class="commit-label">DATE</span>
-        <div>${new Date(commit.timestamp * 1000).toLocaleString()}</div>
-        <span class="commit-label">MESSAGE</span>
-        <div style="font-size:14px; font-weight:600; margin-top:4px">${commit.message}</div>
-        <div style="margin-top:20px">
-            <button class="action-btn" onclick="UI.checkoutBranch('${commit.sha}')">Checkout Commit</button>
-        </div>
-    `;
-  },
-
-  hideGraphDetail() {
-    const detail = document.getElementById('graph-detail');
-    if (detail) detail.classList.add('hidden');
-  },
-
-  // ── Dashboard / Work ────────────────────────────────────
-  renderWorkDashboard() {
-    const { work, tree } = window.store.state;
-    const branchName = document.getElementById('work-branch-name');
-    const changedList = document.getElementById('work-changed-files');
-    const syncInfo = document.getElementById('sync-info');
-
-    if (branchName) branchName.textContent = work.current_branch || '...';
-    if (syncInfo && work.sync) {
-        syncInfo.innerHTML = `<span>↑${work.sync.ahead}</span> | <span>↓${work.sync.behind}</span>`;
-    }
-
-    // Render Stats
-    const totalFiles = this.countFiles(tree);
-    const statsContainer = document.querySelector('.work-stats');
-    if (statsContainer) {
-        statsContainer.innerHTML = `
-            <div class="work-stat-card">
-                <div class="stat-value">${totalFiles}</div>
-                <div class="stat-label">Project Files</div>
-            </div>
-            <div class="work-stat-card">
-                <div class="stat-value">${work.changed_files.length}</div>
-                <div class="stat-label">Pending Changes</div>
-            </div>
-            <div class="work-stat-card">
-                <div class="stat-value">${window.store.state.refs.branches ? window.store.state.refs.branches.length : 0}</div>
-                <div class="stat-label">Local Branches</div>
-            </div>
-        `;
-    }
-
-    if (changedList) {
-        changedList.innerHTML = work.changed_files.length ? '' : '<p class="text-muted" style="padding:20px; text-align:center;">No changes detected. Working tree clean.</p>';
-        work.changed_files.forEach(f => {
-            const item = document.createElement('div');
-            item.className = 'card';
-            item.innerHTML = `
-              <div class="card-title"><span style="color:var(--orange)">M</span> ${f}</div>
-              <div class="card-meta">Modified locally</div>
-            `;
-            item.onclick = () => {
-              this.switchTab('ide');
-              this.openFile(f);
-            }
-            changedList.appendChild(item);
+        document.addEventListener('click', (e) => {
+            this.hideContextMenu();
+            if (e.target.closest('.activity-item')) this.closeRightSidebar();
         });
-    }
-  },
+        document.addEventListener('contextmenu', (e) => {
+            if (!e.target.closest('.tree-item')) this.hideContextMenu();
+        });
 
-  countFiles(node) {
-      if (!node) return 0;
-      let count = node.type === 'file' ? 1 : 0;
-      if (node.children) {
-          node.children.forEach(c => count += this.countFiles(c));
-      }
-      return count;
-  },
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveCurrentFile(); }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); this.commitChanges(); }
+        });
+    },
 
-  renderStatusBar() {
-    const { refs } = window.store.state;
-    const branchInfo = document.getElementById('current-branch');
-    if (branchInfo) branchInfo.textContent = refs.current_branch || 'main';
-  },
+    subscribe() {
+        window.store.subscribe((state, oldState) => {
+            if (state.activeTab !== oldState.activeTab) {
+                this.renderTabChange(state.activeTab);
+                if (state.activeTab === 'graph') this.loadLog();
+                if (state.activeTab === 'ide' && state.monacoInstance) setTimeout(() => state.monacoInstance.layout(), 50);
+            }
+            if (state.tree !== oldState.tree || state.expandedFolders !== oldState.expandedFolders || state.selectedFile !== oldState.selectedFile) {
+                this.renderFileTree();
+            }
+            if (state.selectedFile !== oldState.selectedFile || state.isDirty !== oldState.isDirty || state.openTabs !== oldState.openTabs) {
+                this.renderEditorArea(); this.renderTabs();
+            }
+            if (state.work !== oldState.work) { 
+                this.renderWorkDashboard(); this.renderBranchSwitcher(); 
+                if (state.activeTab === 'scm') this.renderScmSidebar();
+            }
+            if (state.refs !== oldState.refs) { this.renderStatusBar(); this.renderBranchSwitcher(); }
+            if (state.showingDiff !== oldState.showingDiff) this.updateDiffView();
+        });
+    },
 
-  // ── Detail & Utils ──────────────────────────────────────
-  hideDetail() { document.getElementById('detail-panel').classList.remove('open'); },
-  toggleDiff() { window.store.set({ showingDiff: !window.store.state.showingDiff }); },
+    // ── Navigation & Sidebar ──────────────────────────────
+    switchTab(tabId) {
+        window.store.set({ activeTab: tabId });
+        if (tabId === 'prs') this.loadPRs();
+        if (tabId === 'issues') this.loadIssues();
+        if (['work', 'scm', 'graph'].includes(tabId)) this.loadWork();
+    },
 
-  async updateDiffView() {
-    const { showingDiff } = window.store.state;
-    const editorEl = document.getElementById('monaco-container');
-    const diffEl = document.getElementById('diff-container');
-    if (showingDiff) {
-      editorEl.classList.add('hidden');
-      diffEl.classList.remove('hidden');
-      this.renderDiffEditor();
-    } else {
-      editorEl.classList.remove('hidden');
-      diffEl.classList.add('hidden');
-    }
-  },
+    renderTabChange(tabId) {
+        if (!tabId) return;
+        document.querySelectorAll('.activity-item').forEach(i => i.classList.toggle('active', i.dataset.tab === tabId));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('hidden', c.id !== `${tabId}-tab`));
+        this.renderSidebarContext(tabId);
+    },
 
-  async renderDiffEditor() {
-    const { selectedFile, fileContent, monacoInstance } = window.store.state;
-    let { diffEditorInstance } = window.store.state;
-    const container = document.getElementById('diff-container');
-    if (!diffEditorInstance) {
-      diffEditorInstance = monaco.editor.createDiffEditor(container, { theme: 'vs-dark', automaticLayout: true, readOnly: true });
-      window.store.set({ diffEditorInstance });
-    }
-    const lang = this.getLanguage(selectedFile);
-    const originalModel = monaco.editor.createModel(fileContent, lang);
-    const modifiedModel = monaco.editor.createModel(monacoInstance.getValue(), lang);
-    diffEditorInstance.setModel({ original: originalModel, modified: modifiedModel });
-  },
+    renderSidebarContext(tabId) {
+        const sidebar = document.getElementById('sidebar-content'); if (!sidebar) return;
+        if (['ide','work','graph'].includes(tabId)) {
+            sidebar.innerHTML = `<div class="nav-section"><h3>Explorer</h3><div id="file-tree"></div></div>`;
+            this.renderFileTree();
+        } else if (tabId === 'scm') {
+            sidebar.innerHTML = `<div id="scm-sidebar" class="nav-section"><h3>Source Control</h3><div id="scm-content"></div></div>`;
+            this.renderScmSidebar();
+        } else if (tabId === 'prs') {
+            sidebar.innerHTML = `<div class="nav-section"><h3>PR Filter</h3><div class="nav-item active" onclick="UI.loadPRs('open')">Open</div><div class="nav-item" onclick="UI.loadPRs('merged')">Merged</div></div>`;
+        } else if (tabId === 'issues') {
+            sidebar.innerHTML = `<div class="nav-section"><h3>Issue Filter</h3><div class="nav-item active" onclick="UI.loadIssues('open')">Active</div><div class="nav-item" onclick="UI.loadIssues('closed')">Closed</div></div>`;
+        }
+    },
 
-  async loadTree() { try { const tree = await API.loadTree(); window.store.set({ tree }); } catch(e){} },
-  async loadWork() { try { const work = await API.loadWork(); window.store.set({ work }); } catch(e){} },
-  async loadRefs() { try { const refs = await API.loadRefs(); window.store.set({ refs }); } catch(e){} },
-  async loadPRs() { try { const prs = await API.loadPRs(); window.store.set({ prs }); } catch(e){} },
-  async loadIssues() { try { const issues = await API.loadIssues(); window.store.set({ issues }); } catch(e){} },
+    toggleRightSidebar() { document.getElementById('right-sidebar').classList.toggle('hidden'); },
+    openRightSidebar() { document.getElementById('right-sidebar').classList.remove('hidden'); },
+    closeRightSidebar() { document.getElementById('right-sidebar').classList.add('hidden'); },
 
-  showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
-  },
+    // ── AI Commit Intelligence (Phase 8 bonus) ───────────
+    async generateCommitMsg(inputId) {
+        const input = document.getElementById(inputId); if (!input) return;
+        this.showToast("AI thinking...", "info");
+        try {
+            const res = await API.post('/api/generate/commit-msg');
+            if (res.success && res.data.message) {
+                input.value = res.data.message;
+                this.showToast(`Suggested with ${Math.round(res.data.confidence*100)}% confidence`, "success");
+            }
+        } catch (e) { this.showToast("AI failed to suggest message", "error"); }
+    },
 
-  getLanguage(path) {
-    if (!path) return 'plaintext';
-    const ext = path.split('.').pop();
-    const map = { js: 'javascript', py: 'python', html: 'html', css: 'css', md: 'markdown', json: 'json' };
-    return map[ext] || 'plaintext';
-  }
+    // ── Pull Request System (Phase 9) ─────────────────────
+    async loadPRs(status = 'open') {
+        try {
+            const res = await API.get(`/api/prs?status=${status}`);
+            const list = document.getElementById('pr-list-view');
+            const detail = document.getElementById('pr-detail-view');
+            if (!list || !detail) return;
+            list.classList.remove('hidden'); detail.classList.add('hidden');
+            if (!res.success || !res.data.length) { list.innerHTML = `<div class="text-muted" style="padding:40px; text-align:center;">No ${status} PRs.</div>`; return; }
+            list.innerHTML = res.data.map(pr => `
+                <div class="pr-card ${pr.status}" onclick="UI.openPR(${pr.id})">
+                    <div style="display:flex; justify-content:space-between;"><span class="pr-title"><span class="pr-id">#${pr.id}</span>${pr.title}</span><span class="pr-status-badge ${pr.status}">${pr.status}</span></div>
+                    <div class="pr-meta"><span>by <b>${pr.author}</b></span><span>branch: <code>${pr.head}</code></span></div>
+                </div>`).join('');
+        } catch (e) {}
+    },
+
+    async openPR(id) {
+        try {
+            const res = await API.get(`/api/pr/${id}`);
+            const list = document.getElementById('pr-list-view');
+            const detail = document.getElementById('pr-detail-view');
+            if (!list || !detail || !res.success) return;
+            list.classList.add('hidden'); detail.classList.remove('hidden');
+            const pr = res.data;
+            detail.innerHTML = `
+                <button class="action-btn secondary" style="margin-bottom:24px;" onclick="UI.loadPRs()">← Back</button>
+                <div class="pr-header"><h1>${pr.title}</h1><div class="pr-meta"><span>#${pr.id} by <b>${pr.author}</b></span></div></div>
+                <div class="card" style="padding:24px; margin-bottom:32px;">${pr.description || 'No description.'}</div>
+                <div class="review-list"><h3 style="margin-bottom:20px;">Reviews</h3>
+                    ${Object.entries(pr.reviews || {}).map(([user, r]) => `<div class="review-item"><div class="review-avatar">${user[0]}</div><div class="review-content"><b>${user}</b> <span class="review-status ${r.status}">${r.status}</span><div>${r.comment || ''}</div></div></div>`).join('')}
+                    <div style="margin-top:20px; display:flex; gap:12px;">
+                        <button class="action-btn" onclick="UI.approvePR(${pr.id})">Approve</button>
+                        <button class="action-btn" style="background:var(--purple); color:#fff;" onclick="UI.mergePR(${pr.id})">Merge</button>
+                    </div>
+                </div>`;
+        } catch (e) {}
+    },
+    async approvePR(id) { await API.post(`/api/pr/${id}/approve`); this.showToast("Approved", "success"); this.openPR(id); },
+    async mergePR(id) { await API.post(`/api/pr/${id}/merge`); this.showToast("Merged", "success"); this.loadPRs(); },
+
+    // ── Issues System (Phase 10) ──────────────────────────
+    async loadIssues(status = 'open') {
+        try {
+            const res = await API.get(`/api/issues?status=${status}`);
+            const list = document.getElementById('issue-list-view'); if (!list) return;
+            list.innerHTML = res.data.map(iss => `<div class="pr-card"><div class="pr-title">#${iss.id} ${iss.title}</div><div class="pr-meta">by <b>${iss.author}</b></div></div>`).join('');
+        } catch (e) {}
+    },
+
+    // ── Source Control (SCM) ──────────────────────────────
+    renderScmSidebar() {
+        const container = document.getElementById('scm-content'); if (!container) return;
+        const { work } = window.store.state;
+        const staged = work.staged_files || [], changed = work.changed_files || [];
+        container.innerHTML = `
+            <div class="scm-commit-zone">
+                <input type="text" id="scm-commit-msg" placeholder="Message...">
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="action-btn" style="flex:1" onclick="UI.commitChanges('scm-commit-msg')">Commit</button>
+                    <button class="action-btn secondary" title="AI Suggest" onclick="UI.generateCommitMsg('scm-commit-msg')">✨</button>
+                </div>
+            </div>
+            <div class="nav-section-title">STAGED (${staged.length})</div>
+            <div class="scm-list">${staged.map(f => `<div class="scm-item"><span class="truncate" onclick="UI.openFile('${f}')">${f}</span><span class="scm-action" onclick="UI.unstageFile('${f}')">−</span></div>`).join('')}</div>
+            <div class="nav-section-title">CHANGES (${changed.length})</div>
+            <div class="scm-list">${changed.map(f => `<div class="scm-item"><span class="truncate" onclick="UI.openFile('${f}')">${f}</span><span class="scm-action" onclick="UI.stageFile('${f}')">+</span></div>`).join('')}</div>
+        `;
+    },
+
+    async stageFile(path) { await API.post('/api/file/add', { path }); this.loadWork(); },
+    async unstageFile(path) { await API.post('/api/reset', { mode: 'mixed', target: 'HEAD' }); this.loadWork(); },
+
+    // ── Git Graph & Intelligence ─────────────────────────
+    async loadLog() {
+        const container = document.getElementById('dag'); if (!container) return;
+        try {
+            const log = await API.getLog(); window.store.set({ log });
+            const { head, branches } = window.store.state.refs;
+            const ns = new vis.DataSet(log.map(cm => ({ id: cm.sha, label: cm.sha.substring(0,7), shape: 'box', color: { background: cm.sha === head ? '#06b6d4' : '#111827', border: '#1f2937' }, font: { color: '#e5e7eb' } })));
+            const es = new vis.DataSet(); log.forEach(cm => cm.parents.forEach(p => es.add({ from: cm.sha, to: p, arrows: 'to' })));
+            const net = new vis.Network(container, { nodes: ns, edges: es }, { layout: { hierarchical: { direction: 'UD' } }, interaction: { dragNodes: false } });
+            net.on("click", (p) => p.nodes.length ? this.onCommitClick(p.nodes[0]) : this.closeRightSidebar());
+        } catch (e) {}
+    },
+
+    async onCommitClick(sha) {
+        const c = window.store.state.log.find(x => x.sha === sha); if (!c) return;
+        this.openRightSidebar();
+        const container = document.getElementById('right-sidebar-content');
+        container.innerHTML = `<div style="padding:20px;"><div class="commit-meta"><span class="commit-label">SHA</span><code class="code-box">${c.sha}</code><span class="commit-label">AUTHOR</span><div class="meta-val">${c.author}</div><span class="commit-label">MESSAGE</span><div class="message-box">${c.message}</div></div>
+            <div style="margin:20px 0;"><button class="action-btn" onclick="UI.checkoutBranch('${c.sha}')">Checkout</button></div>
+            <div class="nav-section-title">CHANGED FILES</div><div id="commit-diff-list" style="padding:20px;">Loading...</div></div>`;
+        const res = await API.get(`/api/diff/${sha}`);
+        if (res.success) document.getElementById('commit-diff-list').innerHTML = res.data.map(f => `<div class="diff-file-item" onclick="UI.openFile('${f.path}')"><span>${f.path.split('/').pop()}</span><span class="status-tag ${f.status}">${f.status[0].toUpperCase()}</span></div>`).join('');
+    },
+
+    // ── Explorer & Monaco ─────────────────────────────────
+    renderFileTree() {
+        const containers = [document.getElementById('file-tree'), document.getElementById('file-tree-ide')];
+        const { tree, selectedFile, expandedFolders } = window.store.state;
+        containers.forEach(el => {
+            if (!el) return; el.innerHTML = '';
+            if (!tree || !tree.children) return;
+            const build = (nodes, p, ind = 0) => {
+                nodes.sort((a,b) => (a.type==='directory') === (b.type==='directory') ? a.name.localeCompare(b.name) : (a.type==='directory' ? -1 : 1)).forEach(n => {
+                    const isD = n.type === 'directory' || n.type === 'folder', exp = expandedFolders.has(n.path), item = document.createElement('div');
+                    item.className = `tree-item ${selectedFile === n.path ? 'selected' : ''}`; item.style.paddingLeft = `${ind*12+16}px`;
+                    item.innerHTML = `<span>${isD ? (exp ? '▼' : '▶') : ''}</span><span>${isD ? '📁' : '📄'}</span><span class="truncate">${n.name}</span>`;
+                    item.onclick = (e) => { e.stopPropagation(); isD ? this.toggleFolder(n.path) : this.openFile(n.path); };
+                    item.oncontextmenu = (e) => { e.preventDefault(); this.showContextMenu(e, n); };
+                    p.appendChild(item); if (isD && exp && n.children) build(n.children, p, ind + 1);
+                });
+            };
+            build(tree.children, el);
+        });
+    },
+    toggleFolder(p) { const s = new Set(window.store.state.expandedFolders); s.has(p) ? s.delete(p) : s.add(p); window.store.set({ expandedFolders: s }); },
+    async openFile(path) {
+        if (!window.store.state.openTabs.includes(path)) window.store.set({ openTabs: [...window.store.state.openTabs, path] });
+        window.store.set({ selectedFile: path, loading: true });
+        try {
+            const d = await API.getFile(path); window.store.set({ fileContent: d.content, isDirty: false, loading: false });
+            this.initOrUpdateMonaco(d.content, path); this.switchTab('ide');
+        } catch (e) { window.store.set({ loading: false }); }
+    },
+    initOrUpdateMonaco(c, p) {
+        const { monacoInstance } = window.store.state; const lang = this.getLanguage(p);
+        if (!monacoInstance) {
+            const ed = monaco.editor.create(document.getElementById('monaco-container'), { value: c, language: lang, theme: 'vs-dark', automaticLayout: true, fontSize: 13, minimap: { enabled: false } });
+            window.store.set({ monacoInstance: ed });
+            ed.onDidChangeModelContent(() => window.store.set({ isDirty: ed.getValue() !== window.store.state.fileContent }));
+        } else {
+            monacoInstance.setValue(c); monaco.editor.setModelLanguage(monacoInstance.getModel(), lang);
+        }
+    },
+    renderTabs() {
+        const container = document.getElementById('editor-tabs'); if (!container) return;
+        const { openTabs, selectedFile, isDirty } = window.store.state;
+        container.innerHTML = openTabs.map(p => `<div class="editor-tab ${p===selectedFile?'active':''} ${p===selectedFile&&isDirty?'dirty':''}" onclick="UI.openFile('${p}')"><span>${p.split('/').pop()}</span><span class="dirty-dot"></span><span class="tab-close" onclick="event.stopPropagation(); UI.closeTab('${p}')">×</span></div>`).join('');
+    },
+    closeTab(path) {
+        const { openTabs, selectedFile } = window.store.state; const nt = openTabs.filter(t => t !== path);
+        let ns = selectedFile === path ? (nt.length ? nt[0] : null) : selectedFile;
+        window.store.set({ openTabs: nt, selectedFile: ns }); if (ns && selectedFile===path) this.openFile(ns);
+    },
+
+    // ── Infrastructure ────────────────────────────────────
+    renderWorkDashboard() {
+        const { work, tree } = window.store.state;
+        const bn = document.getElementById('work-branch-name'), sc = document.querySelector('.work-stats');
+        if (bn) bn.textContent = work.current_branch || 'main';
+        if (sc) sc.innerHTML = `<div class="work-stat-card"><div class="stat-value">${(work.changed_files||[]).length}</div><div class="stat-label">Changes</div></div>`;
+    },
+    async checkoutBranch(n) { await API.post('/api/branch/checkout', { name: n }); this.showToast("Switched", "success"); this.loadInitialData(); },
+    renderBranchSwitcher() {
+        const s = document.getElementById('branch-select'); if (!s) return;
+        const { refs, work } = window.store.state; const b = Array.isArray(refs.branches) ? refs.branches : Object.keys(refs.branches || {});
+        s.innerHTML = b.map(x => `<option value="${x}" ${x===(work.current_branch||refs.current_branch)?'selected':''}>${x}</option>`).join('');
+    },
+    renderStatusBar() {
+        const { refs, work } = window.store.state; const b = document.getElementById('current-branch-status');
+        if (b) b.textContent = work.current_branch || refs.current_branch || 'main';
+    },
+    showContextMenu(e, node) {
+        const menu = document.getElementById('ctx-menu'); menu.classList.remove('hidden'); menu.style.top = `${e.clientY}px`; menu.style.left = `${e.clientX}px`;
+        menu.innerHTML = `<div class="menu-item" onclick="UI.renameFile('${node.path}')">Rename</div><div class="menu-item danger" onclick="UI.deleteFile('${node.path}')">Delete</div>`;
+    },
+    hideContextMenu() { const m = document.getElementById('ctx-menu'); if (m) m.classList.add('hidden'); },
+    async deleteFile(p) { if(confirm(`Delete ${p}?`)) { await API.post('/api/file/delete', { path: p }); this.loadTree(); } },
+    async renameFile(p) { const n = prompt("New path:", p); if(n) { await API.post('/api/file/rename', { old_path: p, new_path: n }); this.loadTree(); } },
+    async saveCurrentFile() {
+        const { selectedFile, monacoInstance } = window.store.state; if (!selectedFile || !monacoInstance) return;
+        await API.post('/api/file/save', { path: selectedFile, content: monacoInstance.getValue() });
+        window.store.set({ fileContent: monacoInstance.getValue(), isDirty: false }); this.showToast("Saved", "success"); this.loadWork();
+    },
+    async commitChanges(miId = 'commit-msg') {
+        const mi = document.getElementById(miId); const m = (mi?mi.value.trim():"") || "Update from Deep V3";
+        await API.post('/api/commit', { message: m }); if(mi) mi.value=''; this.showToast("Committed", "success"); this.loadInitialData();
+    },
+    async createNewFile() { const n = prompt("File name:"); if(n) { await API.post('/api/file/create', { path: n }); this.loadTree(); this.openFile(n); } },
+    async loadTree() { const d = await API.get('/api/tree'); window.store.set({ tree: d.data }); },
+    async loadWork() { const d = await API.get('/api/work'); window.store.set({ work: d.data }); },
+    async loadRefs() { const d = await API.get('/api/refs'); window.store.set({ refs: d.data }); },
+    showToast(m, t = 'info') { const c = document.getElementById('toast-container'); if (!c) return; const div = document.createElement('div'); div.className = `toast ${t}`; div.textContent = m; c.appendChild(div); setTimeout(() => div.remove(), 4000); },
+    getLanguage(p) { if (!p) return 'plaintext'; const e = p.split('.').pop(); return { js:'javascript', py:'python', html:'html', css:'css' }[e] || 'plaintext'; },
+    toggleDiff() { window.store.set({ showingDiff: !window.store.state.showingDiff }); },
+    renderEditorArea() {}
 };
 
 window.UI = UI;

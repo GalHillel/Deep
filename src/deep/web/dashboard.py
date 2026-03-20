@@ -25,6 +25,7 @@ from deep.core.constants import DEEP_DIR  # type: ignore[import]
 from deep.storage.index import read_index  # type: ignore[import]
 from deep.core.search import search_history  # type: ignore[import]
 from deep.web.services import DashboardService  # type: ignore[import]
+from deep.ai.assistant import DeepAI  # type: ignore[import]
 
 
 def _tree_entries_flat(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
@@ -277,18 +278,39 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         # 2. Git Data (Core)
         if path == "/api/log":
             dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
-            return self._send_res({"success": True, "data": _gather_log(dg)})
+            try:
+                data = _gather_log(dg)
+                return self._send_res({"success": True, "data": data})
+            except Exception as e:
+                return self._error(500, f"Failed to gather log: {str(e)}")
+
         if path == "/api/refs":
             dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
-            return self._send_res({"success": True, "data": _gather_refs(dg)})
+            try:
+                data = _gather_refs(dg)
+                return self._send_res({"success": True, "data": data})
+            except Exception as e:
+                return self._error(500, f"Failed to gather refs: {str(e)}")
+
         if path.startswith("/api/object/"):
             sha = path.split("/")[-1]
             dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
-            return self._send_res({"success": True, "data": _object_detail(dg, sha)})
+            try:
+                data = _object_detail(dg, sha)
+                if "error" in data:
+                    return self._send_res({"success": False, "error": data["error"]})
+                return self._send_res({"success": True, "data": data})
+            except Exception as e:
+                return self._error(500, f"Failed to get object detail: {str(e)}")
+
         if path.startswith("/api/diff/"):
             sha = path.split("/")[-1]
             dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
-            return self._send_res({"success": True, "data": _commit_diff(dg, sha)})
+            try:
+                data = _commit_diff(dg, sha)
+                return self._send_res({"success": True, "data": data})
+            except Exception as e:
+                return self._error(500, f"Failed to get commit diff: {str(e)}")
 
         # 3. Workspace / IDE
         if path == "/api/tree":
@@ -369,6 +391,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         # 2. Git Actions
         if path == "/api/commit":
             return self._send_res(self.service.commit(body.get("message", "IDE update"), author))
+
+        if path == "/api/generate/commit-msg":
+            ai = DeepAI(self.repo_root)
+            res = ai.suggest_commit_message()
+            return self._send_res({"success": True, "data": {"message": res.text, "confidence": res.confidence}})
 
         if path == "/api/branch/create":
             return self._send_res(self.service.create_branch(body.get("name", ""), author))

@@ -1,56 +1,77 @@
-/* Deep Platform — app.js (Restored Dashboard Event Handling) */
+/* Deep V3 — app.js (Strict Lifecycle & Error Boundary) */
 
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log("Deep Platform Restored UI Initializing...");
-    
-    // 1. Initialize UI
-    UI.init();
-    
-    // 2. Setup Navigation
-    document.querySelectorAll('.nav-item, .tab-btn').forEach(item => {
-        item.addEventListener('click', () => {
-            const tab = item.dataset.tab;
-            if (tab) UI.switchTab(tab);
-        });
-    });
-
-    // 3. Global Actions
-    window.saveFile = async () => {
-        const { selectedFile, monacoInstance, fileContent } = window.store.state;
-        if (!selectedFile || !monacoInstance) return;
+const App = {
+    async boot() {
+        console.log("⚓ Deep V3 Booting...");
+        this.setupErrorBoundaries();
         
-        const content = monacoInstance.getValue();
         try {
-            await API.saveFile(selectedFile, content);
-            window.store.set({ fileContent: content, isDirty: false });
-            UI.showToast("File saved", "success");
+            await this.loadConfig();
+            await this.initEditor();
+            await this.loadState();
+            this.setupEventListeners();
+            this.renderUI();
+            console.log("⚓ Deep V3 Ready.");
         } catch (e) {
-            UI.showToast("Save failed", "error");
+            this.handleError(e, "BootSequence");
         }
-    };
+    },
 
-    window.commitChanges = async () => {
-        const msgInput = document.getElementById('commit-msg');
-        const message = msgInput.value.trim() || "Update from IDE";
-        try {
-            await API.commit(message);
-            msgInput.value = '';
-            UI.showToast("Changes committed", "success");
-            UI.loadWork();
-            UI.loadTree();
-        } catch (e) {
-            UI.showToast("Commit failed", "error");
+    setupErrorBoundaries() {
+        window.onerror = (msg, url, line, col, error) => {
+            this.handleError(error || msg, "RuntimeError");
+            return false;
+        };
+        window.onunhandledrejection = (event) => {
+            this.handleError(event.reason, "AsyncPromiseRejection");
+        };
+    },
+
+    async loadConfig() {
+        // Future proofing for local config/theme
+        this.config = {
+            theme: 'vs-dark',
+            refreshInterval: 10000
+        };
+    },
+
+    async initEditor() {
+        // Monaco is loaded via AMD in index.html, no pre-init needed for now
+    },
+
+    async loadState() {
+        if (window.UI && window.UI.loadInitialData) {
+            await window.UI.loadInitialData();
         }
-    };
+    },
 
-    // 4. Keyboard Shortcuts
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();
-            window.saveFile();
+    setupEventListeners() {
+        // Delegate to UI for consistency
+        if (window.UI && window.UI.setupListeners) {
+            window.UI.setupListeners();
         }
-    });
+    },
 
-    // 5. Initial Render
-    UI.switchTab(window.store.state.activeTab);
+    renderUI() {
+        if (window.UI && window.UI.init) {
+            window.UI.init();
+        }
+    },
+
+    handleError(error, context = "General") {
+        console.error(`[${context}]`, error);
+        const msg = typeof error === 'string' ? error : (error.message || "Unknown error occurred");
+        
+        if (window.UI && window.UI.showToast) {
+            window.UI.showToast(`Error: ${msg}`, 'error');
+        } else {
+            alert(`⚓ Deep Critical Error: ${msg}`);
+        }
+    }
+};
+
+window.App = App;
+
+document.addEventListener('DOMContentLoaded', () => {
+    App.boot();
 });
