@@ -13,7 +13,8 @@ const state = {
   issues: [],
   work: {},
   activity: [],
-  tree: [],
+  tree: null,
+  expandedFolders: new Set(['']),
   graphLoaded: false,
   networkInstance: null,
   monacoInstance: null,
@@ -316,52 +317,193 @@ async function initCodeTab() {
 
 async function loadTree() {
   const treeContainer = document.getElementById('file-tree');
-  treeContainer.innerHTML = '<div class="skeleton"></div>';
   try {
     state.tree = await api('/api/tree');
-    let html = '';
-    state.tree.forEach(item => {
-      const isDir = item.type === 'dir';
-      const icon = isDir ? '📁' : '📄';
-      const cls = isDir ? 'folder-icon' : 'file-icon';
-      const selCls = state.selectedFile === item.path && !isDir ? ' active' : '';
-      html += `<div class="tree-item${selCls}" onclick="selectFile('${item.path}', ${isDir})" title="${item.path}">
-        <span class="${cls}">${icon}</span> ${escHtml(item.name)}
-      </div>`;
-    });
-    treeContainer.innerHTML = html;
+    renderTreeLayout();
   } catch (e) {
     showToast('Failed to load workspace tree', 'error');
     treeContainer.innerHTML = '<div class="empty-state"><p>Could not load files</p></div>';
   }
 }
 
-async function selectFile(path, isDir) {
-  if (isDir) return; // Expand/collapse directories could be added later
-  state.selectedFile = path;
+function renderTreeLayout() {
+  const container = document.getElementById('file-tree');
+  if (!state.tree) return;
   
-  // Highlight in tree
-  document.querySelectorAll('.tree-item').forEach(el => {
-    el.classList.toggle('active', el.getAttribute('title') === path);
+  container.innerHTML = '';
+  // The root node is the tree itself
+  state.tree.children.forEach(child => {
+    container.appendChild(createTreeNode(child, 0));
   });
+}
+
+function createTreeNode(node, level) {
+  const div = document.createElement('div');
+  div.className = 'tree-node';
+  
+  const isFolder = node.type === 'folder';
+  const isExpanded = state.expandedFolders.has(node.path);
+  
+  const item = document.createElement('div');
+  item.className = 'tree-item';
+  if (state.selectedFile === node.path) item.classList.add('active');
+  if (isExpanded) item.classList.add('expanded');
+  
+  // Indent
+  for (let i = 0; i < level; i++) {
+    const indent = document.createElement('div');
+    indent.className = 'tree-indent';
+    item.appendChild(indent);
+  }
+  
+  // Chevron for folders
+  const chevron = document.createElement('div');
+  chevron.className = 'chevron';
+  if (isFolder) chevron.textContent = '▶';
+  item.appendChild(chevron);
+  
+  // Icon
+  const icon = document.createElement('div');
+  icon.className = 'icon';
+  icon.textContent = isFolder ? '📁' : '📄';
+  item.appendChild(icon);
+  
+  // Name
+  const name = document.createElement('span');
+  name.textContent = node.name;
+  item.appendChild(name);
+  
+  // Actions (Delete/Rename)
+  if (!isFolder) {
+    const actions = document.createElement('div');
+    actions.className = 'file-actions';
+    actions.innerHTML = `
+      <span class="file-action-item" onclick="event.stopPropagation(); renameFilePrompt('${node.path}')" title="Rename">✎</span>
+      <span class="file-action-item" onclick="event.stopPropagation(); deleteFile('${node.path}')" title="Delete">🗑</span>
+    `;
+    item.appendChild(actions);
+  }
+  
+  item.onclick = () => {
+    if (isFolder) {
+      toggleFolder(node.path);
+    } else {
+      selectFile(node.path);
+    }
+  };
+  
+  div.appendChild(item);
+  
+  if (isFolder && isExpanded) {
+    const childrenContainer = document.createElement('div');
+    childrenContainer.className = 'tree-children expanded';
+    node.children.forEach(child => {
+      childrenContainer.appendChild(createTreeNode(child, level + 1));
+    });
+    div.appendChild(childrenContainer);
+  }
+  
+  return div;
+}
+
+function toggleFolder(path) {
+  if (state.expandedFolders.has(path)) {
+    state.expandedFolders.delete(path);
+  } else {
+    state.expandedFolders.add(path);
+  }
+  renderTreeLayout();
+}
+
+async function selectFile(path) {
+  state.selectedFile = path;
+  renderTreeLayout();
+  
+  const loadingOverlay = document.getElementById('editor-loading-overlay');
+  loadingOverlay.classList.remove('hidden');
+  
+  if (state.monacoInstance) {
+    state.monacoInstance.updateOptions({ readOnly: true });
+  }
 
   try {
-    const data = await api('/api/file?path=' + encodeURIComponent(path));
+    const res = await api('/api/file?path=' + encodeURIComponent(path));
     if (state.monacoInstance) {
-      // Determine language
+      // Set language
       const ext = path.split('.').pop().toLowerCase();
       const langMap = {
-        'js': 'javascript', 'py': 'python', 'html': 'html', 'css': 'css',
-        'json': 'json', 'md': 'markdown'
+        'js': 'javascript', 'ts': 'typescript', 'py': 'python', 
+        'html': 'html', 'css': 'css', 'json': 'json', 
+        'md': 'markdown', 'cpp': 'cpp', 'c': 'cpp', 'go': 'go'
       };
-      const lang = langMap[ext] || 'plaintext';
-      monaco.editor.setModelLanguage(state.monacoInstance.getModel(), lang);
-      state.monacoInstance.setValue(data.content);
-      state.fileOriginalContent = data.content;
+      monaco.editor.setModelLanguage(state.monacoInstance.getModel(), langMap[ext] || 'plaintext');
+      
+      state.monacoInstance.setValue(res.content);
+      state.fileOriginalContent = res.content;
+      state.monacoInstance.updateOptions({ readOnly: false });
       updateCommitBtn();
     }
   } catch (e) {
-    showToast(`Failed to load ${path}`, 'error');
+    showToast(e.message || `Failed to load ${path}`, 'error');
+    if (state.monacoInstance) {
+      state.monacoInstance.setValue('// Error loading file: ' + e.message);
+      state.monacoInstance.updateOptions({ readOnly: true });
+    }
+  } finally {
+    loadingOverlay.classList.add('hidden');
+  }
+}
+
+async function createNewFilePrompt() {
+  const name = prompt('Enter new file path (relative to root):');
+  if (!name) return;
+  const author = prompt('Your name:', 'WebIDE') || 'WebIDE';
+  try {
+    await apiPost('/api/file/create', { path: name, author });
+    showToast(`File created: ${name}`, 'success');
+    await loadTree();
+    
+    // Auto-select the new file by expanding its parent folders
+    const parts = name.split('/');
+    let currentPath = '';
+    parts.slice(0, -1).forEach(part => {
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+      state.expandedFolders.add(currentPath);
+    });
+    
+    selectFile(name);
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function deleteFile(path) {
+  if (!confirm(`Are you sure you want to delete ${path}?`)) return;
+  const author = prompt('Your name:', 'WebIDE') || 'WebIDE';
+  try {
+    await apiPost('/api/file/delete', { path, author });
+    showToast(`Deleted ${path}`, 'success');
+    if (state.selectedFile === path) {
+      state.selectedFile = null;
+      if (state.monacoInstance) state.monacoInstance.setValue('');
+    }
+    await loadTree();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function renameFilePrompt(path) {
+  const newPath = prompt('Enter new path:', path);
+  if (!newPath || newPath === path) return;
+  const author = prompt('Your name:', 'WebIDE') || 'WebIDE';
+  try {
+    await apiPost('/api/file/rename', { old_path: path, new_path: newPath, author });
+    showToast(`Renamed ${path} to ${newPath}`, 'success');
+    if (state.selectedFile === path) state.selectedFile = newPath;
+    await loadTree();
+  } catch (e) {
+    showToast(e.message, 'error');
   }
 }
 

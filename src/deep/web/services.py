@@ -390,44 +390,102 @@ class DashboardService:
 
     # ── Workspace / Web IDE ──────────────────────────────────────────
 
-    def get_tree(self) -> List[Dict[str, Any]]:
+    def _resolve_safe_path(self, rel_path: str) -> Path:
+        full_path = (self.repo_root / rel_path).resolve()
+        if not str(full_path).startswith(str(self.repo_root.resolve())):
+            raise ValueError(f"Invalid path: {rel_path}")
+        return full_path
+
+    def get_tree(self) -> Dict[str, Any]:
         cache_key = "tree"
         cached = self._cache_get(cache_key)
         if cached is not None:
             return cached
 
         import os
-        tree = []
-        for root, dirs, files in os.walk(self.repo_root):
-            # Exclude hidden directories like .deep, .git, node_modules, etc.
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('node_modules', '__pycache__')]
-            rel_root = os.path.relpath(root, self.repo_root)
-            if rel_root == '.':
-                rel_root = ''
-            
-            for d in dirs:
-                path = os.path.join(rel_root, d).replace('\\', '/') if rel_root else d
-                tree.append({"type": "dir", "path": path, "name": d})
-            for f in files:
-                if f.startswith('.'):
-                    continue
-                path = os.path.join(rel_root, f).replace('\\', '/') if rel_root else f
-                tree.append({"type": "file", "path": path, "name": f})
         
-        # Sort so dirs come first, then files, alphabetically
-        tree.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["path"]))
+        def build_node(dir_path: str, name: str) -> Dict[str, Any]:
+            node = {"name": name, "type": "folder", "children": [], "path": dir_path}
+            try:
+                entries = sorted(os.listdir(self.repo_root / dir_path) if dir_path else os.listdir(self.repo_root))
+            except Exception:
+                return node
+                
+            for entry in entries:
+                if entry.startswith('.') or entry in ('node_modules', '__pycache__'):
+                    continue
+                rel_path = os.path.join(dir_path, entry).replace('\\', '/') if dir_path else entry
+                full_path = self.repo_root / rel_path
+                
+                if full_path.is_dir():
+                    node["children"].append(build_node(rel_path, entry))
+                elif full_path.is_file():
+                    node["children"].append({"name": entry, "type": "file", "path": rel_path})
+            
+            # Sort folders first, then files
+            node["children"].sort(key=lambda x: (0 if x["type"] == "folder" else 1, x["name"]))
+            return node
+
+        tree = build_node("", "root")
         self._cache_set(cache_key, tree)
         return tree
 
-    def get_file(self, rel_path: str) -> Optional[str]:
-        # No caching for file content
-        file_path = self.repo_root / rel_path
-        if not file_path.is_file():
-            return None
+    def get_file(self, rel_path: str) -> Dict[str, Any]:
         try:
-            return file_path.read_text(encoding='utf-8')
-        except Exception:
-            return None
+            file_path = self._resolve_safe_path(rel_path)
+            if not file_path.is_file():
+                return {"error": f"File not found: {rel_path}"}
+            
+            size = file_path.stat().st_size
+            try:
+                content = file_path.read_text(encoding='utf-8')
+                return {"content": content, "path": rel_path, "size": size, "encoding": "utf-8"}
+            except UnicodeDecodeError:
+                return {"error": "Binary file cannot be displayed in editor"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def create_file(self, rel_path: str, author: str) -> Dict[str, Any]:
+        try:
+            file_path = self._resolve_safe_path(rel_path)
+            if file_path.exists():
+                return {"error": "File already exists"}
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text("", encoding="utf-8")
+            self._invalidate("tree")
+            return {"message": "File created"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def delete_file(self, rel_path: str, author: str) -> Dict[str, Any]:
+        try:
+            file_path = self._resolve_safe_path(rel_path)
+            if not file_path.exists():
+                return {"error": "File not found"}
+            if file_path.is_dir():
+                import shutil
+                shutil.rmtree(file_path)
+            else:
+                file_path.unlink()
+            self._invalidate("tree")
+            return {"message": "File deleted"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def rename_file(self, old_path: str, new_path: str, author: str) -> Dict[str, Any]:
+        try:
+            old_file = self._resolve_safe_path(old_path)
+            new_file = self._resolve_safe_path(new_path)
+            if not old_file.exists():
+                return {"error": "Source file not found"}
+            if new_file.exists():
+                return {"error": "Destination path already exists"}
+            new_file.parent.mkdir(parents=True, exist_ok=True)
+            old_file.rename(new_file)
+            self._invalidate("tree")
+            return {"message": "File renamed"}
+        except Exception as e:
+            return {"error": str(e)}
 
     def create_commit(self, rel_path: str, content: str, message: str, author: str) -> Dict[str, Any]:
         file_path = self.repo_root / rel_path

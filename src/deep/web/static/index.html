@@ -85,11 +85,20 @@
         <div id="ide-container">
           <!-- File Tree -->
           <div id="ide-sidebar">
-            <div id="file-tree-header">Workspace</div>
+            <div id="file-tree-header">
+              <span>Workspace</span>
+              <div id="file-tree-actions">
+                <span class="tree-action-btn" onclick="createNewFilePrompt()" title="New File">+</span>
+                <span class="tree-action-btn" onclick="loadTree()" title="Refresh">↻</span>
+              </div>
+            </div>
             <div id="file-tree"></div>
           </div>
           <!-- Editor Area -->
           <div id="ide-main">
+            <div id="editor-loading-overlay" class="hidden">
+              <div class="skeleton" style="width: 100px; height: 20px;">Loading file...</div>
+            </div>
             <div id="monaco-container"></div>
             <!-- Commit Panel -->
             <div id="commit-panel">

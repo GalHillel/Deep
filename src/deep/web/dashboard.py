@@ -289,11 +289,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if not filepath:
                 self._error_response(400, "Missing path parameter")
                 return
-            content = self.service.get_file(filepath)
-            if content is None:
-                self._error_response(404, "File not found")
+            result = self.service.get_file(filepath)
+            if "error" in result:
+                self._error_response(404 if "not found" in result["error"].lower() else 422, result["error"])
             else:
-                self._success({"content": content})
+                self._success(result)
         elif path.startswith("/api/prs"):
             status_filter = qs.get("status", [None])[0]
             author_filter = qs.get("author", [None])[0]
@@ -486,6 +486,43 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 self._error_response(400, "Missing branch name")
                 return
             result = self.service.checkout_branch(name, author)
+            if "error" in result:
+                self._error_response(422, result["error"])
+            else:
+                self._success(result)
+            return
+        elif path == "/api/file/create":
+            path_val = body.get("path")
+            author = body.get("author", "WebIDE")
+            if not path_val:
+                self._error_response(400, "Missing path")
+                return
+            result = self.service.create_file(path_val, author)
+            if "error" in result:
+                self._error_response(422, result["error"])
+            else:
+                self._success(result)
+            return
+        elif path == "/api/file/delete":
+            path_val = body.get("path")
+            author = body.get("author", "WebIDE")
+            if not path_val:
+                self._error_response(400, "Missing path")
+                return
+            result = self.service.delete_file(path_val, author)
+            if "error" in result:
+                self._error_response(422, result["error"])
+            else:
+                self._success(result)
+            return
+        elif path == "/api/file/rename":
+            old_path = body.get("old_path")
+            new_path = body.get("new_path")
+            author = body.get("author", "WebIDE")
+            if not old_path or not new_path:
+                self._error_response(400, "Missing old_path or new_path")
+                return
+            result = self.service.rename_file(old_path, new_path, author)
             if "error" in result:
                 self._error_response(422, result["error"])
             else:
