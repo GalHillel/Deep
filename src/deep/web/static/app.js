@@ -40,15 +40,17 @@ const App = {
 
     async api(endpoint, method = 'GET', body = null) {
         try {
+            console.log(`📡 [API] ${method} ${endpoint}`);
             const opts = { method, headers: {} };
             if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
             const res = await fetch(endpoint, opts);
             const data = await res.json();
+            console.log(`📡 [API Response] ${endpoint}:`, data);
             if (!data.success) throw new Error(data.error || "Operation failed");
             return data.data;
         } catch (e) {
+            console.error(`❌ [API Error] ${endpoint}:`, e);
             this.toast(e.message, true);
-            console.error(`API Error [${endpoint}]:`, e);
             return null;
         }
     },
@@ -80,13 +82,11 @@ const App = {
         const panelEl = document.getElementById(`panel-${tabId}`);
         if (panelEl) panelEl.classList.add('active');
 
-        const st = document.getElementById('sidebar-title');
-        const sc = document.getElementById('sidebar-content');
-        if (tabId === 'code') { st.textContent = 'Explorer'; this.loadTree(); }
-        else if (tabId === 'graph') { st.textContent = 'Branches & Tags'; this.loadRefsSidebar(); this.loadGraph(); }
-        else if (tabId === 'diff') { st.textContent = 'Changes'; this.loadDiffSidebar(); this.loadDiffContent(); }
-        else if (tabId === 'prs') { st.textContent = 'Collaboration'; this.loadPRs(); }
-        else if (tabId === 'issues') { st.textContent = 'Collaboration'; this.loadIssues(); }
+        if (tabId === 'code') { this.loadTree(); }
+        else if (tabId === 'graph') { this.loadRefsSidebar(); this.loadGraph(); }
+        else if (tabId === 'diff') { this.loadDiffSidebar(); this.loadDiffContent(); }
+        else if (tabId === 'prs') { this.loadPRs(); }
+        else if (tabId === 'issues') { this.loadIssues(); }
     },
 
     /* --- EDITOR MODULE (VSCODE PARITY) --- */
@@ -103,7 +103,9 @@ const App = {
     },
 
     async loadTree() {
+        console.log("🌳 Loading File Tree...");
         const data = await this.api('/api/tree');
+        console.log("🌳 Tree Data Received:", data);
         if (!data || !data.tree) return;
         
         // Define Active Styles for Tailwind
