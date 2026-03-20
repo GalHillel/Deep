@@ -1,4 +1,4 @@
-/* Deep Platform — ui.js (Restored Dashboard Logic) */
+/* Deep Platform — ui.js (Restored Dashboard Logic Fixed) */
 
 const UI = {
   // ── Initialization ──────────────────────────────────────
@@ -6,6 +6,8 @@ const UI = {
     console.log("UI Initializing...");
     this.subscribe();
     this.loadInitialData();
+    // Initial render based on default state
+    this.renderTabChange(window.store.state.activeTab);
   },
 
   loadInitialData() {
@@ -16,7 +18,14 @@ const UI = {
 
   subscribe() {
     window.store.subscribe((state, oldState) => {
-      if (state.activeTab !== oldState.activeTab) this.renderTabChange(state.activeTab);
+      if (state.activeTab !== oldState.activeTab) {
+        this.renderTabChange(state.activeTab);
+        // Refresh visibility-dependent components
+        if (state.activeTab === 'graph') this.loadLog();
+        if (state.activeTab === 'ide' && state.monacoInstance) {
+          setTimeout(() => state.monacoInstance.layout(), 0);
+        }
+      }
       if (state.tree !== oldState.tree) this.renderFileTree();
       if (state.selectedFile !== oldState.selectedFile || state.isDirty !== oldState.isDirty) {
         this.renderEditorArea();
@@ -30,13 +39,13 @@ const UI = {
   // ── Navigation ──────────────────────────────────────────
   switchTab(tabId) {
     window.store.set({ activeTab: tabId });
-    if (tabId === 'graph') this.loadLog();
     if (tabId === 'prs') this.loadPRs();
     if (tabId === 'issues') this.loadIssues();
     if (tabId === 'work') this.loadWork();
   },
 
   renderTabChange(tabId) {
+    if (!tabId) return;
     // Update Sidebar
     document.querySelectorAll('.nav-item').forEach(item => {
       item.classList.toggle('active', item.dataset.tab === tabId);
@@ -57,7 +66,10 @@ const UI = {
     if (!container) return;
     container.innerHTML = '';
     const { tree, selectedFile } = window.store.state;
-    if (!tree || !tree.children) return;
+    if (!tree || !tree.children) {
+      container.innerHTML = '<div style="padding:10px; font-size:11px; color:var(--text-muted)">Loading tree...</div>';
+      return;
+    }
 
     const buildNodes = (nodes, parentEl, indent = 0) => {
       nodes.sort((a, b) => {
@@ -86,6 +98,7 @@ const UI = {
   },
 
   async openFile(path) {
+    if (window.store.state.selectedFile === path && !window.store.state.loading) return;
     window.store.set({ selectedFile: path, loading: true });
     try {
       const file = await API.loadFile(path);
@@ -128,25 +141,26 @@ const UI = {
 
   // ── Git Graph ───────────────────────────────────────────
   async loadLog() {
-    const log = await API.loadLog();
     const container = document.getElementById('dag');
     if (!container) return;
+    try {
+      const log = await API.loadLog();
+      const nodes = new vis.DataSet(log.map(c => ({
+        id: c.sha,
+        label: c.sha.substring(0, 7),
+        title: `${c.author}: ${c.message}`,
+        color: { background: '#161b22', border: '#58a6ff' },
+        font: { color: '#c9d1d9' }
+      })));
+      const edges = new vis.DataSet();
+      log.forEach(c => c.parents.forEach(p => edges.add({ from: c.sha, to: p, arrows: 'to', color: '#30363d' })));
 
-    const nodes = new vis.DataSet(log.map(c => ({
-      id: c.sha,
-      label: c.sha.substring(0, 7),
-      title: `${c.author}: ${c.message}`,
-      color: { background: '#161b22', border: '#58a6ff' },
-      font: { color: '#c9d1d9' }
-    })));
-    const edges = new vis.DataSet();
-    log.forEach(c => c.parents.forEach(p => edges.add({ from: c.sha, to: p, arrows: 'to', color: '#30363d' })));
-
-    const options = {
-      physics: { enabled: true, stabilization: { iterations: 120 } },
-      layout: { hierarchical: { direction: 'LR', sortMethod: 'directed' } }
-    };
-    new vis.Network(container, { nodes, edges }, options);
+      const options = {
+        physics: { enabled: true, stabilization: { iterations: 120 } },
+        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed' } }
+      };
+      new vis.Network(container, { nodes, edges }, options);
+    } catch (e) {}
   },
 
   // ── Dashboard / Work ────────────────────────────────────
@@ -162,12 +176,18 @@ const UI = {
     }
 
     if (changedList) {
-        changedList.innerHTML = work.changed_files.length ? '' : '<p class="text-muted">No changes detected.</p>';
+        changedList.innerHTML = work.changed_files.length ? '' : '<p class="text-muted" style="padding:20px; text-align:center;">No changes detected. Working tree clean.</p>';
         work.changed_files.forEach(f => {
             const item = document.createElement('div');
-            item.className = 'card truncate';
-            item.innerHTML = `<span style="color:var(--warning)">M</span> ${f}`;
-            item.onclick = () => this.openFile(f);
+            item.className = 'card';
+            item.innerHTML = `
+              <div class="card-title"><span style="color:var(--warning)">M</span> ${f}</div>
+              <div class="card-meta">Modified locally</div>
+            `;
+            item.onclick = () => {
+              this.switchTab('ide');
+              this.openFile(f);
+            }
             changedList.appendChild(item);
         });
     }
@@ -179,10 +199,9 @@ const UI = {
     if (branchInfo) branchInfo.textContent = refs.current_branch || 'main';
   },
 
-  // ── Utils & Misc ───────────────────────────────────────
-  toggleDiff() {
-    window.store.set({ showingDiff: !window.store.state.showingDiff });
-  },
+  // ── Detail & Utils ──────────────────────────────────────
+  hideDetail() { document.getElementById('detail-panel').classList.remove('open'); },
+  toggleDiff() { window.store.set({ showingDiff: !window.store.state.showingDiff }); },
 
   async updateDiffView() {
     const { showingDiff } = window.store.state;
@@ -212,11 +231,11 @@ const UI = {
     diffEditorInstance.setModel({ original: originalModel, modified: modifiedModel });
   },
 
-  async loadTree() { const tree = await API.loadTree(); window.store.set({ tree }); },
-  async loadWork() { const work = await API.loadWork(); window.store.set({ work }); },
-  async loadRefs() { const refs = await API.loadRefs(); window.store.set({ refs }); },
-  async loadPRs() { const prs = await API.loadPRs(); window.store.set({ prs }); },
-  async loadIssues() { const issues = await API.loadIssues(); window.store.set({ issues }); },
+  async loadTree() { try { const tree = await API.loadTree(); window.store.set({ tree }); } catch(e){} },
+  async loadWork() { try { const work = await API.loadWork(); window.store.set({ work }); } catch(e){} },
+  async loadRefs() { try { const refs = await API.loadRefs(); window.store.set({ refs }); } catch(e){} },
+  async loadPRs() { try { const prs = await API.loadPRs(); window.store.set({ prs }); } catch(e){} },
+  async loadIssues() { try { const issues = await API.loadIssues(); window.store.set({ issues }); } catch(e){} },
 
   showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
