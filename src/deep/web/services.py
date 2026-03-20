@@ -47,6 +47,15 @@ class DashboardService:
 
     # ── Cache helpers ────────────────────────────────────────────────
 
+    def _get_cached(self, key: str, fn: Any) -> Any:
+        """Generic caching wrapper."""
+        cached = self._cache_get(key)
+        if cached is not None:
+            return cached
+        data = fn()
+        self._cache_set(key, data)
+        return data
+
     def _cache_get(self, key: str) -> Any:
         if key in self._cache:
             data, ts = self._cache[key]
@@ -217,83 +226,99 @@ class DashboardService:
         type_filter: Optional[str] = None,
         status: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        cache_key = f"issues:{type_filter or ''}:{status or ''}"
-        cached = self._cache_get(cache_key)
-        if cached is not None:
-            return cached
+        def fetch():
+            try:
+                im = IssueManager(self.dg_dir)
+                issues = im.list_issues()
+                result = []
+                for iss in issues:
+                    result.append({
+                        "id": iss.id,
+                        "title": iss.title,
+                        "description": iss.description,
+                        "type": iss.type,
+                        "status": iss.status,
+                        "author": iss.author,
+                        "labels": iss.labels,
+                        "assignee": iss.assignee,
+                        "linked_prs": iss.linked_prs,
+                        "timeline": iss.timeline,
+                        "created_at": iss.created_at,
+                    })
+                return result
+            except Exception:
+                return []
 
+        cache_key = f"issues:{type_filter or ''}:{status or ''}"
+        all_issues = self._get_cached(cache_key, fetch)
+        
+        if type_filter or status:
+            return [i for i in all_issues if 
+                    (not type_filter or i["type"] == type_filter) and 
+                    (not status or i["status"] == status)]
+        return all_issues
+
+    def create_issue(self, title: str, description: str, type: str, author: str) -> Dict[str, Any]:
         try:
             im = IssueManager(self.dg_dir)
-            issues = im.list_issues()
-        except Exception:
-            return []
+            issue = im.create_issue(title, description, type, author)
+            self._invalidate_pr_caches()
+            return {"message": f"Issue #{issue.id} created", "id": issue.id}
+        except Exception as e:
+            return {"error": str(e)}
 
-        result: List[Dict[str, Any]] = []
-        for iss in issues:
-            if type_filter and iss.type != type_filter:
-                continue
-            if status and iss.status != status:
-                continue
-            result.append({
-                "id": iss.id,
-                "title": iss.title,
-                "description": iss.description,
-                "type": iss.type,
-                "status": iss.status,
-                "author": iss.author,
-                "labels": iss.labels,
-                "assignee": iss.assignee,
-                "linked_prs": iss.linked_prs,
-                "timeline": iss.timeline,
-                "created_at": iss.created_at,
-            })
-
-        self._cache_set(cache_key, result)
-        return result
+    def close_issue(self, issue_id: int, author: str) -> Dict[str, Any]:
+        try:
+            im = IssueManager(self.dg_dir)
+            im.close_issue(issue_id, author)
+            self._invalidate_pr_caches()
+            return {"message": f"Issue #{issue_id} closed"}
+        except Exception as e:
+            return {"error": str(e)}
 
     # ── Work snapshot ────────────────────────────────────────────────
 
     def get_work(self) -> Dict[str, Any]:
-        cached = self._cache_get("work")
-        if cached is not None:
-            return cached
+        """Returns complex work context: branch, staged, changed, active PR, related issue."""
+        def fetch():
+            current_branch = ""
+            try:
+                from deep.core.refs import get_current_branch
+                current_branch = get_current_branch(self.dg_dir) or ""
+            except Exception:
+                pass
 
-        current_branch = ""
-        try:
-            current_branch = get_current_branch(self.dg_dir) or ""
-        except Exception:
-            pass
+            # Staged / Changed files
+            staged_files = []
+            changed_files = []
+            try:
+                from deep.storage.index import read_index
+                from deep.core.repository import get_status
+                status = get_status(self.repo_root)
+                staged_files = status.get('staged', [])
+                changed_files = status.get('unstaged', [])
+            except Exception:
+                pass
 
-        prs = self.get_prs()
-        issues = self.get_issues()
+            prs = self.get_prs()
+            issues = self.get_issues()
 
-        open_prs = [p for p in prs if p["status"] == "open"]
-        open_issues = [iss for iss in issues if iss["status"] == "open"]
+            active_pr = next((p for p in prs if p["status"] == "open" and p["head"] == current_branch), None)
+            related_issue = None
+            if active_pr and active_pr.get("linked_issue"):
+                related_issue = next((iss for iss in issues if iss["id"] == active_pr["linked_issue"]), None)
 
-        # Find active PR for current branch
-        active_pr = None
-        for p in open_prs:
-            if p["head"] == current_branch:
-                active_pr = p
-                break
+            return {
+                "current_branch": current_branch,
+                "staged_files": staged_files,
+                "changed_files": changed_files,
+                "active_pr": active_pr,
+                "related_issue": related_issue,
+                "open_prs": len([p for p in prs if p["status"] == "open"]),
+                "open_issues": len([iss for iss in issues if iss["status"] == "open"]),
+            }
 
-        # Find related issue
-        related_issue = None
-        if active_pr and active_pr.get("linked_issue"):
-            for iss in issues:
-                if iss["id"] == active_pr["linked_issue"]:
-                    related_issue = iss
-                    break
-
-        result = {
-            "current_branch": current_branch,
-            "open_prs": len(open_prs),
-            "open_issues": len(open_issues),
-            "active_pr": active_pr,
-            "related_issue": related_issue,
-        }
-        self._cache_set("work", result)
-        return result
+        return self._get_cached("work", fetch)
 
     # ── POST Actions ─────────────────────────────────────────────────
 
@@ -408,23 +433,29 @@ class DashboardService:
         return full_path
 
     def get_tree(self) -> Dict[str, Any]:
+        """Hierarchical tree builder with production-grade filters."""
         cache_key = "tree"
         cached = self._cache_get(cache_key)
         if cached is not None:
             return cached
 
         import os
+
+        # Standard excludes for a local dev platform
+        EXCLUDES = {'.deep', '.git', 'node_modules', '__pycache__', '.pytest_cache', '.venv'}
         
         def build_node(dir_path: str, name: str) -> Dict[str, Any]:
             node = {"name": name, "type": "folder", "children": [], "path": dir_path}
             try:
+                # Use listdir and filter
                 entries = sorted(os.listdir(self.repo_root / dir_path) if dir_path else os.listdir(self.repo_root))
             except Exception:
                 return node
                 
             for entry in entries:
-                if entry.startswith('.') or entry in ('node_modules', '__pycache__'):
+                if entry in EXCLUDES or entry.startswith('.lock') or entry.startswith('.tmp'):
                     continue
+                
                 rel_path = os.path.join(dir_path, entry).replace('\\', '/') if dir_path else entry
                 full_path = self.repo_root / rel_path
                 
@@ -442,41 +473,55 @@ class DashboardService:
         return tree
 
     def _is_probably_binary(self, data: bytes) -> bool:
+        """Production binary detection: BOMs are NOT binary, null bytes are only allowed if BOM exists."""
         if not data:
             return False
-        # Allow UTF-16 BOM
-        if data.startswith((b'\xff\xfe', b'\xfe\xff')):
+            
+        # Detect BOMs (UTF-16, UTF-8-SIG)
+        if data.startswith((b'\xff\xfe', b'\xfe\xff', b'\xef\xbb\xbf')):
             return False
-        # Heuristic: too many null bytes = binary
-        null_ratio = data[:1024].count(b'\x00') / max(1, len(data[:1024]))
-        return null_ratio > 0.3
+            
+        # Heuristic: if null bytes exist without a BOM, it's likely binary
+        # We check the first 8KB like git does
+        chunk = data[:8192]
+        return b'\x00' in chunk
 
-    def _decode_file(self, raw_bytes: bytes) -> str:
-        # UTF-16 (Windows PowerShell)
-        if raw_bytes.startswith((b'\xff\xfe', b'\xfe\xff')):
-            try:
-                return raw_bytes.decode('utf-16')
-            except Exception:
-                pass
-        # UTF-8
+    def _decode_file(self, raw_bytes: bytes) -> tuple[str, str]:
+        """Robust decoding with encoding detection. Returns (content, encoding)."""
+        # 1. UTF-8 with BOM
+        if raw_bytes.startswith(b'\xef\xbb\xbf'):
+            return raw_bytes.decode('utf-8-sig'), 'utf-8-sig'
+            
+        # 2. UTF-16 (Little Endian with BOM)
+        if raw_bytes.startswith(b'\xff\xfe'):
+            return raw_bytes.decode('utf-16'), 'utf-16'
+            
+        # 3. UTF-16 (Big Endian with BOM)
+        if raw_bytes.startswith(b'\xfe\xff'):
+            return raw_bytes.decode('utf-16'), 'utf-16'
+            
+        # 4. Standard UTF-8
         try:
-            return raw_bytes.decode('utf-8')
-        except Exception:
-            return raw_bytes.decode('utf-8', errors='replace')
+            return raw_bytes.decode('utf-8'), 'utf-8'
+        except UnicodeDecodeError:
+            pass
+            
+        # 5. Fallback to latin-1 (never fails)
+        return raw_bytes.decode('latin-1'), 'latin-1'
 
     def get_file(self, rel_path: str) -> Dict[str, Any]:
-        """Robust file reader with encoding and binary detection."""
+        """Premium file reader with encoding and binary detection."""
         MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
         try:
             file_path = self._resolve_safe_path(rel_path)
             
-            # New file handling
             if not file_path.exists():
                 return {
                     "content": "",
                     "path": rel_path,
-                    "is_new": True,
-                    "is_binary": False
+                    "isNew": True,
+                    "isBinary": False,
+                    "encoding": "utf-8"
                 }
                 
             if not file_path.is_file():
@@ -485,48 +530,64 @@ class DashboardService:
             size = file_path.stat().st_size
             if size > MAX_FILE_SIZE:
                 return {
-                    "is_binary": True,
-                    "content": f"File too large ({size//1024} KB)",
-                    "path": rel_path
+                    "isBinary": True,
+                    "content": f"File too large ({size//1024} KB). Max limit 2MB.",
+                    "path": rel_path,
+                    "encoding": "unknown"
                 }
 
             with open(file_path, 'rb') as f:
                 raw = f.read()
 
-            if self._is_probably_binary(raw):
+            is_binary = self._is_probably_binary(raw)
+            if is_binary:
                 return {
-                    "is_binary": True,
+                    "isBinary": True,
                     "content": "Binary file cannot be displayed",
-                    "path": rel_path
+                    "path": rel_path,
+                    "encoding": "binary"
                 }
 
-            content = self._decode_file(raw)
+            content, encoding = self._decode_file(raw)
             return {
                 "content": content,
                 "path": rel_path,
                 "size": size,
-                "is_binary": False,
-                "is_new": False
+                "isBinary": False,
+                "isNew": False,
+                "encoding": encoding
             }
         except Exception as e:
             return {"error": str(e)}
 
-    def save_and_commit(self, rel_path: str, content: str, message: str, author: str) -> Dict[str, Any]:
-        """Robust save and commit using internal command runners."""
-        import argparse
+
+    def save_file(self, rel_path: str, content: str) -> Dict[str, Any]:
+        """Save file content without committing."""
         try:
             file_path = self._resolve_safe_path(rel_path)
             file_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Save file
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(content or "")
+            # All web saves are UTF-8
+            file_path.write_text(content or "", encoding='utf-8')
+            self._invalidate("tree", "work")
+            return {"message": f"Saved {rel_path}"}
+        except Exception as e:
+            return {"error": str(e)}
 
-            # Deep Add
+    def add_file(self, rel_path: str) -> Dict[str, Any]:
+        """Deep Add: stage a file."""
+        import argparse
+        try:
             from deep.commands.add_cmd import run as run_add
             run_add(argparse.Namespace(paths=[rel_path], dg_dir=self.dg_dir, repo_root=self.repo_root))
+            self._invalidate("work")
+            return {"message": f"Added {rel_path} to index"}
+        except Exception as e:
+            return {"error": str(e)}
 
-            # Deep Commit
+    def commit(self, message: str, author: str) -> Dict[str, Any]:
+        """Deep Commit: commit all staged changes."""
+        import argparse
+        try:
             from deep.commands.commit_cmd import run as run_commit
             run_commit(argparse.Namespace(
                 message=message, 
@@ -536,12 +597,19 @@ class DashboardService:
                 repo_root=self.repo_root,
                 patch=False
             ))
-
             self._invalidate("tree", "work")
-            self._log_activity("commit_created", f"{author} committed changes to {rel_path}")
+            self._log_activity("commit_created", f"{author} committed changes: {message}")
             return {"message": "Changes committed successfully"}
         except Exception as e:
             return {"error": str(e)}
+
+    def save_and_commit(self, rel_path: str, content: str, message: str, author: str) -> Dict[str, Any]:
+        """Legacy helper - combines save, add, and commit."""
+        save_res = self.save_file(rel_path, content)
+        if "error" in save_res: return save_res
+        add_res = self.add_file(rel_path)
+        if "error" in add_res: return add_res
+        return self.commit(message, author)
 
     def create_file(self, rel_path: str, author: str) -> Dict[str, Any]:
         try:
@@ -550,7 +618,8 @@ class DashboardService:
                 return {"error": "File already exists"}
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text("", encoding="utf-8")
-            self._invalidate("tree")
+            self._invalidate("tree", "work")
+            self._log_activity("file_created", f"{author} created file {rel_path}")
             return {"message": "File created"}
         except Exception as e:
             return {"error": str(e)}
@@ -565,7 +634,8 @@ class DashboardService:
                 shutil.rmtree(file_path)
             else:
                 file_path.unlink()
-            self._invalidate("tree")
+            self._invalidate("tree", "work")
+            self._log_activity("file_deleted", f"{author} deleted {rel_path}")
             return {"message": "File deleted"}
         except Exception as e:
             return {"error": str(e)}
@@ -595,7 +665,7 @@ class DashboardService:
             env = os.environ.copy()
             env["PYTHONPATH"] = str(self.repo_root / "src")
             subprocess.run([sys.executable, "-m", "deep.cli.main", "branch", name], cwd=self.repo_root, env=env, check=True)
-            self._invalidate("tree", "work")
+            self._invalidate("work")
             self._log_activity("branch_created", f"{author} created branch {name}")
             return {"message": f"Branch {name} created"}
         except subprocess.CalledProcessError as e:
@@ -614,6 +684,22 @@ class DashboardService:
             self._invalidate("tree", "work")
             self._log_activity("branch_checkout", f"{author} checked out branch {name}")
             return {"message": f"Switched to branch {name}"}
+        except subprocess.CalledProcessError as e:
+            return {"error": f"Git engine error: {e}"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def delete_branch(self, name: str, author: str) -> Dict[str, Any]:
+        try:
+            import subprocess
+            import sys
+            import os
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(self.repo_root / "src")
+            subprocess.run([sys.executable, "-m", "deep.cli.main", "branch", "-d", name], cwd=self.repo_root, env=env, check=True)
+            self._invalidate("work")
+            self._log_activity("branch_deleted", f"{author} deleted branch {name}")
+            return {"message": f"Branch {name} deleted"}
         except subprocess.CalledProcessError as e:
             return {"error": f"Git engine error: {e}"}
         except Exception as e:

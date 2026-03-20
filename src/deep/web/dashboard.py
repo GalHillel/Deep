@@ -86,21 +86,37 @@ def _gather_log(dg_dir: Path, max_count: int = 300) -> list[dict]:
 
 
 def _gather_refs(dg_dir: Path) -> dict:
-    """Return branches, HEAD, and tags."""
+    """Return branches, HEAD, and tags. Production-grade ref loader."""
+    import re
+    SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+
     head = resolve_head(dg_dir)
     branches = {}
     heads_dir = dg_dir / "refs" / "heads"
+    
     if heads_dir.exists():
         for f in heads_dir.iterdir():
-            if f.is_file():
-                branches[f.name] = f.read_text().strip()
+            if not f.is_file():
+                continue
+            
+            # Phase 1: Fix critical checkout bug - ignore locks, tmps, logs
+            if f.suffix in ('.lock', '.tmp', '.log') or f.name.endswith('.lock'):
+                continue
+                
+            content = f.read_text().strip()
+            
+            # Validate SHA format - NEVER treat JSON or garbage as SHA
+            if SHA_RE.match(content):
+                branches[f.name] = content
 
     tags = {}
     tags_dir = dg_dir / "refs" / "tags"
     if tags_dir.exists():
         for f in tags_dir.iterdir():
-            if f.is_file():
-                tags[f.name] = f.read_text().strip()
+            if f.is_file() and not f.name.endswith('.lock'):
+                content = f.read_text().strip()
+                if SHA_RE.match(content):
+                    tags[f.name] = content
 
     from deep.core.refs import get_current_branch  # type: ignore
     current_branch = get_current_branch(dg_dir)
@@ -238,191 +254,78 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         try:
             self._handle_get()
         except Exception as e:
-            self._error_response(500, str(e))
+            self._error(500, str(e))
 
     def _handle_get(self):
         parsed = urlparse(self.path)
-        path = parsed.path
-        qs = parse_qs(parsed.query)
-
-        def _repo_param() -> Optional[str]:
-            return qs.get("repo", [None])[0]
+        path = parsed.path.rstrip("/")
+        qs = {k: v[0] for k, v in parse_qs(parsed.query).items()}
 
         # ── Static files ────────────────────────────────────────
-        if path == "/" or path == "/index.html":
+        if path == "" or path == "/index.html":
             self._serve_file(STATIC_DIR / "index.html", "text/html")
             return
 
-        # ── Legacy / graph endpoints ────────────────────────────
-        if path.startswith("/api/log"):
-            dg = _get_repo_dg_dir(self.repo_root, _repo_param())
-            self._success(_gather_log(dg))
-        elif path.startswith("/api/refs"):
-            dg = _get_repo_dg_dir(self.repo_root, _repo_param())
-            self._success(_gather_refs(dg))
-        elif path.startswith("/api/object/"):
+        # ── API Routes (GET) ────────────────────────────────────
+        
+        # 1. System & Metadata
+        if path == "/api/health":
+            return self._success(self.service.get_health())
+        if path == "/api/activity":
+            return self._success(self.service.get_activity())
+        
+        # 2. Git Data (Legacy/Core)
+        if path == "/api/log":
+            dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
+            return self._success(_gather_log(dg))
+        if path == "/api/refs":
+            dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
+            return self._success(_gather_refs(dg))
+        if path.startswith("/api/object/"):
             sha = path.split("/")[-1]
-            dg = _get_repo_dg_dir(self.repo_root, _repo_param())
-            self._success(_object_detail(dg, sha))
-        elif path.startswith("/api/diff/"):
+            dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
+            return self._success(_object_detail(dg, sha))
+        if path.startswith("/api/diff/"):
             sha = path.split("/")[-1]
-            dg = _get_repo_dg_dir(self.repo_root, _repo_param())
-            self._success(_commit_diff(dg, sha))
-        elif path == "/api/projects":
-            from deep.platform.platform import PlatformManager  # type: ignore[import]
-            res = []
-            manager = PlatformManager(self.repo_root)
-            repos = manager.list_repos()
-            for r in repos:
-                dg = self.repo_root / "repos" / r / DEEP_DIR
-                head = resolve_head(dg)
-                res.append({"name": r, "head": head[:7] if head else "none"})
-            self._success(res)
-        elif path == "/api/multi-repo":
-            self._success(_gather_multi_repo_data(self.repo_root))
+            dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
+            return self._success(_commit_diff(dg, sha))
 
-        # ── Service-backed endpoints ────────────────────────────
-        elif path == "/api/tree":
-            self._success(self.service.get_tree())
-        elif path == "/api/file":
-            filepath = qs.get("path", [""])[0]
-            if not filepath:
-                self._error_response(400, "Missing path parameter")
-                return
-            result = self.service.get_file(filepath)
-            if "error" in result:
-                self._error_response(404 if "not found" in result["error"].lower() else 422, result["error"])
-            else:
-                self._success(result)
-        elif path.startswith("/api/prs"):
-            status_filter = qs.get("status", [None])[0]
-            author_filter = qs.get("author", [None])[0]
-            self._success(self.service.get_prs(status=status_filter, author=author_filter))
-        elif path.startswith("/api/issues"):
-            type_filter = qs.get("type", [None])[0]
-            status_filter = qs.get("status", [None])[0]
-            self._success(self.service.get_issues(type_filter=type_filter, status=status_filter))
-        elif path == "/api/work":
-            self._success(self.service.get_work())
-        elif path == "/api/activity":
-            self._success(self.service.get_activity())
-        elif path == "/api/health":
-            self._success(self.service.get_health())
+        # 3. Workspace / IDE
+        if path == "/api/tree":
+            return self._success(self.service.get_tree())
+        if path == "/api/file":
+            filepath = qs.get("path")
+            if not filepath: return self._error(400, "Missing path parameter")
+            res = self.service.get_file(filepath)
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
 
-        # ── PR detail: /api/pr/<id> ─────────────────────────────
-        elif path.startswith("/api/pr/"):
-            parts = path.rstrip("/").split("/")
-            try:
-                pr_id = int(parts[3])
-            except (IndexError, ValueError):
-                self._error_response(400, "Invalid PR ID")
-                return
-            detail = self.service.get_pr_detail(pr_id)
-            if detail is None:
-                self._error_response(404, f"PR #{pr_id} not found")
-            else:
-                self._success(detail)
+        # 4. Pull Requests
+        if path == "/api/prs":
+            return self._success(self.service.get_prs(status=qs.get("status"), author=qs.get("author")))
+        if path.startswith("/api/pr/"):
+            m = re.match(r"^/api/pr/(\d+)$", path)
+            if m:
+                pr_id = int(m.group(1))
+                detail = self.service.get_pr_detail(pr_id)
+                return self._success(detail) if detail else self._error(404, f"PR #{pr_id} not found")
 
-        # ── Heatmap API ─────────────────────────────────────────
-        elif path == "/api/heatmap":
-            from deep.ai.analyzer import score_complexity  # type: ignore[import]
-            heatmap = []
-            objects_dir = self.dg_dir / "objects"
-            index = read_index(self.dg_dir)
-            for fpath, entry in index.entries.items():
-                try:
-                    obj = read_object(objects_dir, entry.content_hash)
-                    if isinstance(obj, Blob):
-                        if b"\0" not in obj.data:
-                            content = obj.data.decode("utf-8", errors="ignore")
-                            comp = score_complexity(content)
-                            heatmap.append({"file": fpath, "complexity": comp, "lines": len(content.splitlines())})
-                except Exception:
-                    pass
-            self._success(heatmap)
+        # 5. Issues
+        if path == "/api/issues":
+            return self._success(self.service.get_issues(type_filter=qs.get("type"), status=qs.get("status")))
+        
+        # 6. Work Context
+        if path == "/api/work":
+            return self._success(self.service.get_work())
 
-        elif path.startswith("/api/history"):
-            sha = path.split("/")[-1]
-            self._success(_commit_diff(self.dg_dir, sha))
-        elif path.startswith("/api/search"):
-            query = qs.get("q", [""])[0]
-            res = search_history(self.dg_dir, query)
-            self._success([
-                {
-                    "commit_sha": r.commit_sha,
-                    "rel_path": r.rel_path,
-                    "line_num": r.line_num,
-                    "content": r.content
-                } for r in res
-            ])
-        elif path == "/api/metrics":
-            self._success(self._load_metrics())
-        elif path.startswith("/api/p2p/nodes"):
-            from deep.network.p2p import P2PEngine  # type: ignore[import]
-            from dataclasses import asdict
-            engine = P2PEngine(self.dg_dir)
-            self._success([asdict(p) for p in engine.get_peers()])
-        elif path == "/api/p2p/presence":
-            from deep.network.p2p import P2PEngine  # type: ignore[import]
-            engine = P2PEngine(self.dg_dir)
-            peers = engine.get_peers()
-            presence = {}
-            for p in peers:
-                presence.update(p.presence)
-            self._success(presence)
-        elif path == "/api/dag-3d":
-            log = _gather_log(self.dg_dir)
-            branches = _gather_refs(self.dg_dir)["branches"]
-            nodes_3d = []
-            for i, entry in enumerate(log):
-                branch_idx = list(branches.values()).index(entry["sha"]) if entry["sha"] in branches.values() else 0
-                nodes_3d.append({
-                    "sha": entry["sha"],
-                    "x": i * 10,
-                    "y": branch_idx * 20,
-                    "z": len(entry["parents"]) * 5,
-                    "message": entry["message"]
-                })
-            self._success(nodes_3d)
-        elif path.startswith("/api/blame/"):
-            rel_path = path[len("/api/blame/"):]
-            from deep.core.blame import get_blame  # type: ignore[import]
-            hunks = get_blame(self.dg_dir, rel_path)
-            self._success([
-                {
-                    "commit_sha": h.commit_sha,
-                    "author": h.author,
-                    "timestamp": h.timestamp,
-                    "start_line": h.start_line,
-                    "num_lines": h.num_lines
-                } for h in hunks
-            ])
-        elif path == "/api/commit-heatmap":
-            self._success(self._calculate_heatmap())
-        elif path == "/api/ai/review":
-            from deep.ai.assistant import DeepAI  # type: ignore[import]
-            ai = DeepAI(self.dg_dir.parent)
-            res = ai.review_changes()
-            self._success({
-                "text": res.text,
-                "confidence": res.confidence,
-                "details": res.details,
-                "latency_ms": res.latency_ms
-            })
-        elif path == "/api/ai/metrics":
-            from deep.ai.assistant import DeepAI  # type: ignore[import]
-            ai = DeepAI(self.dg_dir.parent)
-            self._success(ai.get_metrics())
+        # ── Fallback ───────────────────────────────────────────
+        fpath = STATIC_DIR / path.lstrip("/")
+        if fpath.exists() and fpath.is_file():
+            ctype = "text/css" if fpath.suffix == ".css" else \
+                    "application/javascript" if fpath.suffix == ".js" else \
+                    "text/html"
+            self._serve_file(fpath, ctype)
         else:
-            # Try to serve static file
-            fpath = STATIC_DIR / path.lstrip("/")
-            if fpath.exists() and fpath.is_file():
-                ctype = "text/css" if fpath.suffix == ".css" else \
-                        "application/javascript" if fpath.suffix == ".js" else \
-                        "text/html"
-                self._serve_file(fpath, ctype)
-            else:
-                self.send_error(404)
+            self.send_error(404)
 
     # ── POST ──────────────────────────────────────────────────────
 
@@ -430,169 +333,98 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         try:
             self._handle_post()
         except Exception as e:
-            self._error_response(500, str(e))
+            self._error(500, str(e))
 
     def _handle_post(self):
-        path = urlparse(self.path).path
-
-        # Read JSON body
-        content_length = int(self.headers.get("Content-Length", 0))
-        body: dict = {}
-        if content_length > 0:
-            raw = self.rfile.read(content_length)
-            try:
-                body = json.loads(raw.decode("utf-8"))
-            except Exception:
-                self._error_response(400, "Invalid JSON body")
-                return
-
-        # POST /api/pr/<id>/approve
-        # POST /api/pr/<id>/request_changes
-        # POST /api/pr/<id>/resolve_thread
-        # POST /api/pr/<id>/merge
-        import re
+        path = urlparse(self.path).path.rstrip("/")
         
-        # IDE / Workspace Actions
+        # Safe JSON body parsing
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = {}
+        if content_length > 0:
+            try:
+                body = json.loads(self.rfile.read(content_length).decode("utf-8"))
+            except Exception:
+                return self._error(400, "Invalid JSON body")
+
+        author = body.get("author", "WebIDE")
+
+        # 1. File Actions
+        if path == "/api/file/save":
+            res = self.service.save_file(body.get("path", ""), body.get("content", ""))
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
+        
+        if path == "/api/file/add":
+            res = self.service.add_file(body.get("path", ""))
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
+
+        if path == "/api/file/create":
+            res = self.service.create_file(body.get("path", ""), author)
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
+
+        if path == "/api/file/delete":
+            res = self.service.delete_file(body.get("path", ""), author)
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
+
+        # 2. Git Actions
         if path == "/api/commit":
-            path_val = body.get("path")
-            content = body.get("content")
-            message = body.get("message")
-            author = body.get("author", "WebIDE")
-            if not path_val or content is None or not message:
-                self._error_response(400, "Missing required fields (path, content, message)")
-                return
-            result = self.service.save_and_commit(path_val, content, message, author)
-            if "error" in result:
-                self._error_response(422, result["error"])
-            else:
-                self._success(result)
-            return
-        elif path == "/api/branch/create":
-            name = body.get("name")
-            author = body.get("author", "WebIDE")
-            if not name:
-                self._error_response(400, "Missing branch name")
-                return
-            result = self.service.create_branch(name, author)
-            if "error" in result:
-                self._error_response(422, result["error"])
-            else:
-                self._success(result)
-            return
-        elif path == "/api/branch/checkout":
-            name = body.get("name")
-            author = body.get("author", "WebIDE")
-            if not name:
-                self._error_response(400, "Missing branch name")
-                return
-            result = self.service.checkout_branch(name, author)
-            if "error" in result:
-                self._error_response(422, result["error"])
-            else:
-                self._success(result)
-            return
-        elif path == "/api/file/create":
-            path_val = body.get("path")
-            author = body.get("author", "WebIDE")
-            if not path_val:
-                self._error_response(400, "Missing path")
-                return
-            result = self.service.create_file(path_val, author)
-            if "error" in result:
-                self._error_response(422, result["error"])
-            else:
-                self._success(result)
-            return
-        elif path == "/api/file/delete":
-            path_val = body.get("path")
-            author = body.get("author", "WebIDE")
-            if not path_val:
-                self._error_response(400, "Missing path")
-                return
-            result = self.service.delete_file(path_val, author)
-            if "error" in result:
-                self._error_response(422, result["error"])
-            else:
-                self._success(result)
-            return
-        elif path == "/api/file/rename":
-            old_path = body.get("old_path")
-            new_path = body.get("new_path")
-            author = body.get("author", "WebIDE")
-            if not old_path or not new_path:
-                self._error_response(400, "Missing old_path or new_path")
-                return
-            result = self.service.rename_file(old_path, new_path, author)
-            if "error" in result:
-                self._error_response(422, result["error"])
-            else:
-                self._success(result)
-            return
+            res = self.service.commit(body.get("message", "IDE update"), author)
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
 
-        # PR Actions
-        m = re.match(r"^/api/pr/(\d+)/(approve|request_changes|resolve_thread|merge)$", path)
-        if not m:
-            self._error_response(404, "Unknown POST endpoint")
-            return
+        if path == "/api/branch/create":
+            res = self.service.create_branch(body.get("name", ""), author)
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
 
-        pr_id = int(m.group(1))
-        action = m.group(2)
+        if path == "/api/branch/checkout":
+            res = self.service.checkout_branch(body.get("name", ""), author)
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
 
-        if action == "approve":
-            author = body.get("author", "")
-            if not author:
-                self._error_response(400, "Missing 'author' in request body")
-                return
-            result = self.service.approve_pr(pr_id, author)
-        elif action == "request_changes":
-            author = body.get("author", "")
-            comment = body.get("comment", "")
-            if not author:
-                self._error_response(400, "Missing 'author' in request body")
-                return
-            result = self.service.request_changes_pr(pr_id, author, comment)
-        elif action == "resolve_thread":
-            thread_id = body.get("thread_id")
-            if thread_id is None:
-                self._error_response(400, "Missing 'thread_id' in request body")
-                return
-            result = self.service.resolve_thread_pr(pr_id, int(thread_id))
-        elif action == "merge":
-            author = body.get("author", "")
-            result = self.service.merge_pr(pr_id, author)
-        else:
-            self._error_response(404, "Unknown action")
-            return
+        # 3. PR Actions
+        m_pr = re.match(r"^/api/pr/(\d+)/(approve|request_changes|resolve_thread|merge)$", path)
+        if m_pr:
+            pr_id, action = int(m_pr.group(1)), m_pr.group(2)
+            if action == "approve": res = self.service.approve_pr(pr_id, author)
+            elif action == "request_changes": res = self.service.request_changes_pr(pr_id, author, body.get("comment", ""))
+            elif action == "resolve_thread": res = self.service.resolve_thread_pr(pr_id, int(body.get("thread_id", 0)))
+            elif action == "merge": res = self.service.merge_pr(pr_id, author)
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
 
-        if "error" in result:
-            self._error_response(422, result["error"])
-        else:
-            self._success(result)
+        # 4. Issue Actions
+        if path == "/api/issues":
+            res = self.service.create_issue(body.get("title", ""), body.get("description", ""), body.get("type", "task"), author)
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
+        
+        m_iss = re.match(r"^/api/issues/(\d+)/close$", path)
+        if m_iss:
+            res = self.service.close_issue(int(m_iss.group(1)), author)
+            return self._success(res) if "error" not in res else self._error(422, res["error"])
+
+        return self._error(404, f"Unknown endpoint: {path}")
 
     # ── Response helpers ──────────────────────────────────────────
 
     def _success(self, data: Any):
         body = json.dumps({"success": True, "data": data}, default=str).encode("utf-8")
         self.send_response(200)
+        self._headers(len(body))
+        self.wfile.write(body)
+
+    def _error(self, status: int, message: str):
+        try:
+            body = json.dumps({"success": False, "error": message}).encode("utf-8")
+            self.send_response(status)
+            self._headers(len(body))
+            self.wfile.write(body)
+        except Exception:
+            pass
+
+    def _headers(self, length: int):
         self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Content-Length", str(length))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
-        self.wfile.write(body)
-
-    def _error_response(self, status: int, message: str):
-        try:
-            body = json.dumps({"success": False, "error": message}).encode("utf-8")
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(body)
-        except Exception:
-            pass
 
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
@@ -668,3 +500,11 @@ def start_dashboard(repo_root: Path, host: str = "127.0.0.1", port: int = 9000):
         print("\nDashboard stopped.")
     finally:
         server.server_close()
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Deep Platform Dashboard")
+    parser.add_argument("--repo", type=str, default=".", help="Path to repository root")
+    parser.add_argument("--port", type=int, default=9000, help="Port to run on")
+    args = parser.parse_args()
+    
+    start_dashboard(Path(args.repo).absolute(), port=args.port)

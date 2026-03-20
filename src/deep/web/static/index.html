@@ -1,174 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Deep Platform — Developer Dashboard</title>
-  <meta name="description" content="Deep Platform Developer Dashboard — Git graph, PR reviews, issue tracking, and live workflow monitor.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Vis.js -->
-  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-  
-  <!-- Monaco -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs/editor/editor.main.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Platform | Local IDE</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    
+    <!-- Dependencies -->
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Toast Container -->
-  <div id="toast-container"></div>
 
-  <!-- Left Sidebar -->
-  <div id="sidebar">
-    <h1>🔱 <span>Deep</span></h1>
-    <div class="nav-section">
-      <h3>Navigation</h3>
-      <div class="nav-item active" data-tab="graph" onclick="switchTab('graph')">
-        <span class="nav-icon">◆</span> Graph <kbd>G</kbd>
-      </div>
-      <div class="nav-item" data-tab="code" onclick="switchTab('code')">
-        <span class="nav-icon">&lt;/&gt;</span> Code <kbd>C</kbd>
-      </div>
-      <div class="nav-item" data-tab="prs" onclick="switchTab('prs')">
-        <span class="nav-icon">⑂</span> Pull Requests <span id="pr-count" class="badge badge-count">0</span> <kbd>P</kbd>
-      </div>
-      <div class="nav-item" data-tab="issues" onclick="switchTab('issues')">
-        <span class="nav-icon">◉</span> Issues <span id="issue-count" class="badge badge-count">0</span> <kbd>I</kbd>
-      </div>
-      <div class="nav-item" data-tab="work" onclick="switchTab('work')">
-        <span class="nav-icon">⚡</span> Work <kbd>W</kbd>
-      </div>
-    </div>
-    
-    <div class="nav-section">
-      <h3>Branches</h3>
-      <div id="branch-controls">
-        <input type="text" id="new-branch-name" placeholder="New branch..." onkeydown="if(event.key==='Enter') createBranch()" />
-        <button onclick="createBranch()">+</button>
-      </div>
-      <div id="branch-list"></div>
-    </div>
-    <div class="nav-section sidebar-bottom">
-      <div id="health-status" class="health-badge" title="System health">● OK</div>
-    </div>
-  </div>
-
-  <!-- Main Area -->
-  <div id="main">
-    <!-- Top Bar -->
-    <div id="topbar">
-      <div class="topbar-tabs">
-        <button class="tab-btn active" data-tab="graph" onclick="switchTab('graph')">◆ Graph</button>
-        <button class="tab-btn" data-tab="code" onclick="switchTab('code')">&lt;/&gt; Code</button>
-        <button class="tab-btn" data-tab="prs" onclick="switchTab('prs')">⑂ Pull Requests</button>
-        <button class="tab-btn" data-tab="issues" onclick="switchTab('issues')">◉ Issues</button>
-        <button class="tab-btn" data-tab="work" onclick="switchTab('work')">⚡ Work</button>
-      </div>
-      <div class="topbar-actions">
-        <input type="text" id="search-input" placeholder="Search commits, PRs, issues…" />
-      </div>
-    </div>
-
-    <!-- Content Area -->
-    <div id="content-area">
-      <!-- Graph Tab -->
-      <div class="tab-content" id="tab-graph">
-        <div id="graph-container">
-          <div id="loading-graph" class="hidden">Loading graph...</div>
-          <div id="dag"></div>
-        </div>
-      </div>
-
-      <!-- Code Tab (Web IDE) -->
-      <div class="tab-content hidden" id="tab-code">
-        <div id="ide-container">
-          <!-- File Tree -->
-          <div id="ide-sidebar">
-            <div id="file-tree-header">
-              <span>Workspace</span>
-              <div id="file-tree-actions">
-                <span class="tree-action-btn" onclick="createNewFilePrompt()" title="New File">+</span>
-                <span class="tree-action-btn" onclick="loadTree()" title="Refresh">↻</span>
-              </div>
+    <!-- Sidebar Navigation -->
+    <nav id="sidebar">
+        <h1>Deep <span>Platform</span></h1>
+        
+        <div class="nav-section">
+            <h3>Explorer</h3>
+            <div class="nav-item active" data-tab="ide">
+                <span class="nav-icon">💻</span> IDE <kbd>Ctrl+E</kbd>
             </div>
-            <div id="file-tree"></div>
-          </div>
-          <!-- Editor Area -->
-          <div id="ide-main">
-            <div id="editor-loading-overlay" class="hidden">
-              <div class="skeleton" style="width: 100px; height: 20px;">Loading file...</div>
+            <div class="nav-item" data-tab="graph">
+                <span class="nav-icon">📊</span> Git Graph
             </div>
-            <div id="monaco-container"></div>
-            <!-- Commit Panel -->
-            <div id="commit-panel">
-              <input type="text" id="commit-msg" placeholder="Commit message (e.g. feat: update dashboard)..." oninput="updateCommitBtn()" />
-              <button id="commit-btn" onclick="commitChanges()">Commit Changes</button>
+        </div>
+
+        <div class="nav-section">
+            <h3>Collaboration</h3>
+            <div class="nav-item" data-tab="prs">
+                <span class="nav-icon">⛙</span> Pull Requests
             </div>
-          </div>
+            <div class="nav-item" data-tab="issues">
+                <span class="nav-icon">⊙</span> Issues
+            </div>
         </div>
-      </div>
 
-      <!-- PRs Tab -->
-      <div class="tab-content padding hidden" id="tab-prs">
-        <div class="list-header">
-          <h2>Pull Requests</h2>
-          <div class="filter-bar">
-            <select id="pr-status-filter" onchange="loadPRs()">
-              <option value="">All Status</option>
-              <option value="open">Open</option>
-              <option value="merged">Merged</option>
-              <option value="closed">Closed</option>
-            </select>
-          </div>
+        <div class="nav-section">
+            <h3>Branch Management</h3>
+            <div id="branch-info" style="padding: 0 20px 10px; display: flex; align-items: center; justify-content: space-between;">
+                <span id="current-branch-name" class="status-badge status-ready" style="font-family: var(--font-mono);">main</span>
+                <span title="New Branch" style="cursor: pointer; opacity: 0.6;" onclick="UI.promptNewBranch()">＋</span>
+            </div>
+            <div id="branches-list" style="max-height: 150px; overflow-y: auto; padding: 0 10px;"></div>
         </div>
-        <div id="pr-list" class="card-list"></div>
-      </div>
 
-      <!-- Issues Tab -->
-      <div class="tab-content padding hidden" id="tab-issues">
-        <div class="list-header">
-          <h2>Issues</h2>
-          <div class="filter-bar">
-            <select id="issue-type-filter" onchange="loadIssues()">
-              <option value="">All Types</option>
-              <option value="bug">🐛 Bug</option>
-              <option value="feature">✨ Feature</option>
-              <option value="task">📋 Task</option>
-            </select>
-            <select id="issue-status-filter" onchange="loadIssues()">
-              <option value="">All Status</option>
-              <option value="open">Open</option>
-              <option value="in-progress">In Progress</option>
-              <option value="closed">Closed</option>
-            </select>
-          </div>
+        <div class="nav-section">
+            <h3>Workspace</h3>
+            <div class="nav-item" data-tab="work">
+                <span class="nav-icon">⚡</span> Dashboard
+            </div>
         </div>
-        <div id="issue-list" class="card-list"></div>
-      </div>
 
-      <!-- Work Tab -->
-      <div class="tab-content padding hidden" id="tab-work">
-        <div id="work-dashboard"></div>
-        <div class="work-section">
-          <h3>Activity Feed</h3>
-          <div id="activity-feed" class="card-list"></div>
+        <div class="sidebar-bottom" style="padding: 20px; margin-top: auto; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-muted); text-align: center;">
+            Deep Platform v1.0.0
         </div>
-      </div>
-    </div>
+    </nav>
 
-    <!-- Right Detail Panel -->
-    <div id="detail-panel">
-      <div id="detail-close" onclick="closeDetail()">✕</div>
-      <div id="detail-header"></div>
-      <div id="detail-body"></div>
-    </div>
-  </div>
+    <!-- Main Content -->
+    <main id="main">
+        <header id="topbar">
+            <div class="topbar-tabs">
+                <button class="tab-btn active" data-tab="ide">Editor</button>
+                <button class="tab-btn" data-tab="graph">Graph</button>
+                <button class="tab-btn" data-tab="prs">PRs</button>
+                <button class="tab-btn" data-tab="issues">Issues</button>
+            </div>
+            
+            <div class="topbar-actions">
+                <input type="text" id="search-input" placeholder="Search files, commits, issues...">
+            </div>
+        </header>
 
-  <!-- Monaco loader must be imported correctly -->
-  <script>var require = { paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs' } };</script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs/loader.min.js"></script>
-  <script src="/app.js"></script>
+        <section id="content-area">
+            
+            <!-- Graph Tab -->
+            <div id="graph-tab" class="tab-content hidden">
+                <div id="dag"></div>
+            </div>
+
+            <!-- IDE Tab -->
+            <div id="ide-tab" class="tab-content">
+                <div id="ide-container">
+                    <aside id="ide-sidebar">
+                        <div id="file-tree-header">
+                            PROJECT
+                            <div id="file-tree-actions">
+                                <span title="New File">＋</span>
+                                <span title="Refresh" onclick="UI.loadTree()">⟳</span>
+                            </div>
+                        </div>
+                        <div id="file-tree">
+                            <div class="skeleton"></div>
+                            <div class="skeleton"></div>
+                            <div class="skeleton" style="width: 70%"></div>
+                        </div>
+                    </aside>
+                    <main id="ide-main">
+                        <div id="monaco-container"></div>
+                        <footer id="commit-panel">
+                            <input type="text" id="commit-msg" placeholder="What did you change?">
+                            <button id="commit-btn" onclick="commitChanges()">Commit Changes</button>
+                        </footer>
+                    </main>
+                </div>
+            </div>
+
+            <!-- PRs Tab -->
+            <div id="prs-tab" class="tab-content padding hidden">
+                <h2>Pull Requests</h2>
+                <div id="prs-list" class="card-list"></div>
+            </div>
+
+            <!-- Issues Tab -->
+            <div id="issues-tab" class="tab-content padding hidden">
+                <h2>Issues</h2>
+                <div id="issues-list" class="card-list"></div>
+            </div>
+
+            <!-- Work Tab -->
+            <div id="work-tab" class="tab-content padding hidden">
+                <div id="work-dashboard">
+                    <div class="work-hero">
+                        <h2>Workspace Insight</h2>
+                        <p>Active on branch: <span id="work-branch-name" class="branch-name">...</span></p>
+                    </div>
+                    
+                    <div class="work-stats">
+                        <div class="work-stat-card">
+                            <div id="stat-prs" class="stat-value">0</div>
+                            <div class="stat-label">Open PRs</div>
+                        </div>
+                        <div class="work-stat-card">
+                            <div id="stat-issues" class="stat-value">0</div>
+                            <div class="stat-label">Open Issues</div>
+                        </div>
+                    </div>
+
+                    <div class="work-section">
+                        <h3>Unstaged Changes</h3>
+                        <div id="work-changed-files" class="card-list"></div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Slide-out Detail Panel -->
+        <aside id="detail-panel">
+            <div id="detail-header"></div>
+            <div id="detail-body"></div>
+        </aside>
+
+        <!-- Toasts -->
+        <div id="toast-container"></div>
+    </main>
+
+    <!-- App Logic -->
+    <script>
+        // Monaco Loader Setup
+        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
+    </script>
+    <script src="state.js"></script>
+    <script src="api.js"></script>
+    <script src="ui.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
