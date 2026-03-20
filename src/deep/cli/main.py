@@ -1069,6 +1069,18 @@ def main(argv: list[str] | None = None) -> None:
         handler(plugin_args)
         return
 
+    if args.command == "web":
+        from deep.web.dashboard import start_dashboard
+        try:
+            repo_root = find_repo()
+            port = getattr(args, "port", 9000)
+            start_dashboard(repo_root, port=port)
+            return
+        except Exception as e:
+            if os.environ.get("DEEP_DEBUG"): raise
+            print(f"Deep: internal error: {e}", file=sys.stderr)
+            raise DeepCLIException(1)
+
     try:
         run(args)
     except DeepError as e:
