@@ -19,153 +19,116 @@
 </head>
 <body>
 
-    <!-- Sidebar Navigation -->
-    <nav id="sidebar">
-        <h1>Deep <span>Platform</span></h1>
-        
-        <div class="nav-section">
-            <h3>Explorer</h3>
-            <div class="nav-item active" data-tab="ide">
-                <span class="nav-icon">💻</span> IDE <kbd>Ctrl+E</kbd>
-            </div>
-            <div class="nav-item" data-tab="graph">
-                <span class="nav-icon">📊</span> Git Graph
-            </div>
-        </div>
-
-        <div class="nav-section">
-            <h3>Collaboration</h3>
-            <div class="nav-item" data-tab="prs">
-                <span class="nav-icon">⛙</span> Pull Requests
-            </div>
-            <div class="nav-item" data-tab="issues">
-                <span class="nav-icon">⊙</span> Issues
-            </div>
-        </div>
-
-        <div class="nav-section">
-            <h3>Branch Management</h3>
-            <div id="branch-info" style="padding: 0 20px 10px; display: flex; align-items: center; justify-content: space-between;">
-                <span id="current-branch-name" class="status-badge status-ready" style="font-family: var(--font-mono);">main</span>
-                <span title="New Branch" style="cursor: pointer; opacity: 0.6;" onclick="UI.promptNewBranch()">＋</span>
-            </div>
-            <div id="branches-list" style="max-height: 150px; overflow-y: auto; padding: 0 10px;"></div>
-        </div>
-
-        <div class="nav-section">
-            <h3>Workspace</h3>
-            <div class="nav-item" data-tab="work">
-                <span class="nav-icon">⚡</span> Dashboard
-            </div>
-        </div>
-
-        <div class="sidebar-bottom" style="padding: 20px; margin-top: auto; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-muted); text-align: center;">
-            Deep Platform v1.0.0
-        </div>
-    </nav>
-
-    <!-- Main Content -->
-    <main id="main">
-        <header id="topbar">
-            <div class="topbar-tabs">
-                <button class="tab-btn active" data-tab="ide">Editor</button>
-                <button class="tab-btn" data-tab="graph">Graph</button>
-                <button class="tab-btn" data-tab="prs">PRs</button>
-                <button class="tab-btn" data-tab="issues">Issues</button>
-            </div>
-            
-            <div class="topbar-actions">
-                <input type="text" id="search-input" placeholder="Search files, commits, issues...">
-            </div>
-        </header>
-
-        <section id="content-area">
-            
-            <!-- Graph Tab -->
-            <div id="graph-tab" class="tab-content hidden">
-                <div id="dag"></div>
-            </div>
-
-            <!-- IDE Tab -->
-            <div id="ide-tab" class="tab-content">
-                <div id="ide-container">
-                    <aside id="ide-sidebar">
-                        <div id="file-tree-header">
-                            PROJECT
-                            <div id="file-tree-actions">
-                                <span title="New File">＋</span>
-                                <span title="Refresh" onclick="UI.loadTree()">⟳</span>
-                            </div>
-                        </div>
-                        <div id="file-tree">
-                            <div class="skeleton"></div>
-                            <div class="skeleton"></div>
-                            <div class="skeleton" style="width: 70%"></div>
-                        </div>
-                    </aside>
-                    <main id="ide-main">
-                        <div id="monaco-container"></div>
-                        <div id="diff-container" class="hidden" style="height: calc(100% - 60px); width: 100%; border-bottom: 1px solid var(--border);"></div>
-                        <footer id="commit-panel">
-                            <input type="text" id="commit-msg" placeholder="What did you change?">
-                            <div class="panel-actions">
-                                <button id="diff-btn" class="btn-secondary" onclick="UI.toggleDiff()">View Diff</button>
-                                <button id="commit-btn" onclick="commitChanges()">Commit Changes</button>
-                            </div>
-                        </footer>
-                    </main>
-                </div>
-            </div>
-
-            <!-- PRs Tab -->
-            <div id="prs-tab" class="tab-content padding hidden">
-                <h2>Pull Requests</h2>
-                <div id="prs-list" class="card-list"></div>
-            </div>
-
-            <!-- Issues Tab -->
-            <div id="issues-tab" class="tab-content padding hidden">
-                <h2>Issues</h2>
-                <div id="issues-list" class="card-list"></div>
-            </div>
-
-            <!-- Work Tab -->
-            <div id="work-tab" class="tab-content padding hidden">
-                <div id="work-dashboard">
-                    <div class="work-hero">
-                        <h2>Workspace Insight</h2>
-                        <p>Active on branch: <span id="work-branch-name" class="branch-name">...</span></p>
-                    </div>
-                    
-                    <div class="work-stats">
-                        <div class="work-stat-card">
-                            <div id="stat-prs" class="stat-value">0</div>
-                            <div class="stat-label">Open PRs</div>
-                        </div>
-                        <div class="work-stat-card">
-                            <div id="stat-issues" class="stat-value">0</div>
-                            <div class="stat-label">Open Issues</div>
-                        </div>
-                    </div>
-
-                    <div class="work-section">
-                        <h3>Unstaged Changes</h3>
-                        <div id="work-changed-files" class="card-list"></div>
-                    </div>
-                </div>
-            </div>
-
-        </section>
-
-        <!-- Slide-out Detail Panel -->
-        <aside id="detail-panel">
-            <div id="detail-header"></div>
-            <div id="detail-body"></div>
+    <!-- App Layout -->
+    <div id="app-container">
+        <!-- 0. Activity Bar (Far Left) -->
+        <aside id="activity-bar">
+            <div class="activity-item active" data-tool="explorer" title="Explorer (Ctrl+E)">📁</div>
+            <div class="activity-item" data-tool="search" title="Search">🔍</div>
+            <div class="activity-item" data-tool="git" title="Source Control">⑂</div>
+            <div class="activity-item" data-tool="prs" title="Pull Requests">⛙</div>
+            <div class="activity-item" data-tool="issues" title="Issues">⊙</div>
+            <div class="activity-item" data-tool="work" title="Dashboard">⚡</div>
+            <div class="activity-item mt-auto" data-tool="settings" title="Settings">⚙️</div>
         </aside>
 
-        <!-- Toasts -->
-        <div id="toast-container"></div>
-    </main>
+        <!-- 1. Sidebar (Explorer/Git/PRs/Issues) -->
+        <aside id="sidebar-pane" class="resizable">
+            <header id="sidebar-header">
+                <span id="sidebar-title">EXPLORER</span>
+                <div id="sidebar-actions">
+                    <span title="New File" onclick="UI.promptNewFile()">＋</span>
+                    <span title="Refresh" onclick="UI.loadTree()">⟳</span>
+                </div>
+            </header>
+            <div id="sidebar-content">
+                <!-- Dynamic content based on activity-bar selection -->
+                <div id="explorer-view" class="tool-view">
+                    <div id="file-tree"></div>
+                </div>
+                <div id="git-view" class="tool-view hidden">
+                    <div class="tool-section">
+                        <h3>Branches</h3>
+                        <div id="branch-info">
+                            <span id="current-branch-name" class="status-badge status-ready">main</span>
+                            <span onclick="UI.promptNewBranch()" style="cursor:pointer">＋</span>
+                        </div>
+                        <div id="branches-list"></div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Resizer Left -->
+        <div class="resizer" id="resizer-left"></div>
+
+        <!-- 2. Main Editor Area -->
+        <main id="editor-pane">
+            <header id="editor-tabs-bar">
+                <div id="tabs-container">
+                    <!-- Dynamic Tabs -->
+                </div>
+                <div id="editor-actions">
+                    <button id="diff-toggle-btn" class="icon-btn hidden" onclick="UI.toggleDiff()" title="Toggle Change View">⑄</button>
+                    <button class="icon-btn" onclick="window.saveFile()" title="Save (Ctrl+S)">💾</button>
+                    <button class="icon-btn" onclick="UI.loadTree()" title="Refresh Tree">⟳</button>
+                </div>
+            </header>
+
+            <div id="editor-workspace">
+                <div id="monaco-container"></div>
+                <div id="diff-container" class="hidden"></div>
+            </div>
+
+            <footer id="editor-status-bar">
+                <div class="status-left">
+                    <span id="status-branch">⑂ main</span>
+                    <span id="status-sync">↑0 ↓0</span>
+                </div>
+                <div class="status-right">
+                    <span id="status-encoding">UTF-8</span>
+                    <span id="status-lang">Plain Text</span>
+                </div>
+            </footer>
+        </main>
+
+        <!-- Resizer Right -->
+        <div class="resizer" id="resizer-right"></div>
+
+        <!-- 3. Context Panel (Right) -->
+        <aside id="context-pane" class="resizable">
+            <header class="panel-header">SOURCE CONTROL</header>
+            <div class="panel-content">
+                <div class="staging-area">
+                    <h4>STAGED CHANGES</h4>
+                    <div id="staged-list" class="mini-list"></div>
+                    
+                    <h4>CHANGES</h4>
+                    <div id="changed-list" class="mini-list"></div>
+                </div>
+
+                <div class="commit-section">
+                    <textarea id="commit-msg-input" placeholder="Message (Ctrl+Enter to commit)"></textarea>
+                    <button id="commit-primary-btn" class="btn-primary" onclick="window.commitChanges()">Commit</button>
+                </div>
+
+                <div class="ai-insight">
+                    <h4>AI INSIGHT</h4>
+                    <p id="ai-summary">Select a file to see diff analysis...</p>
+                    <button class="btn-ghost" onclick="UI.getAISummary()">Analyze Changes</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Hidden / Global Components -->
+    <div id="toast-container"></div>
+    <div id="detail-overlay" class="hidden">
+        <div id="detail-panel">
+            <div id="detail-header"></div>
+            <div id="detail-body"></div>
+        </div>
+    </div>
 
     <!-- App Logic -->
     <script>
