@@ -357,17 +357,16 @@ class DashboardService:
     def get_full_status(self) -> Dict[str, Any]:
         """Deep Git Awareness: returns ahead, behind, modified, staged, untracked."""
         def action():
-            from deep.core.repository import get_status
-            status = get_status(self.repo_root)
+            from deep.core.status import compute_status
+            status = compute_status(self.repo_root)
             
-            # Placeholder for ahead/behind logic (requires remote/upstream tracking)
-            # For now, we return 0/0 or estimate if possible
+            # Map StatusResult dataclass to a dictionary
             return {
-                "modified": status.get("unstaged", []),
-                "staged": status.get("staged", []),
-                "untracked": status.get("untracked", []),
-                "ahead": 0, 
-                "behind": 0
+                "modified": status.modified + status.deleted,
+                "staged": status.staged_new + status.staged_modified + status.staged_deleted,
+                "untracked": status.untracked,
+                "ahead": status.ahead_count, 
+                "behind": status.behind_count
             }
         return self._safe_run(action, fallback={"modified":[], "staged":[], "untracked":[], "ahead":0, "behind":0})
 
