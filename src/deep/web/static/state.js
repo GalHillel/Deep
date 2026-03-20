@@ -1,6 +1,31 @@
-/* Deep Platform — state.js */
+/* Deep Platform — state.js (Reactive Store) */
 
-const state = {
+class Store {
+  constructor(initialState) {
+    this.state = initialState;
+    this.listeners = [];
+  }
+
+  get() {
+    return this.state;
+  }
+
+  set(partial) {
+    const oldState = { ...this.state };
+    this.state = { ...this.state, ...partial };
+    console.log('State Update:', partial);
+    this.listeners.forEach(listener => listener(this.state, oldState));
+  }
+
+  subscribe(listener) {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+}
+
+const initialState = {
   // Navigation
   activeTab: 'graph',
   
@@ -27,7 +52,8 @@ const state = {
     staged_files: [],
     changed_files: [],
     active_pr: null,
-    related_issue: null
+    related_issue: null,
+    sync: { ahead: 0, behind: 0, staged_count: 0, modified_count: 0 }
   },
   activity: [],
   
@@ -37,14 +63,21 @@ const state = {
   
   // Flags
   graphLoaded: false,
-  loading: false
+  loading: false,
+  error: null
 };
 
-// State Helpers
-function updateState(key, value) {
-  state[key] = value;
-  // Trigger UI updates if needed (handled in ui.js)
-  if (window.renderUI) window.renderUI(key);
-}
+window.store = new Store(initialState);
+// Legacy compatibility
+window.state = window.store.state; 
 
-window.state = state;
+// Proxy window.state to the store to catch legacy direct mutations during transition
+window.state = new Proxy(initialState, {
+  get(target, prop) {
+    return window.store.state[prop];
+  },
+  set(target, prop, value) {
+    window.store.set({ [prop]: value });
+    return true;
+  }
+});

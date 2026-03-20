@@ -270,52 +270,56 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         
         # 1. System & Metadata
         if path == "/api/health":
-            return self._success(self.service.get_health())
+            return self._send_res(self.service.get_health())
         if path == "/api/activity":
-            return self._success(self.service.get_activity())
+            return self._send_res(self.service.get_activity())
         
-        # 2. Git Data (Legacy/Core)
+        # 2. Git Data (Core)
         if path == "/api/log":
             dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
-            return self._success(_gather_log(dg))
+            return self._send_res({"success": True, "data": _gather_log(dg)})
         if path == "/api/refs":
             dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
-            return self._success(_gather_refs(dg))
+            return self._send_res({"success": True, "data": _gather_refs(dg)})
         if path.startswith("/api/object/"):
             sha = path.split("/")[-1]
             dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
-            return self._success(_object_detail(dg, sha))
+            return self._send_res({"success": True, "data": _object_detail(dg, sha)})
         if path.startswith("/api/diff/"):
             sha = path.split("/")[-1]
             dg = _get_repo_dg_dir(self.repo_root, qs.get("repo"))
-            return self._success(_commit_diff(dg, sha))
+            return self._send_res({"success": True, "data": _commit_diff(dg, sha)})
 
         # 3. Workspace / IDE
         if path == "/api/tree":
-            return self._success(self.service.get_tree())
+            return self._send_res(self.service.get_tree())
         if path == "/api/file":
             filepath = qs.get("path")
             if not filepath: return self._error(400, "Missing path parameter")
-            res = self.service.get_file(filepath)
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            return self._send_res(self.service.get_file(filepath))
+        if path == "/api/diff":
+            filepath = qs.get("path")
+            if not filepath: return self._error(400, "Missing path parameter")
+            return self._send_res(self.service.get_diff(filepath, qs.get("base", "HEAD")))
+        if path == "/api/status/full":
+            return self._send_res(self.service.get_full_status())
 
         # 4. Pull Requests
         if path == "/api/prs":
-            return self._success(self.service.get_prs(status=qs.get("status"), author=qs.get("author")))
+            return self._send_res(self.service.get_prs(status=qs.get("status"), author=qs.get("author")))
         if path.startswith("/api/pr/"):
             m = re.match(r"^/api/pr/(\d+)$", path)
             if m:
                 pr_id = int(m.group(1))
-                detail = self.service.get_pr_detail(pr_id)
-                return self._success(detail) if detail else self._error(404, f"PR #{pr_id} not found")
+                return self._send_res(self.service.get_pr_detail(pr_id))
 
         # 5. Issues
         if path == "/api/issues":
-            return self._success(self.service.get_issues(type_filter=qs.get("type"), status=qs.get("status")))
+            return self._send_res(self.service.get_issues(type_filter=qs.get("type"), status=qs.get("status")))
         
         # 6. Work Context
         if path == "/api/work":
-            return self._success(self.service.get_work())
+            return self._send_res(self.service.get_work())
 
         # ── Fallback ───────────────────────────────────────────
         fpath = STATIC_DIR / path.lstrip("/")
@@ -351,72 +355,75 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
         # 1. File Actions
         if path == "/api/file/save":
-            res = self.service.save_file(body.get("path", ""), body.get("content", ""))
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            return self._send_res(self.service.save_file(body.get("path", ""), body.get("content", "")))
         
         if path == "/api/file/add":
-            res = self.service.add_file(body.get("path", ""))
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            return self._send_res(self.service.add_file(body.get("path", "")))
 
         if path == "/api/file/create":
-            res = self.service.create_file(body.get("path", ""), author)
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            return self._send_res(self.service.create_file(body.get("path", ""), author))
 
         if path == "/api/file/delete":
-            res = self.service.delete_file(body.get("path", ""), author)
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            return self._send_res(self.service.delete_file(body.get("path", ""), author))
 
         # 2. Git Actions
         if path == "/api/commit":
-            res = self.service.commit(body.get("message", "IDE update"), author)
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            return self._send_res(self.service.commit(body.get("message", "IDE update"), author))
 
         if path == "/api/branch/create":
-            res = self.service.create_branch(body.get("name", ""), author)
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            return self._send_res(self.service.create_branch(body.get("name", ""), author))
 
         if path == "/api/branch/checkout":
-            res = self.service.checkout_branch(body.get("name", ""), author)
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            return self._send_res(self.service.checkout_branch(body.get("name", ""), author))
+
+        if path == "/api/reset":
+            return self._send_res(self.service.reset_repo(body.get("mode", "mixed"), body.get("target", "HEAD")))
+        
+        if path == "/api/revert":
+            return self._send_res(self.service.revert_commit(body.get("sha", ""), author))
 
         # 3. PR Actions
         m_pr = re.match(r"^/api/pr/(\d+)/(approve|request_changes|resolve_thread|merge)$", path)
         if m_pr:
             pr_id, action = int(m_pr.group(1)), m_pr.group(2)
-            if action == "approve": res = self.service.approve_pr(pr_id, author)
-            elif action == "request_changes": res = self.service.request_changes_pr(pr_id, author, body.get("comment", ""))
-            elif action == "resolve_thread": res = self.service.resolve_thread_pr(pr_id, int(body.get("thread_id", 0)))
-            elif action == "merge": res = self.service.merge_pr(pr_id, author)
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            if action == "approve": return self._send_res(self.service.approve_pr(pr_id, author))
+            if action == "request_changes": return self._send_res(self.service.request_changes_pr(pr_id, author, body.get("comment", "")))
+            if action == "resolve_thread": return self._send_res(self.service.resolve_thread_pr(pr_id, int(body.get("thread_id", 0))))
+            if action == "merge": return self._send_res(self.service.merge_pr(pr_id, author))
 
         # 4. Issue Actions
         if path == "/api/issues":
-            res = self.service.create_issue(body.get("title", ""), body.get("description", ""), body.get("type", "task"), author)
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            return self._send_res(self.service.create_issue(body.get("title", ""), body.get("description", ""), body.get("type", "task"), author))
         
         m_iss = re.match(r"^/api/issues/(\d+)/close$", path)
         if m_iss:
-            res = self.service.close_issue(int(m_iss.group(1)), author)
-            return self._success(res) if "error" not in res else self._error(422, res["error"])
+            return self._send_res(self.service.close_issue(int(m_iss.group(1)), author))
 
         return self._error(404, f"Unknown endpoint: {path}")
 
     # ── Response helpers ──────────────────────────────────────────
 
-    def _success(self, data: Any):
-        body = json.dumps({"success": True, "data": data}, default=str).encode("utf-8")
-        self.send_response(200)
+    def _send_res(self, res: dict[str, Any]):
+        """Unified response sender for service dicts."""
+        body = json.dumps(res, default=str).encode("utf-8")
+        status = 200 if res.get("success") else 422
+        # Special case: 404 if data is empty/none for a detail endpoint (like PR)
+        if res.get("success") and res.get("data") is None:
+            status = 404
+        
+        self.send_response(status)
         self._headers(len(body))
         self.wfile.write(body)
 
+    def _success(self, data: Any):
+        """Legacy helper for non-service routes."""
+        self._send_res({"success": True, "data": data})
+
     def _error(self, status: int, message: str):
-        try:
-            body = json.dumps({"success": False, "error": message}).encode("utf-8")
-            self.send_response(status)
-            self._headers(len(body))
-            self.wfile.write(body)
-        except Exception:
-            pass
+        body = json.dumps({"success": False, "error": message}).encode("utf-8")
+        self.send_response(status)
+        self._headers(len(body))
+        self.wfile.write(body)
 
     def _headers(self, length: int):
         self.send_header("Content-Type", "application/json")

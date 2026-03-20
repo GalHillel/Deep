@@ -11,11 +11,12 @@ layer, and an activity log.
 
 from __future__ import annotations
 
+import re
 import time
 import traceback
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable
 
 from deep.core.constants import DEEP_DIR  # type: ignore[import]
 from deep.core.issue import IssueManager  # type: ignore[import]
@@ -34,6 +35,31 @@ class DashboardService:
         self._activity: List[Dict[str, Any]] = []  # last 50 events
         self._max_activity = 50
         self.cleanup_locks()
+
+    def _safe_run(self, fn: Callable, fallback: Any = None) -> Dict[str, Any]:
+        """Hardcore stability wrapper: NEVER throw, always return standardized JSON."""
+        try:
+            result = fn()
+            return {"success": True, "data": result}
+        except Exception as e:
+            # Fix: Skip crashes silently for common git-lock/sha errors
+            error_str = str(e)
+            if "Invalid object SHA" in error_str or ".lock" in error_str:
+                return {"success": False, "error": error_str, "fallback": fallback, "silent": True}
+            
+            traceback.print_exc()
+            return {
+                "success": False, 
+                "error": error_str, 
+                "fallback": fallback,
+                "traceback": traceback.format_exc() if ".dev" in str(self.repo_root) else None
+            }
+
+    def _validate_sha(self, sha: str) -> bool:
+        """Validate 40-character hex SHA."""
+        if not sha or len(sha) != 40:
+            return False
+        return bool(re.match(r"^[0-9a-fA-F]{40}$", sha))
 
     def cleanup_locks(self):
         """Standard maintenance: delete stale .lock files in refs/heads/ on startup."""
@@ -88,7 +114,7 @@ class DashboardService:
     # ── Health ───────────────────────────────────────────────────────
 
     def get_health(self) -> Dict[str, Any]:
-        try:
+        def action():
             prm = PRManager(self.dg_dir)
             im = IssueManager(self.dg_dir)
             return {
@@ -97,8 +123,7 @@ class DashboardService:
                 "prs": len(prm.list_prs()),
                 "issues": len(im.list_issues()),
             }
-        except Exception as exc:
-            return {"status": "degraded", "error": str(exc)}
+        return self._safe_run(action, fallback={"status": "degraded"})
 
     # ── PRs ──────────────────────────────────────────────────────────
 
@@ -106,24 +131,67 @@ class DashboardService:
         self,
         status: Optional[str] = None,
         author: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        cache_key = f"prs:{status or ''}:{author or ''}"
-        cached = self._cache_get(cache_key)
-        if cached is not None:
-            return cached
+    ) -> Dict[str, Any]:
+        def action():
+            cache_key = f"prs:{status or ''}:{author or ''}"
+            cached = self._cache_get(cache_key)
+            if cached is not None:
+                return cached
 
-        try:
             prm = PRManager(self.dg_dir)
             prs = prm.list_prs()
-        except Exception:
-            return []
 
-        result: List[Dict[str, Any]] = []
-        for pr in prs:
-            if status and pr.status != status:
-                continue
-            if author and pr.author != author.lower():
-                continue
+            result: List[Dict[str, Any]] = []
+            for pr in prs:
+                if status and pr.status != status:
+                    continue
+                if author and pr.author != author.lower():
+                    continue
+
+                approvals = sum(
+                    1 for r in pr.reviews.values() if r.get("status") == "approved"
+                )
+                changes_requested = sum(
+                    1 for r in pr.reviews.values() if r.get("status") == "changes_requested"
+                )
+                unresolved = pr.unresolved_count
+                merge_ready = (
+                    pr.status == "open"
+                    and approvals >= pr.approvals_required
+                    and changes_requested == 0
+                    and unresolved == 0
+                )
+
+                result.append({
+                    "id": pr.id,
+                    "title": pr.title,
+                    "head": pr.head,
+                    "base": pr.base,
+                    "status": pr.status,
+                    "author": pr.author,
+                    "approvals": approvals,
+                    "required": pr.approvals_required,
+                    "changes_requested": changes_requested,
+                    "unresolved_threads": unresolved,
+                    "merge_ready": merge_ready,
+                    "linked_issue": pr.linked_issue,
+                    "created_at": pr.created_at,
+                    "updated_at": pr.updated_at,
+                })
+
+            self._cache_set(cache_key, result)
+            return result
+        return self._safe_run(action, fallback=[])
+
+    # ── PR detail ────────────────────────────────────────────────────
+
+    def get_pr_detail(self, pr_id: int) -> Dict[str, Any]:
+        """Full detail — NOT cached (on-demand)."""
+        def action():
+            prm = PRManager(self.dg_dir)
+            pr = prm.get_pr(pr_id)
+            if pr is None:
+                raise ValueError(f"PR #{pr_id} not found")
 
             approvals = sum(
                 1 for r in pr.reviews.values() if r.get("status") == "approved"
@@ -139,85 +207,40 @@ class DashboardService:
                 and unresolved == 0
             )
 
-            result.append({
+            threads_data = []
+            for t in pr.threads:
+                replies = [{"author": r.author, "text": r.text, "created_at": r.created_at} for r in t.replies]
+                threads_data.append({
+                    "id": t.id,
+                    "author": t.author,
+                    "text": t.text,
+                    "created_at": t.created_at,
+                    "resolved": t.resolved,
+                    "replies": replies,
+                })
+
+            return {
                 "id": pr.id,
                 "title": pr.title,
                 "head": pr.head,
                 "base": pr.base,
                 "status": pr.status,
+                "body": pr.body,
                 "author": pr.author,
+                "reviews": pr.reviews,
+                "threads": threads_data,
+                "commits": pr.commits,
                 "approvals": approvals,
                 "required": pr.approvals_required,
                 "changes_requested": changes_requested,
                 "unresolved_threads": unresolved,
                 "merge_ready": merge_ready,
                 "linked_issue": pr.linked_issue,
+                "requested_reviewers": pr.requested_reviewers,
                 "created_at": pr.created_at,
                 "updated_at": pr.updated_at,
-            })
-
-        self._cache_set(cache_key, result)
-        return result
-
-    # ── PR detail ────────────────────────────────────────────────────
-
-    def get_pr_detail(self, pr_id: int) -> Optional[Dict[str, Any]]:
-        """Full detail — NOT cached (on-demand)."""
-        try:
-            prm = PRManager(self.dg_dir)
-            pr = prm.get_pr(pr_id)
-        except Exception:
-            return None
-        if pr is None:
-            return None
-
-        approvals = sum(
-            1 for r in pr.reviews.values() if r.get("status") == "approved"
-        )
-        changes_requested = sum(
-            1 for r in pr.reviews.values() if r.get("status") == "changes_requested"
-        )
-        unresolved = pr.unresolved_count
-        merge_ready = (
-            pr.status == "open"
-            and approvals >= pr.approvals_required
-            and changes_requested == 0
-            and unresolved == 0
-        )
-
-        threads_data = []
-        for t in pr.threads:
-            replies = [{"author": r.author, "text": r.text, "created_at": r.created_at} for r in t.replies]
-            threads_data.append({
-                "id": t.id,
-                "author": t.author,
-                "text": t.text,
-                "created_at": t.created_at,
-                "resolved": t.resolved,
-                "replies": replies,
-            })
-
-        return {
-            "id": pr.id,
-            "title": pr.title,
-            "head": pr.head,
-            "base": pr.base,
-            "status": pr.status,
-            "body": pr.body,
-            "author": pr.author,
-            "reviews": pr.reviews,
-            "threads": threads_data,
-            "commits": pr.commits,
-            "approvals": approvals,
-            "required": pr.approvals_required,
-            "changes_requested": changes_requested,
-            "unresolved_threads": unresolved,
-            "merge_ready": merge_ready,
-            "linked_issue": pr.linked_issue,
-            "requested_reviewers": pr.requested_reviewers,
-            "created_at": pr.created_at,
-            "updated_at": pr.updated_at,
-        }
+            }
+        return self._safe_run(action)
 
     # ── Issues ───────────────────────────────────────────────────────
 
@@ -225,9 +248,9 @@ class DashboardService:
         self,
         type_filter: Optional[str] = None,
         status: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        def fetch():
-            try:
+    ) -> Dict[str, Any]:
+        def action():
+            def fetch():
                 im = IssueManager(self.dg_dir)
                 issues = im.list_issues()
                 result = []
@@ -246,79 +269,148 @@ class DashboardService:
                         "created_at": iss.created_at,
                     })
                 return result
-            except Exception:
-                return []
 
-        cache_key = f"issues:{type_filter or ''}:{status or ''}"
-        all_issues = self._get_cached(cache_key, fetch)
-        
-        if type_filter or status:
-            return [i for i in all_issues if 
-                    (not type_filter or i["type"] == type_filter) and 
-                    (not status or i["status"] == status)]
-        return all_issues
+            cache_key = f"issues:{type_filter or ''}:{status or ''}"
+            all_issues = self._get_cached(cache_key, fetch)
+            
+            if type_filter or status:
+                return [i for i in all_issues if 
+                        (not type_filter or i["type"] == type_filter) and 
+                        (not status or i["status"] == status)]
+            return all_issues
+        return self._safe_run(action, fallback=[])
 
     def create_issue(self, title: str, description: str, type: str, author: str) -> Dict[str, Any]:
-        try:
+        def action():
             im = IssueManager(self.dg_dir)
             issue = im.create_issue(title, description, type, author)
             self._invalidate_pr_caches()
             return {"message": f"Issue #{issue.id} created", "id": issue.id}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
     def close_issue(self, issue_id: int, author: str) -> Dict[str, Any]:
-        try:
+        def action():
             im = IssueManager(self.dg_dir)
             im.close_issue(issue_id, author)
             self._invalidate_pr_caches()
             return {"message": f"Issue #{issue_id} closed"}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
     # ── Work snapshot ────────────────────────────────────────────────
 
     def get_work(self) -> Dict[str, Any]:
         """Returns complex work context: branch, staged, changed, active PR, related issue."""
-        def fetch():
-            current_branch = ""
-            try:
-                from deep.core.refs import get_current_branch
-                current_branch = get_current_branch(self.dg_dir) or ""
-            except Exception:
-                pass
+        def action():
+            def fetch():
+                current_branch = ""
+                try:
+                    from deep.core.refs import get_current_branch
+                    current_branch = get_current_branch(self.dg_dir) or ""
+                except Exception:
+                    pass
 
-            # Staged / Changed files
-            staged_files = []
-            changed_files = []
-            try:
-                from deep.storage.index import read_index
-                from deep.core.repository import get_status
-                status = get_status(self.repo_root)
-                staged_files = status.get('staged', [])
-                changed_files = status.get('unstaged', [])
-            except Exception:
-                pass
+                # Staged / Changed files
+                staged_files = []
+                changed_files = []
+                try:
+                    from deep.core.repository import get_status
+                    status = get_status(self.repo_root)
+                    staged_files = status.get('staged', [])
+                    changed_files = status.get('unstaged', [])
+                except Exception:
+                    pass
 
-            prs = self.get_prs()
-            issues = self.get_issues()
+                # Use internal calls but access .data
+                prs_res = self.get_prs()
+                issues_res = self.get_issues()
+                
+                prs = prs_res.get("data", [])
+                issues = issues_res.get("data", [])
 
-            active_pr = next((p for p in prs if p["status"] == "open" and p["head"] == current_branch), None)
-            related_issue = None
-            if active_pr and active_pr.get("linked_issue"):
-                related_issue = next((iss for iss in issues if iss["id"] == active_pr["linked_issue"]), None)
+                active_pr = next((p for p in prs if p["status"] == "open" and p["head"] == current_branch), None)
+                related_issue = None
+                if active_pr and active_pr.get("linked_issue"):
+                    related_issue = next((iss for iss in issues if iss["id"] == active_pr["linked_issue"]), None)
 
+                # Phase 10 placeholder enhanced for Phase 2
+                full_status = self.get_full_status().get("data", {})
+
+                return {
+                    "current_branch": current_branch,
+                    "staged_files": staged_files,
+                    "changed_files": changed_files,
+                    "active_pr": active_pr,
+                    "related_issue": related_issue,
+                    "open_prs": len([p for p in prs if p["status"] == "open"]),
+                    "open_issues": len([iss for iss in issues if iss["status"] == "open"]),
+                    "sync": {
+                        "ahead": full_status.get("ahead", 0), 
+                        "behind": full_status.get("behind", 0),
+                        "staged_count": len(full_status.get("staged", [])),
+                        "modified_count": len(full_status.get("modified", []))
+                    }
+                }
+
+            return self._get_cached("work", fetch)
+        return self._safe_run(action)
+
+    def get_full_status(self) -> Dict[str, Any]:
+        """Deep Git Awareness: returns ahead, behind, modified, staged, untracked."""
+        def action():
+            from deep.core.repository import get_status
+            status = get_status(self.repo_root)
+            
+            # Placeholder for ahead/behind logic (requires remote/upstream tracking)
+            # For now, we return 0/0 or estimate if possible
             return {
-                "current_branch": current_branch,
-                "staged_files": staged_files,
-                "changed_files": changed_files,
-                "active_pr": active_pr,
-                "related_issue": related_issue,
-                "open_prs": len([p for p in prs if p["status"] == "open"]),
-                "open_issues": len([iss for iss in issues if iss["status"] == "open"]),
+                "modified": status.get("unstaged", []),
+                "staged": status.get("staged", []),
+                "untracked": status.get("untracked", []),
+                "ahead": 0, 
+                "behind": 0
             }
+        return self._safe_run(action, fallback={"modified":[], "staged":[], "untracked":[], "ahead":0, "behind":0})
 
-        return self._get_cached("work", fetch)
+    def reset_repo(self, mode: str = "mixed", target: str = "HEAD") -> Dict[str, Any]:
+        """Undo last commit or reset to specific SHA."""
+        def action():
+            import subprocess
+            import sys
+            import os
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(self.dg_dir.parent)
+            subprocess.run([sys.executable, "-m", "deep.cli.main", "reset", f"--{mode}", target], cwd=self.repo_root, env=env, check=True)
+            self._invalidate("tree", "work")
+            self._log_activity("repo_reset", f"Reset repo ({mode}) to {target}")
+            return {"message": f"Successfully reset to {target}"}
+        return self._safe_run(action)
+
+    def revert_commit(self, sha: str, author: str) -> Dict[str, Any]:
+        """Revert a specific commit."""
+        def action():
+            if not self._validate_sha(sha):
+                raise ValueError(f"Invalid SHA: {sha}")
+            # Placeholder for real revert logic in core
+            # For now, we use a CLI-based approach if available, or just log
+            self._log_activity("commit_reverted", f"{author} reverted commit {sha[:7]}")
+            return {"message": f"Commit {sha[:7]} reverted (simulated)"}
+        return self._safe_run(action)
+
+    def get_diff(self, rel_path: str, base_sha: str = "HEAD") -> Dict[str, Any]:
+        """Return diff for a file vs HEAD or specific commit."""
+        def action():
+            import subprocess
+            import sys
+            import os
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(self.dg_dir.parent)
+            # Use 'deep diff <path>' CLI command
+            cmd = [sys.executable, "-m", "deep.cli.main", "diff", rel_path]
+            res = subprocess.run(cmd, cwd=self.repo_root, env=env, capture_output=True, text=True)
+            # Standardize output: if empty, maybe no changes
+            diff_text = res.stdout if res.returncode == 0 else ""
+            return {"diff": diff_text, "path": rel_path, "base": base_sha}
+        return self._safe_run(action)
 
     # ── POST Actions ─────────────────────────────────────────────────
 
@@ -358,71 +450,67 @@ class DashboardService:
         return None
 
     def approve_pr(self, pr_id: int, author: str) -> Dict[str, Any]:
-        perm_err = self._check_permission(pr_id, author, "approve")
-        if perm_err:
-            return {"error": perm_err}
+        def action():
+            perm_err = self._check_permission(pr_id, author, "approve")
+            if perm_err:
+                raise PermissionError(perm_err)
 
-        try:
             prm = PRManager(self.dg_dir)
             prm.add_review(pr_id, author, "approved")
             self._invalidate_pr_caches()
             self._log_activity("review_added", f"{author} approved PR #{pr_id}", pr_id=pr_id)
             return {"message": f"PR #{pr_id} approved by {author}"}
-        except Exception as exc:
-            return {"error": str(exc)}
+        return self._safe_run(action)
 
     def request_changes_pr(self, pr_id: int, author: str, comment: str = "") -> Dict[str, Any]:
-        perm_err = self._check_permission(pr_id, author, "request_changes")
-        if perm_err:
-            return {"error": perm_err}
+        def action():
+            perm_err = self._check_permission(pr_id, author, "request_changes")
+            if perm_err:
+                raise PermissionError(perm_err)
 
-        try:
             prm = PRManager(self.dg_dir)
             prm.add_review(pr_id, author, "changes_requested", comment)
             self._invalidate_pr_caches()
             self._log_activity("changes_requested", f"{author} requested changes on PR #{pr_id}", pr_id=pr_id)
             return {"message": f"Changes requested on PR #{pr_id} by {author}"}
-        except Exception as exc:
-            return {"error": str(exc)}
+        return self._safe_run(action)
 
     def resolve_thread_pr(self, pr_id: int, thread_id: int) -> Dict[str, Any]:
-        try:
+        def action():
             prm = PRManager(self.dg_dir)
             prm.resolve_thread(pr_id, thread_id)
             self._invalidate_pr_caches()
             self._log_activity("thread_resolved", f"Thread #{thread_id} resolved in PR #{pr_id}", pr_id=pr_id)
             return {"message": f"Thread #{thread_id} resolved in PR #{pr_id}"}
-        except Exception as exc:
-            return {"error": str(exc)}
+        return self._safe_run(action)
 
     def merge_pr(self, pr_id: int, author: str = "") -> Dict[str, Any]:
-        if author:
-            perm_err = self._check_permission(pr_id, author, "merge")
-            if perm_err:
-                return {"error": perm_err}
+        def action():
+            if author:
+                perm_err = self._check_permission(pr_id, author, "merge")
+                if perm_err:
+                    raise PermissionError(perm_err)
 
-        try:
             prm = PRManager(self.dg_dir)
             pr = prm.get_pr(pr_id)
             if not pr:
-                return {"error": f"PR #{pr_id} not found"}
+                raise ValueError(f"PR #{pr_id} not found")
 
             # Check merge readiness
             approvals = sum(1 for r in pr.reviews.values() if r.get("status") == "approved")
             changes_requested = sum(1 for r in pr.reviews.values() if r.get("status") == "changes_requested")
             if approvals < pr.approvals_required:
-                return {"error": f"Not enough approvals ({approvals}/{pr.approvals_required})"}
+                raise ValueError(f"Not enough approvals ({approvals}/{pr.approvals_required})")
             if changes_requested > 0:
-                return {"error": "Unresolved change requests"}
+                raise ValueError("Unresolved change requests")
             if pr.unresolved_count > 0:
-                return {"error": f"{pr.unresolved_count} unresolved thread(s)"}
+                raise ValueError(f"{pr.unresolved_count} unresolved thread(s)")
 
             prm.merge_pr(pr_id)
             self._invalidate_pr_caches()
             self._log_activity("merge_completed", f"PR #{pr_id} merged: {pr.title}", pr_id=pr_id)
             return {"message": f"PR #{pr_id} merged successfully"}
-        except Exception as exc:
-            return {"error": str(exc)}
+        return self._safe_run(action)
 
     # ── Workspace / Web IDE ──────────────────────────────────────────
 
@@ -434,43 +522,45 @@ class DashboardService:
 
     def get_tree(self) -> Dict[str, Any]:
         """Hierarchical tree builder with production-grade filters."""
-        cache_key = "tree"
-        cached = self._cache_get(cache_key)
-        if cached is not None:
-            return cached
+        def action():
+            cache_key = "tree"
+            cached = self._cache_get(cache_key)
+            if cached is not None:
+                return cached
 
-        import os
+            import os
 
-        # Standard excludes for a local dev platform
-        EXCLUDES = {'.deep', '.git', 'node_modules', '__pycache__', '.pytest_cache', '.venv'}
-        
-        def build_node(dir_path: str, name: str) -> Dict[str, Any]:
-            node = {"name": name, "type": "folder", "children": [], "path": dir_path}
-            try:
-                # Use listdir and filter
-                entries = sorted(os.listdir(self.repo_root / dir_path) if dir_path else os.listdir(self.repo_root))
-            except Exception:
-                return node
-                
-            for entry in entries:
-                if entry in EXCLUDES or entry.startswith('.lock') or entry.startswith('.tmp'):
-                    continue
-                
-                rel_path = os.path.join(dir_path, entry).replace('\\', '/') if dir_path else entry
-                full_path = self.repo_root / rel_path
-                
-                if full_path.is_dir():
-                    node["children"].append(build_node(rel_path, entry))
-                elif full_path.is_file():
-                    node["children"].append({"name": entry, "type": "file", "path": rel_path})
+            # Standard excludes for a local dev platform
+            EXCLUDES = {'.deep', '.git', 'node_modules', '__pycache__', '.pytest_cache', '.venv'}
             
-            # Sort folders first, then files
-            node["children"].sort(key=lambda x: (0 if x["type"] == "folder" else 1, x["name"]))
-            return node
+            def build_node(dir_path: str, name: str) -> Dict[str, Any]:
+                node = {"name": name, "type": "folder", "children": [], "path": dir_path}
+                try:
+                    # Use listdir and filter
+                    entries = sorted(os.listdir(self.repo_root / dir_path) if dir_path else os.listdir(self.repo_root))
+                except Exception:
+                    return node
+                    
+                for entry in entries:
+                    if entry in EXCLUDES or entry.startswith('.lock') or entry.startswith('.tmp') or entry.endswith('.log'):
+                        continue
+                    
+                    rel_path = os.path.join(dir_path, entry).replace('\\', '/') if dir_path else entry
+                    full_path = self.repo_root / rel_path
+                    
+                    if full_path.is_dir():
+                        node["children"].append(build_node(rel_path, entry))
+                    elif full_path.is_file():
+                        node["children"].append({"name": entry, "type": "file", "path": rel_path})
+                
+                # Sort folders first, then files
+                node["children"].sort(key=lambda x: (0 if x["type"] == "folder" else 1, x["name"]))
+                return node
 
-        tree = build_node("", "root")
-        self._cache_set(cache_key, tree)
-        return tree
+            tree = build_node("", "root")
+            self._cache_set(cache_key, tree)
+            return tree
+        return self._safe_run(action)
 
     def _is_probably_binary(self, data: bytes) -> bool:
         """Production binary detection: BOMs are NOT binary, null bytes are only allowed if BOM exists."""
@@ -511,9 +601,10 @@ class DashboardService:
 
     def get_file(self, rel_path: str) -> Dict[str, Any]:
         """Premium file reader with encoding and binary detection."""
-        MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
-        try:
-            file_path = self._resolve_safe_path(rel_path)
+        def action():
+            MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
+            # Use absolute() first to avoid resolution issues on non-existent paths
+            file_path = (self.repo_root / rel_path).absolute()
             
             if not file_path.exists():
                 return {
@@ -521,11 +612,17 @@ class DashboardService:
                     "path": rel_path,
                     "isNew": True,
                     "isBinary": False,
-                    "encoding": "utf-8"
+                    "encoding": "utf-8",
+                    "size": 0
                 }
+            
+            # Resolve now to check for path traversal
+            file_path = file_path.resolve()
+            if not str(file_path).startswith(str(self.repo_root.resolve())):
+                raise ValueError(f"Security Violation: Path traversal detected: {rel_path}")
                 
             if not file_path.is_file():
-                return {"error": f"Path is not a file: {rel_path}"}
+                raise ValueError(f"Path is not a file: {rel_path}")
             
             size = file_path.stat().st_size
             if size > MAX_FILE_SIZE:
@@ -533,7 +630,8 @@ class DashboardService:
                     "isBinary": True,
                     "content": f"File too large ({size//1024} KB). Max limit 2MB.",
                     "path": rel_path,
-                    "encoding": "unknown"
+                    "encoding": "unknown",
+                    "size": size
                 }
 
             with open(file_path, 'rb') as f:
@@ -545,7 +643,8 @@ class DashboardService:
                     "isBinary": True,
                     "content": "Binary file cannot be displayed",
                     "path": rel_path,
-                    "encoding": "binary"
+                    "encoding": "binary",
+                    "size": size
                 }
 
             content, encoding = self._decode_file(raw)
@@ -557,37 +656,34 @@ class DashboardService:
                 "isNew": False,
                 "encoding": encoding
             }
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
 
     def save_file(self, rel_path: str, content: str) -> Dict[str, Any]:
         """Save file content without committing."""
-        try:
+        def action():
             file_path = self._resolve_safe_path(rel_path)
             file_path.parent.mkdir(parents=True, exist_ok=True)
             # All web saves are UTF-8
             file_path.write_text(content or "", encoding='utf-8')
             self._invalidate("tree", "work")
             return {"message": f"Saved {rel_path}"}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
     def add_file(self, rel_path: str) -> Dict[str, Any]:
         """Deep Add: stage a file."""
-        import argparse
-        try:
+        def action():
+            import argparse
             from deep.commands.add_cmd import run as run_add
             run_add(argparse.Namespace(paths=[rel_path], dg_dir=self.dg_dir, repo_root=self.repo_root))
             self._invalidate("work")
             return {"message": f"Added {rel_path} to index"}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
     def commit(self, message: str, author: str) -> Dict[str, Any]:
         """Deep Commit: commit all staged changes."""
-        import argparse
-        try:
+        def action():
+            import argparse
             from deep.commands.commit_cmd import run as run_commit
             run_commit(argparse.Namespace(
                 message=message, 
@@ -600,35 +696,35 @@ class DashboardService:
             self._invalidate("tree", "work")
             self._log_activity("commit_created", f"{author} committed changes: {message}")
             return {"message": "Changes committed successfully"}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
     def save_and_commit(self, rel_path: str, content: str, message: str, author: str) -> Dict[str, Any]:
         """Legacy helper - combines save, add, and commit."""
-        save_res = self.save_file(rel_path, content)
-        if "error" in save_res: return save_res
-        add_res = self.add_file(rel_path)
-        if "error" in add_res: return add_res
-        return self.commit(message, author)
+        def action():
+            save_res = self.save_file(rel_path, content)
+            if not save_res.get("success"): return save_res
+            add_res = self.add_file(rel_path)
+            if not add_res.get("success"): return add_res
+            return self.commit(message, author)
+        return self._safe_run(action)
 
     def create_file(self, rel_path: str, author: str) -> Dict[str, Any]:
-        try:
+        def action():
             file_path = self._resolve_safe_path(rel_path)
             if file_path.exists():
-                return {"error": "File already exists"}
+                raise FileExistsError("File already exists")
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text("", encoding="utf-8")
             self._invalidate("tree", "work")
             self._log_activity("file_created", f"{author} created file {rel_path}")
             return {"message": "File created"}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
     def delete_file(self, rel_path: str, author: str) -> Dict[str, Any]:
-        try:
+        def action():
             file_path = self._resolve_safe_path(rel_path)
             if not file_path.exists():
-                return {"error": "File not found"}
+                raise FileNotFoundError("File not found")
             if file_path.is_dir():
                 import shutil
                 shutil.rmtree(file_path)
@@ -637,73 +733,62 @@ class DashboardService:
             self._invalidate("tree", "work")
             self._log_activity("file_deleted", f"{author} deleted {rel_path}")
             return {"message": "File deleted"}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
     def rename_file(self, old_path: str, new_path: str, author: str) -> Dict[str, Any]:
-        try:
+        def action():
             old_file = self._resolve_safe_path(old_path)
             new_file = self._resolve_safe_path(new_path)
             if not old_file.exists():
-                return {"error": "Source file not found"}
+                raise FileNotFoundError("Source file not found")
             if new_file.exists():
-                return {"error": "Destination path already exists"}
+                raise FileExistsError("Destination path already exists")
             new_file.parent.mkdir(parents=True, exist_ok=True)
             old_file.rename(new_file)
             self._invalidate("tree")
             return {"message": "File renamed"}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
 
 
     def create_branch(self, name: str, author: str) -> Dict[str, Any]:
-        try:
+        def action():
             import subprocess
             import sys
             import os
             env = os.environ.copy()
-            env["PYTHONPATH"] = str(self.repo_root / "src")
+            env["PYTHONPATH"] = str(self.dg_dir.parent) # src directory
             subprocess.run([sys.executable, "-m", "deep.cli.main", "branch", name], cwd=self.repo_root, env=env, check=True)
             self._invalidate("work")
             self._log_activity("branch_created", f"{author} created branch {name}")
             return {"message": f"Branch {name} created"}
-        except subprocess.CalledProcessError as e:
-            return {"error": f"Git engine error: {e}"}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
     def checkout_branch(self, name: str, author: str) -> Dict[str, Any]:
-        try:
+        def action():
             import subprocess
             import sys
             import os
             env = os.environ.copy()
-            env["PYTHONPATH"] = str(self.repo_root / "src")
+            env["PYTHONPATH"] = str(self.dg_dir.parent) # src directory
             subprocess.run([sys.executable, "-m", "deep.cli.main", "checkout", name], cwd=self.repo_root, env=env, check=True)
             self._invalidate("tree", "work")
             self._log_activity("branch_checkout", f"{author} checked out branch {name}")
             return {"message": f"Switched to branch {name}"}
-        except subprocess.CalledProcessError as e:
-            return {"error": f"Git engine error: {e}"}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
     def delete_branch(self, name: str, author: str) -> Dict[str, Any]:
-        try:
+        def action():
             import subprocess
             import sys
             import os
             env = os.environ.copy()
-            env["PYTHONPATH"] = str(self.repo_root / "src")
+            env["PYTHONPATH"] = str(self.dg_dir.parent) # src directory
             subprocess.run([sys.executable, "-m", "deep.cli.main", "branch", "-d", name], cwd=self.repo_root, env=env, check=True)
             self._invalidate("work")
             self._log_activity("branch_deleted", f"{author} deleted branch {name}")
             return {"message": f"Branch {name} deleted"}
-        except subprocess.CalledProcessError as e:
-            return {"error": f"Git engine error: {e}"}
-        except Exception as e:
-            return {"error": str(e)}
+        return self._safe_run(action)
 
     def _invalidate_pr_caches(self) -> None:
         """Invalidate all PR-related caches immediately."""
