@@ -27,7 +27,9 @@ const API = {
 
             if (json.success === true) {
                 console.timeEnd(`API:${requestId}:${path}`);
-                return json.data;
+                const data = json.data !== undefined ? json.data : json;
+                console.log(`API [${path}] raw:`, json);
+                return data;
             } else {
                 const errorMsg = json.error || 'Unknown server error';
                 console.error(`API Failure [${path}]:`, errorMsg);
