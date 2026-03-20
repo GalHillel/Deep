@@ -6,13 +6,18 @@ const state = {
   selectedPR: null,
   selectedIssue: null,
   selectedCommit: null,
+  selectedFile: null,
   commits: [],
   refs: {},
   prs: [],
   issues: [],
   work: {},
   activity: [],
+  tree: [],
   graphLoaded: false,
+  networkInstance: null,
+  monacoInstance: null,
+  fileOriginalContent: '',
 };
 
 // ── API Layer ──────────────────────────────────────────────────────
@@ -52,11 +57,14 @@ function showToast(message, type = 'info') {
 // ── Tab Switching ──────────────────────────────────────────────────
 function switchTab(tab) {
   state.activeTab = tab;
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  
+  // Hide all tabs by default, then show the active one via hidden class
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
   document.querySelectorAll('.nav-item[data-tab]').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+  
   const el = document.getElementById('tab-' + tab);
-  if (el) el.classList.add('active');
+  if (el) el.classList.remove('hidden');
 
   // Update URL
   const url = new URL(window.location);
@@ -67,6 +75,7 @@ function switchTab(tab) {
 
   // Load data for tab
   if (tab === 'graph' && !state.graphLoaded) loadGraph();
+  if (tab === 'code') initCodeTab();
   if (tab === 'prs') loadPRs();
   if (tab === 'issues') loadIssues();
   if (tab === 'work') { loadWork(); loadActivity(); }
@@ -97,42 +106,113 @@ function showEmpty(containerId, icon, message) {
 }
 
 // ── Graph ──────────────────────────────────────────────────────────
-async function loadGraph() {
-  showSkeleton('dag', 6);
+async function loadGraph(force = false) {
+  if (force) {
+    state.graphLoaded = false;
+    if (state.networkInstance) {
+      state.networkInstance.destroy();
+      state.networkInstance = null;
+    }
+  }
+
+  if (state.graphLoaded) return;
+  
+  const loadingEl = document.getElementById('loading-graph');
+  loadingEl.classList.remove('hidden');
+  
   try {
     const [commits, refs] = await Promise.all([api('/api/log'), api('/api/refs')]);
     state.commits = commits;
     state.refs = refs;
-    state.graphLoaded = true;
-    renderGraph();
     renderBranches();
+    
+    // Convert commits to Vis.js DataSet
+    const nodes = new vis.DataSet();
+    const edges = new vis.DataSet();
+    
+    const branchTips = {};
+    for (const [name, sha] of Object.entries(refs.branches || {})) branchTips[sha] = name;
+
+    commits.forEach((c, idx) => {
+      let label = c.message.split('\n')[0];
+      if (branchTips[c.sha]) {
+        label = `[${branchTips[c.sha]}]\n${label}`;
+      }
+      
+      nodes.add({
+        id: c.sha,
+        label: label,
+        title: `${c.sha.slice(0, 7)} - ${c.author}`,
+        shape: 'box',
+        color: {
+          background: c.sha === state.selectedCommit ? '#58a6ff12' : '#161b22',
+          border: c.sha === state.selectedCommit ? '#58a6ff' : '#30363d',
+          highlight: { background: '#58a6ff22', border: '#58a6ff' }
+        },
+        font: { color: '#c9d1d9', face: 'Inter' },
+        borderWidth: 1,
+        level: idx // Basic linear approximation for hierarchy
+      });
+
+      (c.parents || []).forEach(p => {
+        edges.add({
+          from: c.sha,
+          to: p,
+          arrows: 'to',
+          color: { color: '#30363d', highlight: '#58a6ff' },
+          width: 2
+        });
+      });
+    });
+
+    const container = document.getElementById('dag');
+    const data = { nodes, edges };
+    const options = {
+      layout: {
+        hierarchical: {
+          enabled: true,
+          direction: 'UD',
+          sortMethod: 'directed',
+          nodeSpacing: 150,
+          levelSeparation: 80
+        }
+      },
+      physics: {
+        enabled: true,
+        hierarchicalRepulsion: {
+          nodeDistance: 150
+        }
+      },
+      interaction: {
+        hover: true,
+        tooltipDelay: 100
+      }
+    };
+
+    if (!state.networkInstance) {
+      state.networkInstance = new vis.Network(container, data, options);
+      
+      // Stop physics after stabilization to prevent flickering
+      state.networkInstance.on("stabilizationIterationsDone", function () {
+        state.networkInstance.setOptions({ physics: false });
+      });
+
+      state.networkInstance.on("click", function (params) {
+        if (params.nodes.length > 0) {
+          selectCommit(params.nodes[0]);
+        }
+      });
+    } else {
+      state.networkInstance.setData(data);
+    }
+    
+    state.graphLoaded = true;
     updateCounts();
-  } catch (e) { showEmpty('dag', '◆', 'Failed to load graph'); }
-}
-
-function renderGraph() {
-  const dag = document.getElementById('dag');
-  const { commits, refs } = state;
-  if (!commits.length) { showEmpty('dag', '◆', 'No commits yet'); return; }
-
-  const branchTips = {};
-  for (const [name, sha] of Object.entries(refs.branches || {})) branchTips[sha] = name;
-
-  let html = '';
-  commits.forEach((c) => {
-    const sel = state.selectedCommit === c.sha ? ' selected' : '';
-    const branchLabel = branchTips[c.sha]
-      ? `<span class="commit-branch-badge${refs.current_branch && branchTips[c.sha] === refs.current_branch ? ' head' : ''}">${branchTips[c.sha]}</span>`
-      : '';
-    const msg = c.message.split('\n')[0];
-    html += `<div class="commit-node${sel}" id="node-${c.sha}" onclick="selectCommit('${c.sha}')">
-      <span class="commit-sha" onclick="event.stopPropagation();copySHA('${c.sha}')" title="Click to copy SHA">${c.sha.slice(0, 7)}</span>
-      ${branchLabel}
-      <span class="commit-msg">${escHtml(msg)}</span>
-      <span class="commit-author">${escHtml(c.author || '')}</span>
-    </div>`;
-  });
-  dag.innerHTML = html;
+  } catch (e) {
+    showToast('Failed to load graph', 'error');
+  } finally {
+    loadingEl.classList.add('hidden');
+  }
 }
 
 function renderBranches() {
@@ -142,17 +222,49 @@ function renderBranches() {
   let html = '';
   for (const [name, sha] of Object.entries(refs.branches)) {
     const isCurrent = name === refs.current_branch;
-    html += `<div class="branch-item${isCurrent ? ' current' : ''}" onclick="scrollToCommit('${sha}')" title="${name} → ${sha.slice(0, 7)}">
+    html += `<div class="branch-item${isCurrent ? ' current' : ''}" onclick="checkoutBranch('${name}')" title="${name} → ${sha.slice(0, 7)}">
       ${isCurrent ? '●' : '○'} ${escHtml(name)} <span class="branch-sha">${sha.slice(0, 7)}</span>
     </div>`;
   }
   list.innerHTML = html;
 }
 
+async function createBranch() {
+  const input = document.getElementById('new-branch-name');
+  const name = input.value.trim();
+  if (!name) return;
+  const author = prompt('Enter author name for this branch action:', 'WebIDE') || 'WebIDE';
+  
+  try {
+    input.disabled = true;
+    const res = await apiPost('/api/branch/create', { name, author });
+    showToast(res.message, 'success');
+    input.value = '';
+    loadGraph(true); // Force reload refs
+    if (state.activeTab === 'code') loadTree();
+  } catch(e) {
+    showToast(e.message || 'Failed to create branch', 'error');
+  } finally {
+    input.disabled = false;
+  }
+}
+
+async function checkoutBranch(name) {
+  if (state.refs.current_branch === name) return; // already here
+  const author = prompt('Enter author name for checkout:', 'WebIDE') || 'WebIDE';
+  
+  try {
+    const res = await apiPost('/api/branch/checkout', { name, author });
+    showToast(res.message, 'success');
+    loadGraph(true); // Force reload refs
+    if (state.activeTab === 'code') loadTree();
+  } catch(e) {
+    showToast(e.message || 'Failed to checkout branch. Do you have uncommitted changes?', 'error');
+  }
+}
+
 async function selectCommit(sha) {
   state.selectedCommit = sha;
-  document.querySelectorAll('.commit-node.selected').forEach(n => n.classList.remove('selected'));
-  document.getElementById('node-' + sha)?.classList.add('selected');
   try {
     const [detail, diff] = await Promise.all([api('/api/object/' + sha), api('/api/diff/' + sha)]);
     openDetail();
@@ -168,14 +280,149 @@ async function selectCommit(sha) {
   } catch (e) { showToast('Failed to load commit details', 'error'); }
 }
 
-function scrollToCommit(sha) {
-  switchTab('graph');
-  setTimeout(() => document.getElementById('node-' + sha)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
-}
-
 function copySHA(sha) {
   navigator.clipboard.writeText(sha).then(() => showToast('SHA copied: ' + sha.slice(0, 7), 'success'));
 }
+
+// ── Web IDE (Code Tab) ─────────────────────────────────────────────
+async function initCodeTab() {
+  // 1. Init Monaco Editor
+  if (!state.monacoInstance) {
+    if (window.require) {
+      window.require(['vs/editor/editor.main'], function() {
+        state.monacoInstance = monaco.editor.create(document.getElementById('monaco-container'), {
+          value: '// Select a file from the workspace to start editing.',
+          language: 'javascript',
+          theme: 'vs-dark',
+          automaticLayout: true,
+          minimap: { enabled: false },
+          fontSize: 13,
+          fontFamily: "'JetBrains Mono', monospace",
+        });
+        
+        state.monacoInstance.onDidChangeModelContent(() => {
+          updateCommitBtn();
+        });
+      });
+    } else {
+      setTimeout(initCodeTab, 100); // Polling until require loads
+      return;
+    }
+  }
+
+  // 2. Load Tree
+  await loadTree();
+}
+
+async function loadTree() {
+  const treeContainer = document.getElementById('file-tree');
+  treeContainer.innerHTML = '<div class="skeleton"></div>';
+  try {
+    state.tree = await api('/api/tree');
+    let html = '';
+    state.tree.forEach(item => {
+      const isDir = item.type === 'dir';
+      const icon = isDir ? '📁' : '📄';
+      const cls = isDir ? 'folder-icon' : 'file-icon';
+      const selCls = state.selectedFile === item.path && !isDir ? ' active' : '';
+      html += `<div class="tree-item${selCls}" onclick="selectFile('${item.path}', ${isDir})" title="${item.path}">
+        <span class="${cls}">${icon}</span> ${escHtml(item.name)}
+      </div>`;
+    });
+    treeContainer.innerHTML = html;
+  } catch (e) {
+    showToast('Failed to load workspace tree', 'error');
+    treeContainer.innerHTML = '<div class="empty-state"><p>Could not load files</p></div>';
+  }
+}
+
+async function selectFile(path, isDir) {
+  if (isDir) return; // Expand/collapse directories could be added later
+  state.selectedFile = path;
+  
+  // Highlight in tree
+  document.querySelectorAll('.tree-item').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('title') === path);
+  });
+
+  try {
+    const data = await api('/api/file?path=' + encodeURIComponent(path));
+    if (state.monacoInstance) {
+      // Determine language
+      const ext = path.split('.').pop().toLowerCase();
+      const langMap = {
+        'js': 'javascript', 'py': 'python', 'html': 'html', 'css': 'css',
+        'json': 'json', 'md': 'markdown'
+      };
+      const lang = langMap[ext] || 'plaintext';
+      monaco.editor.setModelLanguage(state.monacoInstance.getModel(), lang);
+      state.monacoInstance.setValue(data.content);
+      state.fileOriginalContent = data.content;
+      updateCommitBtn();
+    }
+  } catch (e) {
+    showToast(`Failed to load ${path}`, 'error');
+  }
+}
+
+function updateCommitBtn() {
+  const btn = document.getElementById('commit-btn');
+  const msg = document.getElementById('commit-msg').value.trim();
+  
+  let hasChanges = false;
+  if (state.monacoInstance && state.selectedFile) {
+    hasChanges = state.monacoInstance.getValue() !== state.fileOriginalContent;
+  }
+
+  if (hasChanges && msg) {
+    btn.classList.add('ready');
+    btn.disabled = false;
+  } else {
+    btn.classList.remove('ready');
+    btn.disabled = true;
+  }
+}
+
+async function commitChanges() {
+  if (!state.selectedFile || !state.monacoInstance) return;
+  const btn = document.getElementById('commit-btn');
+  const msgInput = document.getElementById('commit-msg');
+  const message = msgInput.value.trim();
+  const content = state.monacoInstance.getValue();
+  const author = prompt('Enter your author name for this commit:', 'WebIDE') || 'WebIDE';
+
+  if (!message) {
+    showToast('Commit message required', 'error');
+    return;
+  }
+
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Committing...';
+    
+    const res = await apiPost('/api/commit', {
+      path: state.selectedFile,
+      content: content,
+      message: message,
+      author: author
+    });
+    
+    showToast(res.message, 'success');
+    state.fileOriginalContent = content; // Register as saved
+    msgInput.value = '';
+    updateCommitBtn();
+    
+    // Invalidate caches and reload tree/graph
+    loadTree();
+    loadGraph(true); // force reload
+  } catch (e) {
+    showToast(e.message || 'Failed to commit', 'error');
+  } finally {
+    btn.textContent = 'Commit Changes';
+    updateCommitBtn();
+  }
+}
+
 
 // ── Pull Requests ──────────────────────────────────────────────────
 async function loadPRs() {
@@ -233,7 +480,6 @@ async function selectPR(id) {
   try {
     const pr = await api('/api/pr/' + id);
     renderPRDetail(pr);
-    // Update URL
     const url = new URL(window.location);
     url.searchParams.set('pr', id);
     history.replaceState(null, '', url);
@@ -257,7 +503,7 @@ function renderPRDetail(pr) {
 
   let body = '';
 
-  // Action buttons (only for open PRs)
+  // Action buttons
   if (pr.status === 'open') {
     body += `<div class="action-bar">
       <button class="action-btn approve" onclick="prAction(${pr.id},'approve')" title="Approve this PR">✔ Approve</button>
@@ -274,7 +520,6 @@ function renderPRDetail(pr) {
       <span class="pr-stat ${pr.unresolved_threads > 0 ? 'bad' : 'ok'}">💬 Threads: ${pr.unresolved_threads}</span>
     </div></div>`;
 
-  // Body
   if (pr.body) body += `<div class="detail-section"><h4>Description</h4><pre>${escHtml(pr.body)}</pre></div>`;
 
   // Reviews
@@ -397,7 +642,6 @@ async function selectIssue(id) {
   document.getElementById('detail-header').innerHTML = '<div class="skeleton" style="height:40px"></div>';
   document.getElementById('detail-body').innerHTML = '<div class="skeleton"></div>';
   try {
-    // Issues are already loaded in state, find it
     let iss = state.issues.find(i => i.id === id);
     if (!iss) {
       const all = await api('/api/issues');
@@ -557,6 +801,7 @@ function updateCounts() {
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   if (e.key === 'g') switchTab('graph');
+  if (e.key === 'c') switchTab('code');
   if (e.key === 'p') switchTab('prs');
   if (e.key === 'i') switchTab('issues');
   if (e.key === 'w') switchTab('work');
@@ -565,6 +810,7 @@ document.addEventListener('keydown', (e) => {
 
 // ── Auto-Refresh ───────────────────────────────────────────────────
 setInterval(() => {
+  // Do not auto-refresh Graph or Code editor aggressively to prevent jumping.
   if (state.activeTab === 'prs') {
     if (state.selectedPR) selectPR(state.selectedPR);
     else loadPRs();

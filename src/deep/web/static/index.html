@@ -6,8 +6,14 @@
   <title>Deep Platform — Developer Dashboard</title>
   <meta name="description" content="Deep Platform Developer Dashboard — Git graph, PR reviews, issue tracking, and live workflow monitor.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  
+  <!-- Vis.js -->
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  
+  <!-- Monaco -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs/editor/editor.main.css">
 </head>
 <body>
   <!-- Toast Container -->
@@ -18,8 +24,11 @@
     <h1>🔱 <span>Deep</span></h1>
     <div class="nav-section">
       <h3>Navigation</h3>
-      <div class="nav-item" data-tab="graph" onclick="switchTab('graph')">
+      <div class="nav-item active" data-tab="graph" onclick="switchTab('graph')">
         <span class="nav-icon">◆</span> Graph <kbd>G</kbd>
+      </div>
+      <div class="nav-item" data-tab="code" onclick="switchTab('code')">
+        <span class="nav-icon">&lt;/&gt;</span> Code <kbd>C</kbd>
       </div>
       <div class="nav-item" data-tab="prs" onclick="switchTab('prs')">
         <span class="nav-icon">⑂</span> Pull Requests <span id="pr-count" class="badge badge-count">0</span> <kbd>P</kbd>
@@ -31,8 +40,13 @@
         <span class="nav-icon">⚡</span> Work <kbd>W</kbd>
       </div>
     </div>
+    
     <div class="nav-section">
       <h3>Branches</h3>
+      <div id="branch-controls">
+        <input type="text" id="new-branch-name" placeholder="New branch..." onkeydown="if(event.key==='Enter') createBranch()" />
+        <button onclick="createBranch()">+</button>
+      </div>
       <div id="branch-list"></div>
     </div>
     <div class="nav-section sidebar-bottom">
@@ -46,6 +60,7 @@
     <div id="topbar">
       <div class="topbar-tabs">
         <button class="tab-btn active" data-tab="graph" onclick="switchTab('graph')">◆ Graph</button>
+        <button class="tab-btn" data-tab="code" onclick="switchTab('code')">&lt;/&gt; Code</button>
         <button class="tab-btn" data-tab="prs" onclick="switchTab('prs')">⑂ Pull Requests</button>
         <button class="tab-btn" data-tab="issues" onclick="switchTab('issues')">◉ Issues</button>
         <button class="tab-btn" data-tab="work" onclick="switchTab('work')">⚡ Work</button>
@@ -58,14 +73,35 @@
     <!-- Content Area -->
     <div id="content-area">
       <!-- Graph Tab -->
-      <div class="tab-content active" id="tab-graph">
+      <div class="tab-content" id="tab-graph">
         <div id="graph-container">
+          <div id="loading-graph" class="hidden">Loading graph...</div>
           <div id="dag"></div>
         </div>
       </div>
 
+      <!-- Code Tab (Web IDE) -->
+      <div class="tab-content hidden" id="tab-code">
+        <div id="ide-container">
+          <!-- File Tree -->
+          <div id="ide-sidebar">
+            <div id="file-tree-header">Workspace</div>
+            <div id="file-tree"></div>
+          </div>
+          <!-- Editor Area -->
+          <div id="ide-main">
+            <div id="monaco-container"></div>
+            <!-- Commit Panel -->
+            <div id="commit-panel">
+              <input type="text" id="commit-msg" placeholder="Commit message (e.g. feat: update dashboard)..." oninput="updateCommitBtn()" />
+              <button id="commit-btn" onclick="commitChanges()">Commit Changes</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- PRs Tab -->
-      <div class="tab-content" id="tab-prs">
+      <div class="tab-content padding hidden" id="tab-prs">
         <div class="list-header">
           <h2>Pull Requests</h2>
           <div class="filter-bar">
@@ -81,7 +117,7 @@
       </div>
 
       <!-- Issues Tab -->
-      <div class="tab-content" id="tab-issues">
+      <div class="tab-content padding hidden" id="tab-issues">
         <div class="list-header">
           <h2>Issues</h2>
           <div class="filter-bar">
@@ -103,7 +139,7 @@
       </div>
 
       <!-- Work Tab -->
-      <div class="tab-content" id="tab-work">
+      <div class="tab-content padding hidden" id="tab-work">
         <div id="work-dashboard"></div>
         <div class="work-section">
           <h3>Activity Feed</h3>
@@ -120,6 +156,9 @@
     </div>
   </div>
 
+  <!-- Monaco loader must be imported correctly -->
+  <script>var require = { paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs' } };</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs/loader.min.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

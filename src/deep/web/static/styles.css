@@ -9,6 +9,7 @@
   --transition:all .2s ease;
 }
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden}
+.hidden{display:none !important;}
 
 /* ── Sidebar ─────────────────────────────────── */
 #sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
@@ -23,13 +24,18 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .nav-icon{font-size:14px;width:18px;text-align:center}
 .badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;min-width:18px;text-align:center}
 .badge-count{background:var(--border);color:var(--text-muted)}
-.badge-branch{background:var(--green);color:#000}
 .sidebar-bottom{margin-top:auto;border-top:1px solid var(--border)}
 .health-badge{font-size:12px;color:var(--green);padding:6px 0}
 .branch-item{display:flex;align-items:center;gap:6px;padding:5px 8px;font-size:12px;border-radius:var(--radius);cursor:pointer;transition:var(--transition)}
 .branch-item:hover{background:#ffffff08}
 .branch-item.current{color:var(--green);font-weight:600}
 .branch-item .branch-sha{color:var(--text-muted);font-family:monospace;font-size:10px;margin-left:auto}
+
+/* Branch Controls */
+#branch-controls { display:flex; gap: 4px; padding: 0 16px 12px; }
+#branch-controls input { flex:1; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: var(--radius); font-size: 11px; font-family: inherit; }
+#branch-controls button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: var(--radius); font-size: 11px; cursor: pointer; transition: var(--transition); }
+#branch-controls button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* ── Main Area ───────────────────────────────── */
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
@@ -44,22 +50,34 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
 /* ── Content Area ────────────────────────────── */
 #content-area{flex:1;display:flex;overflow:hidden}
-.tab-content{flex:1;overflow-y:auto;padding:20px;display:none;animation:fadeIn .2s ease}
-.tab-content.active{display:block}
+.tab-content{flex:1;overflow-y:auto;display:flex;flex-direction:column;animation:fadeIn .2s ease}
+.tab-content.padding{padding:20px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── Graph ────────────────────────────────────── */
-#graph-container{width:100%;min-height:100%}
-#dag{position:relative}
-.commit-node{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:var(--transition);font-size:13px;margin-bottom:4px}
-.commit-node:hover{border-color:var(--accent);transform:translateX(3px);background:var(--surface2)}
-.commit-node.selected{border-color:var(--accent);background:#58a6ff12;box-shadow:0 0 0 2px #58a6ff22}
-.commit-sha{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px;cursor:pointer;padding:2px 6px;border-radius:4px;transition:var(--transition)}
-.commit-sha:hover{background:var(--accent);color:#fff}
-.commit-msg{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.commit-author{color:var(--text-muted);font-size:11px;margin-left:auto;white-space:nowrap}
-.commit-branch-badge{font-size:10px;padding:2px 8px;border-radius:10px;background:var(--green);color:#000;font-weight:600}
-.commit-branch-badge.head{background:var(--accent)}
+#graph-container{flex:1;position:relative;width:100%;height:100%;min-height:0}
+#dag{position:absolute;top:0;left:0;right:0;bottom:0;}
+#loading-graph{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;color:var(--text-muted);}
+
+/* ── IDE (Code Tab) ──────────────────────────── */
+#ide-container{display:flex;flex:1;overflow:hidden;width:100%;height:100%}
+#ide-sidebar{width:240px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+#file-tree-header{padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:2}
+#file-tree{padding:8px}
+.tree-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;cursor:pointer;font-size:12px;color:var(--text);transition:var(--transition);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tree-item:hover{background:#ffffff08}
+.tree-item.active{background:#58a6ff15;color:var(--accent)}
+.folder-icon{color:var(--yellow);font-family:monospace;margin-right:4px}
+.file-icon{color:var(--text-muted);font-family:monospace;margin-right:4px}
+
+#ide-main{flex:1;display:flex;flex-direction:column;background:var(--bg);min-width:0}
+#monaco-container{flex:1;min-height:0}
+#commit-panel{padding:12px 16px;background:var(--surface);border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-shrink:0}
+#commit-msg{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:var(--radius);font-size:13px;font-family:inherit}
+#commit-msg:focus{outline:none;border-color:var(--accent)}
+#commit-btn{padding:8px 16px;border-radius:var(--radius);font-size:12px;font-weight:600;background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);cursor:not-allowed;transition:var(--transition)}
+#commit-btn.ready{background:var(--green);color:#000;border-color:var(--green);cursor:pointer}
+#commit-btn.ready:hover{background:#2ea043;border-color:#2ea043}
 
 /* ── Card Lists ──────────────────────────────── */
 .list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
@@ -172,7 +190,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 @keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}
 
 /* ── Scrollbar ───────────────────────────────── */
-::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}

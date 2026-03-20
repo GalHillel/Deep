@@ -295,6 +295,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             else:
                 self._success({"content": content})
         elif path.startswith("/api/prs"):
+            status_filter = qs.get("status", [None])[0]
+            author_filter = qs.get("author", [None])[0]
+            self._success(self.service.get_prs(status=status_filter, author=author_filter))
         elif path.startswith("/api/issues"):
             type_filter = qs.get("type", [None])[0]
             status_filter = qs.get("status", [None])[0]
