@@ -7,18 +7,15 @@ PRs are stored as JSON files in .deep/prs/<id>.json
 
 from __future__ import annotations
 
+import os
 import json
 import time
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
-def asdict_deep(obj):
-    if isinstance(obj, list):
-        return [asdict_deep(i) for i in obj]
-    if hasattr(obj, "__dict__"):
-        return {k: asdict_deep(v) for k, v in obj.__dict__.items()}
-    return obj
+
+# Remove custom asdict_deep as dataclasses.asdict handles nested dataclasses correctly.
 
 @dataclass
 class PRReply:
@@ -125,7 +122,7 @@ class PRManager:
     def save_pr(self, pr: PullRequest):
         path = self.prs_dir / f"{pr.id}.json"
         with open(path, "w") as f:
-            json.dump(asdict_deep(pr), f, indent=2)
+            json.dump(asdict(pr), f, indent=2)
 
     def get_pr(self, pr_id: int) -> Optional[PullRequest]:
         path = self.prs_dir / f"{pr_id}.json"

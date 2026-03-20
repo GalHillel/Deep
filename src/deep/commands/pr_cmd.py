@@ -184,6 +184,12 @@ def run(args) -> None:
         # 4d. Reviewer Assignment (Part 7)
         reviewers_str = input("Assign reviewers (comma separated, optional): ").strip()
         requested_reviewers = [r.strip().lower() for r in reviewers_str.split(",") if r.strip()] if reviewers_str else []
+        
+        # UX Boost: Auto-Assign Author (Part 3)
+        if author_name.lower() not in requested_reviewers:
+            add_self = input(f"You are not in the reviewer list. Add yourself ({author_name})? [Y/n]: ").strip().lower()
+            if add_self != 'n':
+                requested_reviewers.append(author_name.lower())
 
         # 5. Summary & Confirmation
         print(f"\nSummary:")
@@ -298,21 +304,35 @@ def run(args) -> None:
             print(f"Issue:    #{pr.linked_issue}")
             
         # Part 5: Elite PR Show UX (Summary Block) - Refined Approval Counting (Part 4)
-        if pr.requested_reviewers:
-            requested_lower = [r.lower() for r in pr.requested_reviewers]
+        requested_lower = [r.lower() for r in pr.requested_reviewers] if pr.requested_reviewers else []
+        
+        # Base approvals (assigned or all if none)
+        if requested_lower:
             approvals = [a for a in pr.reviews if a.lower() in requested_lower and pr.reviews[a]["status"] == "approved"]
             other_approvals = [a for a in pr.reviews if a.lower() not in requested_lower and pr.reviews[a]["status"] == "approved"]
+            
+            # Fallback Logic (Part 2)
+            if not approvals and other_approvals:
+                approvals = other_approvals
+                fallback_active = True
+            else:
+                fallback_active = False
         else:
             approvals = [a for a in pr.reviews if pr.reviews[a]["status"] == "approved"]
             other_approvals = []
+            fallback_active = False
 
         changes_req = [a for a in pr.reviews if pr.reviews[a]["status"] == "changes_requested"]
         unresolved = pr.unresolved_count
         
         print(f"\n{Color.wrap(Color.BOLD, 'Review Summary:')}")
         print(f"  {Color.wrap(Color.GREEN, '✔')} Approvals: {len(approvals)}/{pr.approvals_required}")
-        if other_approvals:
+        
+        if fallback_active:
+            print(f"  {Color.wrap(Color.YELLOW, '⚠')} {Color.wrap(Color.YELLOW, 'Note: using fallback approvals from non-assigned reviewers')}")
+        elif other_approvals:
             print(f"  {Color.wrap(Color.YELLOW, '⚠')} {Color.wrap(Color.YELLOW, 'Reviewer mismatch: approval by non-assigned user')} ({', '.join(other_approvals)})")
+            
         if changes_req:
             print(f"  {Color.wrap(Color.RED, '❌')} Changes Requested: {len(changes_req)}")
         if unresolved > 0:
@@ -398,18 +418,22 @@ def run(args) -> None:
             print_error(f"PR #{pr_id} is closed.")
             return
 
-        # Smart Merge Engine (Part 4) - Refined Approval Counting
-        if pr_obj.requested_reviewers:
-            requested_lower = [r.lower() for r in pr_obj.requested_reviewers]
-            # ONLY count approvals from requested reviewers
-            effective_approvals = [author for author, r in pr_obj.reviews.items() 
-                                   if author.lower() in requested_lower and r["status"] == "approved"]
+        # Smart Merge Engine (Part 4) - Refined Approval Counting with Fallback (Part 2)
+        requested_lower = [r.lower() for r in pr_obj.requested_reviewers] if pr_obj.requested_reviewers else []
+        reviews_all = pr_obj.reviews
+        
+        all_approvals = [auth for auth, r in reviews_all.items() if r["status"] == "approved"]
+        
+        if requested_lower:
+            effective_approvals = [a for a in all_approvals if a.lower() in requested_lower]
+            # Fallback logic
+            if not effective_approvals and all_approvals:
+                effective_approvals = all_approvals
+                print_info("⚠ Approval from non-assigned reviewer detected (Fallback active)")
         else:
-            # Count ALL approvals if no reviewers assigned
-            effective_approvals = [author for author, r in pr_obj.reviews.items() 
-                                   if r["status"] == "approved"]
+            effective_approvals = all_approvals
 
-        changes_req = [author for author, r in pr_obj.reviews.items() if r["status"] == "changes_requested"]
+        changes_req = [author for author, r in reviews_all.items() if r["status"] == "changes_requested"]
         unresolved = pr_obj.unresolved_count
         
         is_blocked = False
@@ -422,6 +446,10 @@ def run(args) -> None:
         if len(effective_approvals) < pr_obj.approvals_required:
             is_blocked = True
             reasons.append(f"{Color.wrap(Color.RED, '❌')} Approvals: {len(effective_approvals)}/{pr_obj.approvals_required}")
+            if requested_lower:
+                reasons.append(f"  {Color.wrap(Color.YELLOW, '⚠')} Assigned reviewers: {', '.join(pr_obj.requested_reviewers)}")
+                if all_approvals:
+                    reasons.append(f"  {Color.wrap(Color.YELLOW, '⚠')} Approvals received from: {', '.join(all_approvals)}")
             
         if unresolved > 0:
             is_blocked = True
@@ -582,6 +610,12 @@ def run(args) -> None:
             
         print(f"\n{Color.wrap(Color.BOLD, f'--- Review PR #{pr.id}: {pr.title} ---')}\n")
         
+        # UX Boost: Review Command UX (Part 4)
+        if pr.requested_reviewers and author_name.lower() not in [r.lower() for r in pr.requested_reviewers]:
+            print(f"{Color.wrap(Color.YELLOW, '⚠ YOU ARE NOT AN ASSIGNED REVIEWER FOR THIS PR.')}")
+            anyway = input("Submit review anyway? [y/N]: ").strip().lower()
+            if anyway != 'y': return
+
         current_review = pr.reviews.get(author_name)
         if current_review:
             print(f"{Color.wrap(Color.YELLOW, 'You already reviewed this PR:')} {current_review['status'].upper()}")
