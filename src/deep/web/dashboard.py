@@ -56,7 +56,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         try:
             parsed = urlparse(self.path)
-            path = parsed.path.rstrip("/")
+            path = parsed.path.lower().rstrip("/")
+            if not path: path = "/"
             qs = {k: v[0] for k, v in parse_qs(parsed.query).items()}
 
             if path == "" or path == "/index.html":
@@ -93,7 +94,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         try:
             parsed = urlparse(self.path)
-            path = parsed.path.rstrip("/")
+            path = parsed.path.lower().rstrip("/")
+            if not path: path = "/"
             content_length = int(self.headers.get("Content-Length", 0))
             body = {}
             if content_length > 0:
