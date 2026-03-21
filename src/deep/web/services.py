@@ -368,13 +368,13 @@ def api_stage_file(data):
         filepath = data.get("filepath") or data.get("file")
 
         if not filepath:
-            return {"error": "Filepath required"}
+            return {"success": False, "error": "Filepath required"}
 
         add_cmd.run(ns(files=[filepath]))
-        return {"status": "success"}
+        return {"success": True}
 
     except Exception as e:
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 def api_unstage_file(data):
     try:
@@ -420,18 +420,18 @@ def api_unstage_file(data):
         else:
             # File is a new addition. Unstaging means dropping it from the index entirely.
             remove_multiple_from_index(dg_dir, [clean_path])
-
-        return {"status": "success"}
+ 
+        return {"success": True}
     except Exception as e:
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 def api_unstage_all():
     try:
         from deep.commands import reset_cmd
         # Native reset HEAD without paths unstages everything
         reset_cmd.run(ns(commit="HEAD", hard=False, soft=False, mixed=True))
-        return {"status": "success"}
-    except Exception as e: return {"error": str(e)}
+        return {"success": True}
+    except Exception as e: return {"success": False, "error": str(e)}
 
 def api_discard_file(filepath):
     try:
@@ -439,8 +439,8 @@ def api_discard_file(filepath):
         if not filepath: return {"error": "Filepath required"}
         # Corrected: target="HEAD", not branch="HEAD"
         checkout_cmd.run(ns(target="HEAD", paths=[filepath], force=True))
-        return {"status": "success"}
-    except Exception as e: return {"error": str(e)}
+        return {"success": True}
+    except Exception as e: return {"success": False, "error": str(e)}
 
 def api_ai_suggest():
     try:
@@ -456,10 +456,10 @@ def api_ai_suggest():
             parts = msg.split('\n', 1)
             title = parts[0].strip()
             body = parts[1].strip() if len(parts) > 1 else ""
-            return {"title": title, "body": body}
+            return {"success": True, "data": {"title": title, "body": body}}
         else:
-            return {"error": "AI could not generate a suggestion."}
-    except Exception as e: return {"error": str(e)}
+            return {"success": False, "error": "AI could not generate a suggestion."}
+    except Exception as e: return {"success": False, "error": str(e)}
 
 
 def perform_commit(filepath, content, message):
@@ -482,8 +482,8 @@ def perform_commit(filepath, content, message):
             all=False,
             files=[]
         ))
-
-        return {"status": "success"}
-
+ 
+        return {"success": True}
+ 
     except Exception as e:
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}

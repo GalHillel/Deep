@@ -143,6 +143,22 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
+def _tree_entries_flat(objects_dir, tree_sha, prefix=""):
+    """Helper used by AI and search to get a flat list of tree entries."""
+    from deep.storage.objects import read_object, Tree
+    entries = {}
+    try:
+        tree = read_object(objects_dir, tree_sha)
+        if not isinstance(tree, Tree): return {}
+        for entry in tree.entries:
+            full_name = f"{prefix}/{entry.name}" if prefix else entry.name
+            if entry.mode == "40000": # Directory
+                entries.update(_tree_entries_flat(objects_dir, entry.sha, full_name))
+            else:
+                entries[full_name] = entry.sha
+    except Exception: pass
+    return entries
+
 def start_dashboard(repo_root: Path, host: str = "127.0.0.1", port: int = 9000):
     """Start the Web Dashboard HTTP server."""
     dg_dir = repo_root / DEEP_DIR

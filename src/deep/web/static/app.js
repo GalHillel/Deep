@@ -252,7 +252,7 @@ const App = {
     async discardFile(filepath) {
         if (!confirm(`Are you sure you want to discard all unstaged changes in ${filepath}? This cannot be undone.`)) return;
         const res = await this.api('/api/discard', 'POST', { filepath });
-        if (res && res.status === 'success') {
+        if (res && res.success) {
             this.toast(`Discarded changes in: ${filepath}`);
             this.syncWorkspace();
             if(this.state.tab === 'diff') this.loadDiffContent();
@@ -262,7 +262,7 @@ const App = {
 
     async unstageAll() {
         const res = await this.api('/api/unstage_all', 'POST');
-        if (res && res.status === 'success') {
+        if (res && res.success) {
             this.toast("All files unstaged.");
             this.syncWorkspace();
             if(this.state.tab === 'diff') this.loadDiffContent();
@@ -311,7 +311,7 @@ const App = {
         const message = desc ? `${summary}\n\n${desc}` : summary;
         
         const res = await this.api('/api/commit', 'POST', { message });
-        if (res && res.status === 'success') {
+        if (res && res.success) {
             this.toast("Commit successful!");
             this.closeCommitModal();
             this.loadDiffContent();
@@ -376,7 +376,7 @@ const App = {
         const fullRelPath = parentDir + inputName;
         this.toast(`Creating ${type}: /${fullRelPath}...`);
         const res = await this.api('/api/item/create', 'POST', { path: fullRelPath, type: type });
-        if (res && res.status === 'success') {
+        if (res && res.success) {
             this.toast(`${type.charAt(0).toUpperCase() + type.slice(1)} created successfully.`);
             this.state.activeContextPath = res.path; 
             this.loadTree(); 
