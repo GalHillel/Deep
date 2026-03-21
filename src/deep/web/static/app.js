@@ -551,8 +551,8 @@ const App = {
                     </span>
                     <div class="flex items-center">
                         ${discardBtn}
-                        <button onclick="App.${type === 'staged' ? 'unstageFile' : 'stageFile'}('${f}')" title="${type === 'staged' ? 'Unstage' : 'Stage'}" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 text-xs font-bold rounded ${type === 'staged' ? 'bg-red-900/50 text-red-400 hover:bg-red-800' : 'bg-cyan-900/50 text-cyan-400 hover:bg-cyan-800'} transition-all shadow">
-                            <i class="fa-solid ${type === 'staged' ? 'fa-minus' : 'fa-plus'}"></i>
+                        <button onclick="App.${type === 'staged' ? 'unstageFile' : 'stageFile'}('${f}')" title="${type === 'staged' ? 'Unstage' : 'Stage'}" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 text-[10px] font-bold rounded ${type === 'staged' ? 'bg-amber-900/30 text-amber-500 hover:bg-amber-800' : 'bg-cyan-900/30 text-cyan-400 hover:bg-cyan-800'} hover:text-white transition-all shadow flex items-center gap-1">
+                            <i class="fa-solid ${type === 'staged' ? 'fa-minus' : 'fa-plus'} text-[8px]"></i> ${type === 'staged' ? 'Unstage' : 'Stage'}
                         </button>
                     </div>
                 </div>
@@ -639,7 +639,9 @@ const App = {
                             <span class="text-green-400">+${file.added}</span>
                             <span class="text-red-400">-${file.deleted}</span>
                         </div>
-                        <button onclick="App.stageFile('${file.name}')" class="text-xs bg-cyan-700/50 hover:bg-cyan-600 text-cyan-100 px-3 py-1 rounded border border-cyan-500/50 transition-colors shadow flex items-center gap-1"><i class="fa-solid fa-plus"></i> Stage</button>
+                        <button onclick="App.${isStaged ? 'unstageFile' : 'stageFile'}('${file.name}')" class="text-xs ${isStaged ? 'bg-amber-700/50 hover:bg-amber-600 text-amber-100' : 'bg-cyan-700/50 hover:bg-cyan-600 text-cyan-100'} px-3 py-1 rounded border ${isStaged ? 'border-amber-500/50' : 'border-cyan-500/50'} transition-colors shadow flex items-center gap-1">
+                            <i class="fa-solid ${isStaged ? 'fa-minus' : 'fa-plus'}"></i> ${isStaged ? 'Unstage' : 'Stage'}
+                        </button>
                     </div>
                 </div>
 
