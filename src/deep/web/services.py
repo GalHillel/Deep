@@ -183,21 +183,35 @@ class DashboardService:
             "staged": staged_files
         }
 
-def api_stage_file(filepath):
+def api_stage_file(data):
     try:
         from deep.commands import add_cmd
         import argparse
+
+        filepath = data.get("filepath") or data.get("file")
+
+        if not filepath:
+            return {"error": "Filepath required"}
+
         add_cmd.run(argparse.Namespace(files=[filepath]))
         return {"status": "success"}
+
     except Exception as e:
         return {"error": str(e)}
 
-def api_unstage_file(filepath):
+def api_unstage_file(data):
     try:
         from deep.commands import reset_cmd
         import argparse
+
+        filepath = data.get("filepath") or data.get("file")
+
+        if not filepath:
+            return {"error": "Filepath required"}
+
         reset_cmd.run(argparse.Namespace(files=[filepath]))
         return {"status": "success"}
+
     except Exception as e:
         return {"error": str(e)}
 

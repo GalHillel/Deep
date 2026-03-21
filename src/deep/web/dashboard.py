@@ -111,10 +111,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if path == "/api/file/save": return self.send_json(self.service.save_file_only(body.get("filepath") or body.get("path", ""), body.get("content", "")))
             if path == "/api/stage": 
                 from deep.web.services import api_stage_file
-                return self.send_json(api_stage_file(body.get("file") or body.get("filepath")))
+                return self.send_json(api_stage_file(body))
             if path == "/api/unstage": 
                 from deep.web.services import api_unstage_file
-                return self.send_json(api_unstage_file(body.get("file") or body.get("filepath")))
+                return self.send_json(api_unstage_file(body))
             if path == "/api/branch/checkout": return self.send_json(self.service.checkout_branch_forced(body.get("branch") or body.get("name", "")))
             if path == "/api/branch/create": return self.send_json(self.service.create_branch(body.get("name", "")))
             if path == "/api/merge": return self.send_json(self.service.merge_branch(body.get("branch") or body.get("name", "")))

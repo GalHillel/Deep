@@ -491,23 +491,19 @@ const App = {
 
     /* API Actions */
     async stageFile(file) {
-        if(!file || file === 'undefined') return;
-        const res = await this.api('/api/stage', 'POST', { file });
-        if (res && res.status === 'success') {
-            this.toast(`Staged: ${file}`);
-            await this.refreshStatus();
-            await this.refreshDiff();
-        }
+        if(!file) return;
+        console.log("staging", file);
+        await this.api('/api/stage', 'POST', { filepath: file });
+        await this.refreshStatus();
+        await this.refreshDiff();
     },
 
     async unstageFile(file) {
-        if(!file || file === 'undefined') return;
-        const res = await this.api('/api/unstage', 'POST', { file });
-        if (res && res.status === 'success') {
-            this.toast(`Unstaged: ${file}`);
-            await this.refreshStatus();
-            await this.refreshDiff();
-        }
+        if(!file) return;
+        console.log("unstaging", file);
+        await this.api('/api/unstage', 'POST', { filepath: file });
+        await this.refreshStatus();
+        await this.refreshDiff();
     },
     
     async stageAll() {
