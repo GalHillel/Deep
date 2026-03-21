@@ -19,6 +19,56 @@
         .panel { display: none; height: 100%; flex-direction: column; }
         .panel.active { display: flex; }
         #network-canvas { outline: none; width: 100%; height: 100%; background: #0b0f19; }
+        /* Glassmorphism & Diff Visualization Styles */
+        .glass-tile {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+        }
+        .glass-tile:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 12px 40px 0 rgba(0, 255, 255, 0.15);
+            border-color: rgba(6, 182, 212, 0.4);
+        }
+        .diff-minimap {
+            width: 8px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .minimap-line { height: 2px; width: 100%; opacity: 0.8; }
+        .minimap-add { background-color: #22c55e; }
+        .minimap-del { background-color: #ef4444; }
+        .minimap-mod { background-color: #eab308; }
+        .minimap-null { background-color: transparent; }
+
+        .diff-block {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .diff-line { padding: 0 8px; white-space: pre-wrap; word-break: break-all; display: flex; }
+        .diff-line.add { background: rgba(34, 197, 94, 0.15); color: #86efac; border-left: 2px solid #22c55e; }
+        .diff-line.del { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border-left: 2px solid #ef4444; }
+        .diff-line.mod { background: rgba(234, 179, 8, 0.15); color: #fde047; border-left: 2px solid #eab308; }
+        .diff-line.header { background: rgba(6, 182, 212, 0.1); color: #67e8f9; border-bottom: 1px solid rgba(6, 182, 212, 0.2); }
+
+        @keyframes flowDiff {
+            0% { background-position: 200% center; }
+            100% { background-position: -200% center; }
+        }
+        .wave-active {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+            background-size: 200% 100%;
+            animation: flowDiff 3s infinite linear;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -95,9 +145,36 @@
                 </div>
             </div>
 
-            <div id="panel-diff" class="panel p-6 overflow-y-auto">
-                <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-file-contract mr-2 text-cyan-500"></i> Working Tree Changes</h2>
-                <div id="diff-content" class="bg-[#111827] border border-gray-800 rounded p-4 font-mono text-sm whitespace-pre-wrap text-gray-300"></div>
+            <div id="panel-diff" class="panel p-6 overflow-y-auto bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')]">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-white tracking-wide"><i class="fa-solid fa-layer-group text-cyan-400 mr-2"></i> Working Tree</h2>
+                    <div class="flex gap-4">
+                        <button onclick="App.stageAll()" class="bg-cyan-600/20 hover:bg-cyan-600/40 border border-cyan-500/50 text-cyan-300 px-4 py-1.5 rounded font-bold shadow-lg transition-all backdrop-blur"><i class="fa-solid fa-check-double mr-2"></i>Stage All</button>
+                    </div>
+                </div>
+
+                <div id="staging-controls" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 shadow-inner">
+                        <h3 class="text-slate-400 font-bold mb-3 flex items-center justify-between uppercase text-xs tracking-widest">
+                            <span><i class="fa-regular fa-file-code mr-2"></i> Unstaged Changes</span>
+                            <span id="badge-unstaged" class="bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">0</span>
+                        </h3>
+                        <div id="list-unstaged" class="space-y-1 max-h-48 overflow-y-auto pr-2"></div>
+                    </div>
+                    
+                    <div class="bg-cyan-950/30 border border-cyan-900/50 rounded-xl p-4 shadow-inner">
+                        <h3 class="text-cyan-400 font-bold mb-3 flex items-center justify-between uppercase text-xs tracking-widest">
+                            <span><i class="fa-solid fa-inbox mr-2"></i> Staged (Ready for Commit)</span>
+                            <span id="badge-staged" class="bg-cyan-900 text-cyan-200 px-2 py-0.5 rounded-full">0</span>
+                        </h3>
+                        <div id="list-staged" class="space-y-1 max-h-48 overflow-y-auto pr-2"></div>
+                    </div>
+                </div>
+
+                <h3 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-eye text-purple-400 mr-2"></i> Visual Changes</h3>
+                <div id="diff-grid" class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6 auto-rows-max">
+                    <!-- Diff tiles will be injected here -->
+                    </div>
             </div>
 
             <div id="panel-prs" class="panel p-6 overflow-y-auto">
