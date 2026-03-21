@@ -1,5 +1,6 @@
 import argparse
 import sys
+from pathlib import Path
 
 from deep.core.repository import find_repo
 from deep.utils.utils import DeepError
