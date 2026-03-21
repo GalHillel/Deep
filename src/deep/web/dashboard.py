@@ -107,7 +107,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             # FINAL ROUTES
             if path == "/api/commit": 
                 from deep.web.services import perform_commit
-                return self.send_json(perform_commit(body.get("filepath"), body.get("content"), body.get("message")))
+                return self.send_json(perform_commit(body.get("filepath"), body.get("content"), body.get("message"), body.get("amend", False)))
+            elif path == "/api/stash/push":
+                from deep.web.services import api_stash_push
+                return self.send_json(api_stash_push())
+            elif path == "/api/stash/pop":
+                from deep.web.services import api_stash_pop
+                return self.send_json(api_stash_pop())
             elif path == "/api/item/create": return self.send_json(self.service.create_item(body.get("path"), body.get("type")))
             elif path == "/api/file/save": return self.send_json(self.service.save_file_only(body.get("filepath") or body.get("path", ""), body.get("content", "")))
             elif path == "/api/stage": 

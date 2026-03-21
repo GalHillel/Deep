@@ -80,6 +80,10 @@ const App = {
             statusEl.innerHTML = '<i class="fa-solid fa-check-double text-green-500 text-xs"></i> Clean Workspace';
             statusEl.classList.replace('text-yellow-400', 'text-gray-400');
         }
+        
+        // Show/Hide Pop Stash button if we have stashes (simplified check: always show if we ever stashed)
+        const popBtn = document.getElementById('btn-pop-stash');
+        if (popBtn) popBtn.classList.remove('hidden');
     },
 
     switchTab(tabId) {
@@ -149,12 +153,13 @@ const App = {
                     </div>
                 </div>`;
             } else {
+                const iconClass = this.getFileIcon(name);
                 return `
                 <div class="mt-1" ${indent}>
                     <div id="tree-node-${btoa(currentPath)}"
                          class="cursor-pointer text-slate-400 hover:text-cyan-400 flex items-center py-1 px-2 rounded transition-all ${hoverItemClasses} ${isActive ? activeItemClasses : ''}" 
                          onclick="App.setExplorerContext('${currentPath}', 'file')">
-                        <i class="fa-regular fa-file-code text-slate-500 mr-2 w-4"></i> ${name}
+                        <i class="${iconClass} mr-2 w-4 text-[10px]"></i> ${name}
                     </div>
                 </div>`;
             }
@@ -261,12 +266,63 @@ const App = {
     },
 
     async unstageAll() {
+        if(!confirm("Unstage all files?")) return;
         const res = await this.api('/api/unstage_all', 'POST');
         if (res && res.success) {
             this.toast("All files unstaged.");
             this.syncWorkspace();
             if(this.state.tab === 'diff') this.loadDiffContent();
         }
+    },
+
+    async stashChanges() {
+        const msg = prompt("Enter stash message (optional):", "Studio Stash");
+        if (msg === null) return;
+        const res = await this.api('/api/stash/push', 'POST', { message: msg });
+        if (res && res.success) {
+            this.toast("Changes stashed.");
+            this.syncWorkspace();
+            this.loadDiffContent();
+        }
+    },
+
+    async popStash() {
+        const res = await this.api('/api/stash/pop', 'POST');
+        if (res && res.success) {
+            this.toast("Stash popped successfully.");
+            this.syncWorkspace();
+            this.loadDiffContent();
+        }
+    },
+
+    filterWorkingTree() {
+        const q = document.getElementById('wt-search-input').value.toLowerCase();
+        document.querySelectorAll('#list-unstaged > div, #list-staged > div').forEach(el => {
+            const text = el.querySelector('span').textContent.toLowerCase();
+            el.style.display = text.includes(q) ? 'flex' : 'none';
+        });
+        
+        // Also filter diff tiles
+        document.querySelectorAll('.glass-tile').forEach(tile => {
+            const text = tile.querySelector('h4').textContent.toLowerCase();
+            tile.style.display = text.includes(q) ? 'block' : 'none';
+        });
+    },
+
+    getFileIcon(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const icons = {
+            py: 'fa-brands fa-python text-blue-400',
+            js: 'fa-brands fa-js text-yellow-400',
+            ts: 'fa-solid fa-code text-blue-500',
+            html: 'fa-brands fa-html5 text-orange-500',
+            css: 'fa-brands fa-css3-alt text-blue-400',
+            json: 'fa-regular fa-file-lines text-amber-300',
+            md: 'fa-brands fa-markdown text-slate-300',
+            txt: 'fa-regular fa-file-lines text-slate-400',
+            default: 'fa-regular fa-file-code text-slate-500'
+        };
+        return icons[ext] || icons.default;
     },
 
     async generateAICommit() {
@@ -309,8 +365,9 @@ const App = {
         }
 
         const message = desc ? `${summary}\n\n${desc}` : summary;
+        const amend = document.getElementById('commit-modal-amend')?.checked || false;
         
-        const res = await this.api('/api/commit', 'POST', { message });
+        const res = await this.api('/api/commit', 'POST', { message, amend });
         if (res && res.success) {
             this.toast("Commit successful!");
             this.closeCommitModal();
@@ -471,7 +528,8 @@ const App = {
             return filesList.map(f => {
                 const isBoth = type === 'unstaged' && staged.includes(f);
                 const badge = isBoth ? `<span class="ml-2 text-[9px] bg-yellow-900/80 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-700/50 uppercase tracking-widest">Modified</span>` : '';
-                const icon = type === 'staged' ? 'fa-circle-check text-green-500' : 'fa-file-code text-slate-500';
+                const iconClass = this.getFileIcon(f);
+                const checkIcon = type === 'staged' ? 'fa-circle-check text-green-500' : iconClass;
                 
                 // Discard button only for unstaged changes
                 const discardBtn = type === 'unstaged' ? `<button onclick="App.discardFile('${f}')" title="Discard Changes" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 text-xs rounded bg-red-900/30 text-red-500 hover:bg-red-800 hover:text-white transition-all mr-1"><i class="fa-solid fa-trash-can"></i></button>` : '';
@@ -479,7 +537,7 @@ const App = {
                 return `
                 <div class="flex justify-between items-center group hover:bg-slate-800/80 p-1.5 rounded transition-colors">
                     <span class="text-slate-300 text-sm font-mono truncate flex items-center cursor-pointer hover:text-cyan-400" onclick="App.switchTab('code'); App.openFile('${f}')" title="Open in Editor">
-                        <i class="fa-regular ${icon} mr-2"></i> ${f} ${badge}
+                        <i class="${checkIcon} mr-2"></i> ${f} ${badge}
                     </span>
                     <div class="flex items-center">
                         ${discardBtn}

@@ -461,8 +461,28 @@ def api_ai_suggest():
             return {"success": False, "error": "AI could not generate a suggestion."}
     except Exception as e: return {"success": False, "error": str(e)}
 
+def api_stash_push(data=None):
+    if data is None: data = {}
+    try:
+        from deep.commands import stash_cmd
+        message = data.get("message", "Studio Stash")
+        include_untracked = data.get("include_untracked", False)
+        stash_cmd.run(ns(push=True, message=message, include_untracked=include_untracked))
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
-def perform_commit(filepath, content, message):
+def api_stash_pop(data=None):
+    if data is None: data = {}
+    try:
+        from deep.commands import stash_cmd
+        index = data.get("index", 0) # Default to popping the latest stash
+        stash_cmd.run(ns(pop=True, index=index))
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def perform_commit(filepath, content, message, amend=False):
     try:
         from deep.commands import add_cmd, commit_cmd
         from deep.core.repository import find_repo
@@ -480,7 +500,8 @@ def perform_commit(filepath, content, message):
             ai=False,
             allow_empty=True,
             all=False,
-            files=[]
+            files=[],
+            amend=amend
         ))
  
         return {"success": True}
