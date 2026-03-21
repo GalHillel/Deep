@@ -275,6 +275,16 @@ const App = {
         }
     },
 
+    async discardAll() {
+        if (!confirm("Are you sure you want to discard ALL changes (tracked and untracked)? This CANNOT be undone.")) return;
+        const res = await this.api('/api/discard_all', 'POST');
+        if (res && res.success) {
+            this.toast("All changes discarded.");
+            this.syncWorkspace();
+            this.loadDiffContent();
+        }
+    },
+
     async stashChanges() {
         const msg = prompt("Enter stash message (optional):", "Studio Stash");
         if (msg === null) return;

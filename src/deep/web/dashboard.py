@@ -128,6 +128,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             elif path == '/api/discard':
                 from deep.web.services import api_discard_file
                 return self.send_json(api_discard_file(body.get('filepath')))
+            elif path == '/api/discard_all':
+                from deep.web.services import api_discard_all
+                return self.send_json(api_discard_all())
             elif path == "/api/branch/checkout": return self.send_json(self.service.checkout_branch_forced(body.get("branch") or body.get("name", "")))
             elif path == "/api/branch/create": return self.send_json(self.service.create_branch(body.get("name", "")))
             elif path == "/api/merge": return self.send_json(self.service.merge_branch(body.get("branch") or body.get("name", "")))

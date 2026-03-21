@@ -465,6 +465,32 @@ def api_discard_file(filepath):
     except Exception as e: 
         return {"success": False, "error": str(e)}
 
+def api_discard_all():
+    try:
+        from deep.core.status import compute_status
+        from deep.core.repository import find_repo
+        from deep.commands import checkout_cmd
+        import os, shutil
+
+        repo_root = find_repo()
+        status = compute_status(repo_root)
+
+        # 1. Delete untracked files
+        for f in status.untracked:
+            p = repo_root / f
+            if p.exists():
+                if p.is_file():
+                    os.remove(p)
+                elif p.is_dir():
+                    shutil.rmtree(p)
+
+        # 2. Revert tracked changes to HEAD
+        checkout_cmd.run(ns(target="HEAD", paths=["."], force=True))
+
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 def api_ai_suggest():
     try:
         from deep.core.repository import find_repo
