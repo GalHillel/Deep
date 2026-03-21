@@ -489,8 +489,7 @@ def api_stash_push(data=None):
     try:
         from deep.commands import stash_cmd
         message = data.get("message", "Studio Stash")
-        include_untracked = data.get("include_untracked", False)
-        stash_cmd.run(ns(push=True, message=message, include_untracked=include_untracked))
+        stash_cmd.run(ns(action="push", message=message))
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -499,8 +498,7 @@ def api_stash_pop(data=None):
     if data is None: data = {}
     try:
         from deep.commands import stash_cmd
-        index = data.get("index", 0) # Default to popping the latest stash
-        stash_cmd.run(ns(pop=True, index=index))
+        stash_cmd.run(ns(action="pop"))
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}

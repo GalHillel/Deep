@@ -94,7 +94,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         try:
             parsed = urlparse(self.path)
-            path = parsed.path.lower().rstrip("/")
+            path = parsed.path.lower().strip().rstrip("/")
             if not path: path = "/"
             content_length = int(self.headers.get("Content-Length", 0))
             body = {}
@@ -105,15 +105,15 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     return self.send_json({"success": False, "error": "Invalid JSON"}, 400)
 
             # FINAL ROUTES
-            if path == "/api/commit": 
+            if path == "/api/commit":
                 from deep.web.services import perform_commit
                 return self.send_json(perform_commit(body.get("filepath"), body.get("content"), body.get("message"), body.get("amend", False)))
-            elif path == "/api/stash/push":
+            elif "/api/stash/push" in path:
                 from deep.web.services import api_stash_push
-                return self.send_json(api_stash_push())
-            elif path == "/api/stash/pop":
+                return self.send_json(api_stash_push(body))
+            elif "/api/stash/pop" in path:
                 from deep.web.services import api_stash_pop
-                return self.send_json(api_stash_pop())
+                return self.send_json(api_stash_pop(body))
             elif path == "/api/item/create": return self.send_json(self.service.create_item(body.get("path"), body.get("type")))
             elif path == "/api/file/save": return self.send_json(self.service.save_file_only(body.get("filepath") or body.get("path", ""), body.get("content", "")))
             elif path == "/api/stage": 
