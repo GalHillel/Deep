@@ -249,6 +249,56 @@ const App = {
         document.getElementById('commit-modal-desc').value = '';
     },
 
+    async discardFile(filepath) {
+        if (!confirm(`Are you sure you want to discard all unstaged changes in ${filepath}? This cannot be undone.`)) return;
+        const res = await this.api('/api/discard', 'POST', { filepath });
+        if (res && res.status === 'success') {
+            this.toast(`Discarded changes in: ${filepath}`);
+            this.syncWorkspace();
+            if(this.state.tab === 'diff') this.loadDiffContent();
+            if(this.state.currentFile === filepath) this.openFile(filepath); // Reload in editor if open
+        }
+    },
+
+    async unstageAll() {
+        const res = await this.api('/api/unstage_all', 'POST');
+        if (res && res.status === 'success') {
+            this.toast("All files unstaged.");
+            this.syncWorkspace();
+            if(this.state.tab === 'diff') this.loadDiffContent();
+        }
+    },
+
+    async generateAICommit() {
+        // Find whichever AI Suggest button is visible (either in Commit Modal or Editor)
+        const btn = document.getElementById('btn-ai-suggest') || document.getElementById('modal-btn-ai-suggest');
+        const defaultText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Thinking...';
+            btn.disabled = true;
+        }
+
+        const res = await this.api('/api/ai/suggest');
+        
+        if (btn) {
+            btn.innerHTML = defaultText || '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Suggest';
+            btn.disabled = false;
+        }
+
+        if (res && res.title) {
+            // Apply to Modal if open, else Editor
+            const sumInput = document.getElementById('commit-modal-summary') || document.getElementById('commit-msg-input');
+            const descInput = document.getElementById('commit-modal-desc') || document.getElementById('commit-desc-input');
+            
+            if (sumInput) sumInput.value = res.title;
+            if (descInput && res.body) descInput.value = res.body;
+            
+            this.toast("✨ AI Suggestion applied!");
+        } else if (res && res.error) {
+            this.toast(res.error, true);
+        }
+    },
+
     async executeCommit() {
         const summary = document.getElementById('commit-modal-summary').value.trim();
         const desc = document.getElementById('commit-modal-desc').value.trim();
@@ -416,17 +466,27 @@ const App = {
         const unstaged = [...new Set([...(statusData.modified || []), ...(statusData.untracked || []), ...(statusData.deleted || [])])];
         const staged = statusData.staged || []; 
 
-        const renderList = (files, type) => {
-            if (!files || files.length === 0) return `<div class="text-slate-600 italic text-sm py-2">Empty</div>`;
-            return files.map(f => {
-                const isBoth = (type === 'unstaged') ? App.isModifiedAfterStaging(f, staged, unstaged) : false;
-                const badge = isBoth ? '<span class="modified-badge bg-yellow-900/50 text-yellow-500 font-bold border border-yellow-700 px-1.5 py-0.5 rounded text-[10px] uppercase ml-2 tracking-wider">Modified</span>' : '';
+        const renderList = (filesList, type) => {
+            if (!filesList || filesList.length === 0) return `<div class="text-slate-600 italic text-sm py-2">Empty</div>`;
+            return filesList.map(f => {
+                const isBoth = type === 'unstaged' && staged.includes(f);
+                const badge = isBoth ? `<span class="ml-2 text-[9px] bg-yellow-900/80 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-700/50 uppercase tracking-widest">Modified</span>` : '';
+                const icon = type === 'staged' ? 'fa-circle-check text-green-500' : 'fa-file-code text-slate-500';
+                
+                // Discard button only for unstaged changes
+                const discardBtn = type === 'unstaged' ? `<button onclick="App.discardFile('${f}')" title="Discard Changes" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 text-xs rounded bg-red-900/30 text-red-500 hover:bg-red-800 hover:text-white transition-all mr-1"><i class="fa-solid fa-trash-can"></i></button>` : '';
+
                 return `
                 <div class="flex justify-between items-center group hover:bg-slate-800/80 p-1.5 rounded transition-colors">
-                    <span class="text-slate-300 text-sm font-mono truncate flex items-center"><i class="fa-regular ${type === 'staged' ? 'fa-circle-check text-green-500' : 'fa-file text-slate-500'} mr-2"></i>${f}${badge}</span>
-                    <button onclick="App.${type === 'staged' ? 'unstageFile' : 'stageFile'}('${f}')" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 text-xs font-bold rounded ${type === 'staged' ? 'bg-red-900/50 text-red-400 hover:bg-red-800' : 'bg-green-900/50 text-green-400 hover:bg-green-800'} transition-all flex items-center justify-center shrink-0 ml-2">
-                        <i class="fa-solid ${type === 'staged' ? 'fa-minus' : 'fa-plus'}"></i>
-                    </button>
+                    <span class="text-slate-300 text-sm font-mono truncate flex items-center cursor-pointer hover:text-cyan-400" onclick="App.switchTab('code'); App.openFile('${f}')" title="Open in Editor">
+                        <i class="fa-regular ${icon} mr-2"></i> ${f} ${badge}
+                    </span>
+                    <div class="flex items-center">
+                        ${discardBtn}
+                        <button onclick="App.${type === 'staged' ? 'unstageFile' : 'stageFile'}('${f}')" title="${type === 'staged' ? 'Unstage' : 'Stage'}" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 text-xs font-bold rounded ${type === 'staged' ? 'bg-red-900/50 text-red-400 hover:bg-red-800' : 'bg-cyan-900/50 text-cyan-400 hover:bg-cyan-800'} transition-all shadow">
+                            <i class="fa-solid ${type === 'staged' ? 'fa-minus' : 'fa-plus'}"></i>
+                        </button>
+                    </div>
                 </div>
             `}).join('');
         }; 

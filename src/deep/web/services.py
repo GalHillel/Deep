@@ -422,6 +422,48 @@ def api_unstage_file(data):
     except Exception as e:
         return {"error": str(e)}
 
+def api_unstage_all():
+    try:
+        from deep.commands import reset_cmd
+        # Native reset HEAD without paths unstages everything
+        reset_cmd.run(ns(commit="HEAD", hard=False, soft=False, mixed=True))
+        return {"status": "success"}
+    except Exception as e: return {"error": str(e)}
+
+def api_discard_file(filepath):
+    try:
+        from deep.commands import checkout_cmd
+        if not filepath: return {"error": "Filepath required"}
+        # Native checkout file from HEAD discards working tree changes
+        checkout_cmd.run(ns(branch="HEAD", paths=[filepath], force=True, file=False))
+        return {"status": "success"}
+    except Exception as e: return {"error": str(e)}
+
+def api_ai_suggest():
+    try:
+        from deep.core.repository import find_repo
+        from deep.ai.analyzer import analyze_changes
+        from deep.ai.assistant import suggest_commit_message
+        
+        repo_root = find_repo()
+        stats, diffs = analyze_changes(repo_root)
+        
+        if stats.files_modified == 0 and stats.files_added == 0 and stats.files_deleted == 0:
+            return {"error": "No staged changes to analyze."}
+            
+        suggestion = suggest_commit_message(repo_root)
+        
+        if suggestion:
+            msg = suggestion.message if hasattr(suggestion, 'message') else str(suggestion)
+            parts = msg.split('\n', 1)
+            title = parts[0].strip()
+            body = parts[1].strip() if len(parts) > 1 else ""
+            return {"title": title, "body": body}
+        else:
+            return {"error": "AI could not generate a suggestion."}
+    except Exception as e: return {"error": str(e)}
+
+
 def perform_commit(filepath, content, message):
     try:
         from deep.commands import add_cmd, commit_cmd

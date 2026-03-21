@@ -75,6 +75,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if path == "/api/diff": return self.send_json(self.service.get_diff())
             if path == "/api/prs/local": return self.send_json(self.service.get_prs_local())
             if path == "/api/issues/local": return self.send_json(self.service.get_issues_local())
+            if path == "/api/ai/suggest":
+                from deep.web.services import api_ai_suggest
+                return self.send_json(api_ai_suggest())
 
             if path.startswith("/api/"):
                 return self.send_json({"success": False, "error": f"API route not found: {path}"}, 404)
@@ -115,6 +118,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if path == "/api/unstage": 
                 from deep.web.services import api_unstage_file
                 return self.send_json(api_unstage_file(body))
+            if path == '/api/unstage_all':
+                from deep.web.services import api_unstage_all
+                return self.send_json(api_unstage_all())
+            if path == '/api/discard':
+                from deep.web.services import api_discard_file
+                return self.send_json(api_discard_file(body.get('filepath')))
             if path == "/api/branch/checkout": return self.send_json(self.service.checkout_branch_forced(body.get("branch") or body.get("name", "")))
             if path == "/api/branch/create": return self.send_json(self.service.create_branch(body.get("name", "")))
             if path == "/api/merge": return self.send_json(self.service.merge_branch(body.get("branch") or body.get("name", "")))
