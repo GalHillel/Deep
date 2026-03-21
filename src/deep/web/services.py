@@ -185,6 +185,30 @@ class DashboardService:
             "behind": status.behind_count
         }
 
+    def stage_file(self, filepath: str) -> Dict[str, Any]:
+        return self._safe(self._stage_file_internal, filepath)
+
+    def _stage_file_internal(self, filepath: str) -> Dict[str, Any]:
+        if not filepath: raise ValueError("Filepath required")
+        # Ensure path is normalized for add command
+        clean_path = filepath.replace('\\', '/')
+        add_cmd.run(argparse.Namespace(paths=[clean_path]))
+        return {"status": "success"}
+
+    def unstage_file(self, filepath: str) -> Dict[str, Any]:
+        return self._safe(self._unstage_file_internal, filepath)
+
+    def _unstage_file_internal(self, filepath: str) -> Dict[str, Any]:
+        if not filepath: raise ValueError("Filepath required")
+        # Unstaging in Deep means removing from index
+        index = read_index(self.dg_dir)
+        clean_path = filepath.replace('\\', '/')
+        if clean_path in index:
+            del index[clean_path]
+            write_index(self.dg_dir, index)
+            return {"status": "success"}
+        return {"status": "ignored", "message": "Not in index"}
+
     def commit_enhanced(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Commit with optional file saving."""
         return self._safe(self._commit_enhanced_internal, data)
