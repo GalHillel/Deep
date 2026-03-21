@@ -209,7 +209,7 @@ def diff_trees(dg_dir: Path, sha1: str, sha2: str) -> list[tuple[str, str]]:
 
 
 def diff_working_tree(repo_root: Path) -> list[tuple[str, str]]:
-    """Compute diffs for all tracked files that differ from the index.
+    """Compute diffs for all tracked files that differ from the index, and untracked files.
 
     Args:
         repo_root: Repository root directory.
@@ -218,6 +218,7 @@ def diff_working_tree(repo_root: Path) -> list[tuple[str, str]]:
         List of ``(rel_path, diff_text)`` tuples for files that differ.
     """
     from deep.core.constants import DEEP_DIR
+    from deep.core.status import compute_status
     dg_dir = repo_root / DEEP_DIR
     objs_dir = dg_dir / "objects"
     index = read_index(dg_dir)
@@ -228,6 +229,18 @@ def diff_working_tree(repo_root: Path) -> list[tuple[str, str]]:
         result = diff_blob_vs_file(objs_dir, entry.content_hash, file_path, rel_path)
         if result is not None:
             diffs.append((rel_path, result))
+
+    # Also include completely untracked files so the UI displays them as additions!
+    status = compute_status(repo_root)
+    for rel_path in sorted(status.untracked):
+        file_path = repo_root / rel_path
+        try:
+            new_text = robust_decode(file_path.read_bytes())
+            res = diff_lines([], new_text.splitlines(), f"/dev/null", f"b/{rel_path}")
+            if res:
+                diffs.append((rel_path, res))
+        except Exception:
+            pass
 
     return diffs
 
