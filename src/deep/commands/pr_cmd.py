@@ -21,6 +21,10 @@ from deep.core.refs import list_branches, get_current_branch, find_merge_base, r
 from deep.utils.ux import Color, print_error, print_success, print_info
 import deep.utils.network as net
 
+def ns(**kwargs):
+    import argparse
+    return argparse.Namespace(**kwargs)
+
 def get_description() -> str:
     return f"{Color.wrap(Color.CYAN, 'Elite Pull Request & Code Review Platform')}\n" \
            f"Manage local-first discussions, threads, formal reviews, and merge intelligence."
@@ -475,12 +479,12 @@ def run(args) -> None:
 
             # 2. Checkout base branch
             print_info(f"Stepping into base branch: {pr_obj.base}")
-            checkout_args = argparse.Namespace(target=pr_obj.base, branch=False, force=False)
+            checkout_args = ns(target=pr_obj.base, branch=False, force=False, files=[])
             checkout_run(checkout_args)
 
             # 3. Perform real merge
             print_info(f"Executing repository merge from {pr_obj.head}...")
-            merge_args = argparse.Namespace(branch=pr_obj.head, no_ff=False, message=None)
+            merge_args = ns(branch=pr_obj.head, no_ff=False, message=None, files=[])
             merge_run(merge_args)
 
             # 4. State Validation

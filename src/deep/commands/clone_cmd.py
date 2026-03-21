@@ -26,6 +26,10 @@ from deep.core.config import Config
 from deep.commands import init_cmd, checkout_cmd
 import argparse
 
+def ns(**kwargs):
+    import argparse
+    return argparse.Namespace(**kwargs)
+
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``clone`` command."""
@@ -49,7 +53,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     old_cwd = os.getcwd()
     os.chdir(target_dir)
     try:
-        init_cmd.run(argparse.Namespace(path=None))
+        init_cmd.run(ns(path=None, files=[]))
 
         dg_dir = target_dir / DEEP_DIR
         objects_dir = dg_dir / "objects"
@@ -114,8 +118,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
         # Checkout working tree
         try:
-            checkout_cmd.run(argparse.Namespace(
-                target=main_branch, force=True, branch=None
+            checkout_cmd.run(ns(
+                target=main_branch, force=True, branch=None, files=[]
             ))
         except (FileNotFoundError, ValueError) as e:
             if getattr(args, "filter", None) or getattr(args, "depth", None):

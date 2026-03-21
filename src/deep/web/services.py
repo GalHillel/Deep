@@ -183,17 +183,20 @@ class DashboardService:
             "staged": staged_files
         }
 
+def ns(**kwargs):
+    import argparse
+    return argparse.Namespace(**kwargs)
+
 def api_stage_file(data):
     try:
         from deep.commands import add_cmd
-        import argparse
 
         filepath = data.get("filepath") or data.get("file")
 
         if not filepath:
             return {"error": "Filepath required"}
 
-        add_cmd.run(argparse.Namespace(files=[filepath]))
+        add_cmd.run(ns(files=[filepath]))
         return {"status": "success"}
 
     except Exception as e:
@@ -202,14 +205,13 @@ def api_stage_file(data):
 def api_unstage_file(data):
     try:
         from deep.commands import reset_cmd
-        import argparse
 
         filepath = data.get("filepath") or data.get("file")
 
         if not filepath:
             return {"error": "Filepath required"}
 
-        reset_cmd.run(argparse.Namespace(files=[filepath]))
+        reset_cmd.run(ns(files=[filepath]))
         return {"status": "success"}
 
     except Exception as e:
@@ -219,7 +221,6 @@ def perform_commit(filepath, content, message):
     try:
         from deep.commands import add_cmd, commit_cmd
         from deep.core.repository import find_repo
-        import argparse
 
         repo_root = find_repo()
 
@@ -227,13 +228,14 @@ def perform_commit(filepath, content, message):
             with open(repo_root / filepath, 'w', encoding='utf-8') as f:
                 f.write(content)
 
-            add_cmd.run(argparse.Namespace(files=[filepath]))
+            add_cmd.run(ns(files=[filepath]))
 
-        commit_cmd.run(argparse.Namespace(
+        commit_cmd.run(ns(
             message=message,
             ai=False,
             allow_empty=True,
-            all=False
+            all=False,
+            files=[]
         ))
 
         return {"status": "success"}
@@ -276,27 +278,21 @@ def perform_commit(filepath, content, message):
         return self._safe(self._checkout_forced_internal, name)
 
     def _checkout_forced_internal(self, name: str) -> Dict[str, Any]:
-        class Args:
-            def __init__(self, t): self.target = t; self.force = True; self.branch = False
-        run_checkout(Args(name))
+        run_checkout(ns(target=name, force=True, branch=False, files=[]))
         return {"status": "success", "branch": name}
 
     def create_branch(self, name: str) -> Dict[str, Any]:
         return self._safe(self._create_branch_internal, name)
 
     def _create_branch_internal(self, name: str) -> Dict[str, Any]:
-        class Args:
-            def __init__(self, n): self.name = n; self.start_point = "HEAD"; self.delete = False
-        run_branch(Args(name))
+        run_branch(ns(name=name, start_point="HEAD", delete=False, files=[]))
         return {"status": "success", "branch": name}
 
     def merge_branch(self, branch: str) -> Dict[str, Any]:
         return self._safe(self._merge_internal, branch)
 
     def _merge_internal(self, branch: str) -> Dict[str, Any]:
-        class Args:
-            def __init__(self, b): self.branch = b
-        run_merge(Args(branch))
+        run_merge(ns(branch=branch, files=[]))
         return {"status": "success", "message": f"Merged {branch}"}
 
     def get_diff(self) -> Dict[str, Any]:
@@ -311,10 +307,7 @@ def perform_commit(filepath, content, message):
         old_stdout = sys.stdout
         sys.stdout = mystdout = io.StringIO()
         try:
-            class Args:
-                def __init__(self):
-                    self.staged = False
-            run_diff(Args())
+            run_diff(ns(staged=False, files=[]))
         except Exception:
             import traceback
             traceback.print_exc()
