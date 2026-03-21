@@ -358,9 +358,8 @@ class DashboardService:
         elif action == "reopen": self.issue_manager.reopen_issue(id)
         return {"status": "success"}
 
-def ns(**kwargs):
-    import argparse
-    return argparse.Namespace(**kwargs)
+# Global namespace helper is already defined at line 17.
+
 
 def api_stage_file(data):
     try:
