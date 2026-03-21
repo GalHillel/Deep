@@ -232,6 +232,46 @@ const App = {
         }
     },
 
+    openCommitModal() {
+        const stagedBadge = document.getElementById('badge-staged');
+        const count = parseInt(stagedBadge ? stagedBadge.textContent : '0', 10);
+        if (count === 0) {
+            this.toast("No staged changes to commit. Please stage files first.", true);
+            return;
+        }
+        document.getElementById('commit-modal').classList.remove('hidden');
+        document.getElementById('commit-modal-summary').focus();
+    },
+
+    closeCommitModal() {
+        document.getElementById('commit-modal').classList.add('hidden');
+        document.getElementById('commit-modal-summary').value = '';
+        document.getElementById('commit-modal-desc').value = '';
+    },
+
+    async executeCommit() {
+        const summary = document.getElementById('commit-modal-summary').value.trim();
+        const desc = document.getElementById('commit-modal-desc').value.trim();
+        
+        if (!summary) {
+            this.toast("Commit summary is required!", true);
+            return;
+        }
+
+        const message = desc ? `${summary}\n\n${desc}` : summary;
+        
+        const res = await this.api('/api/commit', 'POST', { message });
+        if (res && res.status === 'success') {
+            this.toast("Commit successful!");
+            this.closeCommitModal();
+            this.loadDiffContent();
+            this.loadGraph();
+            this.loadTree();
+        } else {
+            this.toast(res?.error || "Commit failed", true);
+        }
+    },
+
     /* --- CONTEXT-AWARE CREATION LOGIC --- */
 
     createItem(type) {
