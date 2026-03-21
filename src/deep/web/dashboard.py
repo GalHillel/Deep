@@ -61,25 +61,21 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
             if path == "" or path == "/index.html":
                 return self._serve_file(STATIC_DIR / "index.html", "text/html")
-
-            if path == "/api/tree": return self.send_json(self.service.get_tree())
-            
-            if path == "/api/file":
+            elif path == "/api/tree": return self.send_json(self.service.get_tree())
+            elif path == "/api/file":
                 filepath = qs.get("path")
                 if not filepath: return self.send_json({"success": False, "error": "Missing path"}, 400)
                 decoded_path = urllib.parse.unquote(filepath)
                 return self.send_json(self.service.get_file_content(decoded_path))
-                
-            if path == "/api/graph": return self.send_json(self.service.get_graph())
-            if path == "/api/status": return self.send_json(self.service.get_full_status())
-            if path == "/api/diff": return self.send_json(self.service.get_diff())
-            if path == "/api/prs/local": return self.send_json(self.service.get_prs_local())
-            if path == "/api/issues/local": return self.send_json(self.service.get_issues_local())
-            if path == "/api/ai/suggest":
+            elif path == "/api/graph": return self.send_json(self.service.get_graph())
+            elif path == "/api/status": return self.send_json(self.service.get_full_status())
+            elif path == "/api/diff": return self.send_json(self.service.get_diff())
+            elif path == "/api/prs/local": return self.send_json(self.service.get_prs_local())
+            elif path == "/api/issues/local": return self.send_json(self.service.get_issues_local())
+            elif path == "/api/ai/suggest":
                 from deep.web.services import api_ai_suggest
                 return self.send_json(api_ai_suggest())
-
-            if path.startswith("/api/"):
+            elif path.startswith("/api/"):
                 return self.send_json({"success": False, "error": f"API route not found: {path}"}, 404)
 
             fpath = STATIC_DIR / path.lstrip("/")
@@ -110,30 +106,30 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if path == "/api/commit": 
                 from deep.web.services import perform_commit
                 return self.send_json(perform_commit(body.get("filepath"), body.get("content"), body.get("message")))
-            if path == "/api/item/create": return self.send_json(self.service.create_item(body.get("path"), body.get("type")))
-            if path == "/api/file/save": return self.send_json(self.service.save_file_only(body.get("filepath") or body.get("path", ""), body.get("content", "")))
-            if path == "/api/stage": 
+            elif path == "/api/item/create": return self.send_json(self.service.create_item(body.get("path"), body.get("type")))
+            elif path == "/api/file/save": return self.send_json(self.service.save_file_only(body.get("filepath") or body.get("path", ""), body.get("content", "")))
+            elif path == "/api/stage": 
                 from deep.web.services import api_stage_file
                 return self.send_json(api_stage_file(body))
-            if path == "/api/unstage": 
+            elif path == "/api/unstage": 
                 from deep.web.services import api_unstage_file
                 return self.send_json(api_unstage_file(body))
-            if path == '/api/unstage_all':
+            elif path == '/api/unstage_all':
                 from deep.web.services import api_unstage_all
                 return self.send_json(api_unstage_all())
-            if path == '/api/discard':
+            elif path == '/api/discard':
                 from deep.web.services import api_discard_file
                 return self.send_json(api_discard_file(body.get('filepath')))
-            if path == "/api/branch/checkout": return self.send_json(self.service.checkout_branch_forced(body.get("branch") or body.get("name", "")))
-            if path == "/api/branch/create": return self.send_json(self.service.create_branch(body.get("name", "")))
-            if path == "/api/merge": return self.send_json(self.service.merge_branch(body.get("branch") or body.get("name", "")))
-            if path == "/api/pr/create": return self.send_json(self.service.create_pr_enhanced(body))
-            if path == "/api/pr/review": return self.send_json(self.service.review_pr(body))
-            if path == "/api/pr/merge": return self.send_json(self.service.merge_local_pr(body))
-            if path == "/api/issue/create": return self.send_json(self.service.create_issue(body))
-            if path == "/api/issue/manage": return self.send_json(self.service.manage_issue(body))
-
-            return self.send_error(404)
+            elif path == "/api/branch/checkout": return self.send_json(self.service.checkout_branch_forced(body.get("branch") or body.get("name", "")))
+            elif path == "/api/branch/create": return self.send_json(self.service.create_branch(body.get("name", "")))
+            elif path == "/api/merge": return self.send_json(self.service.merge_branch(body.get("branch") or body.get("name", "")))
+            elif path == "/api/pr/create": return self.send_json(self.service.create_pr_enhanced(body))
+            elif path == "/api/pr/review": return self.send_json(self.service.review_pr(body))
+            elif path == "/api/pr/merge": return self.send_json(self.service.merge_local_pr(body))
+            elif path == "/api/issue/create": return self.send_json(self.service.create_issue(body))
+            elif path == "/api/issue/manage": return self.send_json(self.service.manage_issue(body))
+            elif path.startswith("/api/"):
+                return self.send_json({"success": False, "error": f"API POST route not found: {path}"}, 404)
         except Exception as e:
             traceback.print_exc()
             return self.send_json({"success": False, "error": f"Server POST Error: {str(e)}"}, 500)
