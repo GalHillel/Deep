@@ -193,7 +193,7 @@ class DashboardService:
 
     def _get_graph_internal(self) -> Dict[str, Any]:
         from deep.storage.objects import read_object, Commit
-        from deep.core.refs import list_branches, get_branch, list_tags
+        from deep.core.refs import list_branches, get_branch, list_tags, resolve_head, resolve_revision
         objects_dir = self.dg_dir / "objects"
         commits = []; refs = {}
         for b in list_branches(self.dg_dir):
@@ -218,6 +218,50 @@ class DashboardService:
                 except: continue
         return {"commits": commits, "refs": refs}
 
+    def get_commit_details(self, sha: str) -> Dict[str, Any]:
+        """Fetch full commit metadata and list of changed files."""
+        return self._safe(self._get_commit_details_internal, sha)
+
+    def _get_commit_details_internal(self, sha: str) -> Dict[str, Any]:
+        from deep.storage.objects import read_object, Commit
+        from deep.core.diff import diff_trees
+        
+        objs_dir = self.dg_dir / "objects"
+        commit = read_object(objs_dir, sha)
+        if not isinstance(commit, Commit):
+            raise ValueError(f"Object {sha} is not a commit")
+        
+        # Compute files changed by diffing with first parent
+        files_changed = []
+        if commit.parent_shas:
+            parent_sha = commit.parent_shas[0]
+            diffs = diff_trees(self.dg_dir, parent_sha, sha)
+            for path, diff_text in diffs:
+                # Basic stats
+                added = diff_text.count('\n+') - diff_text.count('\n+++')
+                deleted = diff_text.count('\n-') - diff_text.count('\n---')
+                files_changed.append({
+                    "path": path,
+                    "added": added,
+                    "deleted": deleted,
+                    "type": "modified"
+                })
+        else:
+            # Initial commit: diff against empty tree
+            from deep.core.diff import _get_tree_entries_recursive
+            entries = _get_tree_entries_recursive(objs_dir, commit.tree_sha)
+            for path in entries:
+                files_changed.append({"path": path, "added": 0, "deleted": 0, "type": "added"})
+
+        return {
+            "sha": sha,
+            "author": commit.author,
+            "message": commit.message,
+            "timestamp": commit.timestamp,
+            "parents": commit.parent_shas,
+            "files": files_changed
+        }
+
     def checkout_branch_forced(self, name: str) -> Dict[str, Any]:
         """Forced checkout to prevent UI stalls."""
         return self._safe(self._checkout_forced_internal, name)
@@ -240,28 +284,53 @@ class DashboardService:
         run_merge(ns(branch=branch, files=[]))
         return {"status": "success", "message": f"Merged {branch}"}
 
-    def get_diff(self) -> Dict[str, Any]:
-        return self._safe(self._get_diff_internal)
+    def get_diff(self, sha: Optional[str] = None, path: Optional[str] = None) -> Dict[str, Any]:
+        return self._safe(self._get_diff_internal, sha, path)
 
-    def _get_diff_internal(self) -> Dict[str, Any]:
+    def _get_diff_internal(self, sha: Optional[str] = None, path: Optional[str] = None) -> Dict[str, Any]:
         import sys
         import io
         import re
-        from deep.commands.diff_cmd import run as run_diff
+        from deep.storage.objects import read_object, Commit
+        from deep.core.diff import diff_blobs, diff_trees, _get_tree_entries_recursive
         
-        # Capture stdout from diff command
+        objs_dir = self.dg_dir / "objects"
+
+        # 1. Specialized Commit-File Diff (for Graph Detail Panel)
+        if sha and path:
+            commit = read_object(objs_dir, sha)
+            if not isinstance(commit, Commit): raise ValueError("Not a commit")
+            
+            s2 = None
+            # Find SHA in this commit's tree
+            entries2 = _get_tree_entries_recursive(objs_dir, commit.tree_sha)
+            s2 = entries2.get(path)
+
+            s1 = None
+            if commit.parent_shas:
+                parent = read_object(objs_dir, commit.parent_shas[0])
+                if isinstance(parent, Commit):
+                    entries1 = _get_tree_entries_recursive(objs_dir, parent.tree_sha)
+                    s1 = entries1.get(path)
+            
+            diff_text = diff_blobs(objs_dir, s1, s2, path) or ""
+            return {"diff": diff_text}
+
+        # 2. Standard Working Tree / Staged Diff
+        from deep.commands.diff_cmd import run as run_diff
         old_stdout = sys.stdout
         sys.stdout = mystdout = io.StringIO()
         try:
-            run_diff(ns(cached=False, revisions=[], files=[]))
-            run_diff(ns(cached=True, revisions=[], files=[]))
+            # If a path is provided but no sha, diff working/staged for that path
+            files = [path] if path else []
+            run_diff(ns(cached=False, revisions=[], files=files))
+            run_diff(ns(cached=True, revisions=[], files=files))
         except Exception:
             pass
         finally:
             sys.stdout = old_stdout
             
         diff_text = mystdout.getvalue()
-        # Strip ANSI escape codes so frontend parsing (startsWith "diff --deep ") works
         ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
         diff_text = ansi_escape.sub('', diff_text)
         return {"diff": diff_text}

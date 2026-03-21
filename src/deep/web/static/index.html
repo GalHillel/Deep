@@ -69,6 +69,37 @@
             background-size: 200% 100%;
             animation: flowDiff 3s infinite linear;
         }
+
+        /* --- Elite Graph Styles --- */
+        .graph-toolbar {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+        }
+        
+        .commit-details-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 400px;
+            background: rgba(11, 15, 25, 0.95);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 30;
+            box-shadow: -20px 0 50px rgba(0, 0, 0, 0.5);
+            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        .commit-details-panel.hidden {
+            transform: translateX(100%);
+            display: flex; /* maintain flex for animation */
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -132,16 +163,64 @@
                 </div>
             </div>
 
-            <div id="panel-graph" class="panel relative">
-                <div id="network-canvas"></div>
-                <div id="commit-card" class="absolute top-6 right-6 w-96 bg-[#111827] border border-gray-700 rounded-xl shadow-2xl hidden flex-col z-10">
-                    <div class="flex justify-between items-center bg-[#1f2937] p-3 border-b border-gray-700 rounded-t-xl">
-                        <span id="cc-sha" class="font-mono text-cyan-400 font-bold"></span>
-                        <i class="fa-solid fa-xmark cursor-pointer text-gray-400 hover:text-white" onclick="document.getElementById('commit-card').classList.add('hidden')"></i>
+            <div id="panel-graph" class="panel relative overflow-hidden">
+                <div class="graph-toolbar bg-slate-900/80 backdrop-blur border border-slate-700/50 rounded-2xl shadow-2xl">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]"></i>
+                        <input type="text" id="graph-search" oninput="App.filterGraph()" placeholder="Search commit, sha, author..." class="bg-transparent border-none pl-9 pr-4 py-1.5 text-xs text-white outline-none w-64 font-mono">
                     </div>
-                    <div class="p-4 space-y-3">
-                        <div class="text-gray-300"><i class="fa-solid fa-user-astronaut text-gray-500 mr-2"></i><span id="cc-author"></span></div>
-                        <div class="bg-[#030712] p-3 rounded border border-gray-800 text-gray-400 font-mono text-sm whitespace-pre-wrap" id="cc-msg"></div>
+                    <div class="h-4 w-px bg-slate-800"></div>
+                    <button onclick="App.fitGraph()" title="Fit to Screen" class="text-slate-400 hover:text-cyan-400 p-1.5 transition-colors"><i class="fa-solid fa-expand"></i></button>
+                    <button onclick="App.loadGraph()" title="Refresh Graph" class="text-slate-400 hover:text-emerald-400 p-1.5 transition-colors"><i class="fa-solid fa-rotate"></i></button>
+                </div>
+
+                <div id="network-canvas"></div>
+
+                <!-- Slide-over Details Panel -->
+                <div id="commit-details-panel" class="commit-details-panel hidden flex flex-col">
+                    <div class="p-6 bg-slate-800/50 border-b border-slate-700/50 flex justify-between items-center">
+                        <div>
+                            <div class="text-[9px] font-black text-cyan-500 uppercase tracking-widest mb-1">Commit Manifest</div>
+                            <h3 id="cd-sha" class="text-white font-mono text-sm font-bold truncate"></h3>
+                        </div>
+                        <button onclick="App.hideCommitDetails()" class="text-slate-500 hover:text-white transition-colors text-xl p-2"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+                        <!-- Meta Info -->
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-4">
+                                <div id="cd-avatar" class="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-xl shadow-lg ring-4 ring-cyan-500/20">
+                                    ?
+                                </div>
+                                <div>
+                                    <div id="cd-author" class="text-white font-bold text-lg leading-tight"></div>
+                                    <div id="cd-date" class="text-[10px] text-slate-500 font-mono uppercase tracking-widest mt-1"></div>
+                                </div>
+                            </div>
+                            
+                            <div id="cd-msg" class="bg-slate-950/50 border border-slate-800/50 p-4 rounded-2xl text-slate-300 font-mono text-sm leading-relaxed whitespace-pre-wrap"></div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex gap-3">
+                            <button id="cd-btn-checkout" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all shadow-lg active:scale-95">
+                                <i class="fa-solid fa-code-branch mr-2"></i> Checkout
+                            </button>
+                            <button id="cd-btn-reset" class="flex-1 bg-slate-800 hover:bg-red-900/40 text-slate-400 hover:text-red-400 border border-slate-700 hover:border-red-500/30 font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all active:scale-95">
+                                <i class="fa-solid fa-rotate-left mr-2"></i> Reset
+                            </button>
+                        </div>
+
+                        <!-- Files Changed -->
+                        <div class="space-y-4">
+                            <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <i class="fa-solid fa-file-signature text-cyan-500"></i> Files Changed
+                            </h4>
+                            <div id="cd-files-list" class="space-y-2">
+                                <!-- Files Injected Here -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -565,22 +565,221 @@ const App = {
     },
 
     async loadGraph() {
-        const data = await this.api('/api/graph'); if (!data) return;
-        let nodes = new vis.DataSet(); let edges = new vis.DataSet(); let rMap = {};
-        for (const [r, sha] of Object.entries(data.refs || {})) { if(!rMap[sha]) rMap[sha]=[]; rMap[sha].push(r.replace('branch:','').replace('tag:','')); }
-        data.commits.forEach((c, i) => {
-            let label = c.sha.substring(0,7); let color = { background: '#1f2937', border: '#374151' };
-            if (rMap[c.sha]) { label = rMap[c.sha].join(', ') + '\n' + label; color = { background: '#0891b2', border: '#06b6d4' }; }
-            nodes.add({ id: c.sha, label, shape: 'box', color, font: { color: 'white', face: 'monospace', size: 10 } });
-            if (c.parents) c.parents.forEach(p => edges.add({ from: c.sha, to: p, arrows: 'to' }));
+        const data = await this.api('/api/graph');
+        if (!data) return;
+
+        let nodes = new vis.DataSet();
+        let edges = new vis.DataSet();
+        let rMap = {};
+        
+        // Map SHAs to branch/tag names
+        for (const [r, sha] of Object.entries(data.refs || {})) {
+            if (r === 'HEAD') continue;
+            if (!rMap[sha]) rMap[sha] = [];
+            rMap[sha].push(r.replace('branch:', '').replace('tag:', ''));
+        }
+
+        const colors = ['#06b6d4', '#8b5cf6', '#10b981', '#f43f5e', '#f59e0b', '#3b8edb'];
+        const branchColorMap = {};
+        let colorIdx = 0;
+
+        // Process commits
+        data.commits.forEach((c) => {
+            const hasRefs = rMap[c.sha];
+            const isHead = data.refs['HEAD'] === c.sha;
+            
+            // Determine Color (pick a stable color per branch if possible)
+            let nodeColor = '#334155';
+            let borderColor = '#475569';
+            let borderWidth = 2;
+
+            if (hasRefs) {
+                const bName = hasRefs[0];
+                if (!branchColorMap[bName]) branchColorMap[bName] = colors[colorIdx++ % colors.length];
+                nodeColor = branchColorMap[bName];
+                borderColor = nodeColor;
+                borderWidth = 4;
+            }
+            
+            if (isHead) {
+                borderColor = '#ffffff';
+                borderWidth = 4;
+            }
+
+            // Create Label (compact for node, detailed for tooltip/panel)
+            let label = ""; 
+            if (hasRefs) label = hasRefs.join('\n');
+
+            nodes.add({
+                id: c.sha,
+                label: label,
+                shape: 'dot',
+                size: isHead ? 10 : 7,
+                color: {
+                    background: nodeColor,
+                    border: borderColor,
+                    highlight: { background: '#fff', border: nodeColor }
+                },
+                borderWidth: borderWidth,
+                font: { color: '#94a3b8', size: 10, face: 'monospace', align: 'top', vadjust: -20 },
+                title: `${c.sha.substring(0, 7)}: ${c.message.split('\n')[0]}` // Tooltip
+            });
+
+            if (c.parents) {
+                c.parents.forEach(p => {
+                    edges.add({
+                        from: c.sha,
+                        to: p,
+                        arrows: 'to',
+                        color: { color: '#334155', opacity: 0.5, highlight: '#64748b' },
+                        smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.5 }
+                    });
+                });
+            }
         });
+
         if (this.state.graphInstance) this.state.graphInstance.destroy();
-        this.state.graphInstance = new vis.Network(document.getElementById('network-canvas'), { nodes, edges }, {
-            layout: { hierarchical: { direction: "UD", sortMethod: "directed", nodeSpacing: 250, levelSeparation: 120 } },
-            physics: { enabled: true, hierarchicalRepulsion: { nodeDistance: 200 }, stabilization: { iterations: 150 } },
-            edges: { smooth: { type: 'cubicBezier', forceDirection: 'vertical' } }
+        
+        const container = document.getElementById('network-canvas');
+        this.state.graphInstance = new vis.Network(container, { nodes, edges }, {
+            layout: {
+                hierarchical: {
+                    direction: 'LR',
+                    sortMethod: 'directed',
+                    nodeSpacing: 100,
+                    levelSeparation: 150,
+                    edgeMinimization: true,
+                    parentCentralization: false
+                }
+            },
+            physics: { enabled: false },
+            interaction: {
+                hover: true,
+                tooltipDelay: 200,
+                hideEdgesOnDrag: true
+            }
         });
-        this.state.graphInstance.once("stabilizationIterationsDone", () => this.state.graphInstance.setOptions({ physics: { enabled: false } }));
+
+        // Event: Click to show details
+        this.state.graphInstance.on("selectNode", (params) => {
+            if (params.nodes.length > 0) this.showCommitDetails(params.nodes[0]);
+        });
+
+        this.state.graphInstance.on("deselectNode", () => {
+            this.hideCommitDetails();
+        });
+    },
+
+    filterGraph() {
+        const q = document.getElementById('graph-search').value.toLowerCase();
+        if (!this.state.graphInstance) return;
+        // Simple highlight logic: find nodes that match and select them
+        const allNodes = this.state.graphInstance.body.data.nodes.get();
+        const matches = allNodes.filter(n => 
+            n.id.toLowerCase().includes(q) || 
+            (n.label && n.label.toLowerCase().includes(q)) ||
+            (n.title && n.title.toLowerCase().includes(q))
+        ).map(n => n.id);
+        
+        if (q && matches.length > 0) {
+            this.state.graphInstance.selectNodes(matches);
+            if (matches.length === 1) this.state.graphInstance.focus(matches[0], { scale: 1.2, animation: true });
+        } else {
+            this.state.graphInstance.unselectNodes();
+        }
+    },
+
+    fitGraph() {
+        if (this.state.graphInstance) this.state.graphInstance.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+    },
+
+    async showCommitDetails(sha) {
+        const panel = document.getElementById('commit-details-panel');
+        panel.classList.remove('hidden');
+        
+        // Show Loading State
+        document.getElementById('cd-sha').textContent = sha.substring(0, 12) + "...";
+        document.getElementById('cd-author').textContent = "Loading...";
+        document.getElementById('cd-msg').textContent = "";
+        document.getElementById('cd-files-list').innerHTML = `<div class="animate-pulse flex space-y-2 flex-col"><div class="h-4 bg-slate-800 rounded w-3/4"></div><div class="h-4 bg-slate-800 rounded w-1/2"></div></div>`;
+
+        const data = await this.api(`/api/commit/details?sha=${sha}`);
+        if (!data) return;
+
+        document.getElementById('cd-sha').textContent = data.sha;
+        document.getElementById('cd-author').textContent = data.author.split(' <')[0];
+        document.getElementById('cd-date').textContent = new Date(data.timestamp * 1000).toLocaleString();
+        document.getElementById('cd-msg').textContent = data.message;
+        
+        const avatar = document.getElementById('cd-avatar');
+        avatar.textContent = data.author.charAt(0).toUpperCase();
+
+        const fileList = document.getElementById('cd-files-list');
+        fileList.innerHTML = data.files.map(f => `
+            <div onclick="App.showCommitFileDiff('${sha}', '${f.path}')" class="group flex items-center justify-between p-3 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-800 transition-all cursor-pointer">
+                <div class="flex items-center gap-3 truncate">
+                    <i class="${this.getFileIcon(f.path)} text-[10px] opacity-50"></i>
+                    <span class="text-xs font-mono text-slate-300 group-hover:text-white truncate">${f.path}</span>
+                </div>
+                <div class="flex items-center gap-2 font-mono text-[9px] shrink-0">
+                    <span class="text-green-500">+${f.added}</span>
+                    <span class="text-red-500">-${f.deleted}</span>
+                </div>
+            </div>
+        `).join('');
+
+        // Wire buttons
+        document.getElementById('cd-btn-checkout').onclick = () => this.performCheckout(sha);
+        document.getElementById('cd-btn-reset').onclick = () => {
+            if(confirm("Hard reset to this commit? All current uncommitted changes will be lost.")) {
+                this.api('/api/reset', 'POST', { sha, hard: true }).then(() => {
+                    this.toast("Reset successful");
+                    this.syncWorkspace();
+                    this.loadGraph();
+                });
+            }
+        };
+    },
+
+    hideCommitDetails() {
+        document.getElementById('commit-details-panel').classList.add('hidden');
+        if (this.state.graphInstance) this.state.graphInstance.unselectNodes();
+    },
+
+    async showCommitFileDiff(sha, path) {
+        // We'll reuse the existing diff rendering logic but in a modal
+        this.toast(`Loading diff for ${path}...`);
+        // For simplicity, we fetch the tree-diff text from the server if we add an endpoint, 
+        // OR we just use the current logic if it can be adapted.
+        // Let's assume we have /api/commit/file_diff?sha=...&path=...
+        const data = await this.api(`/api/diff?sha=${sha}&path=${path}`);
+        if (!data || !data.diff) return;
+        
+        const modalHtml = `
+            <div id="diff-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[200] animate-in fade-in duration-200">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[800px] max-w-[95vw] h-[600px] max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+                    <div class="p-6 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0">
+                        <div>
+                            <div class="text-[9px] font-black text-cyan-500 uppercase tracking-widest mb-1">File Diff Viewer</div>
+                            <h3 class="text-white font-mono text-xs font-bold truncate">${path} <span class="text-slate-500 ml-2">@ ${sha.substring(0,7)}</span></h3>
+                        </div>
+                        <button onclick="document.getElementById('diff-modal').remove()" class="text-slate-400 hover:text-white transition-colors p-2"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto bg-[#0b0f19] p-4 font-mono text-[11px] custom-scrollbar">
+                        <div class="pb-8">
+                            ${data.diff.split('\n').map(l => {
+                                let cls = '';
+                                if(l.startsWith('+') && !l.startsWith('+++')) cls = 'bg-green-950/40 text-green-300 border-l-2 border-green-500';
+                                else if(l.startsWith('-') && !l.startsWith('---')) cls = 'bg-red-950/40 text-red-300 border-l-2 border-red-500';
+                                else if(l.startsWith('@@')) cls = 'text-cyan-500 bg-cyan-950/20 py-1';
+                                return `<div class="px-3 whitespace-pre-wrap ${cls}">${l.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        document.getElementById('diff-modal')?.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
     },
 
     async loadDiffSidebar() {
