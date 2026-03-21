@@ -242,6 +242,7 @@ class DashboardService:
     def _get_diff_internal(self) -> Dict[str, Any]:
         import sys
         import io
+        import re
         from deep.commands.diff_cmd import run as run_diff
         
         # Capture stdout from diff command
@@ -250,12 +251,14 @@ class DashboardService:
         try:
             run_diff(ns(staged=False, files=[]))
         except Exception:
-            import traceback
-            traceback.print_exc()
+            pass
         finally:
             sys.stdout = old_stdout
             
         diff_text = mystdout.getvalue()
+        # Strip ANSI escape codes so frontend parsing (startsWith "diff --deep ") works
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        diff_text = ansi_escape.sub('', diff_text)
         return {"diff": diff_text}
 
     # --- Collaboration Hub ---
@@ -371,16 +374,50 @@ def api_stage_file(data):
 
 def api_unstage_file(data):
     try:
-        from deep.commands import reset_cmd
+        from deep.core.repository import find_repo
+        from deep.core.constants import DEEP_DIR
+        from deep.storage.index import read_index, write_index, remove_multiple_from_index, DeepIndexEntry
+        from deep.core.refs import resolve_head
+        from deep.storage.objects import read_object, Commit
+        
+        import struct
+        import hashlib
 
         filepath = data.get("filepath") or data.get("file")
+        if not filepath: return {"error": "Filepath required"}
+        clean_path = filepath.lstrip('/').replace('\\', '/')
 
-        if not filepath:
-            return {"error": "Filepath required"}
+        repo_root = find_repo()
+        dg_dir = repo_root / DEEP_DIR
 
-        reset_cmd.run(ns(files=[filepath]))
+        head_sha = resolve_head(dg_dir)
+        objects_dir = dg_dir / "objects"
+        
+        head_files = {}
+        if head_sha:
+            try:
+                commit = read_object(objects_dir, head_sha)
+                if isinstance(commit, Commit):
+                    from deep.commands.reset_cmd import _get_tree_files
+                    head_files = _get_tree_files(objects_dir, commit.tree_sha)
+            except Exception: pass
+            
+        if clean_path in head_files:
+            # File existed in HEAD. Restore the index entry to the HEAD version.
+            sha = head_files[clean_path]
+            idx = read_index(dg_dir)
+            idx.entries[clean_path] = DeepIndexEntry(
+                content_hash=sha,
+                mtime_ns=0,  # Dummy value to force status recalculation
+                size=0,
+                path_hash=struct.unpack(">Q", hashlib.sha256(clean_path.encode()).digest()[:8])[0]
+            )
+            write_index(dg_dir, idx)
+        else:
+            # File is a new addition. Unstaging means dropping it from the index entirely.
+            remove_multiple_from_index(dg_dir, [clean_path])
+
         return {"status": "success"}
-
     except Exception as e:
         return {"error": str(e)}
 
