@@ -43,7 +43,15 @@ const App = {
     toast(msg, error = false) {
         const container = document.getElementById('toast-container');
         const el = document.getElementById('toast-msg');
-        if (!el) return;
+        if (!el) {
+            // Fallback for missing container
+            const t = document.createElement('div');
+            t.className = `fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl z-[200] animate-in slide-in-from-bottom-5 duration-300 ${error ? 'bg-red-500 text-white' : 'bg-indigo-600 text-white'}`;
+            t.innerHTML = `<i class="fa-solid ${error?'fa-triangle-exclamation':'fa-check-circle'} mr-2"></i> ${msg}`;
+            document.body.appendChild(t);
+            setTimeout(()=>t.remove(), 4000);
+            return;
+        }
         el.textContent = msg;
         el.className = `px-4 py-2 rounded shadow-lg border text-sm font-bold ${error ? 'bg-red-900 text-red-100 border-red-700' : 'bg-cyan-900 text-cyan-100 border-cyan-700'}`;
         container.classList.remove('opacity-0');
@@ -265,14 +273,14 @@ const App = {
 
         const modalHtml = `
             <div id="branch-picker-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[110] animate-in fade-in duration-200">
-                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[450px] shadow-2xl flex flex-col overflow-hidden">
-                    <div class="p-6 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[450px] max-w-[95vw] max-h-[80vh] shadow-2xl flex flex-col overflow-hidden">
+                    <div class="p-6 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0">
                         <h3 class="font-black text-white text-xs uppercase tracking-[0.2em] flex items-center gap-3">
                             <i class="fa-solid fa-list-ul text-cyan-500"></i> Switch Branch
                         </h3>
                         <button onclick="document.getElementById('branch-picker-modal').remove()" class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
                     </div>
-                    <div class="p-6 flex flex-col gap-3 max-h-[400px] overflow-y-auto bg-[#0b101a]">
+                    <div class="p-6 flex flex-col gap-3 overflow-y-auto bg-[#0b101a] custom-scrollbar">
                         ${branchListHtml}
                     </div>
                 </div>
@@ -888,13 +896,13 @@ const App = {
                     
                     <div class="flex flex-1 overflow-hidden">
                         <!-- Description Column -->
-                        <div class="flex-1 p-8 overflow-y-auto border-r border-slate-800 bg-slate-950/30">
+                        <div class="flex-1 p-8 overflow-y-auto border-r border-slate-800 bg-slate-950/30 custom-scrollbar">
                             <label class="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-6">Report Details</label>
                             ${descriptionHtml}
                         </div>
                         
                         <!-- Timeline Column -->
-                        <div class="w-[280px] p-6 bg-slate-900/50 overflow-y-auto">
+                        <div class="w-[280px] p-6 bg-slate-900/50 overflow-y-auto custom-scrollbar">
                             <label class="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-6">Activity Timeline</label>
                             <div class="space-y-1">
                                 ${timelineHtml || '<div class="text-[10px] text-slate-600 italic">No activity yet.</div>'}
@@ -902,7 +910,7 @@ const App = {
                         </div>
                     </div>
 
-                    <div class="p-6 bg-slate-800 border-t border-slate-700 flex justify-between items-center">
+                    <div class="p-6 bg-slate-800 border-t border-slate-700 flex justify-between items-center shrink-0">
                         <div class="flex gap-2">
                             ${(iss.labels || []).map(l => `<span class="bg-slate-700 text-slate-400 px-2 py-1 rounded text-[10px] font-bold border border-slate-600">#${l}</span>`).join('')}
                         </div>
@@ -920,14 +928,14 @@ const App = {
     showCreateIssueModal() {
         const modalHtml = `
             <div id="create-issue-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in zoom-in-95 duration-200">
-                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[550px] shadow-2xl flex flex-col overflow-hidden">
-                    <div class="p-6 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[550px] max-w-[95vw] max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+                    <div class="p-6 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0">
                         <h3 class="font-black text-white text-xs uppercase tracking-[0.2em] flex items-center gap-3">
                             <i class="fa-solid fa-circle-plus text-emerald-500"></i> New Core Issue
                         </h3>
                         <button onclick="document.getElementById('create-issue-modal').remove()" class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
                     </div>
-                    <div class="p-8 flex flex-col gap-6 bg-[#0b0f19]">
+                    <div class="p-8 flex flex-col gap-6 bg-[#0b0f19] overflow-y-auto custom-scrollbar">
                         <div class="space-y-4">
                             <input type="text" id="ci-title" placeholder="What is the issue?" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-bold">
                             
@@ -1128,7 +1136,7 @@ const App = {
 
         const modalHtml = `
             <div id="pr-detail-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-200">
-                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[800px] max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[800px] max-w-[95vw] max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
                     <div class="p-6 border-b border-slate-800 bg-slate-900/80 flex justify-between items-start shrink-0">
                         <div class="space-y-4 w-full mr-12">
                             <div class="flex items-center gap-3">
@@ -1151,7 +1159,7 @@ const App = {
                         <button onclick="document.getElementById('pr-detail-modal').remove()" class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     
-                    <div class="p-8 overflow-y-auto space-y-8 bg-[#0b0f19]">
+                    <div class="p-8 overflow-y-auto space-y-8 bg-[#0b0f19] custom-scrollbar flex-1">
                         <div>
                             <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
                                 <i class="fa-solid fa-align-left text-indigo-500"></i> Description
@@ -1262,14 +1270,14 @@ const App = {
 
         const modalHtml = `
             <div id="create-pr-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in zoom-in-95 duration-200">
-                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[550px] shadow-2xl flex flex-col overflow-hidden">
-                    <div class="p-6 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[550px] max-w-[95vw] max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+                    <div class="p-6 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0">
                         <h3 class="font-black text-white text-xs uppercase tracking-[0.2em] flex items-center gap-3">
                             <i class="fa-solid fa-code-pull-request text-purple-500"></i> Initialize Pull Request
                         </h3>
                         <button onclick="document.getElementById('create-pr-modal').remove()" class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
                     </div>
-                    <div class="p-8 flex flex-col gap-6 bg-[#0b0f19]">
+                    <div class="p-8 flex flex-col gap-6 bg-[#0b0f19] overflow-y-auto custom-scrollbar">
                         <div class="space-y-5">
                             <div>
                                 <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">PR Title</label>
