@@ -12,15 +12,24 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Callable
 
-from deep.core.constants import DEEP_DIR
+import argparse
+
+from deep.core.constants import DEEP_DIR # Keep this for now, as the new DEEP_DIR import is part of a larger block that's not fully replacing the old one.
 from deep.core.refs import resolve_head, get_current_branch, list_branches, resolve_revision
 from deep.core.repository import find_repo
-from deep.storage.index import read_index
+from deep.storage.index import read_index, write_index
 from deep.core.status import compute_status
 from deep.core.errors import DeepError
 from deep.core.pr import PRManager
 from deep.core.issue import IssueManager
 from deep.core.diff import diff_working_tree, diff_trees
+
+from deep.commands import add as add_cmd
+from deep.commands import commit as commit_cmd
+from deep.commands import branch as branch_cmd
+from deep.commands import checkout as checkout_cmd
+from deep.commands import merge as merge_cmd
+
 
 class DashboardService:
     def __init__(self, dg_dir: Path, repo_root: Path):
