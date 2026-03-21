@@ -435,12 +435,35 @@ def api_unstage_all():
 
 def api_discard_file(filepath):
     try:
+        import os
+        from deep.core.repository import find_repo
         from deep.commands import checkout_cmd
-        if not filepath: return {"error": "Filepath required"}
-        # Corrected: target="HEAD", not branch="HEAD"
-        checkout_cmd.run(ns(target="HEAD", paths=[filepath], force=True))
+        from deep.core.status import compute_status
+        
+        if not filepath: return {"success": False, "error": "Filepath required"}
+        
+        repo_root = find_repo()
+        full_path = repo_root / filepath
+        clean_path = filepath.replace('\\', '/')
+
+        # 1. Check if the file is completely untracked
+        status = compute_status(repo_root)
+        is_untracked = clean_path in status.untracked
+        
+        if is_untracked:
+            # Discarding an untracked file means deleting it entirely (VSCode Parity)
+            if full_path.exists():
+                os.remove(full_path)
+        else:
+            # 2. For tracked files, restore them from HEAD
+            try:
+                checkout_cmd.run(ns(target="HEAD", paths=[filepath], force=True))
+            except Exception:
+                pass # Ignore internal CLI errors if restore fails
+                
         return {"success": True}
-    except Exception as e: return {"success": False, "error": str(e)}
+    except Exception as e: 
+        return {"success": False, "error": str(e)}
 
 def api_ai_suggest():
     try:
