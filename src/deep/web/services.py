@@ -183,66 +183,7 @@ class DashboardService:
             "staged": staged_files
         }
 
-def ns(**kwargs):
-    import argparse
-    return argparse.Namespace(**kwargs)
-
-def api_stage_file(data):
-    try:
-        from deep.commands import add_cmd
-
-        filepath = data.get("filepath") or data.get("file")
-
-        if not filepath:
-            return {"error": "Filepath required"}
-
-        add_cmd.run(ns(files=[filepath]))
-        return {"status": "success"}
-
-    except Exception as e:
-        return {"error": str(e)}
-
-def api_unstage_file(data):
-    try:
-        from deep.commands import reset_cmd
-
-        filepath = data.get("filepath") or data.get("file")
-
-        if not filepath:
-            return {"error": "Filepath required"}
-
-        reset_cmd.run(ns(files=[filepath]))
-        return {"status": "success"}
-
-    except Exception as e:
-        return {"error": str(e)}
-
-def perform_commit(filepath, content, message):
-    try:
-        from deep.commands import add_cmd, commit_cmd
-        from deep.core.repository import find_repo
-
-        repo_root = find_repo()
-
-        if filepath and content is not None:
-            with open(repo_root / filepath, 'w', encoding='utf-8') as f:
-                f.write(content)
-
-            add_cmd.run(ns(files=[filepath]))
-
-        commit_cmd.run(ns(
-            message=message,
-            ai=False,
-            allow_empty=True,
-            all=False,
-            files=[]
-        ))
-
-        return {"status": "success"}
-
-    except Exception as e:
-        return {"error": str(e)}
-
+    # --- Git Operations ---
     def get_graph(self) -> Dict[str, Any]:
         return self._safe(self._get_graph_internal)
 
@@ -408,3 +349,63 @@ def perform_commit(filepath, content, message):
         if action == "close": self.issue_manager.close_issue(id)
         elif action == "reopen": self.issue_manager.reopen_issue(id)
         return {"status": "success"}
+
+def ns(**kwargs):
+    import argparse
+    return argparse.Namespace(**kwargs)
+
+def api_stage_file(data):
+    try:
+        from deep.commands import add_cmd
+
+        filepath = data.get("filepath") or data.get("file")
+
+        if not filepath:
+            return {"error": "Filepath required"}
+
+        add_cmd.run(ns(files=[filepath]))
+        return {"status": "success"}
+
+    except Exception as e:
+        return {"error": str(e)}
+
+def api_unstage_file(data):
+    try:
+        from deep.commands import reset_cmd
+
+        filepath = data.get("filepath") or data.get("file")
+
+        if not filepath:
+            return {"error": "Filepath required"}
+
+        reset_cmd.run(ns(files=[filepath]))
+        return {"status": "success"}
+
+    except Exception as e:
+        return {"error": str(e)}
+
+def perform_commit(filepath, content, message):
+    try:
+        from deep.commands import add_cmd, commit_cmd
+        from deep.core.repository import find_repo
+
+        repo_root = find_repo()
+
+        if filepath and content is not None:
+            with open(repo_root / filepath, 'w', encoding='utf-8') as f:
+                f.write(content)
+
+            add_cmd.run(ns(files=[filepath]))
+
+        commit_cmd.run(ns(
+            message=message,
+            ai=False,
+            allow_empty=True,
+            all=False,
+            files=[]
+        ))
+
+        return {"status": "success"}
+
+    except Exception as e:
+        return {"error": str(e)}
