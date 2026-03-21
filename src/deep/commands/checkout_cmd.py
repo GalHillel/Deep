@@ -23,10 +23,17 @@ Examples:
     p_checkout.add_argument("-f", "--force", action="store_true", help="Force branch switching even if there are uncommitted local changes")
     p_checkout.add_argument("-b", "--branch", action="store_true", help="Create a new branch")
     p_checkout.add_argument("target", help="The branch name or commit SHA to switch to")
+    p_checkout.add_argument("paths", nargs="*", help="Optional paths to restore from the target")
 
 
 def run(args: argparse.Namespace) -> None:
     """Execute the ``checkout`` command."""
+    try:
+        repo_root = find_repo()
+    except FileNotFoundError as exc:
+        print(f"Deep: error: {exc}", file=sys.stderr)
+        raise DeepCLIException(1)
+
     # 2. Identify if we are restoring files or switching branches
     paths = getattr(args, "paths", [])
     target = args.target
