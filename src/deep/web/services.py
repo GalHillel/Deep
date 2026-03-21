@@ -168,7 +168,7 @@ class DashboardService:
         else:
             raise ValueError(f"Invalid item type: {item_type}")
 
-        return {"status": "success", "path": item_path}
+        return {"success": True, "path": item_path}
 
     # --- Git Operations ---
 

@@ -443,7 +443,7 @@ const App = {
         const fullRelPath = parentDir + inputName;
         this.toast(`Creating ${type}: /${fullRelPath}...`);
         const res = await this.api('/api/item/create', 'POST', { path: fullRelPath, type: type });
-        if (res && res.success) {
+        if (res) {
             this.toast(`${type.charAt(0).toUpperCase() + type.slice(1)} created successfully.`);
             this.state.activeContextPath = res.path; 
             this.loadTree(); 
