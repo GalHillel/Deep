@@ -13,6 +13,18 @@ const App = {
         activeContextPath: null // Tracks selection in Explorer
     },
 
+    isModifiedAfterStaging(file, staged, unstaged) {
+        return staged.includes(file) && unstaged.includes(file);
+    },
+
+    async refreshStatus() {
+        await this.syncWorkspace();
+    },
+
+    async refreshDiff() {
+        await this.loadDiffContent();
+    },
+
     async init() {
         console.log("⚓ Deep Studio Final Overhaul Booting...");
         this.initEditor();
@@ -38,16 +50,16 @@ const App = {
         setTimeout(() => container.classList.add('opacity-0'), 3000);
     },
 
-    async api(endpoint, method = 'GET', body = null) {
+    async api(url, method = 'GET', body = null) {
         try {
             const opts = { method, headers: {} };
             if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
-            const res = await fetch(endpoint, opts);
+            const res = await fetch(url, opts);
             const data = await res.json();
-            if (!data.success) throw new Error(data.error || "Operation failed");
-            return data.data;
+            if (data && data.success === false) throw new Error(data.error || "Operation failed");
+            return data.data !== undefined ? data.data : data;
         } catch (e) {
-            console.error(`❌ [API Error] ${endpoint}:`, e);
+            console.error(`❌ [API Error] ${url}:`, e);
             this.toast(e.message, true);
             return null;
         }
@@ -213,7 +225,11 @@ const App = {
     async saveCurrentFile() {
         if (!this.state.currentFile) return this.toast("No file open.", true);
         const res = await this.api('/api/file/save', 'POST', { filepath: this.state.currentFile, content: this.state.editor.getValue() });
-        if (res) { this.toast("File saved (Uncommitted)"); this.syncWorkspace(); }
+        if (res) { 
+            this.toast("File saved (Uncommitted)"); 
+            await this.refreshStatus();
+            if (this.state.tab === 'diff') await this.refreshDiff();
+        }
     },
 
     /* --- CONTEXT-AWARE CREATION LOGIC --- */
@@ -279,10 +295,16 @@ const App = {
 
     async commitCurrentFile() {
         if (!this.state.currentFile) return this.toast("No file open.", true);
-        const msg = document.getElementById('commit-msg-input').value.trim();
-        if (!msg) return this.toast("Message required.", true);
+        const msg = document.getElementById('commit-msg-input')?.value.trim() || "Update";
+        // if (!msg) return this.toast("Message required.", true); // let it be optional as user said allow_empty
         const res = await this.api('/api/commit', 'POST', { filepath: this.state.currentFile, content: this.state.editor.getValue(), message: msg });
-        if (res) { this.toast("Committed successfully!"); document.getElementById('commit-msg-input').value = ''; this.syncWorkspace(); }
+        if (res) { 
+            this.toast("Committed successfully!"); 
+            const msgInput = document.getElementById('commit-msg-input');
+            if(msgInput) msgInput.value = ''; 
+            await this.refreshStatus(); 
+            if (this.state.tab === 'diff') await this.refreshDiff();
+        }
     },
 
     /* --- BRANCHING --- */
@@ -351,20 +373,23 @@ const App = {
         const diffData = await this.api('/api/diff');
         if (!statusData) return;
 
+        const unstaged = [...new Set([...(statusData.modified || []), ...(statusData.untracked || []), ...(statusData.deleted || [])])];
+        const staged = statusData.staged || []; 
+
         const renderList = (files, type) => {
             if (!files || files.length === 0) return `<div class="text-slate-600 italic text-sm py-2">Empty</div>`;
-            return files.map(f => `
+            return files.map(f => {
+                const isBoth = (type === 'unstaged') ? App.isModifiedAfterStaging(f, staged, unstaged) : false;
+                const badge = isBoth ? '<span class="modified-badge bg-yellow-900/50 text-yellow-500 font-bold border border-yellow-700 px-1.5 py-0.5 rounded text-[10px] uppercase ml-2 tracking-wider">Modified</span>' : '';
+                return `
                 <div class="flex justify-between items-center group hover:bg-slate-800/80 p-1.5 rounded transition-colors">
-                    <span class="text-slate-300 text-sm font-mono truncate"><i class="fa-regular ${type === 'staged' ? 'fa-circle-check text-green-500' : 'fa-file text-slate-500'} mr-2"></i>${f}</span>
-                    <button onclick="App.${type === 'staged' ? 'unstageFile' : 'stageFile'}('${f}')" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 text-xs font-bold rounded ${type === 'staged' ? 'bg-red-900/50 text-red-400 hover:bg-red-800' : 'bg-green-900/50 text-green-400 hover:bg-green-800'} transition-all">
+                    <span class="text-slate-300 text-sm font-mono truncate flex items-center"><i class="fa-regular ${type === 'staged' ? 'fa-circle-check text-green-500' : 'fa-file text-slate-500'} mr-2"></i>${f}${badge}</span>
+                    <button onclick="App.${type === 'staged' ? 'unstageFile' : 'stageFile'}('${f}')" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 text-xs font-bold rounded ${type === 'staged' ? 'bg-red-900/50 text-red-400 hover:bg-red-800' : 'bg-green-900/50 text-green-400 hover:bg-green-800'} transition-all flex items-center justify-center shrink-0 ml-2">
                         <i class="fa-solid ${type === 'staged' ? 'fa-minus' : 'fa-plus'}"></i>
                     </button>
                 </div>
-            `).join('');
-        };
-
-        const unstaged = [...new Set([...(statusData.modified || []), ...(statusData.untracked || []), ...(statusData.deleted || [])])];
-        const staged = statusData.staged || []; 
+            `}).join('');
+        }; 
 
         const elUnstaged = document.getElementById('list-unstaged');
         const badgeUnstaged = document.getElementById('badge-unstaged');
@@ -425,13 +450,20 @@ const App = {
                 `<div class="diff-line ${l.type}"><span>${l.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span></div>`
             ).join('');
 
+            const isBoth = App.isModifiedAfterStaging(file.name, staged, unstaged);
+            const isStaged = staged.includes(file.name);
+            let diffType = '';
+            if (isBoth) diffType = 'WORKING TREE vs STAGED';
+            else if (isStaged) diffType = 'STAGED vs HEAD';
+            else diffType = 'WORKING TREE vs HEAD';
+
             return `
             <div class="glass-tile rounded-2xl p-5 relative overflow-hidden group wave-active" style="box-shadow: 0 8px 32px 0 rgba(6, 182, 212, ${glowOpacity * 0.3});">
                 <div class="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500" style="opacity: ${glowOpacity + 0.2};"></div>
                 
                 <div class="flex justify-between items-start mb-4 relative z-10">
                     <div class="truncate pr-4">
-                        <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1"><i class="fa-regular fa-folder text-slate-600"></i> ${folder}</div>
+                        <div class="text-[10px] font-bold text-cyan-500 uppercase tracking-widest mb-1 shadow-sm">${diffType}</div>
                         <h4 class="text-lg font-bold text-white truncate group-hover:text-cyan-300 transition-colors cursor-pointer" onclick="App.switchTab('code'); App.openFile('${file.name}')">${filename}</h4>
                     </div>
                     <div class="flex flex-col items-end shrink-0">
@@ -458,23 +490,23 @@ const App = {
     },
 
     /* API Actions */
-    async stageFile(filepath) {
-        if(!filepath || filepath === 'undefined') return;
-        const res = await this.api('/api/stage', 'POST', { filepath });
+    async stageFile(file) {
+        if(!file || file === 'undefined') return;
+        const res = await this.api('/api/stage', 'POST', { file });
         if (res && res.status === 'success') {
-            this.toast(`Staged: ${filepath}`);
-            this.syncWorkspace();
-            this.loadDiffContent();
+            this.toast(`Staged: ${file}`);
+            await this.refreshStatus();
+            await this.refreshDiff();
         }
     },
 
-    async unstageFile(filepath) {
-        if(!filepath || filepath === 'undefined') return;
-        const res = await this.api('/api/unstage', 'POST', { filepath });
+    async unstageFile(file) {
+        if(!file || file === 'undefined') return;
+        const res = await this.api('/api/unstage', 'POST', { file });
         if (res && res.status === 'success') {
-            this.toast(`Unstaged: ${filepath}`);
-            this.syncWorkspace();
-            this.loadDiffContent();
+            this.toast(`Unstaged: ${file}`);
+            await this.refreshStatus();
+            await this.refreshDiff();
         }
     },
     
@@ -484,12 +516,12 @@ const App = {
         const unstaged = [...(statusData.modified || []), ...(statusData.untracked || []), ...(statusData.deleted || [])];
         if (unstaged.length === 0) return this.toast("Nothing to stage.", true);
         
-        for (const file of unstaged) {
-            await this.api('/api/stage', 'POST', { filepath: file });
+        for (const f of unstaged) {
+            await this.api('/api/stage', 'POST', { file: f });
         }
         this.toast("All changes staged.");
-        await this.syncWorkspace();
-        this.loadDiffContent();
+        await this.refreshStatus();
+        await this.refreshDiff();
     },
 
     /* --- ISSUES MANAGEMENT --- */
