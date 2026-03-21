@@ -245,16 +245,50 @@ const App = {
     },
 
     async triggerCheckout() {
+        await this.showBranchPickerModal();
+    },
+
+    async showBranchPickerModal() {
         const branches = await this.api('/api/branches');
         if (!branches || !branches.length) return this.toast("No branches found", true);
-        const name = prompt("Enter branch name to checkout (or choose from dropdown in PR modal):", this.state.workspace.branch);
-        if (name && name !== this.state.workspace.branch) {
-            // Updated route to match dashboard.py
-            if (await this.api('/api/branch/checkout', 'POST', { branch: name })) {
-                this.toast(`Checked out ${name}`);
-                this.syncWorkspace();
-                this.loadGraph();
-            }
+
+        const current = this.state.workspace.branch;
+        const branchListHtml = branches.map(b => `
+            <div onclick="App.performCheckout('${b}')" class="group flex items-center justify-between p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all cursor-pointer ${b === current ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-slate-950/50'}">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-code-branch ${b === current ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}"></i>
+                    <span class="font-mono text-sm ${b === current ? 'text-white font-bold' : 'text-slate-400 group-hover:text-white'}">${b}</span>
+                </div>
+                ${b === current ? '<span class="text-[9px] font-black text-cyan-500 uppercase tracking-widest">Active</span>' : ''}
+            </div>
+        `).join('');
+
+        const modalHtml = `
+            <div id="branch-picker-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[110] animate-in fade-in duration-200">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[450px] shadow-2xl flex flex-col overflow-hidden">
+                    <div class="p-6 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                        <h3 class="font-black text-white text-xs uppercase tracking-[0.2em] flex items-center gap-3">
+                            <i class="fa-solid fa-list-ul text-cyan-500"></i> Switch Branch
+                        </h3>
+                        <button onclick="document.getElementById('branch-picker-modal').remove()" class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="p-6 flex flex-col gap-3 max-h-[400px] overflow-y-auto bg-[#0b101a]">
+                        ${branchListHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('branch-picker-modal')?.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    async performCheckout(name) {
+        document.getElementById('branch-picker-modal')?.remove();
+        if (name === this.state.workspace.branch) return;
+        if (await this.api('/api/branch/checkout', 'POST', { branch: name })) {
+            this.toast(`Switched to ${name}`);
+            this.syncWorkspace();
+            this.loadGraph();
         }
     },
 
@@ -1215,15 +1249,15 @@ const App = {
         ]);
         
         const openIssues = (issuesData?.issues || []).filter(i => i.state === 'OPEN');
+        // Final fallback: if API fails, at least show current branch
+        let branchList = branches;
         if (!branches || !branches.length) {
-            this.toast("Wait! No branches found. Re-syncing...", true);
-            await this.syncWorkspace();
+            branchList = [this.state.workspace.branch || 'main'];
         }
         
-        // Ensure options stand out with a dark background to fix visibility issues
         const optStyle = 'style="background-color: #0b0f19; color: white;"';
-        const branchOpts = (branches || []).map(b => `<option value="${b}" ${b === this.state.workspace.branch ? 'selected' : ''} ${optStyle}>${b}</option>`).join('');
-        const targetOpts = (branches || []).map(b => `<option value="${b}" ${b === 'main' ? 'selected' : ''} ${optStyle}>${b}</option>`).join('');
+        const branchOpts = branchList.map(b => `<option value="${b}" ${b === this.state.workspace.branch ? 'selected' : ''} ${optStyle}>${b}</option>`).join('');
+        const targetOpts = branchList.map(b => `<option value="${b}" ${b === 'main' ? 'selected' : ''} ${optStyle}>${b}</option>`).join('');
         const issueOpts = `<option value="" ${optStyle}>-- No Linked Issue --</option>` + openIssues.map(i => `<option value="${i.id}" ${optStyle}>#${i.id}: ${i.title}</option>`).join('');
 
         const modalHtml = `
@@ -1242,19 +1276,18 @@ const App = {
                                 <input type="text" id="cpr-title" placeholder="e.g., Refactor merge logic" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-bold">
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
-                                    <label class="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1.5 text-center">Source Branch (from)</label>
-                                    <select id="cpr-head" class="bg-transparent border-none text-cyan-400 font-mono font-bold w-full text-center outline-none cursor-pointer">
-                                        ${branchOpts}
-                                    </select>
-                                </div>
-                                <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
-                                    <label class="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1.5 text-center">Target Branch (into)</label>
-                                    <select id="cpr-base" class="bg-transparent border-none text-slate-400 font-mono font-bold w-full text-center outline-none cursor-pointer">
-                                        ${targetOpts}
-                                    </select>
-                                </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Source Branch (from)</label>
+                                <select id="cpr-head" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-cyan-400 w-full outline-none focus:border-cyan-600/50 focus:ring-1 focus:ring-cyan-500/20 transition-all font-bold cursor-pointer">
+                                    ${branchOpts}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Target Branch (into)</label>
+                                <select id="cpr-base" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-300 w-full outline-none focus:border-slate-600/50 focus:ring-1 focus:ring-slate-500/20 transition-all font-bold cursor-pointer">
+                                    ${targetOpts}
+                                </select>
                             </div>
 
                             <div>
