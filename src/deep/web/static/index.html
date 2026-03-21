@@ -182,8 +182,66 @@
                     </div>
             </div>
 
-            <div id="panel-prs" class="panel p-6 overflow-y-auto">
-                <div id="prs-content"></div>
+            <div id="panel-prs" class="panel p-6 overflow-y-auto bg-slate-900/40">
+                <div class="flex justify-between items-center mb-8 bg-[#0b0f19]/60 p-4 rounded-2xl border border-slate-800/50 backdrop-blur-md">
+                    <div>
+                        <h2 class="text-3xl font-black text-white tracking-tighter uppercase flex items-center gap-3">
+                            <i class="fa-solid fa-code-pull-request text-purple-500 animate-pulse"></i> 
+                            Pull Requests
+                        </h2>
+                        <div class="text-[10px] text-slate-500 font-mono tracking-widest mt-1 opacity-80">ELITE PR ENGINE V3.0</div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="relative group">
+                            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-purple-400 transition-colors"></i>
+                            <input type="text" id="pr-search-input" oninput="App.filterPRs()" placeholder="Search pull requests..." class="bg-slate-950/80 border border-slate-800 rounded-xl pl-12 pr-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 w-80 transition-all font-medium placeholder:text-slate-700">
+                        </div>
+                        <button onclick="App.showCreatePRModal()" class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-900/40 flex items-center gap-2 active:scale-95">
+                            <i class="fa-solid fa-plus-circle"></i> Create PR
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-6 min-h-[500px]">
+                    <!-- OPEN / DRAFT COLUMN -->
+                    <div class="flex flex-col gap-6">
+                        <div class="flex items-center justify-between px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl backdrop-blur-sm">
+                            <h3 class="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span> Draft / Open
+                            </h3>
+                            <span id="badge-prs-open" class="bg-blue-950/50 text-blue-300 px-2 py-0.5 rounded-full text-[10px] font-black border border-blue-800/50">0</span>
+                        </div>
+                        <div id="prs-open-column" class="flex-1 space-y-4 pr-1 min-h-[200px]">
+                            <!-- Open PRs Injected Here -->
+                        </div>
+                    </div>
+
+                    <!-- IN REVIEW COLUMN -->
+                    <div class="flex flex-col gap-6">
+                        <div class="flex items-center justify-between px-3 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-xl backdrop-blur-sm">
+                            <h3 class="text-[10px] font-black text-yellow-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]"></span> In Review
+                            </h3>
+                            <span id="badge-prs-review" class="bg-yellow-950/50 text-yellow-300 px-2 py-0.5 rounded-full text-[10px] font-black border border-yellow-800/50">0</span>
+                        </div>
+                        <div id="prs-review-column" class="flex-1 space-y-4 pr-1 min-h-[200px]">
+                            <!-- Review PRs Injected Here -->
+                        </div>
+                    </div>
+
+                    <!-- MERGED / CLOSED COLUMN -->
+                    <div class="flex flex-col gap-6">
+                        <div class="flex items-center justify-between px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl backdrop-blur-sm">
+                            <h3 class="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Merged
+                            </h3>
+                            <span id="badge-prs-merged" class="bg-emerald-950/50 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-black border border-emerald-800/50">0</span>
+                        </div>
+                        <div id="prs-merged-column" class="flex-1 space-y-4 pr-1 opacity-60 hover:opacity-100 transition-opacity min-h-[200px]">
+                            <!-- Merged PRs Injected Here -->
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="panel-issues" class="panel p-6 overflow-y-auto bg-slate-900/40">

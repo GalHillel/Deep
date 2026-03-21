@@ -872,31 +872,81 @@ const App = {
     /* --- PULL REQUESTS MANAGEMENT --- */
     async loadPRs() {
         const data = await this.api('/api/prs/local');
-        let html = `
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-white"><i class="fa-solid fa-code-pull-request text-purple-500 mr-2"></i> Local Pull Requests</h3>
-                <button onclick="App.showCreatePRModal()" class="bg-purple-700 hover:bg-purple-600 text-white px-3 py-1 rounded font-bold text-sm transition-colors"><i class="fa-solid fa-plus mr-1"></i> New PR</button>
-            </div>
-            <div class="grid gap-3">
-        `;
-        if (!data || !data.prs || data.prs.length === 0) {
-            html += "<div class='text-gray-500 bg-gray-900/50 p-4 rounded border border-gray-800 text-center'>No local PRs found.</div>";
-        } else {
-            data.prs.forEach(pr => {
-                const color = pr.state === "APPROVED" ? "text-green-400" : pr.state === "CLOSED" ? "text-red-400" : "text-yellow-400";
-                html += `
-                <div class="bg-gray-800 p-4 rounded-lg border border-gray-700 hover:border-purple-500 transition-colors cursor-pointer" onclick="App.showPRDetails(${pr.id})">
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="font-bold text-lg text-white">#${pr.id} ${pr.title}</span>
-                        <span class="font-mono text-xs font-bold ${color} bg-gray-900 px-2 py-1 rounded border border-gray-700">${pr.state}</span>
+        if (!data || !data.prs) return;
+
+        const openCol = document.getElementById('prs-open-column');
+        const reviewCol = document.getElementById('prs-review-column');
+        const mergedCol = document.getElementById('prs-merged-column');
+        
+        const openBadge = document.getElementById('badge-prs-open');
+        const reviewBadge = document.getElementById('badge-prs-review');
+        const mergedBadge = document.getElementById('badge-prs-merged');
+
+        if (!openCol || !reviewCol || !mergedCol) return;
+
+        const renderPRCard = (pr) => {
+            const isApproved = pr.state === 'APPROVED';
+            const isMerged = pr.state === 'MERGED' || pr.state === 'CLOSED';
+            const statusClass = isApproved ? 'text-emerald-400 border-emerald-900/50 bg-emerald-900/10' : isMerged ? 'text-slate-400 border-slate-700 bg-slate-800/20' : 'text-blue-400 border-blue-900/50 bg-blue-900/10';
+
+            return `
+            <div class="glass-pr-card group bg-slate-900/40 border border-slate-800/50 p-5 rounded-2xl hover:border-purple-500/50 hover:bg-slate-800/50 transition-all cursor-pointer shadow-xl backdrop-blur-sm relative overflow-hidden" onclick="App.showPRDetails(${pr.id})">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-[80px] rounded-full -mr-16 -mt-16 group-hover:bg-purple-500/10 transition-colors"></div>
+                <div class="flex justify-between items-start mb-4 relative z-10">
+                    <span class="px-2 py-0.5 rounded-md text-[9px] font-black border uppercase tracking-widest ${statusClass}">
+                        ${pr.state}
+                    </span>
+                    <span class="text-[10px] text-slate-500 font-mono">#${pr.id}</span>
+                </div>
+                <h4 class="text-white font-bold text-sm mb-4 group-hover:text-purple-400 transition-colors line-clamp-1">${pr.title}</h4>
+                
+                <div class="flex items-center gap-3 mb-6 bg-slate-950/50 p-2 rounded-lg border border-slate-800/30">
+                    <div class="flex flex-col items-center gap-1">
+                        <span class="text-[8px] text-slate-600 font-black uppercase tracking-tighter">from</span>
+                        <span class="text-[10px] text-cyan-400 font-mono font-bold max-w-[80px] truncate">${pr.head}</span>
                     </div>
-                    <div class="flex gap-3 text-xs font-mono text-cyan-400 bg-gray-900 inline-flex px-2 py-1 rounded border border-gray-800">
-                        <span>${pr.head}</span> <i class="fa-solid fa-arrow-right text-gray-500"></i> <span>${pr.base}</span>
+                    <i class="fa-solid fa-arrow-right-long text-slate-700 text-[10px]"></i>
+                    <div class="flex flex-col items-center gap-1">
+                        <span class="text-[8px] text-slate-600 font-black uppercase tracking-tighter">into</span>
+                        <span class="text-[10px] text-slate-400 font-mono font-bold max-w-[80px] truncate">${pr.base}</span>
                     </div>
-                </div>`;
-            });
-        }
-        document.getElementById('prs-content').innerHTML = html + "</div>";
+                </div>
+
+                <div class="flex justify-between items-center pt-3 border-t border-slate-800/50 relative z-10">
+                    <div class="flex items-center gap-2">
+                        <div class="flex -space-x-2">
+                            <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] text-slate-400" title="${pr.author || 'AI'}">
+                                <i class="fa-solid fa-user-astronaut"></i>
+                            </div>
+                            <div class="w-6 h-6 rounded-full bg-purple-900 border border-purple-700 flex items-center justify-center text-[8px] text-white font-black" title="Approvals">
+                                ${pr.reviews ? pr.reviews.filter(r => r.state === 'APPROVED').length : 0}
+                            </div>
+                        </div>
+                    </div>
+                    <span class="text-[9px] text-slate-600 font-mono">${new Date().toLocaleDateString()}</span>
+                </div>
+            </div>`;
+        };
+
+        const openPRs = data.prs.filter(p => p.state === 'OPEN' || p.state === 'DRAFT');
+        const reviewPRs = data.prs.filter(p => p.state === 'APPROVED' || p.state === 'CHANGES_REQUESTED');
+        const closedPRs = data.prs.filter(p => p.state === 'MERGED' || p.state === 'CLOSED');
+
+        openCol.innerHTML = openPRs.length ? openPRs.map(renderPRCard).join('') : `<div class='text-slate-600 border border-dashed border-slate-800/50 p-6 rounded-xl text-center italic text-[10px]'>Queue is empty</div>`;
+        reviewCol.innerHTML = reviewPRs.length ? reviewPRs.map(renderPRCard).join('') : `<div class='text-slate-600 border border-dashed border-slate-800/50 p-6 rounded-xl text-center italic text-[10px]'>Clear</div>`;
+        mergedCol.innerHTML = closedPRs.length ? closedPRs.map(renderPRCard).join('') : `<div class='text-slate-700 border border-slate-800/30 p-6 rounded-xl text-center italic text-[9px]'>History empty</div>`;
+        
+        if (openBadge) openBadge.textContent = openPRs.length;
+        if (reviewBadge) reviewBadge.textContent = reviewPRs.length;
+        if (mergedBadge) mergedBadge.textContent = closedPRs.length;
+    },
+
+    filterPRs() {
+        const q = document.getElementById('pr-search-input').value.toLowerCase();
+        document.querySelectorAll('.glass-pr-card').forEach(card => {
+            const text = card.textContent.toLowerCase();
+            card.style.display = text.includes(q) ? 'block' : 'none';
+        });
     },
 
     async showPRDetails(prId) {
@@ -906,64 +956,84 @@ const App = {
         if(!pr) return;
 
         const isApproved = pr.state === "APPROVED";
-        const stateColor = isApproved ? 'text-green-400 border-green-700 bg-green-900/30' : pr.state === "CLOSED" ? 'text-red-400 border-red-700 bg-red-900/30' : 'text-yellow-400 border-yellow-700 bg-yellow-900/30';
+        const isMerged = pr.state === "MERGED" || pr.state === "CLOSED";
+        const stateColor = isApproved ? 'text-emerald-400 bg-emerald-950/30 border-emerald-700' : isMerged ? 'text-slate-400 bg-slate-800/30 border-slate-700' : 'text-blue-400 bg-blue-950/30 border-blue-700';
         
-        let reviewsHtml = '';
-        if (pr.reviews && pr.reviews.length > 0) {
-            reviewsHtml = pr.reviews.map(r => 
-                `<div class="bg-gray-900 p-3 rounded border border-gray-700 mb-2 flex flex-col">
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="font-bold text-xs px-2 py-0.5 rounded border ${r.state === 'APPROVED' ? 'text-green-400 border-green-700' : 'text-yellow-400 border-yellow-700'}">${r.state}</span> 
-                        <span class="text-gray-300 font-bold text-sm"><i class="fa-solid fa-user-astronaut text-gray-500 mr-1"></i>${r.reviewer}</span>
+        const reviewsHtml = (pr.reviews && pr.reviews.length > 0) ? pr.reviews.map(r => `
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl mb-3 flex flex-col gap-2 shadow-inner">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] text-slate-500">
+                            <i class="fa-solid fa-user-ninja"></i>
+                        </div>
+                        <span class="text-xs font-black text-slate-300 tracking-tight">${r.reviewer}</span>
                     </div>
-                    ${r.comment ? `<p class="text-gray-400 text-sm mt-1 bg-gray-950 p-2 rounded font-mono">${r.comment}</p>` : ''}
-                </div>`
-            ).join('');
-        } else {
-            reviewsHtml = '<div class="text-gray-500 italic text-sm p-4 bg-gray-900/50 rounded border border-gray-800 text-center">No reviews submitted yet.</div>';
-        }
+                    <span class="text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${r.state === 'APPROVED' ? 'text-emerald-400 border-emerald-900/50 bg-emerald-900/10' : 'text-amber-400 border-amber-900/50 bg-amber-900/10'}">${r.state}</span>
+                </div>
+                ${r.comment ? `<p class="text-xs text-slate-400 font-mono bg-slate-950/50 p-3 rounded-xl border border-slate-800/30">${r.comment}</p>` : ''}
+            </div>`).join('') : `<div class="text-slate-600 italic text-[10px] text-center p-6 bg-slate-900/50 rounded-2xl border border-dashed border-slate-800/50">Waiting for first review...</div>`;
 
         const modalHtml = `
-            <div id="pr-detail-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] fade-in">
-                <div class="bg-gray-800 border border-gray-700 rounded-xl w-[800px] max-h-[90vh] flex flex-col shadow-2xl">
-                    <div class="p-5 border-b border-gray-700 bg-gray-900 flex justify-between items-start rounded-t-xl shrink-0">
-                        <div>
-                            <div class="flex items-center gap-3 mb-2">
-                                <span class="font-mono text-xs font-bold px-2 py-1 rounded border ${stateColor}">${pr.state}</span>
-                                <h2 class="text-2xl font-bold text-white">#${pr.id} ${pr.title}</h2>
+            <div id="pr-detail-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-200">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[800px] max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+                    <div class="p-6 border-b border-slate-800 bg-slate-900/80 flex justify-between items-start shrink-0">
+                        <div class="space-y-4 w-full mr-12">
+                            <div class="flex items-center gap-3">
+                                <span class="font-black text-[10px] px-2 py-1 rounded-md border uppercase tracking-widest ${stateColor}">${pr.state}</span>
+                                <span class="text-[10px] text-slate-500 font-mono uppercase tracking-tighter">PR #${pr.id}</span>
                             </div>
-                            <div class="flex gap-3 text-sm font-mono text-cyan-400 bg-gray-950 inline-flex px-3 py-1 rounded border border-gray-800">
-                                <span>${pr.head}</span> <i class="fa-solid fa-arrow-right text-gray-500"></i> <span>${pr.base}</span>
+                            <h2 class="text-2xl font-black text-white tracking-tight">${pr.title}</h2>
+                            <div class="flex items-center gap-3 bg-slate-950/80 p-3 rounded-2xl border border-slate-800 w-fit">
+                                <div class="flex flex-col items-center px-3 border-r border-slate-800/50">
+                                    <span class="text-[8px] text-slate-600 font-black uppercase tracking-widest mb-1">Source</span>
+                                    <span class="text-xs font-mono font-bold text-cyan-400"><i class="fa-solid fa-code-branch mr-2 opacity-50"></i>${pr.head}</span>
+                                </div>
+                                <div class="px-2"><i class="fa-solid fa-arrow-right-long text-slate-700"></i></div>
+                                <div class="flex flex-col items-center px-3">
+                                    <span class="text-[8px] text-slate-600 font-black uppercase tracking-widest mb-1">Target</span>
+                                    <span class="text-xs font-mono font-bold text-slate-400"><i class="fa-solid fa-code-merge mr-2 opacity-50"></i>${pr.base}</span>
+                                </div>
                             </div>
                         </div>
-                        <button onclick="document.getElementById('pr-detail-modal').remove()" class="text-gray-400 hover:text-white text-xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                        <button onclick="document.getElementById('pr-detail-modal').remove()" class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     
-                    <div class="p-6 overflow-y-auto space-y-6 bg-gray-800">
+                    <div class="p-8 overflow-y-auto space-y-8 bg-[#0b0f19]">
                         <div>
-                            <h3 class="text-gray-400 font-bold uppercase text-xs tracking-wider mb-2"><i class="fa-solid fa-align-left mr-1"></i> Description</h3>
-                            <div class="text-gray-300 bg-gray-900 p-4 rounded border border-gray-700 font-mono text-sm whitespace-pre-wrap">${pr.desc || '<span class="italic text-gray-600">No description provided.</span>'}</div>
+                            <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-align-left text-indigo-500"></i> Description
+                            </h3>
+                            <div class="text-slate-300 bg-slate-900/50 p-5 rounded-2xl border border-slate-800 font-mono text-xs leading-relaxed whitespace-pre-wrap">${pr.desc || '<span class="italic text-slate-600">No description provided.</span>'}</div>
                         </div>
                         
                         <div>
-                            <h3 class="text-gray-400 font-bold uppercase text-xs tracking-wider mb-2"><i class="fa-solid fa-comments mr-1"></i> Reviews</h3>
-                            ${reviewsHtml}
+                            <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-comments text-purple-500"></i> Local Review Activity
+                            </h3>
+                            <div class="space-y-1">${reviewsHtml}</div>
                         </div>
                         
-                        ${pr.state !== 'CLOSED' && pr.state !== 'MERGED' && !isApproved ? `
-                        <div class="bg-gray-900 p-4 rounded border border-gray-700">
-                            <h3 class="text-gray-200 font-bold text-sm mb-3">Submit a Review</h3>
-                            <textarea id="review-comment" class="w-full bg-gray-950 border border-gray-800 rounded p-2 text-white mb-3 h-20 focus:border-cyan-500 focus:outline-none placeholder-gray-600" placeholder="Leave a comment (optional)..."></textarea>
-                            <div class="flex gap-3">
-                                <button onclick="App.submitPRReview(${pr.id}, 'APPROVED')" class="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded font-bold text-sm transition-colors shadow-lg"><i class="fa-solid fa-check mr-2"></i>Approve</button>
-                                <button onclick="App.submitPRReview(${pr.id}, 'CHANGES_REQUESTED')" class="bg-yellow-700 hover:bg-yellow-600 text-white px-4 py-2 rounded font-bold text-sm transition-colors shadow-lg"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Request Changes</button>
+                        ${!isMerged && !isApproved ? `
+                        <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-inner">
+                            <h3 class="text-xs font-black text-slate-300 uppercase tracking-widest mb-4">Submit Your Review</h3>
+                            <textarea id="review-comment" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white mb-4 h-24 focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 focus:outline-none placeholder-slate-700 text-sm font-mono" placeholder="Internal review notes (optional)..."></textarea>
+                            <div class="flex gap-4">
+                                <button onclick="App.submitPRReview(${pr.id}, 'APPROVED')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/20 active:scale-95"><i class="fa-solid fa-check-circle mr-2"></i> Approve Changes</button>
+                                <button onclick="App.submitPRReview(${pr.id}, 'CHANGES_REQUESTED')" class="flex-1 bg-slate-800 hover:bg-amber-600 text-slate-400 hover:text-white py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all border border-slate-700 hover:border-amber-500 active:scale-95"><i class="fa-solid fa-triangle-exclamation mr-2"></i> Request Fixes</button>
                             </div>
                         </div>` : ''}
                     </div>
                     
-                    <div class="p-4 bg-gray-900 border-t border-gray-700 flex justify-end shrink-0 rounded-b-xl">
-                        <button onclick="App.mergePR(${pr.id})" class="${isApproved ? 'bg-purple-600 hover:bg-purple-500 cursor-pointer shadow-lg hover:shadow-purple-500/20' : 'bg-gray-700 text-gray-400 cursor-not-allowed'} text-white px-6 py-2.5 rounded font-bold flex items-center transition-all" ${!isApproved ? 'disabled title="Requires Approval"' : ''}>
-                            <i class="fa-solid fa-code-merge mr-2"></i> Merge Pull Request
+                    <div class="p-6 bg-slate-900 border-t border-slate-800 flex justify-between items-center shrink-0">
+                        <div class="flex items-center gap-4">
+                            <div class="flex -space-x-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-xs text-slate-500 shadow-xl"><i class="fa-solid fa-user-shield"></i></div>
+                                <div class="w-8 h-8 rounded-full bg-purple-600 border-2 border-slate-900 flex items-center justify-center text-[10px] text-white font-black shadow-xl" title="Approvals Required">1</div>
+                            </div>
+                            <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Merge Readiness: ${isApproved ? 'READY' : 'PENDING'}</span>
+                        </div>
+                        <button onclick="App.mergePR(${pr.id})" class="${isApproved ? 'bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-900/40' : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'} text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center transition-all active:scale-95" ${!isApproved ? 'disabled' : ''}>
+                            <i class="fa-solid fa-code-merge mr-2"></i> Deploy Merge
                         </button>
                     </div>
                 </div>
@@ -973,8 +1043,52 @@ const App = {
     },
 
     showCreatePRModal() {
-        const modalHtml = `<div id="create-pr-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] animate-in fade-in duration-200"><div class="bg-gray-900 border border-gray-700 rounded-2xl w-[500px] shadow-2xl flex flex-col overflow-hidden"><div class="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center"><h3 class="font-bold text-white text-sm uppercase tracking-widest">Create PR</h3><button onclick="document.getElementById('create-pr-modal').remove()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div><div class="p-6 flex flex-col gap-4 bg-[#0b0f19]"><input type="text" id="cpr-title" placeholder="PR Title" class="bg-black border border-gray-800 rounded-xl p-3 text-white w-full outline-none focus:border-purple-600"><textarea id="cpr-desc" placeholder="Description..." class="bg-black border border-gray-800 rounded-xl p-3 text-white w-full h-24 outline-none focus:border-purple-600"></textarea><div class="flex gap-2"><input type="text" id="cpr-head" value="${this.state.workspace.branch}" class="bg-black border border-gray-800 rounded-xl p-3 text-cyan-400 w-1/2 outline-none"><input type="text" id="cpr-base" value="main" class="bg-black border border-gray-800 rounded-xl p-3 text-gray-400 w-1/2 outline-none"></div><input type="text" id="cpr-issue" placeholder="Link Issue ID (optional)" class="bg-black border border-gray-800 rounded-xl p-3 text-white w-full outline-none placeholder:text-gray-700"><button onclick="App.submitNewPR()" class="bg-purple-600 hover:bg-purple-500 text-white font-black py-3 rounded-xl uppercase text-xs tracking-widest shadow-xl transition-all">Submit PR</button></div></div></div>`;
+        const modalHtml = `
+            <div id="create-pr-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in zoom-in-95 duration-200">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[550px] shadow-2xl flex flex-col overflow-hidden">
+                    <div class="p-6 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                        <h3 class="font-black text-white text-xs uppercase tracking-[0.2em] flex items-center gap-3">
+                            <i class="fa-solid fa-code-pull-request text-purple-500"></i> Initialize Pull Request
+                        </h3>
+                        <button onclick="document.getElementById('create-pr-modal').remove()" class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="p-8 flex flex-col gap-6 bg-[#0b0f19]">
+                        <div class="space-y-5">
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">PR Title</label>
+                                <input type="text" id="cpr-title" placeholder="e.g., Refactor merge logic" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-bold">
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
+                                    <label class="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1.5 text-center">Source Branch (from)</label>
+                                    <input type="text" id="cpr-head" value="${this.state.workspace.branch}" class="bg-transparent border-none text-cyan-400 font-mono font-bold w-full text-center outline-none">
+                                </div>
+                                <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
+                                    <label class="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1.5 text-center">Target Branch (into)</label>
+                                    <input type="text" id="cpr-base" value="main" class="bg-transparent border-none text-slate-400 font-mono font-bold w-full text-center outline-none">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Detailed Description</label>
+                                <textarea id="cpr-desc" placeholder="What does this PR change? Include context..." class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full h-28 outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-mono text-sm resize-none"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Relate Issue ID</label>
+                                <input type="text" id="cpr-issue" placeholder="Optional. e.g. 42" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-mono">
+                            </div>
+                        </div>
+                        
+                        <button onclick="App.submitNewPR()" class="bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] transition-all shadow-xl shadow-purple-900/40 active:scale-[0.98]">
+                            <i class="fa-solid fa-paper-plane mr-2"></i> Submit Proposal
+                        </button>
+                    </div>
+                </div>
+            </div>`;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+        document.getElementById('cpr-title').focus();
     },
 
     async submitNewPR() {
