@@ -1284,18 +1284,22 @@ const App = {
                                 <input type="text" id="cpr-title" placeholder="e.g., Refactor merge logic" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-bold">
                             </div>
                             
-                            <div>
-                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Source Branch (from)</label>
-                                <select id="cpr-head" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-cyan-400 w-full outline-none focus:border-cyan-600/50 focus:ring-1 focus:ring-cyan-500/20 transition-all font-bold cursor-pointer">
-                                    ${branchOpts}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Target Branch (into)</label>
-                                <select id="cpr-base" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-300 w-full outline-none focus:border-slate-600/50 focus:ring-1 focus:ring-slate-500/20 transition-all font-bold cursor-pointer">
-                                    ${targetOpts}
-                                </select>
+                            <div class="flex items-center gap-2 bg-slate-950/40 p-2 rounded-2xl border border-slate-800/50">
+                                <div class="flex-1">
+                                    <label class="block text-[7px] font-black text-slate-600 uppercase tracking-widest px-2 mb-1">Merge From</label>
+                                    <select id="cpr-head" class="bg-transparent border-none text-cyan-400 font-mono font-bold w-full text-sm outline-none cursor-pointer">
+                                        ${branchOpts}
+                                    </select>
+                                </div>
+                                <div class="shrink-0 text-slate-700 pt-3">
+                                    <i class="fa-solid fa-arrow-right-long text-xs"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <label class="block text-[7px] font-black text-slate-600 uppercase tracking-widest px-2 mb-1">Merge Into</label>
+                                    <select id="cpr-base" class="bg-transparent border-none text-slate-400 font-mono font-bold w-full text-sm outline-none cursor-pointer">
+                                        ${targetOpts}
+                                    </select>
+                                </div>
                             </div>
 
                             <div>
