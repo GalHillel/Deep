@@ -28,6 +28,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     
     # Handle revisions from args
     revisions = getattr(args, "revisions", [])
+    cached = getattr(args, "cached", False)
     
     if len(revisions) >= 2:
         rev1 = resolve_revision(dg_dir, revisions[0])
@@ -43,6 +44,9 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             raise DeepCLIException(1)
         # diff <rev> is rev vs working tree (via index)
         diffs = diff_trees(dg_dir, rev1, "HEAD")
+    elif cached:
+        from deep.core.diff import diff_index_vs_head
+        diffs = diff_index_vs_head(repo_root)
     else:
         diffs = diff_working_tree(repo_root)
 

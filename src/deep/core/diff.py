@@ -96,6 +96,9 @@ def diff_blob_vs_file(
     new_lines = new_text.splitlines()
 
     if old_lines == new_lines:
+        if old_text != new_text:
+            # Line endings changed but content is identical
+            return f"--- a/{rel_path}\n+++ b/{rel_path}\n@@ -0,0 +0,0 @@\n Note: Line endings changed (e.g. CRLF -> LF)"
         return None
 
     return diff_lines(
@@ -226,4 +229,34 @@ def diff_working_tree(repo_root: Path) -> list[tuple[str, str]]:
         if result is not None:
             diffs.append((rel_path, result))
 
+    return diffs
+
+def diff_index_vs_head(repo_root: Path) -> list[tuple[str, str]]:
+    """Compute diffs for staged files (Index vs HEAD)."""
+    from deep.core.constants import DEEP_DIR
+    from deep.core.refs import resolve_head
+    from deep.storage.objects import Commit, read_object
+    dg_dir = repo_root / DEEP_DIR
+    objs_dir = dg_dir / "objects"
+    index = read_index(dg_dir)
+    
+    head_sha = resolve_head(dg_dir)
+    head_files = {}
+    if head_sha:
+        try:
+            commit = read_object(objs_dir, head_sha)
+            if isinstance(commit, Commit):
+                head_files = _get_tree_entries_recursive(objs_dir, commit.tree_sha)
+        except Exception:
+            pass
+            
+    diffs = []
+    all_paths = sorted(set(index.entries.keys()) | set(head_files.keys()))
+    for path in all_paths:
+        s1 = head_files.get(path)
+        s2 = index.entries[path].content_hash if path in index.entries else None
+        if s1 != s2:
+            res = diff_blobs(objs_dir, s1, s2, path)
+            if res:
+                diffs.append((path, res))
     return diffs

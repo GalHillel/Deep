@@ -249,7 +249,8 @@ class DashboardService:
         old_stdout = sys.stdout
         sys.stdout = mystdout = io.StringIO()
         try:
-            run_diff(ns(staged=False, files=[]))
+            run_diff(ns(cached=False, revisions=[], files=[]))
+            run_diff(ns(cached=True, revisions=[], files=[]))
         except Exception:
             pass
         finally:

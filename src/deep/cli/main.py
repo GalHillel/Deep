@@ -152,6 +152,8 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    p_diff.add_argument("--cached", "--staged", action="store_true", help="Show changes currently in the staging area")
+    p_diff.add_argument("revisions", nargs="*", help="Revisions to compare (e.g. HEAD, or commit1 commit2)")
 
     # ── branch ───────────────────────────────────────────────────────
     p_branch = sub.add_parser(
