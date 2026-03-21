@@ -60,7 +60,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if not path: path = "/"
             qs = {k: v[0] for k, v in parse_qs(parsed.query).items()}
 
-            if path == "" or path == "/index.html":
+            if path == "" or path == "/" or path == "/index.html":
                 return self._serve_file(STATIC_DIR / "index.html", "text/html")
             elif path == "/api/tree": return self.send_json(self.service.get_tree())
             elif path == "/api/file":
