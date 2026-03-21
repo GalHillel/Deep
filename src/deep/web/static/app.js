@@ -244,6 +244,20 @@ const App = {
         }
     },
 
+    async triggerCheckout() {
+        const branches = await this.api('/api/branches');
+        if (!branches || !branches.length) return this.toast("No branches found", true);
+        const name = prompt("Enter branch name to checkout (or choose from dropdown in PR modal):", this.state.workspace.branch);
+        if (name && name !== this.state.workspace.branch) {
+            // Updated route to match dashboard.py
+            if (await this.api('/api/branch/checkout', 'POST', { branch: name })) {
+                this.toast(`Checked out ${name}`);
+                this.syncWorkspace();
+                this.loadGraph();
+            }
+        }
+    },
+
     openCommitModal() {
         const stagedBadge = document.getElementById('badge-staged');
         const count = parseInt(stagedBadge ? stagedBadge.textContent : '0', 10);
@@ -1201,9 +1215,16 @@ const App = {
         ]);
         
         const openIssues = (issuesData?.issues || []).filter(i => i.state === 'OPEN');
-        const branchOpts = (branches || []).map(b => `<option value="${b}" ${b === this.state.workspace.branch ? 'selected' : ''}>${b}</option>`).join('');
-        const targetOpts = (branches || []).map(b => `<option value="${b}" ${b === 'main' ? 'selected' : ''}>${b}</option>`).join('');
-        const issueOpts = `<option value="">-- No Linked Issue --</option>` + openIssues.map(i => `<option value="${i.id}">#${i.id}: ${i.title}</option>`).join('');
+        if (!branches || !branches.length) {
+            this.toast("Wait! No branches found. Re-syncing...", true);
+            await this.syncWorkspace();
+        }
+        
+        // Ensure options stand out with a dark background to fix visibility issues
+        const optStyle = 'style="background-color: #0b0f19; color: white;"';
+        const branchOpts = (branches || []).map(b => `<option value="${b}" ${b === this.state.workspace.branch ? 'selected' : ''} ${optStyle}>${b}</option>`).join('');
+        const targetOpts = (branches || []).map(b => `<option value="${b}" ${b === 'main' ? 'selected' : ''} ${optStyle}>${b}</option>`).join('');
+        const issueOpts = `<option value="" ${optStyle}>-- No Linked Issue --</option>` + openIssues.map(i => `<option value="${i.id}" ${optStyle}>#${i.id}: ${i.title}</option>`).join('');
 
         const modalHtml = `
             <div id="create-pr-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in zoom-in-95 duration-200">
@@ -1224,13 +1245,13 @@ const App = {
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
                                     <label class="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1.5 text-center">Source Branch (from)</label>
-                                    <select id="cpr-head" class="bg-transparent border-none text-cyan-400 font-mono font-bold w-full text-center outline-none cursor-pointer appearance-none">
+                                    <select id="cpr-head" class="bg-transparent border-none text-cyan-400 font-mono font-bold w-full text-center outline-none cursor-pointer">
                                         ${branchOpts}
                                     </select>
                                 </div>
                                 <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
                                     <label class="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1.5 text-center">Target Branch (into)</label>
-                                    <select id="cpr-base" class="bg-transparent border-none text-slate-400 font-mono font-bold w-full text-center outline-none cursor-pointer appearance-none">
+                                    <select id="cpr-base" class="bg-transparent border-none text-slate-400 font-mono font-bold w-full text-center outline-none cursor-pointer">
                                         ${targetOpts}
                                     </select>
                                 </div>
@@ -1243,7 +1264,7 @@ const App = {
 
                             <div>
                                 <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Relate Issue ID</label>
-                                <select id="cpr-issue" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-mono appearance-none cursor-pointer">
+                                <select id="cpr-issue" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-mono cursor-pointer">
                                     ${issueOpts}
                                 </select>
                             </div>
