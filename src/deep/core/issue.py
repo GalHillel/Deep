@@ -21,6 +21,7 @@ class Issue:
     description: str
     type: str  # bug, feature, task
     author: str
+    priority: str = "Medium"  # Low, Medium, High
     status: str = "open"  # open, closed, in-progress
     created_at: str = field(default_factory=lambda: datetime.datetime.now().isoformat())
     assignee: Optional[str] = None
@@ -48,7 +49,7 @@ class IssueManager:
                 continue
         return max(ids) + 1 if ids else 1
 
-    def create_issue(self, title: str, description: str, type: str, author: str, assignee: Optional[str] = None, labels: List[str] = None) -> Issue:
+    def create_issue(self, title: str, description: str, type: str, author: str, priority: str = "Medium", assignee: Optional[str] = None, labels: List[str] = None) -> Issue:
         issue_id = self._get_next_id()
         issue = Issue(
             id=issue_id,
@@ -56,6 +57,7 @@ class IssueManager:
             description=description,
             type=type,
             author=author,
+            priority=priority,
             status="open",
             assignee=assignee,
             labels=labels or []

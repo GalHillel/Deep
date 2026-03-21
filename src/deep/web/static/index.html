@@ -186,8 +186,53 @@
                 <div id="prs-content"></div>
             </div>
 
-            <div id="panel-issues" class="panel p-6 overflow-y-auto">
-                <div id="issues-content"></div>
+            <div id="panel-issues" class="panel p-6 overflow-y-auto bg-slate-900/40">
+                <div class="flex justify-between items-center mb-8 bg-[#0b0f19]/60 p-4 rounded-2xl border border-slate-800/50 backdrop-blur-md">
+                    <div>
+                        <h2 class="text-3xl font-black text-white tracking-tighter uppercase flex items-center gap-3">
+                            <i class="fa-regular fa-circle-dot text-emerald-500 animate-pulse"></i> 
+                            Issue Board
+                        </h2>
+                        <div class="text-[10px] text-slate-500 font-mono tracking-widest mt-1 opacity-80">ELITE ISSUE MANAGEMENT SYSTEM V3.0</div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="relative group">
+                            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors"></i>
+                            <input type="text" id="issue-search-input" oninput="App.filterIssues()" placeholder="Search issues..." class="bg-slate-950/80 border border-slate-800 rounded-xl pl-12 pr-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 w-80 transition-all font-medium placeholder:text-slate-700">
+                        </div>
+                        <button onclick="App.showCreateIssueModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/40 flex items-center gap-2 active:scale-95">
+                            <i class="fa-solid fa-circle-plus"></i> New Issue
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-10 min-h-[500px]">
+                    <!-- OPEN COLUMN -->
+                    <div class="flex flex-col gap-6">
+                        <div class="flex items-center justify-between px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl backdrop-blur-sm">
+                            <h3 class="text-xs font-black text-emerald-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]"></span> Open
+                            </h3>
+                            <span id="badge-issues-open" class="bg-emerald-950/50 text-emerald-300 px-2.5 py-0.5 rounded-full text-[10px] font-black border border-emerald-800/50">0</span>
+                        </div>
+                        <div id="issues-open-column" class="flex-1 space-y-4 pr-1 min-h-[200px]">
+                            <!-- Open Issues Injected Here -->
+                        </div>
+                    </div>
+
+                    <!-- CLOSED COLUMN -->
+                    <div class="flex flex-col gap-6">
+                        <div class="flex items-center justify-between px-3 py-2 bg-purple-500/10 border border-purple-500/20 rounded-xl backdrop-blur-sm">
+                            <h3 class="text-xs font-black text-purple-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.8)]"></span> Closed
+                            </h3>
+                            <span id="badge-issues-closed" class="bg-purple-950/50 text-purple-300 px-2.5 py-0.5 rounded-full text-[10px] font-black border border-purple-800/50">0</span>
+                        </div>
+                        <div id="issues-closed-column" class="flex-1 space-y-4 pr-1 opacity-70 hover:opacity-100 transition-opacity min-h-[200px]">
+                            <!-- Closed Issues Injected Here -->
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Commit Modal -->

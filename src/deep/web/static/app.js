@@ -693,26 +693,67 @@ const App = {
     /* --- ISSUES MANAGEMENT --- */
     async loadIssues() {
         const data = await this.api('/api/issues/local');
-        let html = `
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-white"><i class="fa-regular fa-circle-dot text-green-500 mr-2"></i> Local Issues</h3>
-                <button onclick="App.showCreateIssueModal()" class="bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded font-bold text-sm transition-colors"><i class="fa-solid fa-plus mr-1"></i> New Issue</button>
-            </div>
-            <div class="grid gap-3">
-        `;
-        if (!data || !data.issues || data.issues.length === 0) {
-            html += "<div class='text-gray-500 bg-gray-900/50 p-4 rounded border border-gray-800 text-center'>No local issues found.</div>";
-        } else {
-            data.issues.forEach(iss => {
-                const color = iss.state === "OPEN" ? "text-green-400" : "text-purple-400";
-                html += `
-                <div class="bg-gray-800 p-4 rounded-lg border border-gray-700 hover:border-green-500 transition-colors cursor-pointer" onclick="App.showIssueDetails(${iss.id})">
-                    <div class="font-bold text-white mb-2"><span class="${color}">[${iss.state}]</span> #${iss.id} ${iss.title}</div>
-                    <div class="text-gray-400 text-sm truncate">${iss.body || 'No description'}</div>
-                </div>`;
-            });
-        }
-        document.getElementById('issues-content').innerHTML = html + "</div>";
+        if (!data || !data.issues) return;
+
+        const openCol = document.getElementById('issues-open-column');
+        const closedCol = document.getElementById('issues-closed-column');
+        const openBadge = document.getElementById('badge-issues-open');
+        const closedBadge = document.getElementById('badge-issues-closed');
+
+        if (!openCol || !closedCol) return;
+
+        const renderIssueCard = (iss) => {
+            const priorityColors = {
+                'High': 'text-red-400 border-red-900/50 bg-red-900/10',
+                'Medium': 'text-amber-400 border-amber-900/50 bg-amber-900/10',
+                'Low': 'text-emerald-400 border-emerald-900/50 bg-emerald-900/10'
+            };
+            const pClass = priorityColors[iss.priority || 'Medium'];
+            const typeIcon = iss.type === 'bug' ? 'fa-bug text-red-500' : iss.type === 'feature' ? 'fa-wand-magic-sparkles text-purple-500' : 'fa-list-check text-blue-500';
+
+            return `
+            <div class="glass-issue-card group bg-slate-900/40 border border-slate-800/50 p-4 rounded-2xl hover:border-emerald-500/50 hover:bg-slate-800/50 transition-all cursor-pointer shadow-xl backdrop-blur-sm relative overflow-hidden" onclick="App.showIssueDetails(${iss.id})">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[80px] rounded-full -mr-16 -mt-16 group-hover:bg-emerald-500/10 transition-colors"></div>
+                <div class="flex justify-between items-start mb-3 relative z-10">
+                    <span class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        <i class="fa-solid ${typeIcon}"></i> ${iss.type || 'task'}
+                    </span>
+                    <span class="px-2 py-0.5 rounded-md text-[9px] font-black border uppercase tracking-tighter ${pClass}">
+                        ${iss.priority || 'Medium'}
+                    </span>
+                </div>
+                <h4 class="text-white font-bold text-sm mb-2 group-hover:text-emerald-400 transition-colors line-clamp-2">#${iss.id} ${iss.title}</h4>
+                <div class="text-slate-500 text-xs line-clamp-2 font-mono opacity-80 mb-4 h-8">
+                    ${iss.description || iss.body || 'No description provided.'}
+                </div>
+                <div class="flex justify-between items-center relative z-10 pt-3 border-t border-slate-800/50">
+                    <div class="flex items-center gap-2">
+                        <div class="w-5 h-5 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] text-slate-400">
+                            <i class="fa-solid fa-user-ninja"></i>
+                        </div>
+                        <span class="text-[10px] text-slate-500 font-bold">${iss.author || 'AI Agent'}</span>
+                    </div>
+                    <span class="text-[9px] text-slate-600 font-mono">${new Date(iss.created_at).toLocaleDateString()}</span>
+                </div>
+            </div>`;
+        };
+
+        const openIssues = data.issues.filter(i => i.state === 'OPEN');
+        const closedIssues = data.issues.filter(i => i.state !== 'OPEN');
+
+        openCol.innerHTML = openIssues.length ? openIssues.map(renderIssueCard).join('') : `<div class='text-slate-600 border-2 border-dashed border-slate-800/50 p-10 rounded-2xl text-center italic text-sm'>All caught up! No open issues.</div>`;
+        closedCol.innerHTML = closedIssues.length ? closedIssues.map(renderIssueCard).join('') : `<div class='text-slate-700 border border-slate-800/30 p-8 rounded-2xl text-center italic text-xs'>Archive is empty.</div>`;
+        
+        if (openBadge) openBadge.textContent = openIssues.length;
+        if (closedBadge) closedBadge.textContent = closedIssues.length;
+    },
+
+    filterIssues() {
+        const q = document.getElementById('issue-search-input').value.toLowerCase();
+        document.querySelectorAll('.glass-issue-card').forEach(card => {
+            const text = card.textContent.toLowerCase();
+            card.style.display = text.includes(q) ? 'block' : 'none';
+        });
     },
 
     async showIssueDetails(issueId) {
@@ -722,28 +763,40 @@ const App = {
         if(!iss) return;
 
         const isOpen = iss.state === 'OPEN';
-        const stateColor = isOpen ? 'text-green-400 bg-green-900/30 border-green-700' : 'text-purple-400 bg-purple-900/30 border-purple-700';
+        const priorityColors = { 'High': 'text-red-400 bg-red-950/30 border-red-700', 'Medium': 'text-amber-400 bg-amber-950/30 border-amber-700', 'Low': 'text-emerald-400 bg-emerald-950/30 border-emerald-700' };
+        const pClass = priorityColors[iss.priority || 'Medium'];
+        const stateColor = isOpen ? 'text-emerald-400 bg-emerald-950/30 border-emerald-700' : 'text-purple-400 bg-purple-950/30 border-purple-700';
 
         const modalHtml = `
-            <div id="issue-detail-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] fade-in">
-                <div class="bg-gray-900 border border-gray-700 rounded-xl w-[600px] shadow-2xl flex flex-col">
-                    <div class="p-5 border-b border-gray-700 bg-gray-800 flex justify-between items-start rounded-t-xl">
-                        <div>
-                            <div class="flex items-center gap-3 mb-2">
-                                <span class="font-mono text-xs font-bold px-2 py-1 rounded border ${stateColor}">${iss.state}</span>
-                                <h2 class="text-xl font-bold text-white">#${iss.id} ${iss.title}</h2>
+            <div id="issue-detail-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-200">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[700px] shadow-2xl flex flex-col overflow-hidden">
+                    <div class="p-6 border-b border-slate-800 bg-slate-900/80 flex justify-between items-start">
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3">
+                                <span class="font-black text-[10px] px-2 py-1 rounded-md border uppercase tracking-widest ${stateColor}">${iss.state}</span>
+                                <span class="font-black text-[10px] px-2 py-1 rounded-md border uppercase tracking-widest ${pClass}">${iss.priority || 'Medium'}</span>
+                            </div>
+                            <h2 class="text-2xl font-black text-white tracking-tight">#${iss.id} ${iss.title}</h2>
+                            <div class="flex items-center gap-4 text-xs text-slate-500 font-mono">
+                                <span><i class="fa-solid fa-user-astronaut mr-2 opacity-50"></i>${iss.author || 'AI Manager'}</span>
+                                <span><i class="fa-solid fa-calendar-day mr-2 opacity-50"></i>${new Date(iss.created_at).toLocaleString()}</span>
                             </div>
                         </div>
-                        <button onclick="document.getElementById('issue-detail-modal').remove()" class="text-gray-400 hover:text-white text-xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                        <button onclick="document.getElementById('issue-detail-modal').remove()" class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white w-10 h-10 rounded-full flex items-center justify-center transition-all"><i class="fa-solid fa-xmark"></i></button>
                     </div>
-                    <div class="p-6 bg-gray-950 text-gray-300 min-h-[100px] whitespace-pre-wrap font-mono text-sm border-b border-gray-800">
-                        ${iss.description || iss.body || '<span class="italic text-gray-600">No description provided.</span>'}
+                    <div class="p-8 bg-slate-950/50 text-slate-300 min-h-[150px] max-h-[400px] overflow-y-auto whitespace-pre-wrap font-mono text-sm leading-relaxed border-b border-slate-800">
+                        ${iss.description || iss.body || '<span class="italic text-slate-600">No description provided.</span>'}
                     </div>
-                    <div class="p-4 bg-gray-900 rounded-b-xl flex justify-end gap-3">
-                        ${isOpen 
-                            ? `<button onclick="App.manageIssue(${iss.id}, 'close'); document.getElementById('issue-detail-modal').remove();" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded font-bold transition-colors"><i class="fa-solid fa-check mr-2"></i>Close Issue</button>` 
-                            : `<button onclick="App.manageIssue(${iss.id}, 'reopen'); document.getElementById('issue-detail-modal').remove();" class="bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded font-bold transition-colors"><i class="fa-solid fa-rotate-left mr-2"></i>Reopen Issue</button>`
-                        }
+                    <div class="p-6 bg-slate-900 flex justify-between items-center">
+                        <div class="flex gap-2">
+                            ${(iss.labels || []).map(l => `<span class="bg-slate-800 text-slate-400 px-2 py-1 rounded text-[10px] font-bold border border-slate-700">#${l}</span>`).join('')}
+                        </div>
+                        <div class="flex gap-3">
+                            ${isOpen 
+                                ? `<button onclick="App.manageIssue(${iss.id}, 'close'); document.getElementById('issue-detail-modal').remove();" class="bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all border border-slate-700 hover:border-emerald-500"><i class="fa-solid fa-check mr-2"></i>Close Issue</button>` 
+                                : `<button onclick="App.manageIssue(${iss.id}, 'reopen'); document.getElementById('issue-detail-modal').remove();" class="bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all border border-slate-700 hover:border-purple-500"><i class="fa-solid fa-rotate-left mr-2"></i>Reopen Issue</button>`
+                            }
+                        </div>
                     </div>
                 </div>
             </div>`;
@@ -751,15 +804,65 @@ const App = {
     },
 
     async showCreateIssueModal() {
-        const modalHtml = `<div id="create-issue-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] animate-in fade-in duration-200"><div class="bg-gray-900 border border-gray-700 rounded-2xl w-[500px] shadow-2xl flex flex-col overflow-hidden"><div class="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center"><h3 class="font-bold text-white text-sm uppercase tracking-widest">Create Issue</h3><button onclick="document.getElementById('create-issue-modal').remove()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div><div class="p-6 flex flex-col gap-4 bg-[#0b0f19]"><input type="text" id="ci-title" placeholder="Issue Title" class="bg-black border border-gray-800 rounded-xl p-3 text-white w-full outline-none focus:border-green-600"><textarea id="ci-body" placeholder="Description..." class="bg-black border border-gray-800 rounded-xl p-3 text-white w-full h-32 outline-none focus:border-green-600"></textarea><button onclick="App.submitNewIssue()" class="bg-green-600 hover:bg-green-500 text-white font-black py-3 rounded-xl uppercase text-xs tracking-widest transition-all">Submit Issue</button></div></div></div>`;
+        const modalHtml = `
+            <div id="create-issue-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in zoom-in-95 duration-200">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[550px] shadow-2xl flex flex-col overflow-hidden">
+                    <div class="p-6 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                        <h3 class="font-black text-white text-xs uppercase tracking-[0.2em] flex items-center gap-3">
+                            <i class="fa-solid fa-circle-plus text-emerald-500"></i> New Core Issue
+                        </h3>
+                        <button onclick="document.getElementById('create-issue-modal').remove()" class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="p-8 flex flex-col gap-6 bg-[#0b0f19]">
+                        <div class="space-y-4">
+                            <input type="text" id="ci-title" placeholder="What is the issue?" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-bold">
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Priority</label>
+                                    <select id="ci-priority" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 w-full outline-none focus:border-emerald-600/50 appearance-none font-bold">
+                                        <option value="Low">Low Priority</option>
+                                        <option value="Medium" selected>Medium Priority</option>
+                                        <option value="High">High Priority</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Type</label>
+                                    <select id="ci-type" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 w-full outline-none focus:border-emerald-600/50 appearance-none font-bold">
+                                        <option value="task">General Task</option>
+                                        <option value="bug">Bug Report</option>
+                                        <option value="feature">New Feature</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <textarea id="ci-body" placeholder="Describe the details, steps to reproduce, or objectives..." class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full h-40 outline-none focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-mono text-sm resize-none"></textarea>
+                        </div>
+                        
+                        <button onclick="App.submitNewIssue()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] transition-all shadow-xl shadow-emerald-900/40 active:scale-[0.98]">
+                            <i class="fa-solid fa-paper-plane mr-2"></i> Deploy Issue
+                        </button>
+                    </div>
+                </div>
+            </div>`;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+        document.getElementById('ci-title').focus();
     },
 
     async submitNewIssue() {
         const title = document.getElementById('ci-title').value.trim();
         const body = document.getElementById('ci-body').value.trim();
-        if (!title) return this.toast("Title required", true);
-        if (await this.api('/api/issue/create', 'POST', { title, body })) { this.toast("Issue created!"); document.getElementById('create-issue-modal').remove(); this.loadIssues(); }
+        const priority = document.getElementById('ci-priority').value;
+        const type = document.getElementById('ci-type').value;
+
+        if (!title) return this.toast("Issue title is mandatory.", true);
+        
+        const res = await this.api('/api/issue/create', 'POST', { title, body, priority, type });
+        if (res) { 
+            this.toast("Issue successfully registered on the board."); 
+            document.getElementById('create-issue-modal').remove(); 
+            this.loadIssues(); 
+        }
     },
 
     async manageIssue(issue_id, action) {

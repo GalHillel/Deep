@@ -344,7 +344,8 @@ class DashboardService:
             title=data.get("title", "Untitled"),
             description=data.get("body", ""),
             type=data.get("type", "task"),
-            author=data.get("author", "Deep Studio")
+            author=data.get("author", "Deep Studio"),
+            priority=data.get("priority", "Medium")
         )
         return {"status": "success", "id": issue.id}
 
