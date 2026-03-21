@@ -137,6 +137,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             elif path == "/api/pr/create": return self.send_json(self.service.create_pr_enhanced(body))
             elif path == "/api/pr/review": return self.send_json(self.service.review_pr(body))
             elif path == "/api/pr/merge": return self.send_json(self.service.merge_local_pr(body))
+            elif path == "/api/pr/comment": return self.send_json(self.service.add_pr_comment(body))
+            elif path == "/api/pr/reply": return self.send_json(self.service.add_pr_reply(body))
+            elif path == "/api/pr/resolve": return self.send_json(self.service.resolve_pr_thread(body))
             elif path == "/api/issue/create": return self.send_json(self.service.create_issue(body))
             elif path == "/api/issue/manage": return self.send_json(self.service.manage_issue(body))
             elif path.startswith("/api/"):

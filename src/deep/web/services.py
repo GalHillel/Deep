@@ -318,7 +318,8 @@ class DashboardService:
             head=data.get("head", ""),
             base=data.get("base", "main"),
             body=data.get("desc") or data.get("body", ""),
-            linked_issue=data.get("issue_id")
+            linked_issue=data.get("issue_id"),
+            requested_reviewers=rev_list
         )
         return {"status": "success", "id": pr.id}
 
@@ -334,6 +335,27 @@ class DashboardService:
 
     def _merge_local_pr_internal(self, data: Dict[str, Any]) -> Dict[str, Any]:
         self.pr_manager.merge_pr(int(data.get("pr_id")))
+        return {"status": "success"}
+
+    def add_pr_comment(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return self._safe(self._add_pr_comment_internal, data)
+
+    def _add_pr_comment_internal(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        self.pr_manager.add_thread(int(data.get("pr_id")), "Deep Studio", data.get("text"))
+        return {"status": "success"}
+
+    def add_pr_reply(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return self._safe(self._add_pr_reply_internal, data)
+
+    def _add_pr_reply_internal(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        self.pr_manager.add_reply(int(data.get("pr_id")), int(data.get("thread_id")), "Deep Studio", data.get("text"))
+        return {"status": "success"}
+
+    def resolve_pr_thread(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return self._safe(self._resolve_pr_thread_internal, data)
+
+    def _resolve_pr_thread_internal(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        self.pr_manager.resolve_thread(int(data.get("pr_id")), int(data.get("thread_id")))
         return {"status": "success"}
 
     def create_issue(self, data: Dict[str, Any]) -> Dict[str, Any]:

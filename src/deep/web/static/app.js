@@ -762,39 +762,99 @@ const App = {
         const iss = data.issues.find(i => i.id == issueId);
         if(!iss) return;
 
+        document.getElementById('issue-detail-modal')?.remove();
+
         const isOpen = iss.state === 'OPEN';
         const priorityColors = { 'High': 'text-red-400 bg-red-950/30 border-red-700', 'Medium': 'text-amber-400 bg-amber-950/30 border-amber-700', 'Low': 'text-emerald-400 bg-emerald-950/30 border-emerald-700' };
         const pClass = priorityColors[iss.priority || 'Medium'];
         const stateColor = isOpen ? 'text-emerald-400 bg-emerald-950/30 border-emerald-700' : 'text-purple-400 bg-purple-950/30 border-purple-700';
 
+        // Structured Description Parsing (CLI Parity)
+        let descriptionHtml = '';
+        const desc = iss.description || iss.body || '';
+        if (desc.startsWith('[BUG]')) {
+            const parts = desc.replace('[BUG]\n', '').split('\n\n');
+            descriptionHtml = parts.map(p => {
+                const [label, ...val] = p.split(':\n');
+                return `<div class="mb-4"><label class="text-[10px] font-black text-red-500 uppercase tracking-widest block mb-1">${label}</label><div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800/50 text-slate-300 font-mono text-xs">${val.join(':\n') || 'N/A'}</div></div>`;
+            }).join('');
+        } else if (desc.startsWith('[FEATURE]')) {
+            const parts = desc.replace('[FEATURE]\n', '').split('\n\n');
+            descriptionHtml = parts.map(p => {
+                const [label, ...val] = p.split(':\n');
+                return `<div class="mb-4"><label class="text-[10px] font-black text-cyan-500 uppercase tracking-widest block mb-1">${label}</label><div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800/50 text-slate-300 font-mono text-xs">${val.join(':\n') || 'N/A'}</div></div>`;
+            }).join('');
+        } else {
+            descriptionHtml = `<div class="text-slate-300 font-mono text-sm leading-relaxed">${desc || '<span class="italic text-slate-600">No description provided.</span>'}</div>`;
+        }
+
+        // Timeline Rendering
+        const timelineHtml = (iss.timeline || []).map(ev => {
+            const ts = new Date(ev.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            let icon = 'fa-circle-dot';
+            let color = 'text-slate-500';
+            let msg = ev.event.replace(/_/g, ' ');
+
+            if (ev.event === 'created') { icon = 'fa-star'; color = 'text-emerald-500'; }
+            else if (ev.event === 'linked_pr') { icon = 'fa-code-branch'; color = 'text-purple-500'; msg = `Linked to PR #${ev.pr}`; }
+            else if (ev.event === 'closed_by_pr') { icon = 'fa-check-double'; color = 'text-purple-400'; msg = `Closed by PR #${ev.pr}`; }
+            else if (ev.event === 'closed') { icon = 'fa-circle-check'; color = 'text-red-500'; }
+            else if (ev.event === 'reopened') { icon = 'fa-rotate-left'; color = 'text-emerald-400'; }
+
+            return `
+                <div class="flex gap-4 items-start relative pb-6 last:pb-0">
+                    <div class="absolute left-[9px] top-6 bottom-0 w-[2px] bg-slate-800 last:hidden"></div>
+                    <div class="w-5 h-5 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center z-10">
+                        <i class="fa-solid ${icon} text-[8px] ${color}"></i>
+                    </div>
+                    <div class="flex-1 -mt-0.5">
+                        <div class="flex justify-between items-center mb-0.5">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${msg}</span>
+                            <span class="text-[9px] font-mono text-slate-600">${ts}</span>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+
         const modalHtml = `
-            <div id="issue-detail-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-200">
-                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[700px] shadow-2xl flex flex-col overflow-hidden">
-                    <div class="p-6 border-b border-slate-800 bg-slate-900/80 flex justify-between items-start">
+            <div id="issue-detail-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in zoom-in-95 duration-200">
+                <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[750px] shadow-2xl flex flex-col overflow-hidden max-h-[85vh]">
+                    <div class="p-6 border-b border-slate-800 bg-slate-800 flex justify-between items-start">
                         <div class="space-y-3">
                             <div class="flex items-center gap-3">
                                 <span class="font-black text-[10px] px-2 py-1 rounded-md border uppercase tracking-widest ${stateColor}">${iss.state}</span>
                                 <span class="font-black text-[10px] px-2 py-1 rounded-md border uppercase tracking-widest ${pClass}">${iss.priority || 'Medium'}</span>
+                                <span class="text-xs text-slate-500 font-mono">#${iss.id}</span>
                             </div>
-                            <h2 class="text-2xl font-black text-white tracking-tight">#${iss.id} ${iss.title}</h2>
-                            <div class="flex items-center gap-4 text-xs text-slate-500 font-mono">
-                                <span><i class="fa-solid fa-user-astronaut mr-2 opacity-50"></i>${iss.author || 'AI Manager'}</span>
-                                <span><i class="fa-solid fa-calendar-day mr-2 opacity-50"></i>${new Date(iss.created_at).toLocaleString()}</span>
+                            <h2 class="text-2xl font-black text-white tracking-tight">${iss.title}</h2>
+                        </div>
+                        <button onclick="document.getElementById('issue-detail-modal').remove()" class="bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-white w-10 h-10 rounded-full flex items-center justify-center transition-all"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    
+                    <div class="flex flex-1 overflow-hidden">
+                        <!-- Description Column -->
+                        <div class="flex-1 p-8 overflow-y-auto border-r border-slate-800 bg-slate-950/30">
+                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-6">Report Details</label>
+                            ${descriptionHtml}
+                        </div>
+                        
+                        <!-- Timeline Column -->
+                        <div class="w-[280px] p-6 bg-slate-900/50 overflow-y-auto">
+                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-6">Activity Timeline</label>
+                            <div class="space-y-1">
+                                ${timelineHtml || '<div class="text-[10px] text-slate-600 italic">No activity yet.</div>'}
                             </div>
                         </div>
-                        <button onclick="document.getElementById('issue-detail-modal').remove()" class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white w-10 h-10 rounded-full flex items-center justify-center transition-all"><i class="fa-solid fa-xmark"></i></button>
                     </div>
-                    <div class="p-8 bg-slate-950/50 text-slate-300 min-h-[150px] max-h-[400px] overflow-y-auto whitespace-pre-wrap font-mono text-sm leading-relaxed border-b border-slate-800">
-                        ${iss.description || iss.body || '<span class="italic text-slate-600">No description provided.</span>'}
-                    </div>
-                    <div class="p-6 bg-slate-900 flex justify-between items-center">
+
+                    <div class="p-6 bg-slate-800 border-t border-slate-700 flex justify-between items-center">
                         <div class="flex gap-2">
-                            ${(iss.labels || []).map(l => `<span class="bg-slate-800 text-slate-400 px-2 py-1 rounded text-[10px] font-bold border border-slate-700">#${l}</span>`).join('')}
+                            ${(iss.labels || []).map(l => `<span class="bg-slate-700 text-slate-400 px-2 py-1 rounded text-[10px] font-bold border border-slate-600">#${l}</span>`).join('')}
                         </div>
                         <div class="flex gap-3">
                             ${isOpen 
-                                ? `<button onclick="App.manageIssue(${iss.id}, 'close'); document.getElementById('issue-detail-modal').remove();" class="bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all border border-slate-700 hover:border-emerald-500"><i class="fa-solid fa-check mr-2"></i>Close Issue</button>` 
-                                : `<button onclick="App.manageIssue(${iss.id}, 'reopen'); document.getElementById('issue-detail-modal').remove();" class="bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all border border-slate-700 hover:border-purple-500"><i class="fa-solid fa-rotate-left mr-2"></i>Reopen Issue</button>`
+                                ? `<button onclick="App.manageIssue(${iss.id}, 'close'); document.getElementById('issue-detail-modal').remove();" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/20"><i class="fa-solid fa-check mr-2"></i>Close Issue</button>` 
+                                : `<button onclick="App.manageIssue(${iss.id}, 'reopen'); document.getElementById('issue-detail-modal').remove();" class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-purple-900/20"><i class="fa-solid fa-rotate-left mr-2"></i>Reopen Issue</button>`
                             }
                         </div>
                     </div>
@@ -802,8 +862,7 @@ const App = {
             </div>`;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     },
-
-    async showCreateIssueModal() {
+    showCreateIssueModal() {
         const modalHtml = `
             <div id="create-issue-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in zoom-in-95 duration-200">
                 <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[550px] shadow-2xl flex flex-col overflow-hidden">
@@ -828,7 +887,7 @@ const App = {
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Type</label>
-                                    <select id="ci-type" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 w-full outline-none focus:border-emerald-600/50 appearance-none font-bold">
+                                    <select id="ci-type" onchange="App.toggleIssueTemplate(this.value)" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 w-full outline-none focus:border-emerald-600/50 appearance-none font-bold">
                                         <option value="task">General Task</option>
                                         <option value="bug">Bug Report</option>
                                         <option value="feature">New Feature</option>
@@ -836,7 +895,9 @@ const App = {
                                 </div>
                             </div>
 
-                            <textarea id="ci-body" placeholder="Describe the details, steps to reproduce, or objectives..." class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full h-40 outline-none focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-mono text-sm resize-none"></textarea>
+                            <div id="ci-template-container" class="space-y-4">
+                                <textarea id="ci-body" placeholder="Describe the details, steps to reproduce, or objectives..." class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full h-40 outline-none focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-mono text-sm resize-none"></textarea>
+                            </div>
                         </div>
                         
                         <button onclick="App.submitNewIssue()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] transition-all shadow-xl shadow-emerald-900/40 active:scale-[0.98]">
@@ -849,11 +910,46 @@ const App = {
         document.getElementById('ci-title').focus();
     },
 
+    toggleIssueTemplate(type) {
+        const container = document.getElementById('ci-template-container');
+        if (!container) return;
+
+        if (type === 'bug') {
+            container.innerHTML = `
+                <textarea id="ci-bug-steps" placeholder="Steps to reproduce..." class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white w-full h-24 outline-none focus:border-emerald-600/50 text-sm font-mono resize-none"></textarea>
+                <textarea id="ci-bug-expected" placeholder="Expected behavior..." class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white w-full h-20 outline-none focus:border-emerald-600/50 text-sm font-mono resize-none"></textarea>
+                <textarea id="ci-bug-actual" placeholder="Actual behavior (Not good...)" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white w-full h-20 outline-none focus:border-emerald-600/50 text-sm font-mono resize-none"></textarea>
+            `;
+        } else if (type === 'feature') {
+            container.innerHTML = `
+                <textarea id="ci-feat-problem" placeholder="What problem does this solve?" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full h-24 outline-none focus:border-emerald-600/50 text-sm font-mono resize-none"></textarea>
+                <textarea id="ci-feat-solution" placeholder="Proposed solution..." class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full h-24 outline-none focus:border-emerald-600/50 text-sm font-mono resize-none"></textarea>
+            `;
+        } else {
+            container.innerHTML = `
+                <textarea id="ci-body" placeholder="Describe the details, steps to reproduce, or objectives..." class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full h-40 outline-none focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-mono text-sm resize-none"></textarea>
+            `;
+        }
+    },
+
     async submitNewIssue() {
         const title = document.getElementById('ci-title').value.trim();
-        const body = document.getElementById('ci-body').value.trim();
         const priority = document.getElementById('ci-priority').value;
         const type = document.getElementById('ci-type').value;
+        let body = "";
+
+        if (type === 'bug') {
+            const steps = document.getElementById('ci-bug-steps').value.trim();
+            const expected = document.getElementById('ci-bug-expected').value.trim();
+            const actual = document.getElementById('ci-bug-actual').value.trim();
+            body = `[BUG]\nSteps:\n${steps}\n\nExpected:\n${expected}\n\nActual:\n${actual}`;
+        } else if (type === 'feature') {
+            const problem = document.getElementById('ci-feat-problem').value.trim();
+            const solution = document.getElementById('ci-feat-solution').value.trim();
+            body = `[FEATURE]\nProblem:\n${problem}\n\nSolution:\n${solution}`;
+        } else {
+            body = document.getElementById('ci-body').value.trim();
+        }
 
         if (!title) return this.toast("Issue title is mandatory.", true);
         
@@ -955,6 +1051,8 @@ const App = {
         const pr = data.prs.find(p => p.id == prId);
         if(!pr) return;
 
+        document.getElementById('pr-detail-modal')?.remove();
+
         const isApproved = pr.state === "APPROVED";
         const isMerged = pr.state === "MERGED" || pr.state === "CLOSED";
         const stateColor = isApproved ? 'text-emerald-400 bg-emerald-950/30 border-emerald-700' : isMerged ? 'text-slate-400 bg-slate-800/30 border-slate-700' : 'text-blue-400 bg-blue-950/30 border-blue-700';
@@ -1005,10 +1103,57 @@ const App = {
                             </h3>
                             <div class="text-slate-300 bg-slate-900/50 p-5 rounded-2xl border border-slate-800 font-mono text-xs leading-relaxed whitespace-pre-wrap">${pr.desc || '<span class="italic text-slate-600">No description provided.</span>'}</div>
                         </div>
-                        
+
+                        <div>
+                            <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                <i class="fa-solid fa-comments text-cyan-500"></i> Code Discussions
+                            </h3>
+                            <div id="pr-threads-container" class="space-y-4">
+                                ${(pr.threads || []).map(t => `
+                                    <div class="bg-slate-900/80 border ${t.resolved ? 'border-emerald-900/50 bg-emerald-950/10' : 'border-slate-800'} p-5 rounded-2xl shadow-sm relative overflow-hidden">
+                                        <div class="flex justify-between items-start mb-3">
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-slate-400 border border-slate-700">
+                                                    <i class="fa-solid fa-user-ninja"></i>
+                                                </div>
+                                                <span class="text-xs font-black text-slate-200">@${t.author}</span>
+                                            </div>
+                                            ${t.resolved 
+                                                ? '<span class="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1"><i class="fa-solid fa-check-circle"></i> Resolved</span>'
+                                                : `<button onclick="App.resolvePRThread(${pr.id}, ${t.id})" class="text-[9px] font-black text-slate-500 hover:text-emerald-500 uppercase tracking-widest transition-colors">Mark Resolved</button>`
+                                            }
+                                        </div>
+                                        <p class="text-sm text-slate-300 ml-9 leading-relaxed font-mono">${t.text}</p>
+                                        
+                                        <div class="mt-4 ml-9 space-y-3 border-l-2 border-slate-800 pl-4">
+                                            ${(t.replies || []).map(r => `
+                                                <div class="text-xs">
+                                                    <div class="flex items-center gap-2 mb-1">
+                                                        <span class="font-black text-slate-400">@${r.author}</span>
+                                                    </div>
+                                                    <p class="text-slate-500 font-mono">${r.text}</p>
+                                                </div>
+                                            `).join('')}
+                                            <div class="flex gap-2 mt-4 pt-2 border-t border-slate-800/50">
+                                                <input type="text" id="reply-to-${t.id}" placeholder="Type a reply..." class="flex-1 bg-transparent border-none text-xs text-slate-400 outline-none placeholder-slate-700">
+                                                <button onclick="App.addPRReply(${pr.id}, ${t.id})" class="text-[10px] text-purple-500 font-black uppercase tracking-widest hover:text-purple-400">Reply</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                                
+                                <div class="bg-slate-950/50 border border-slate-800/50 p-5 rounded-2xl border-dashed">
+                                    <textarea id="pr-new-thread-text" placeholder="Start a new discussion thread..." class="w-full bg-transparent border-none text-sm text-slate-400 outline-none h-16 resize-none placeholder-slate-800 font-mono"></textarea>
+                                    <div class="flex justify-end mt-2">
+                                        <button onclick="App.addPRComment(${pr.id})" class="bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Start Thread</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div>
                             <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                                <i class="fa-solid fa-comments text-purple-500"></i> Local Review Activity
+                                <i class="fa-solid fa-user-check text-purple-500"></i> Review Approvals
                             </h3>
                             <div class="space-y-1">${reviewsHtml}</div>
                         </div>
@@ -1079,6 +1224,11 @@ const App = {
                                 <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Relate Issue ID</label>
                                 <input type="text" id="cpr-issue" placeholder="Optional. e.g. 42" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-mono">
                             </div>
+
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Assign Reviewers</label>
+                                <input type="text" id="cpr-reviewers" placeholder="Comma separated, e.g. alice, bob" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-mono">
+                            </div>
                         </div>
                         
                         <button onclick="App.submitNewPR()" class="bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] transition-all shadow-xl shadow-purple-900/40 active:scale-[0.98]">
@@ -1092,10 +1242,21 @@ const App = {
     },
 
     async submitNewPR() {
-        const payload = { title: id('cpr-title').value.trim(), desc: id('cpr-desc').value.trim(), head: id('cpr-head').value.trim(), base: id('cpr-base').value.trim(), issue_id: id('cpr-issue').value.trim() || null };
-        function id(i) { return document.getElementById(i); }
+        const id = (i) => document.getElementById(i);
+        const payload = { 
+            title: id('cpr-title').value.trim(), 
+            desc: id('cpr-desc').value.trim(), 
+            head: id('cpr-head').value.trim(), 
+            base: id('cpr-base').value.trim(), 
+            issue_id: id('cpr-issue').value.trim() || null,
+            reviewers: id('cpr-reviewers').value.trim()
+        };
         if (!payload.title || !payload.head) return this.toast("Title and Head required", true);
-        if (await this.api('/api/pr/create', 'POST', payload)) { this.toast("PR created!"); document.getElementById('create-pr-modal').remove(); this.loadPRs(); }
+        if (await this.api('/api/pr/create', 'POST', payload)) { 
+            this.toast("PR created!"); 
+            id('create-pr-modal').remove(); 
+            this.loadPRs(); 
+        }
     },
 
     async submitPRReview(pr_id, state) {
@@ -1114,6 +1275,31 @@ const App = {
             document.getElementById('pr-detail-modal')?.remove();
             this.loadPRs();
             this.syncWorkspace();
+        }
+    },
+
+    async addPRComment(pr_id) {
+        const text = document.getElementById('pr-new-thread-text').value.trim();
+        if (!text) return;
+        if (await this.api('/api/pr/comment', 'POST', { pr_id, text })) {
+            this.toast("Thread started");
+            this.showPRDetails(pr_id);
+        }
+    },
+
+    async addPRReply(pr_id, thread_id) {
+        const text = document.getElementById(`reply-to-${thread_id}`).value.trim();
+        if (!text) return;
+        if (await this.api('/api/pr/reply', 'POST', { pr_id, thread_id, text })) {
+            this.toast("Reply posted");
+            this.showPRDetails(pr_id);
+        }
+    },
+
+    async resolvePRThread(pr_id, thread_id) {
+        if (await this.api('/api/pr/resolve', 'POST', { pr_id, thread_id })) {
+            this.toast("Thread resolved");
+            this.showPRDetails(pr_id);
         }
     },
 
