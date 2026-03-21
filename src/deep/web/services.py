@@ -14,6 +14,10 @@ from typing import Any, Dict, List, Optional, Callable
 
 import argparse
 
+def ns(**kwargs):
+    import argparse
+    return argparse.Namespace(**kwargs)
+
 from deep.core.constants import DEEP_DIR # Keep this for now, as the new DEEP_DIR import is part of a larger block that's not fully replacing the old one.
 from deep.core.refs import resolve_head, get_current_branch, list_branches, resolve_revision
 from deep.core.repository import find_repo
@@ -434,27 +438,22 @@ def api_discard_file(filepath):
     try:
         from deep.commands import checkout_cmd
         if not filepath: return {"error": "Filepath required"}
-        # Native checkout file from HEAD discards working tree changes
-        checkout_cmd.run(ns(branch="HEAD", paths=[filepath], force=True, file=False))
+        # Corrected: target="HEAD", not branch="HEAD"
+        checkout_cmd.run(ns(target="HEAD", paths=[filepath], force=True))
         return {"status": "success"}
     except Exception as e: return {"error": str(e)}
 
 def api_ai_suggest():
     try:
         from deep.core.repository import find_repo
-        from deep.ai.analyzer import analyze_changes
-        from deep.ai.assistant import suggest_commit_message
+        from deep.ai.assistant import DeepAI
         
         repo_root = find_repo()
-        stats, diffs = analyze_changes(repo_root)
-        
-        if stats.files_modified == 0 and stats.files_added == 0 and stats.files_deleted == 0:
-            return {"error": "No staged changes to analyze."}
-            
-        suggestion = suggest_commit_message(repo_root)
+        ai = DeepAI(repo_root)
+        suggestion = ai.suggest_commit_message()
         
         if suggestion:
-            msg = suggestion.message if hasattr(suggestion, 'message') else str(suggestion)
+            msg = suggestion.text # It's .text in assistant.py AISuggestion
             parts = msg.split('\n', 1)
             title = parts[0].strip()
             body = parts[1].strip() if len(parts) > 1 else ""
