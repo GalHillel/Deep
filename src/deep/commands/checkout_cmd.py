@@ -27,13 +27,52 @@ Examples:
 
 def run(args: argparse.Namespace) -> None:
     """Execute the ``checkout`` command."""
+    # 2. Identify if we are restoring files or switching branches
+    paths = getattr(args, "paths", [])
+    target = args.target
+    force = getattr(args, "force", False)
+    create_branch = getattr(args, "branch", False)
+
+    if paths:
+        # File-level restore
+        from deep.core.refs import resolve_revision
+        from deep.storage.objects import read_object, Commit, Tree
+        from deep.core.constants import DEEP_DIR
+        
+        dg_dir = repo_root / DEEP_DIR
+        objects_dir = dg_dir / "objects"
+        
+        target_sha = resolve_revision(dg_dir, target)
+        if not target_sha:
+            print(f"Deep: error: '{target}' is not a valid revision.", file=sys.stderr)
+            raise DeepCLIException(1)
+            
+        commit = read_object(objects_dir, target_sha)
+        if not isinstance(commit, Commit):
+            print(f"Deep: error: '{target}' is not a commit.", file=sys.stderr)
+            raise DeepCLIException(1)
+            
+        from deep.core.repository import _get_tree_files
+        all_files = _get_tree_files(objects_dir, commit.tree_sha)
+        
+        for p in paths:
+            # Normalize path
+            rel_p = Path(p).resolve().relative_to(repo_root).as_posix()
+            if rel_p not in all_files:
+                print(f"Deep: error: path '{rel_p}' not found in {target}.", file=sys.stderr)
+                continue
+                
+            sha = all_files[rel_p]
+            blob = read_object(objects_dir, sha)
+            
+            dest = repo_root / rel_p
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(blob.serialize_content())
+            print(f"Updated 1 path from {target_sha[:7]}")
+        return
+
+    # 3. Branch/Commit switching
     try:
-        repo_root = find_repo()
-        
-        target = args.target
-        create_branch = getattr(args, "branch", False)
-        force = getattr(args, "force", False)
-        
         from deep.core.repository import checkout
         from deep.core.state import validate_repo_state
         checkout(repo_root, target, create_branch=create_branch, force=force)
