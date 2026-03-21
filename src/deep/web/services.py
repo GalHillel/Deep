@@ -24,11 +24,11 @@ from deep.core.pr import PRManager
 from deep.core.issue import IssueManager
 from deep.core.diff import diff_working_tree, diff_trees
 
-from deep.commands import add as add_cmd
-from deep.commands import commit as commit_cmd
-from deep.commands import branch as branch_cmd
-from deep.commands import checkout as checkout_cmd
-from deep.commands import merge as merge_cmd
+from deep.commands.add_cmd import run as run_add
+from deep.commands.commit_cmd import run as run_commit
+from deep.commands.branch_cmd import run as run_branch
+from deep.commands.checkout_cmd import run as run_checkout
+from deep.commands.merge_cmd import run as run_merge
 
 
 class DashboardService:
@@ -192,7 +192,7 @@ class DashboardService:
         if not filepath: raise ValueError("Filepath required")
         # Ensure path is normalized for add command
         clean_path = filepath.replace('\\', '/')
-        add_cmd.run(argparse.Namespace(paths=[clean_path]))
+        run_add(argparse.Namespace(paths=[clean_path]))
         return {"status": "success"}
 
     def unstage_file(self, filepath: str) -> Dict[str, Any]:
@@ -221,10 +221,9 @@ class DashboardService:
         if path and content:
             self._save_file_internal(path, content)
             
-        from deep.commands.commit_cmd import run
         class Args:
             def __init__(self, m): self.message = m; self.all = True; self.ai = False; self.sign = False
-        run(Args(message))
+        run_commit(Args(message))
         return {"status": "success", "sha": resolve_head(self.dg_dir)}
 
     def get_graph(self) -> Dict[str, Any]:
@@ -262,40 +261,53 @@ class DashboardService:
         return self._safe(self._checkout_forced_internal, name)
 
     def _checkout_forced_internal(self, name: str) -> Dict[str, Any]:
-        from deep.commands.checkout_cmd import run
         class Args:
             def __init__(self, t): self.target = t; self.force = True; self.branch = False
-        run(Args(name))
+        run_checkout(Args(name))
         return {"status": "success", "branch": name}
 
     def create_branch(self, name: str) -> Dict[str, Any]:
         return self._safe(self._create_branch_internal, name)
 
     def _create_branch_internal(self, name: str) -> Dict[str, Any]:
-        from deep.commands.branch_cmd import run
         class Args:
             def __init__(self, n): self.name = n; self.start_point = "HEAD"; self.delete = False
-        run(Args(name))
+        run_branch(Args(name))
         return {"status": "success", "branch": name}
 
     def merge_branch(self, branch: str) -> Dict[str, Any]:
         return self._safe(self._merge_internal, branch)
 
     def _merge_internal(self, branch: str) -> Dict[str, Any]:
-        from deep.commands.merge_cmd import run
         class Args:
             def __init__(self, b): self.branch = b
-        run(Args(branch))
+        run_merge(Args(branch))
         return {"status": "success", "message": f"Merged {branch}"}
 
     def get_diff(self) -> Dict[str, Any]:
         return self._safe(self._get_diff_internal)
 
     def _get_diff_internal(self) -> Dict[str, Any]:
-        unstaged_diffs = diff_working_tree(self.repo_root)
-        full_diff = ""
-        for path, text in unstaged_diffs: full_diff += text + "\n"
-        return {"diff": full_diff}
+        import sys
+        import io
+        from deep.commands.diff_cmd import run as run_diff
+        
+        # Capture stdout from diff command
+        old_stdout = sys.stdout
+        sys.stdout = mystdout = io.StringIO()
+        try:
+            class Args:
+                def __init__(self):
+                    self.staged = False
+            run_diff(Args())
+        except Exception:
+            import traceback
+            traceback.print_exc()
+        finally:
+            sys.stdout = old_stdout
+            
+        diff_text = mystdout.getvalue()
+        return {"diff": diff_text}
 
     # --- Collaboration Hub ---
 

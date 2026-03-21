@@ -351,7 +351,6 @@ const App = {
         const diffData = await this.api('/api/diff');
         if (!statusData) return;
 
-        // 1. Render Staging Lists
         const renderList = (files, type) => {
             if (!files || files.length === 0) return `<div class="text-slate-600 italic text-sm py-2">Empty</div>`;
             return files.map(f => `
@@ -364,23 +363,27 @@ const App = {
             `).join('');
         };
 
-        const unstaged = [...(statusData.modified || []), ...(statusData.untracked || []), ...(statusData.deleted || [])];
+        const unstaged = [...new Set([...(statusData.modified || []), ...(statusData.untracked || []), ...(statusData.deleted || [])])];
         const staged = statusData.staged || []; 
 
-        document.getElementById('list-unstaged').innerHTML = renderList(unstaged, 'unstaged');
-        document.getElementById('badge-unstaged').textContent = unstaged.length;
+        const elUnstaged = document.getElementById('list-unstaged');
+        const badgeUnstaged = document.getElementById('badge-unstaged');
+        if (elUnstaged) elUnstaged.innerHTML = renderList(unstaged, 'unstaged');
+        if (badgeUnstaged) badgeUnstaged.textContent = unstaged.length;
         
-        document.getElementById('list-staged').innerHTML = renderList(staged, 'staged');
-        document.getElementById('badge-staged').textContent = staged.length;
+        const elStaged = document.getElementById('list-staged');
+        const badgeStaged = document.getElementById('badge-staged');
+        if (elStaged) elStaged.innerHTML = renderList(staged, 'staged');
+        if (badgeStaged) badgeStaged.textContent = staged.length;
 
-        // 2. Parse & Render Glassmorphism Diff Tiles
         const grid = document.getElementById('diff-grid');
+        if (!grid) return;
+
         if (!diffData || !diffData.diff || diffData.diff.trim() === '') {
-            grid.innerHTML = `<div class="col-span-full text-center text-slate-500 py-10 text-lg">No visible changes in tracked files.</div>`;
+            grid.innerHTML = `<div class="col-span-full text-center text-slate-500 py-10 text-lg bg-slate-900/20 rounded-xl border border-slate-800">No visible diff content. Try modifying a tracked file.</div>`;
             return;
         }
 
-        // Advanced Unified Diff Parser
         const files = [];
         let currentFile = null;
         
@@ -393,6 +396,8 @@ const App = {
                 if (line.startsWith('+') && !line.startsWith('+++')) { type = 'add'; currentFile.added++; }
                 else if (line.startsWith('-') && !line.startsWith('---')) { type = 'del'; currentFile.deleted++; }
                 else if (line.startsWith('@@')) type = 'header';
+                else if (line.startsWith('+++') || line.startsWith('---')) type = 'header';
+                else if (line.trim() !== '') type = 'mod';
                 
                 if (type !== 'null' || line.trim() !== '') {
                     currentFile.lines.push({ text: line, type });
@@ -402,9 +407,8 @@ const App = {
         });
         if (currentFile) files.push(currentFile);
 
-        // Render Tiles
-        grid.innerHTML = files.map(file => {
-            const parts = file.name.split('/');
+        grid.innerHTML = files.map((file, idx) => {
+            const parts = file.name ? file.name.split('/') : ['unknown'];
             const filename = parts.pop();
             const folder = parts.join('/') || 'root';
 
@@ -412,16 +416,14 @@ const App = {
             const changeRatio = (file.added + file.deleted) / totalLines;
             const glowOpacity = Math.min(0.5, changeRatio * 2);
 
-            const maxMinimap = 40; 
+            const maxMinimap = 40;
             const minimapScale = Math.max(1, Math.floor(file.minimap.length / maxMinimap));
             const scaledMinimap = file.minimap.filter((_, i) => i % minimapScale === 0).slice(0, maxMinimap);
             const minimapHtml = scaledMinimap.map(t => `<div class="minimap-line minimap-${t}"></div>`).join('');
 
-            const codeHtml = file.lines.slice(0, 15).map(l => 
+            const codeHtml = file.lines.map(l => 
                 `<div class="diff-line ${l.type}"><span>${l.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span></div>`
             ).join('');
-            
-            const overflowWarning = file.lines.length > 15 ? `<div class="text-center text-xs text-cyan-500 py-1 bg-slate-900/80 cursor-pointer hover:bg-slate-800" onclick="App.openFile('${file.name}')">... click to view full file in editor ...</div>` : '';
 
             return `
             <div class="glass-tile rounded-2xl p-5 relative overflow-hidden group wave-active" style="box-shadow: 0 8px 32px 0 rgba(6, 182, 212, ${glowOpacity * 0.3});">
@@ -430,24 +432,21 @@ const App = {
                 <div class="flex justify-between items-start mb-4 relative z-10">
                     <div class="truncate pr-4">
                         <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1"><i class="fa-regular fa-folder text-slate-600"></i> ${folder}</div>
-                        <h4 class="text-lg font-bold text-white truncate group-hover:text-cyan-300 transition-colors cursor-pointer" onclick="App.openFile('${file.name}')">${filename}</h4>
+                        <h4 class="text-lg font-bold text-white truncate group-hover:text-cyan-300 transition-colors cursor-pointer" onclick="App.switchTab('code'); App.openFile('${file.name}')">${filename}</h4>
                     </div>
                     <div class="flex flex-col items-end shrink-0">
-                        <div class="bg-slate-900/80 border border-slate-700 px-2 py-1 rounded-lg flex items-center gap-2 font-mono text-xs font-bold">
+                        <div class="bg-slate-900/80 border border-slate-700 px-2 py-1 rounded-lg flex items-center gap-2 font-mono text-xs font-bold mb-2">
                             <span class="text-green-400">+${file.added}</span>
                             <span class="text-red-400">-${file.deleted}</span>
                         </div>
-                        <button onclick="App.stageFile('${file.name}')" class="mt-2 text-xs bg-cyan-700/50 hover:bg-cyan-600 text-cyan-100 px-2 py-1 rounded border border-cyan-500/50 transition-colors shadow">Stage</button>
+                        <button onclick="App.stageFile('${file.name}')" class="text-xs bg-cyan-700/50 hover:bg-cyan-600 text-cyan-100 px-3 py-1 rounded border border-cyan-500/50 transition-colors shadow flex items-center gap-1"><i class="fa-solid fa-plus"></i> Stage</button>
                     </div>
                 </div>
 
-                <div class="flex gap-3 h-48 relative z-10">
-                    <div class="diff-block flex-1 bg-[#0b0f19]/80 border border-slate-700/50 overflow-hidden relative">
-                        <div class="absolute inset-0 overflow-y-auto pb-4">
+                <div class="flex gap-3 h-64 relative z-10">
+                    <div class="diff-block flex-1 bg-[#0b0f19]/80 border border-slate-700/50 overflow-y-auto relative rounded shadow-inner">
+                        <div class="absolute inset-0 pb-4">
                             ${codeHtml}
-                        </div>
-                        <div class="absolute bottom-0 w-full">
-                            ${overflowWarning}
                         </div>
                     </div>
                     <div class="diff-minimap shrink-0 shadow-inner p-0.5 gap-px">
@@ -460,19 +459,21 @@ const App = {
 
     /* API Actions */
     async stageFile(filepath) {
+        if(!filepath || filepath === 'undefined') return;
         const res = await this.api('/api/stage', 'POST', { filepath });
-        if (res) {
+        if (res && res.status === 'success') {
             this.toast(`Staged: ${filepath}`);
-            await this.syncWorkspace();
+            this.syncWorkspace();
             this.loadDiffContent();
         }
     },
 
     async unstageFile(filepath) {
+        if(!filepath || filepath === 'undefined') return;
         const res = await this.api('/api/unstage', 'POST', { filepath });
-        if (res) {
+        if (res && res.status === 'success') {
             this.toast(`Unstaged: ${filepath}`);
-            await this.syncWorkspace();
+            this.syncWorkspace();
             this.loadDiffContent();
         }
     },
