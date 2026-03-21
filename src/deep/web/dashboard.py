@@ -104,11 +104,17 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     return self.send_json({"success": False, "error": "Invalid JSON"}, 400)
 
             # FINAL ROUTES
-            if path == "/api/commit": return self.send_json(self.service.commit_enhanced(body))
+            if path == "/api/commit": 
+                from deep.web.services import perform_commit
+                return self.send_json(perform_commit(body.get("filepath"), body.get("content"), body.get("message")))
             if path == "/api/item/create": return self.send_json(self.service.create_item(body.get("path"), body.get("type")))
             if path == "/api/file/save": return self.send_json(self.service.save_file_only(body.get("filepath") or body.get("path", ""), body.get("content", "")))
-            if path == "/api/stage": return self.send_json(self.service.stage_file(body.get("filepath")))
-            if path == "/api/unstage": return self.send_json(self.service.unstage_file(body.get("filepath")))
+            if path == "/api/stage": 
+                from deep.web.services import api_stage_file
+                return self.send_json(api_stage_file(body.get("file") or body.get("filepath")))
+            if path == "/api/unstage": 
+                from deep.web.services import api_unstage_file
+                return self.send_json(api_unstage_file(body.get("file") or body.get("filepath")))
             if path == "/api/branch/checkout": return self.send_json(self.service.checkout_branch_forced(body.get("branch") or body.get("name", "")))
             if path == "/api/branch/create": return self.send_json(self.service.create_branch(body.get("name", "")))
             if path == "/api/merge": return self.send_json(self.service.merge_branch(body.get("branch") or body.get("name", "")))

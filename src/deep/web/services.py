@@ -173,58 +173,59 @@ class DashboardService:
 
     def _get_status_internal(self) -> Dict[str, Any]:
         status = compute_status(self.repo_root)
-        current_branch = get_current_branch(self.dg_dir) or "DETACHED"
+        current = get_current_branch(self.dg_dir) or "DETACHED"
+        staged_files = status.staged_new + status.staged_modified + status.staged_deleted
         return {
-            "branch": current_branch,
-            "repo_path": str(self.repo_root),
-            "staged": status.staged_new + status.staged_modified + status.staged_deleted,
+            "branch": current,
             "modified": status.modified,
-            "deleted": status.deleted,
             "untracked": status.untracked,
-            "ahead": status.ahead_count,
-            "behind": status.behind_count
+            "deleted": status.deleted,
+            "staged": staged_files
         }
 
-    def stage_file(self, filepath: str) -> Dict[str, Any]:
-        return self._safe(self._stage_file_internal, filepath)
+def api_stage_file(filepath):
+    try:
+        from deep.commands import add_cmd
+        import argparse
+        add_cmd.run(argparse.Namespace(files=[filepath]))
+        return {"status": "success"}
+    except Exception as e:
+        return {"error": str(e)}
 
-    def _stage_file_internal(self, filepath: str) -> Dict[str, Any]:
-        if not filepath: raise ValueError("Filepath required")
-        # Ensure path is normalized for add command
-        clean_path = filepath.replace('\\', '/')
-        run_add(argparse.Namespace(paths=[clean_path]))
+def api_unstage_file(filepath):
+    try:
+        from deep.commands import reset_cmd
+        import argparse
+        reset_cmd.run(argparse.Namespace(files=[filepath]))
+        return {"status": "success"}
+    except Exception as e:
+        return {"error": str(e)}
+
+def perform_commit(filepath, content, message):
+    try:
+        from deep.commands import add_cmd, commit_cmd
+        from deep.core.repository import find_repo
+        import argparse
+
+        repo_root = find_repo()
+
+        if filepath and content is not None:
+            with open(repo_root / filepath, 'w', encoding='utf-8') as f:
+                f.write(content)
+
+            add_cmd.run(argparse.Namespace(files=[filepath]))
+
+        commit_cmd.run(argparse.Namespace(
+            message=message,
+            ai=False,
+            allow_empty=True,
+            all=False
+        ))
+
         return {"status": "success"}
 
-    def unstage_file(self, filepath: str) -> Dict[str, Any]:
-        return self._safe(self._unstage_file_internal, filepath)
-
-    def _unstage_file_internal(self, filepath: str) -> Dict[str, Any]:
-        if not filepath: raise ValueError("Filepath required")
-        # Unstaging in Deep means removing from index
-        index = read_index(self.dg_dir)
-        clean_path = filepath.replace('\\', '/')
-        if clean_path in index:
-            del index[clean_path]
-            write_index(self.dg_dir, index)
-            return {"status": "success"}
-        return {"status": "ignored", "message": "Not in index"}
-
-    def commit_enhanced(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Commit with optional file saving."""
-        return self._safe(self._commit_enhanced_internal, data)
-
-    def _commit_enhanced_internal(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        path = data.get("filepath")
-        content = data.get("content")
-        message = data.get("message", "Update")
-        
-        if path and content:
-            self._save_file_internal(path, content)
-            
-        class Args:
-            def __init__(self, m): self.message = m; self.all = True; self.ai = False; self.sign = False
-        run_commit(Args(message))
-        return {"status": "success", "sha": resolve_head(self.dg_dir)}
+    except Exception as e:
+        return {"error": str(e)}
 
     def get_graph(self) -> Dict[str, Any]:
         return self._safe(self._get_graph_internal)
