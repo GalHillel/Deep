@@ -73,6 +73,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             elif path == "/api/diff": return self.send_json(self.service.get_diff())
             elif path == "/api/prs/local": return self.send_json(self.service.get_prs_local())
             elif path == "/api/issues/local": return self.send_json(self.service.get_issues_local())
+            elif path == "/api/branches": return self.send_json(self.service.get_branches_list())
             elif path == "/api/ai/suggest":
                 from deep.web.services import api_ai_suggest
                 return self.send_json(api_ai_suggest())

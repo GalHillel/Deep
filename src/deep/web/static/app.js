@@ -96,6 +96,13 @@ const App = {
         const panelEl = document.getElementById(`panel-${tabId}`);
         if (panelEl) panelEl.classList.add('active');
 
+        // Sidebar Visibility (Phase 6)
+        const sidebar = document.getElementById('explorer-sidebar');
+        if (sidebar) {
+            if (tabId === 'code') sidebar.classList.remove('hidden');
+            else sidebar.classList.add('hidden');
+        }
+
         if (tabId === 'code') { this.loadTree(); }
         else if (tabId === 'graph') { this.loadRefsSidebar(); this.loadGraph(); }
         else if (tabId === 'diff') { this.loadDiffSidebar(); this.loadDiffContent(); }
@@ -1024,8 +1031,8 @@ const App = {
             </div>`;
         };
 
-        const openPRs = data.prs.filter(p => p.state === 'OPEN' || p.state === 'DRAFT');
-        const reviewPRs = data.prs.filter(p => p.state === 'APPROVED' || p.state === 'CHANGES_REQUESTED');
+        const openPRs = data.prs.filter(p => (p.state === 'OPEN' || p.state === 'DRAFT') && (p.reviews || []).length === 0 && (p.threads || []).length === 0);
+        const reviewPRs = data.prs.filter(p => (p.state === 'OPEN' || p.state === 'DRAFT' || p.state === 'APPROVED' || p.state === 'CHANGES_REQUESTED') && ((p.reviews || []).length > 0 || (p.threads || []).length > 0));
         const closedPRs = data.prs.filter(p => p.state === 'MERGED' || p.state === 'CLOSED');
 
         openCol.innerHTML = openPRs.length ? openPRs.map(renderPRCard).join('') : `<div class='text-slate-600 border border-dashed border-slate-800/50 p-6 rounded-xl text-center italic text-[10px]'>Queue is empty</div>`;
@@ -1053,7 +1060,7 @@ const App = {
 
         document.getElementById('pr-detail-modal')?.remove();
 
-        const isApproved = pr.state === "APPROVED";
+        const isApproved = pr.isApproved || pr.state === "APPROVED";
         const isMerged = pr.state === "MERGED" || pr.state === "CLOSED";
         const stateColor = isApproved ? 'text-emerald-400 bg-emerald-950/30 border-emerald-700' : isMerged ? 'text-slate-400 bg-slate-800/30 border-slate-700' : 'text-blue-400 bg-blue-950/30 border-blue-700';
         
@@ -1187,7 +1194,17 @@ const App = {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     },
 
-    showCreatePRModal() {
+    async showCreatePRModal() {
+        const [branches, issuesData] = await Promise.all([
+            this.api('/api/branches'),
+            this.api('/api/issues/local')
+        ]);
+        
+        const openIssues = (issuesData?.issues || []).filter(i => i.state === 'OPEN');
+        const branchOpts = (branches || []).map(b => `<option value="${b}" ${b === this.state.workspace.branch ? 'selected' : ''}>${b}</option>`).join('');
+        const targetOpts = (branches || []).map(b => `<option value="${b}" ${b === 'main' ? 'selected' : ''}>${b}</option>`).join('');
+        const issueOpts = `<option value="">-- No Linked Issue --</option>` + openIssues.map(i => `<option value="${i.id}">#${i.id}: ${i.title}</option>`).join('');
+
         const modalHtml = `
             <div id="create-pr-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in zoom-in-95 duration-200">
                 <div class="bg-slate-900 border border-slate-700 rounded-3xl w-[550px] shadow-2xl flex flex-col overflow-hidden">
@@ -1207,11 +1224,15 @@ const App = {
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
                                     <label class="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1.5 text-center">Source Branch (from)</label>
-                                    <input type="text" id="cpr-head" value="${this.state.workspace.branch}" class="bg-transparent border-none text-cyan-400 font-mono font-bold w-full text-center outline-none">
+                                    <select id="cpr-head" class="bg-transparent border-none text-cyan-400 font-mono font-bold w-full text-center outline-none cursor-pointer appearance-none">
+                                        ${branchOpts}
+                                    </select>
                                 </div>
                                 <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
                                     <label class="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1.5 text-center">Target Branch (into)</label>
-                                    <input type="text" id="cpr-base" value="main" class="bg-transparent border-none text-slate-400 font-mono font-bold w-full text-center outline-none">
+                                    <select id="cpr-base" class="bg-transparent border-none text-slate-400 font-mono font-bold w-full text-center outline-none cursor-pointer appearance-none">
+                                        ${targetOpts}
+                                    </select>
                                 </div>
                             </div>
 
@@ -1222,7 +1243,9 @@ const App = {
 
                             <div>
                                 <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Relate Issue ID</label>
-                                <input type="text" id="cpr-issue" placeholder="Optional. e.g. 42" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-mono">
+                                <select id="cpr-issue" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white w-full outline-none focus:border-purple-600/50 focus:ring-1 focus:ring-purple-500/20 transition-all font-mono appearance-none cursor-pointer">
+                                    ${issueOpts}
+                                </select>
                             </div>
 
                             <div>

@@ -266,6 +266,14 @@ class DashboardService:
         diff_text = ansi_escape.sub('', diff_text)
         return {"diff": diff_text}
 
+    def get_branches_list(self) -> Dict[str, Any]:
+        """Simple flat list of branch names for dropdowns."""
+        return self._safe(self._get_branches_list_internal)
+
+    def _get_branches_list_internal(self) -> List[str]:
+        from deep.core.refs import list_branches
+        return list_branches(self.dg_dir)
+
     # --- Collaboration Hub ---
 
     def get_prs_local(self) -> Dict[str, Any]:
@@ -296,14 +304,18 @@ class DashboardService:
         # Normalize PR reviews from Dict to List for easier frontend mapping
         if "reviews" in data and isinstance(data["reviews"], dict):
             review_list = []
+            approvals = 0
             for author, r in data["reviews"].items():
+                state = r.get("status", "COMMENTED").upper()
+                if state == "APPROVED": approvals += 1
                 review_list.append({
                     "reviewer": author,
-                    "state": r.get("status", "COMMENTED").upper(),
+                    "state": state,
                     "comment": r.get("comment", ""),
                     "timestamp": r.get("timestamp", "")
                 })
             data["reviews"] = review_list
+            data["isApproved"] = approvals >= data.get("approvals_required", 1)
             
         return data
 
