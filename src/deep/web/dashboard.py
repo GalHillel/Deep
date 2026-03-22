@@ -144,6 +144,21 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             elif path == "/api/pr/resolve": return self.send_json(self.service.resolve_pr_thread(body))
             elif path == "/api/issue/create": return self.send_json(self.service.create_issue(body))
             elif path == "/api/issue/manage": return self.send_json(self.service.manage_issue(body))
+            elif path == "/api/item/create": return self.send_json(self.service.create_item(body.get("path"), body.get("type")))
+            elif path == "/api/item/rename": return self.send_json(self.service.rename_item(body.get("path"), body.get("new_name")))
+            elif path == "/api/item/delete": return self.send_json(self.service.delete_item(body.get("path")))
+            elif path == '/api/language/format':
+                from deep.web.services import api_lang_format
+                return self.send_json(api_lang_format(body.get('code', ''), body.get('language', '')))
+            elif path == '/api/language/analyze':
+                from deep.web.services import api_lang_analyze
+                return self.send_json(api_lang_analyze(body.get('code', ''), body.get('language', '')))
+            elif path == '/api/language/complete':
+                from deep.web.services import api_lang_complete
+                return self.send_json(api_lang_complete(body))
+            elif path == '/api/language/definition':
+                from deep.web.services import api_lang_definition
+                return self.send_json(api_lang_definition(body))
             elif path.startswith("/api/"):
                 return self.send_json({"success": False, "error": f"API POST route not found: {path}"}, 404)
         except Exception as e:

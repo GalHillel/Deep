@@ -11,8 +11,109 @@ import time
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Callable
-
 import argparse
+
+def api_lang_format(code, language):
+    try:
+        formatted_code = code
+        if language in ['python']:
+            try:
+                import autopep8
+                formatted_code = autopep8.fix_code(code, options={'aggressive': 1})
+            except ImportError:
+                import ast
+                formatted_code = ast.unparse(ast.parse(code))
+                
+        elif language == 'json':
+            import json
+            formatted_code = json.dumps(json.loads(code), indent=4)
+            
+        # Return cleanly so the frontend gets exactly what it needs
+        return {"status": "success", "formatted": formatted_code}
+    except Exception as e:
+        # Fallback to original code so we don't destroy user's work on error
+        return {"status": "error", "message": str(e), "formatted": code}
+
+def api_lang_analyze(code, language):
+    diagnostics = []
+    if language == 'python':
+        try:
+            import subprocess
+            import tempfile
+            # Use flake8 for real linting if available
+            with tempfile.NamedTemporaryFile(suffix='.py', mode='w', delete=False) as f:
+                f.write(code)
+                temp_name = f.name
+            
+            # Using absolute path for flake8 if it's in the environment. 
+            # Note: subprocess.run on windows might need shell=True or finding the full path if not in the PATH of the python process.
+            result = subprocess.run(['flake8', temp_name, '--format=%(row)d:%(col)d:%(code)s:%(text)s'], capture_output=True, text=True)
+            import os
+            try:
+                os.remove(temp_name)
+            except:
+                pass
+            
+            for line in result.stdout.splitlines():
+                parts = line.split(':', 3)
+                if len(parts) >= 4:
+                    diagnostics.append({
+                        "line": int(parts[0]),
+                        "column": int(parts[1]),
+                        "message": f"[{parts[2]}] {parts[3].strip()}",
+                        "severity": 8 if parts[2].startswith('E') or parts[2].startswith('F') else 4 # 8=Error, 4=Warning
+                    })
+        except Exception:
+            pass # Fallback to basic AST or ignore if flake8 missing
+            
+    return {"status": "success", "diagnostics": diagnostics}
+
+def api_lang_complete(payload):
+    try:
+        import jedi
+        code = payload.get('code', '')
+        line = payload.get('line', 1)
+        column = payload.get('column', 1) - 1 # Jedi uses 0-based columns
+        
+        script = jedi.Script(code)
+        completions = script.complete(line, column)
+        
+        results = []
+        for c in completions:
+            kind_map = {'class': 5, 'function': 2, 'instance': 4, 'module': 8, 'keyword': 13, 'statement': 12} # Monaco CompletionItemKind mapping
+            results.append({
+                "label": c.name,
+                "kind": kind_map.get(c.type, 9), # 9 = Property
+                "insertText": c.name,
+                "detail": c.type,
+                "documentation": c.docstring()
+            })
+        return {"status": "success", "completions": results}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "completions": []}
+
+def api_lang_definition(payload):
+    try:
+        import jedi
+        code = payload.get('code', '')
+        line = payload.get('line', 1)
+        column = payload.get('column', 1) - 1
+        
+        script = jedi.Script(code)
+        definitions = script.goto(line, column)
+        
+        if definitions:
+            d = definitions[0]
+            return {
+                "status": "success", 
+                "definition": {
+                    "line": d.line,
+                    "column": d.column + 1
+                }
+            }
+        return {"status": "success", "definition": None}
+    except Exception:
+        return {"status": "error"}
 
 def ns(**kwargs):
     import argparse
@@ -169,6 +270,52 @@ class DashboardService:
             raise ValueError(f"Invalid item type: {item_type}")
 
         return {"success": True, "path": item_path}
+
+    def rename_item(self, path: str, new_name: str) -> Dict[str, Any]:
+        """Rename a file or folder in the repository."""
+        return self._safe(self._rename_item_internal, path, new_name)
+
+    def _rename_item_internal(self, item_path: str, new_name: str) -> Dict[str, Any]:
+        if not item_path or not new_name: raise ValueError("Path and new name required")
+        
+        # Normalize paths
+        old_path = (self.repo_root / item_path.lstrip('/').replace('\\', '/')).resolve()
+        
+        # Calculate new full path (keeping same parent)
+        new_path = old_path.parent / new_name
+        
+        # Security: Ensure paths are within repo
+        if not str(old_path).startswith(str(self.repo_root)) or not str(new_path).startswith(str(self.repo_root)):
+            raise ValueError("Path traversal denied")
+
+        if not old_path.exists(): raise FileNotFoundError(f"Source not found: {item_path}")
+        if new_path.exists(): raise FileExistsError(f"Destination already exists: {new_name}")
+
+        os.rename(str(old_path), str(new_path))
+        return {"success": True, "old_path": item_path, "new_path": str(new_path.relative_to(self.repo_root))}
+
+    def delete_item(self, path: str) -> Dict[str, Any]:
+        """Delete a file or folder permanently."""
+        return self._safe(self._delete_item_internal, path)
+
+    def _delete_item_internal(self, item_path: str) -> Dict[str, Any]:
+        if not item_path: raise ValueError("Path required")
+        
+        import shutil
+        full_path = (self.repo_root / item_path.lstrip('/').replace('\\', '/')).resolve()
+        
+        # Security: Ensure path is within repo
+        if not str(full_path).startswith(str(self.repo_root)):
+            raise ValueError("Path traversal denied")
+
+        if not full_path.exists(): return {"success": True} # Idempotent
+
+        if full_path.is_dir():
+            shutil.rmtree(str(full_path))
+        else:
+            os.remove(str(full_path))
+            
+        return {"success": True}
 
     # --- Git Operations ---
 

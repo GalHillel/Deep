@@ -1,3 +1,659 @@
+const EditorEngine = {
+    editor: null,
+    openTabs: [], // Array of filepaths
+    activeTab: null,
+    selectedPath: null,
+    selectedIsDir: false,
+    treeData: [], // Cached flat list for search
+    expandedFolders: new Set(), // Track open folders
+    dialogType: null,
+    dirtyTabs: [], 
+    splitEditorInstance: null,
+    isSplit: false,
+    activePane: 'main', // 'main' or 'split'
+    models: {}, // Cache Monaco models by filepath
+    contextMenuTarget: null,
+
+    saveState() {
+        localStorage.setItem('deep_editor_tabs', JSON.stringify(this.openTabs));
+        localStorage.setItem('deep_editor_active', this.activeTab || '');
+        localStorage.setItem('deep_editor_split', this.isSplit);
+    },
+
+    restoreState() {
+        try {
+            const tabs = JSON.parse(localStorage.getItem('deep_editor_tabs'));
+            const active = localStorage.getItem('deep_editor_active');
+            const split = localStorage.getItem('deep_editor_split') === 'true';
+            
+            if (split) {
+                this.isSplit = true;
+                const splitDiv = document.getElementById('monaco-host-split');
+                if(splitDiv) splitDiv.classList.remove('hidden');
+            }
+
+            if (tabs && tabs.length > 0) {
+                this.openTabs = tabs;
+                if (active) this.openFile(active);
+                else this.openFile(tabs[0]);
+            }
+        } catch (e) { console.error("Failed to restore editor state", e); }
+    },
+    
+    init() {
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
+        require(['vs/editor/editor.main'], () => {
+            // Boot Language Engine First
+            LanguageEngine.init();
+
+            this.editor = monaco.editor.create(document.getElementById('monaco-host'), {
+                value: "// Welcome to DeepStudio IDE\n// Select a file to begin.",
+                theme: 'vs-dark', 
+                language: 'plaintext',
+                automaticLayout: true,
+                minimap: { enabled: true, renderCharacters: false, scale: 0.7 },
+                bracketPairColorization: { enabled: true, independentColorPoolPerBracketType: true },
+                guides: { indentation: true, bracketPairs: true, highlightActiveIndentation: true },
+                fontFamily: "'Fira Code', 'Consolas', monospace",
+                fontLigatures: true,
+                fontSize: 13,
+                tabSize: 4,
+                insertSpaces: true,
+                smoothScrolling: true,
+                cursorBlinking: "smooth",
+                cursorSmoothCaretAnimation: "on",
+                renderWhitespace: "boundary",
+                scrollBeyondLastLine: false,
+                formatOnPaste: true,
+                suggest: { snippetsPreventQuickSuggestions: false }
+            });
+
+            // FIX: Initialize the Split Editor Instance
+            this.splitEditorInstance = monaco.editor.create(document.getElementById('monaco-host-split'), {
+                value: "// Split View",
+                theme: 'vs-dark',
+                readOnly: true,
+                automaticLayout: true,
+                minimap: { enabled: false } // Save space in split view
+            });
+
+            // Focus Tracking
+            this.editor.onDidFocusEditorWidget(() => { this.activePane = 'main'; });
+            this.splitEditorInstance.onDidFocusEditorWidget(() => { this.activePane = 'split'; });
+
+            // Bind Ctrl+S to Save
+            this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { this.saveActiveFile(); });
+            this.splitEditorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { this.saveActiveFile(); });
+            
+            // Auto Outline parsing on change (Debounced)
+            let timeout;
+            this.editor.onDidChangeModelContent(async () => {
+                const model = this.editor.getModel();
+                if (this.activeTab && !this.dirtyTabs.includes(this.activeTab)) {
+                    this.dirtyTabs.push(this.activeTab);
+                    this.renderTabs(); // Show the ● dot
+                }
+                clearTimeout(timeout);
+                timeout = setTimeout(async () => {
+                    this.parseOutline();
+                    
+                    // Live Diagnostics / Linting (Level 2)
+                    if (model && model.getLanguageId() === 'python') {
+                        const res = await App.api('/api/language/analyze', 'POST', { code: model.getValue(), language: 'python' });
+                        if (res && res.diagnostics) {
+                            const markers = res.diagnostics.map(d => ({
+                                severity: d.severity,
+                                startLineNumber: d.line,
+                                startColumn: d.column || 1,
+                                endLineNumber: d.line,
+                                endColumn: (d.column || 1) + 5,
+                                message: d.message
+                            }));
+                            monaco.editor.setModelMarkers(model, 'flake8', markers);
+                        }
+                    }
+                }, 1000);
+            });
+            this.editor.onDidChangeCursorPosition((e) => {
+                const el = document.getElementById('editor-status-cursor');
+                if(el) el.textContent = `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
+            });
+            
+            // Global Hotkeys
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === '\\') { e.preventDefault(); this.toggleSplit(); }
+                if (e.ctrlKey && e.key === '1') { e.preventDefault(); this.editor.focus(); }
+                if (e.ctrlKey && e.key === '2' && this.isSplit) { e.preventDefault(); this.splitEditorInstance.focus(); }
+            });
+            
+            this.loadTree();
+            this.updateMetrics();
+            setInterval(() => this.updateMetrics(), 3000);
+            this.restoreState(); // Restore user layout
+        });
+
+        // Command Palette Hotkey (Ctrl+P)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'p') {
+                e.preventDefault();
+                const cp = document.getElementById('editor-command-palette');
+                cp.classList.toggle('hidden');
+                if(!cp.classList.contains('hidden')) document.getElementById('cmd-input').focus();
+            }
+        });
+    },
+
+    async loadTree() {
+        // Fetch files and git status concurrently
+        const [treeRes, statusRes] = await Promise.all([
+            App.api('/api/tree'),
+            App.api('/api/status') // From existing backend
+        ]);
+        
+        if (!treeRes || !treeRes.tree) return;
+        
+        const modified = statusRes ? (statusRes.modified || []) : [];
+        const untracked = statusRes ? (statusRes.untracked || []) : [];
+        
+        this.treeData = []; // Reset flat cache for search
+
+        const renderNode = (nodeMap, name, pathPrefix = "") => {
+            const node = nodeMap[name];
+            const isDir = node._type === 'dir';
+            const fullPath = node.path || (pathPrefix + name);
+            
+            if (!isDir) this.treeData.push({ name, path: fullPath });
+
+            // VS Code Git Colors
+            let colorClass = "text-slate-300";
+            let badge = "";
+
+            if (isDir) {
+                // Bubble up git status from children to parent folders
+                let dirHasUntracked = untracked.some(p => p.startsWith(fullPath + '/'));
+                let dirHasModified = modified.some(p => p.startsWith(fullPath + '/'));
+                
+                if (dirHasUntracked && !dirHasModified) { colorClass = "text-[#73c991]"; } // Green
+                else if (dirHasModified) { colorClass = "text-[#e2c08d]"; } // Yellow
+                const isOpen = this.expandedFolders.has(fullPath);
+                let childrenHtml = Object.keys(node.children)
+                    .sort((a,b) => node.children[a]._type === 'dir' ? -1 : 1) // Folders first
+                    .map(k => renderNode(node.children, k, fullPath + "/")).join('');
+                    
+                // FIX: Add logic to toggle the Set on click
+                return `
+                <div class="ml-2">
+                    <div class="flex items-center py-[2px] px-1 cursor-pointer hover:bg-slate-800/50 group rounded transition-colors ${this.selectedPath === fullPath ? 'bg-slate-800' : ''}" 
+                         onclick="
+                            const childDiv = this.nextElementSibling;
+                            childDiv.classList.toggle('hidden');
+                            const icon = this.querySelector('.fa-chevron-right');
+                            icon.style.transform = childDiv.classList.contains('hidden') ? '' : 'rotate(90deg)';
+                            EditorEngine.selectNode('${fullPath}', true, event);
+                         "
+                         oncontextmenu="event.preventDefault(); event.stopPropagation(); EditorEngine.contextMenuTarget = '${fullPath}'; const cm = document.getElementById('context-menu'); cm.classList.remove('hidden'); cm.style.left = event.pageX + 'px'; cm.style.top = event.pageY + 'px';">
+                        <i class="fa-solid fa-chevron-right text-[10px] text-slate-500 mr-1 group-hover:text-white transition-transform" style="transform: ${isOpen ? 'rotate(90deg)' : ''}"></i>
+                        <i class="fa-solid ${isOpen ? 'fa-folder-open' : 'fa-folder'} ${colorClass !== 'text-slate-300' ? colorClass : 'text-cyan-500'} mr-1.5 w-4 text-center"></i>
+                        <span class="${colorClass !== 'text-slate-300' ? colorClass : 'text-slate-300'} truncate group-hover:text-white transition-colors">${name}</span>
+                    </div>
+                    <div class="${isOpen ? '' : 'hidden'} border-l border-slate-700/50 ml-2 shadow-inner">${childrenHtml}</div>
+                </div>`;
+            } else {
+                if (untracked.includes(fullPath)) { colorClass = "text-[#73c991]"; badge = "U"; } // Green
+                else if (modified.includes(fullPath)) { colorClass = "text-[#e2c08d]"; badge = "M"; } // Yellow
+
+                // File Icon logic
+                const ext = name.split('.').pop().toLowerCase();
+                const icon = ext==='py'?'fa-brands fa-python text-[#3776ab]':ext==='js'?'fa-brands fa-js text-[#f1e05a]':ext==='html'?'fa-brands fa-html5 text-[#e34c26]':'fa-regular fa-file-code text-[#cccccc]';
+
+                return `
+                <div class="ml-2 flex items-center justify-between py-[2px] px-1 cursor-pointer group rounded transition-colors ${this.selectedPath === fullPath ? 'bg-cyan-900/40 text-cyan-50' : (this.activeTab === fullPath ? 'bg-slate-800/50 text-slate-200' : 'hover:bg-slate-800/50')}" 
+                     onclick="EditorEngine.selectNode('${fullPath}', false, event)"
+                     oncontextmenu="event.preventDefault(); event.stopPropagation(); EditorEngine.contextMenuTarget = '${fullPath}'; const cm = document.getElementById('context-menu'); cm.classList.remove('hidden'); cm.style.left = event.pageX + 'px'; cm.style.top = event.pageY + 'px';">
+                    <div class="flex items-center truncate">
+                        <i class="${icon} mr-1.5 w-4 text-center"></i>
+                        <span class="${colorClass} truncate">${name}</span>
+                    </div>
+                    ${badge ? `<span class="text-[9px] font-bold ${colorClass} opacity-80 pr-1">${badge}</span>` : ''}
+                </div>`;
+            }
+        };
+
+        let html = Object.keys(treeRes.tree)
+            .sort((a,b) => treeRes.tree[a]._type === 'dir' ? -1 : 1)
+            .map(k => renderNode(treeRes.tree, k)).join('');
+            
+        document.getElementById('editor-tree').innerHTML = html;
+    },    async openFile(path) {
+        if (!this.editor) return App.toast("Editor initializing...", true);
+        
+        if (!this.openTabs.includes(path)) this.openTabs.push(path);
+        this.activeTab = path;
+        
+        this.renderTabs();
+        this.loadTree(); // Re-render to highlight active file
+        this.saveState();
+        
+        const bc = document.getElementById('editor-breadcrumbs');
+        if(bc) bc.innerHTML = path.split('/').map(p => `<span>${p}</span>`).join(' <i class="fa-solid fa-chevron-right text-[8px] mx-1"></i> ');
+
+        // Retrieve or create Monaco Model
+        let model = this.models[path];
+        if (!model) {
+            const data = await App.api(`/api/file?path=${encodeURIComponent(path)}`);
+            if (!data) return;
+            const content = data.isBinary ? `// Binary file\n// ${data.content}` : data.content;
+            const langId = LanguageEngine.getLangFromExt(path);
+            model = monaco.editor.createModel(content, langId, monaco.Uri.file(path));
+            this.models[path] = model;
+        }
+
+        // Apply Model to the currently active pane
+        if (this.activePane === 'split' && this.isSplit) {
+            this.splitEditorInstance.setModel(model);
+            this.splitEditorInstance.updateOptions({ readOnly: model.getValue().startsWith('// Binary file') });
+        } else {
+            this.editor.setModel(model);
+            this.editor.updateOptions({ readOnly: model.getValue().startsWith('// Binary file') });
+        }
+        
+        this.parseOutline();
+    },
+
+    async saveActiveFile() {
+        if (!this.activeTab || !this.models[this.activeTab]) return;
+        const content = this.models[this.activeTab].getValue();
+        const res = await App.api('/api/file/save', 'POST', { filepath: this.activeTab, content });
+        if (res && res.status === 'success') {
+            App.toast(`Saved: ${this.activeTab}`);
+            this.dirtyTabs = this.dirtyTabs.filter(t => t !== this.activeTab);
+            this.renderTabs();
+            this.loadTree();
+        }
+    },
+
+    renderTabs() {
+        const container = document.getElementById('editor-tabs');
+        if(!container) return;
+        container.innerHTML = this.openTabs.map(tab => {
+            const filename = tab.split('/').pop();
+            const isActive = tab === this.activeTab;
+            const isDirty = this.dirtyTabs.includes(tab);
+            const bg = isActive ? 'bg-slate-900 shadow-inner border-t-2 border-t-cyan-500 text-cyan-50' : 'bg-slate-950 text-slate-400 hover:bg-slate-900/50 hover:text-slate-300 border-t-2 border-transparent';
+            
+            return `
+            <div class="${bg} px-4 py-2 text-[12px] font-sans cursor-pointer flex items-center gap-2 border-r border-slate-800 shrink-0 group transition-all" onclick="EditorEngine.openFile('${tab}')">
+                <span class="${isDirty ? 'italic' : ''}">${filename}</span>
+                <div class="flex items-center justify-center w-5 h-5 hover:bg-slate-800 rounded transition-colors" onclick="event.stopPropagation(); EditorEngine.closeTab('${tab}')">
+                    ${isDirty 
+                        ? `<span class="text-[8px] text-cyan-400 group-hover:hidden">●</span><i class="fa-solid fa-xmark text-[10px] hidden group-hover:block"></i>`
+                        : `<i class="fa-solid fa-xmark text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"></i>`
+                    }
+                </div>
+            </div>`;
+        }).join('');
+    },
+
+    closeTab(path) {
+        if (this.dirtyTabs.includes(path)) {
+            if (!confirm(`You have unsaved changes in ${path.split('/').pop()}.\nDo you want to close without saving?`)) return;
+            this.dirtyTabs = this.dirtyTabs.filter(t => t !== path);
+        }
+        
+        this.openTabs = this.openTabs.filter(t => t !== path);
+        this.saveState();
+        if (this.activeTab === path) {
+            if (this.openTabs.length > 0) this.openFile(this.openTabs[0]);
+            else {
+                this.activeTab = null;
+                this.editor.setValue("// No file open");
+                this.renderTabs();
+            }
+        } else this.renderTabs();
+    },
+
+    filterTree(query) {
+        // Quick local fallback search
+        if(!query) return this.loadTree();
+        const results = this.treeData.filter(f => f.name.toLowerCase().includes(query.toLowerCase()));
+        document.getElementById('editor-tree').innerHTML = results.map(f => `
+            <div class="ml-2 flex items-center py-1 cursor-pointer hover:bg-[#2a2d2e] text-[#cccccc]" onclick="EditorEngine.openFile('${f.path}')">
+                <i class="fa-regular fa-file-code mr-1.5 w-4 text-center"></i> <span class="truncate">${f.path}</span>
+            </div>
+        `).join('');
+    },
+
+    handleCommandPalette(query) {
+        if(!query) return;
+        const results = this.treeData.filter(f => f.name.toLowerCase().includes(query.toLowerCase())).slice(0,10);
+        document.getElementById('cmd-results').innerHTML = results.map(f => `
+            <div class="p-3 hover:bg-[#0060a0] cursor-pointer text-white border-b border-[#333]" onclick="EditorEngine.openFile('${f.path}'); document.getElementById('editor-command-palette').classList.add('hidden')">
+                <div class="font-bold">${f.name}</div>
+                <div class="text-xs text-gray-400">${f.path}</div>
+            </div>
+        `).join('');
+    },
+
+    parseOutline() {
+        const code = this.editor.getValue();
+        document.getElementById('editor-outline-container').classList.remove('hidden');
+        
+        let outlineHtml = '';
+        // Very basic regex parsing for Python & JS functions/classes for the Outline view
+        const lines = code.split('\n');
+        lines.forEach((line, idx) => {
+            if (line.match(/^\s*(def|class|function)\s+\w+/)) {
+                const name = line.replace(/^\s*(def|class|function)\s+/, '').split('(')[0].split(':')[0];
+                const type = line.includes('class') ? 'fa-cube text-orange-400' : 'fa-box text-purple-400';
+                outlineHtml += `<div class="text-[#cccccc] text-[11px] py-1 cursor-pointer hover:bg-[#2a2d2e] flex items-center px-2 truncate" onclick="EditorEngine.editor.revealLine(${idx + 1})"><i class="fa-solid ${type} w-4 mr-1"></i> ${name}</div>`;
+            }
+        });
+        document.getElementById('editor-outline').innerHTML = outlineHtml || '<div class="text-[#858585] text-[10px] p-2">No symbols found.</div>';
+    },
+
+    async updateMetrics() {
+        const ws = App.state.workspace;
+        const elBranch = document.getElementById('editor-status-branch');
+        if(elBranch) elBranch.textContent = ws.branch || 'main';
+        try {
+            const diffRes = await App.api('/api/diff');
+            if (diffRes && diffRes.diff) {
+                let add = 0, del = 0;
+                diffRes.diff.split('\n').forEach(line => {
+                    if (line.startsWith('+') && !line.startsWith('+++')) add++;
+                    else if (line.startsWith('-') && !line.startsWith('---')) del++;
+                });
+                const elAdd = document.getElementById('editor-status-add');
+                const elDel = document.getElementById('editor-status-del');
+                if(elAdd) elAdd.textContent = add;
+                if(elDel) elDel.textContent = del;
+            }
+        } catch(e){}
+    },
+
+    toggleFolder(path) {
+        if (this.expandedFolders.has(path)) this.expandedFolders.delete(path);
+        else this.expandedFolders.add(path);
+    },
+
+    selectNode(path, isDir, event) {
+        if(event) event.stopPropagation();
+        this.selectedPath = path;
+        this.selectedIsDir = isDir;
+        if(isDir) this.toggleFolder(path);
+        else this.openFile(path);
+        this.loadTree();
+    },
+
+    clearSelection() {
+        if (this.selectedPath !== null) {
+            this.selectedPath = null;
+            this.selectedIsDir = false;
+            this.loadTree();
+        }
+    },
+
+    promptCreate(type) {
+        this.dialogType = type;
+        
+        let base = '';
+        if (this.selectedPath) {
+            base = this.selectedIsDir ? this.selectedPath : this.selectedPath.substring(0, this.selectedPath.lastIndexOf('/'));
+        } else if (this.activeTab) {
+            base = this.activeTab.substring(0, this.activeTab.lastIndexOf('/'));
+        }
+        
+        document.getElementById('editor-dialog-base').textContent = base ? `${base}/` : '/';
+        document.getElementById('editor-dialog-title').innerHTML = `<i class="fa-solid ${type === 'folder' ? 'fa-folder-plus text-[#dcb67a]' : 'fa-file-medical text-cyan-400'}"></i> New ${type === 'folder' ? 'Folder' : 'File'}`;
+        document.getElementById('editor-dialog-input').placeholder = type === 'folder' ? 'e.g. src/components' : 'e.g. main.js';
+        document.getElementById('editor-dialog-input').value = '';
+        document.getElementById('editor-dialog').classList.remove('hidden');
+        document.getElementById('editor-dialog-input').focus();
+    },
+
+    closeDialog() {
+        document.getElementById('editor-dialog').classList.add('hidden');
+    },
+
+    async confirmDialog() {
+        const input = document.getElementById('editor-dialog-input').value.trim();
+        if(!input) return;
+        
+        let base = '';
+        if (this.selectedPath) {
+            base = this.selectedIsDir ? this.selectedPath : this.selectedPath.substring(0, this.selectedPath.lastIndexOf('/'));
+        } else if (this.activeTab) {
+            base = this.activeTab.substring(0, this.activeTab.lastIndexOf('/'));
+        }
+        const fullPath = (base ? base + '/' : '') + input;
+        
+        document.getElementById('editor-dialog-input').disabled = true;
+        
+        try {
+            const res = await App.api('/api/item/create', 'POST', { path: fullPath, type: this.dialogType });
+            if(res) {
+                if (this.dialogType === 'folder') this.expandedFolders.add(fullPath);
+                await this.loadTree();
+                if (this.dialogType === 'file') this.openFile(fullPath);
+                this.closeDialog();
+            }
+        } finally {
+            document.getElementById('editor-dialog-input').disabled = false;
+        }
+    },
+
+    toggleSplit() {
+        this.isSplit = !this.isSplit;
+        const splitDiv = document.getElementById('monaco-host-split');
+        
+        if (this.isSplit) {
+            splitDiv.classList.remove('hidden');
+            splitDiv.classList.add('flex'); // Ensure it participates in flex properly
+            this.activePane = 'split'; 
+            if(this.activeTab) this.openFile(this.activeTab); 
+        } else {
+            splitDiv.classList.add('hidden');
+            splitDiv.classList.remove('flex');
+            this.activePane = 'main';
+            this.editor.focus();
+        }
+
+        this.saveState();
+
+        // FIX: Double RequestAnimationFrame + Timeout to guarantee flexbox reflow is painted
+        // before Monaco attempts to measure its container size.
+        window.requestAnimationFrame(() => {
+            setTimeout(() => {
+                if (this.editor) this.editor.layout();
+                if (this.splitEditorInstance) this.splitEditorInstance.layout();
+            }, 50);
+        });
+    },
+
+    ctxCreate(type) {
+        const cm = document.getElementById('context-menu');
+        if (cm) cm.classList.add('hidden');
+        if(!this.contextMenuTarget) return;
+        
+        // Ensure tree target selection updates properly before prompting
+        const isDir = !this.treeData.some(n => n.path === this.contextMenuTarget);
+        this.selectNode(this.contextMenuTarget, isDir);
+        this.promptCreate(type);
+    },
+
+    ctxCopyPath() {
+        const cm = document.getElementById('context-menu');
+        if (cm) cm.classList.add('hidden');
+        if(!this.contextMenuTarget) return;
+        navigator.clipboard.writeText(this.contextMenuTarget);
+        App.toast("Copied to clipboard!");
+    },
+    
+    ctxRename() {
+        const cm = document.getElementById('context-menu');
+        if (cm) cm.classList.add('hidden');
+        if(!this.contextMenuTarget) return;
+        const filename = this.contextMenuTarget.split('/').pop();
+        const newName = prompt(`Rename ${filename}:`, filename);
+        if(newName) {
+            // Using placeholder /api/item/rename endpoint, fallback if missing
+            App.api('/api/item/rename', 'POST', { path: this.contextMenuTarget, new_name: newName }).then(() => this.loadTree());
+        }
+    },
+    
+    ctxDelete() {
+        const cm = document.getElementById('context-menu');
+        if (cm) cm.classList.add('hidden');
+        if(!this.contextMenuTarget) return;
+        if(confirm(`Are you sure you want to permanently delete: ${this.contextMenuTarget}?`)) {
+            App.api('/api/item/delete', 'POST', { path: this.contextMenuTarget }).then(() => this.loadTree());
+        }
+    }
+};
+
+const LanguageEngine = {
+    // Top 30 Languages Registry
+    extMap: {
+        'py': 'python', 'js': 'javascript', 'ts': 'typescript', 'java': 'java', 
+        'cs': 'csharp', 'cpp': 'cpp', 'cc': 'cpp', 'c': 'c', 'php': 'php', 
+        'sql': 'sql', 'go': 'go', 'swift': 'swift', 'kt': 'kotlin', 'rs': 'rust', 
+        'rb': 'ruby', 'r': 'r', 'm': 'matlab', 'dart': 'dart', 'scala': 'scala', 
+        'm': 'objective-c', 'vb': 'vb', 'sh': 'shell', 'bash': 'shell', 
+        'f90': 'fortran', 'cbl': 'cobol', 'jl': 'julia', 'pl': 'perl', 
+        'hs': 'haskell', 'lua': 'lua', 'asm': 'assembly', 'groovy': 'groovy', 
+        'sol': 'solidity', 'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown'
+    },
+
+    init() {
+        this.setupEditorConfig();
+        this.registerProviders();
+    },
+
+    getLangFromExt(filename) {
+        if (!filename.includes('.')) return 'plaintext';
+        const ext = filename.split('.').pop().toLowerCase();
+        return this.extMap[ext] || 'plaintext';
+    },
+
+    setupEditorConfig() {
+        // Level 0 & 3: Auto Closing, Bracket Matching, and Formatting Rules
+        monaco.languages.getLanguages().forEach(lang => {
+            monaco.languages.setLanguageConfiguration(lang.id, {
+                autoClosingPairs: [
+                    { open: '{', close: '}' }, { open: '[', close: ']' },
+                    { open: '(', close: ')' }, { open: '"', close: '"' },
+                    { open: "'", close: "'" }
+                ],
+                surroundingPairs: [
+                    { open: '{', close: '}' }, { open: '[', close: ']' },
+                    { open: '(', close: ')' }, { open: '"', close: '"' },
+                    { open: "'", close: "'" }
+                ],
+                bracketColorizationOptions: { enabled: true }
+            });
+        });
+    },
+
+    registerProviders() {
+        // FIX: Separate languages into Backend-dependent vs Native Monaco
+        // Monaco has built-in perfect formatters for JS, TS, JSON, HTML, CSS. We MUST NOT override them.
+        const backendFormatLangs = ['python', 'cpp', 'c', 'java', 'go', 'rust', 'ruby', 'php', 'sql', 'shell'];
+        const hoverLangs = [...backendFormatLangs, 'javascript', 'typescript', 'json', 'html', 'css', 'markdown']; 
+        
+        // 1. Backend Formatting Provider (Shift+Alt+F) ONLY for languages Monaco can't format natively
+        backendFormatLangs.forEach(lang => {
+            monaco.languages.registerDocumentFormattingEditProvider(lang, {
+                async provideDocumentFormattingEdits(model, options, token) {
+                    App.toast(`Formatting ${lang}...`);
+                    try {
+                        const res = await App.api('/api/language/format', 'POST', {
+                            code: model.getValue(), language: lang
+                        });
+                        
+                        if (res && res.formatted && res.formatted !== model.getValue()) {
+                            return [{
+                                range: model.getFullModelRange(),
+                                text: res.formatted
+                            }];
+                        }
+                    } catch(e) { console.error("Formatting failed", e); }
+                    return [];
+                }
+            });
+        });
+
+        // 2. Generic Hover Provider (Level 4)
+        hoverLangs.forEach(lang => {
+            monaco.languages.registerHoverProvider(lang, {
+                provideHover: function (model, position) {
+                    const wordInfo = model.getWordAtPosition(position);
+                    if (wordInfo) {
+                        return {
+                            range: new monaco.Range(position.lineNumber, wordInfo.startColumn, position.lineNumber, wordInfo.endColumn),
+                            contents: [
+                                { value: `**${wordInfo.word}**` },
+                                { value: `*Symbol in ${lang}*` }
+                            ]
+                        };
+                    }
+                    return null;
+                }
+            });
+        });
+
+        // 3. Keep the existing Python Jedi bindings (Completion, Definition, Live Linting) below this line!
+        monaco.languages.registerCompletionItemProvider('python', {
+            triggerCharacters: ['.'],
+            async provideCompletionItems(model, position) {
+                const res = await App.api('/api/language/complete', 'POST', {
+                    code: model.getValue(),
+                    line: position.lineNumber,
+                    column: position.column
+                });
+                
+                if (res && res.completions) {
+                    const word = model.getWordUntilPosition(position);
+                    const range = {
+                        startLineNumber: position.lineNumber,
+                        endLineNumber: position.lineNumber,
+                        startColumn: word.startColumn,
+                        endColumn: word.endColumn
+                    };
+                    
+                    const suggestions = res.completions.map(c => ({
+                        label: c.label,
+                        kind: c.kind,
+                        insertText: c.insertText,
+                        detail: c.detail,
+                        documentation: { value: c.documentation },
+                        range: range
+                    }));
+                    return { suggestions };
+                }
+                return { suggestions: [] };
+            }
+        });
+
+        // 2. GO TO DEFINITION (Level 1/2)
+        monaco.languages.registerDefinitionProvider('python', {
+            async provideDefinition(model, position, token) {
+                const res = await App.api('/api/language/definition', 'POST', {
+                    code: model.getValue(),
+                    line: position.lineNumber,
+                    column: position.column
+                });
+                
+                if (res && res.definition) {
+                    return {
+                        uri: model.uri, // Assuming local file definitions for now
+                        range: new monaco.Range(res.definition.line, res.definition.column, res.definition.line, res.definition.column + 5)
+                    };
+                }
+            }
+        });
+    }
+};
+
 /**
  * ⚓ Deep Studio — app.js (Final Overhaul)
  * The Definitive State Machine for Deep Web IDE.
@@ -111,7 +767,11 @@ const App = {
             else sidebar.classList.add('hidden');
         }
 
-        if (tabId === 'code') { this.loadTree(); }
+        if (tabId === 'code') { 
+            // Initialize Editor Engine if not already done
+            if (!EditorEngine.editor) EditorEngine.init();
+            else EditorEngine.loadTree(); // Refresh on tab switch
+        }
         else if (tabId === 'graph') { this.loadRefsSidebar(); this.loadGraph(); }
         else if (tabId === 'diff') { this.loadDiffSidebar(); this.loadDiffContent(); }
         else if (tabId === 'prs') { this.loadPRs(); }
@@ -120,137 +780,14 @@ const App = {
 
     /* --- EDITOR MODULE (VSCODE PARITY) --- */
     initEditor() {
-        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
-        require(['vs/editor/editor.main'], () => {
-            this.state.editor = monaco.editor.create(document.getElementById('monaco-container'), {
-                value: "// Open a file from the Explorer to begin.",
-                theme: 'vs-dark', language: 'plaintext', automaticLayout: true, minimap: { enabled: false }
-            });
-            // Ctrl+S Binding
-            this.state.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => this.saveCurrentFile());
-        });
+        const legacySidebar = document.getElementById('explorer-sidebar');
+        if (legacySidebar) legacySidebar.style.display = 'none';
+        if (window.EditorApp) EditorApp.init();
     },
-
-    async loadTree() {
-        const data = await this.api('/api/tree');
-        if (!data || !data.tree) return;
-        
-        // Define Active Styles for Tailwind
-        const activeItemClasses = "bg-cyan-900/50 text-white font-semibold border border-cyan-700";
-        const hoverItemClasses = "hover:bg-slate-800";
-
-        const renderNode = (nodeMap, name, depth = 0) => {
-            const node = nodeMap[name];
-            const isDir = node._type === 'dir';
-            const currentPath = node.path || (isDir ? name : ''); 
-            const isActive = this.state.activeContextPath === currentPath;
-            const indent = depth > 0 ? `style="margin-left: ${depth * 10}px;"` : '';
-
-            if (isDir) {
-                let childHtml = '';
-                const sortedKeys = Object.keys(node.children).sort((a, b) => {
-                    const typeA = node.children[a]._type;
-                    const typeB = node.children[b]._type;
-                    if (typeA === typeB) return a.localeCompare(b);
-                    return typeA === 'dir' ? -1 : 1;
-                });
-                for (const key of sortedKeys) childHtml += renderNode(node.children, key, depth + 1);
-                
-                return `
-                <div class="mt-1" ${indent}>
-                    <div id="tree-node-${btoa(currentPath)}"
-                         class="cursor-pointer font-semibold text-slate-300 hover:text-white flex items-center py-1 select-none px-2 rounded transition-all ${hoverItemClasses} ${isActive ? activeItemClasses : ''}" 
-                         onclick="App.setExplorerContext('${currentPath}', 'folder'); this.nextElementSibling.classList.toggle('hidden')">
-                        <i class="fa-solid fa-folder text-cyan-600 mr-2 w-4"></i> ${name}
-                    </div>
-                    <div class="hidden border-l border-slate-800 ml-2 pl-2">
-                        ${childHtml}
-                    </div>
-                </div>`;
-            } else {
-                const iconClass = this.getFileIcon(name);
-                return `
-                <div class="mt-1" ${indent}>
-                    <div id="tree-node-${btoa(currentPath)}"
-                         class="cursor-pointer text-slate-400 hover:text-cyan-400 flex items-center py-1 px-2 rounded transition-all ${hoverItemClasses} ${isActive ? activeItemClasses : ''}" 
-                         onclick="App.setExplorerContext('${currentPath}', 'file')">
-                        <i class="${iconClass} mr-2 w-4 text-[10px]"></i> ${name}
-                    </div>
-                </div>`;
-            }
-        };
-
-        const rootKeys = Object.keys(data.tree).sort((a,b) => {
-            const typeA = data.tree[a]._type;
-            const typeB = data.tree[b]._type;
-            if (typeA === typeB) return a.localeCompare(b);
-            return typeA === 'dir' ? -1 : 1;
-        });
-
-        let html = '<div class="space-y-1 text-[13px] pt-2">';
-        for (const key of rootKeys) html += renderNode(data.tree, key);
-        html += '</div>';
-
-        document.getElementById('sidebar-content').innerHTML = html;
-        
-        if(this.state.activeContextPath) {
-            const el = document.getElementById(`tree-node-${btoa(this.state.activeContextPath)}`);
-            if(el) el.scrollIntoView({ block: 'nearest' });
-        }
-    },
-
-    setExplorerContext(path, type) {
-        // Apply active styles visually
-        if(this.state.activeContextPath) {
-            const oldEl = document.getElementById(`tree-node-${btoa(this.state.activeContextPath)}`);
-            if(oldEl) oldEl.classList.remove("bg-cyan-900/50", "text-white", "font-semibold", "border", "border-cyan-700");
-        }
-        this.state.activeContextPath = path;
-        const newEl = document.getElementById(`tree-node-${btoa(path)}`);
-        if(newEl) newEl.classList.add("bg-cyan-900/50", "text-white", "font-semibold", "border", "border-cyan-700");
-
-        if (type === 'file') this.openFile(path);
-    },
-
-    async openFile(path) {
-        if (!this.state.editor) {
-            this.toast("Editor is still initializing, please wait...", true);
-            return;
-        }
-        
-        this.state.currentFile = path;
-        const header = document.getElementById('editor-header');
-        if(header) header.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2 text-cyan-400"></i> Loading ${path}...`;
-        
-        const data = await this.api(`/api/file?path=${encodeURIComponent(path)}`);
-        
-        if (!data || data.error) {
-            // Error is already toasted by this.api() or data.error exists
-            if(header) header.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-2 text-red-400"></i> Failed to load ${path}`;
-            if(data?.error) this.toast(data.error, true);
-            return;
-        }
-
-        if(header) header.innerHTML = `<i class="fa-regular fa-file-code mr-2 text-cyan-400"></i> ${path}`;
-
-        this.state.editor.setValue(data.isBinary ? `// System Note: ${data.content}` : data.content);
-        this.state.editor.updateOptions({ readOnly: !!data.isBinary });
-        
-        // Set Syntax Highlighting
-        const ext = path.split('.').pop().toLowerCase();
-        const langs = { py: 'python', js: 'javascript', ts: 'typescript', html: 'html', css: 'css', json: 'json', md: 'markdown', txt: 'plaintext' };
-        monaco.editor.setModelLanguage(this.state.editor.getModel(), langs[ext] || 'plaintext');
-    },
-
-    async saveCurrentFile() {
-        if (!this.state.currentFile) return this.toast("No file open.", true);
-        const res = await this.api('/api/file/save', 'POST', { filepath: this.state.currentFile, content: this.state.editor.getValue() });
-        if (res) { 
-            this.toast("File saved (Uncommitted)"); 
-            await this.refreshStatus();
-            if (this.state.tab === 'diff') await this.refreshDiff();
-        }
-    },
+    async loadTree() { if (window.EditorApp) await EditorApp.loadTree(); },
+    setExplorerContext(path, type) { if (window.EditorApp) EditorApp.openFile(path); },
+    async openFile(path) { if (window.EditorApp) await EditorApp.openFile(path); },
+    async saveCurrentFile() { if (window.EditorApp) await EditorApp.executeCommand('save'); },
 
     async triggerCheckout() {
         await this.showBranchPickerModal();
@@ -1595,3 +2132,605 @@ const App = {
 };
 
 window.onload = () => App.init();
+
+// ====================================================
+// DEEP STUDIO VSCODE ENGINE (EDITOR ONLY)
+// ====================================================
+const EditorApp = {
+    state: {
+        activeSidebarArea: 'explorer',
+        tabs: [], activeTab: null, activeGroup: 1,
+        models: {}, trees: {}, status: null,
+        editors: { 1: null, 2: null }, isSplit: false, debounceSaveTimer: null
+    },
+
+    async init() {
+        this.initMonaco();
+        await this.loadTree();
+        this.setupDragDrop();
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#editor-context-menu')) {
+                const cx = document.getElementById('editor-context-menu');
+                if(cx) cx.classList.add('hidden');
+            }
+        });
+    },
+
+    initMonaco() {
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
+        require(['vs/editor/editor.main'], () => {
+            const config = {
+                theme: 'vs-dark', automaticLayout: true, minimap: { enabled: true, renderCharacters: false },
+                bracketPairColorization: { enabled: true }, stickyScroll: { enabled: true }, folding: true,
+                guides: { indentation: true, bracketPairs: true }, smoothScrolling: true, fontLigatures: true,
+                cursorBlinking: "smooth", cursorSmoothCaretAnimation: "on", renderLineHighlight: "all",
+                wordWrap: "on", renderWhitespace: "all", glyphMargin: true, fontSize: 13, fontFamily: "Consolas, 'Courier New', monospace"
+            };
+            this.state.editors[1] = monaco.editor.create(document.getElementById('monaco-container-1'), config);
+            this.state.editors[2] = monaco.editor.create(document.getElementById('monaco-container-2'), config);
+            this.state.editors[1].onDidFocusEditorWidget(() => this.focusGroup(1));
+            this.state.editors[2].onDidFocusEditorWidget(() => this.focusGroup(2));
+            this.state.editors[1].onDidChangeModelContent(() => this.handleContentChange(1));
+            this.state.editors[2].onDidChangeModelContent(() => this.handleContentChange(2));
+            this.state.editors[1].onDidChangeCursorPosition((e) => this.updateCursorStatus(e.position));
+            this.state.editors[2].onDidChangeCursorPosition((e) => this.updateCursorStatus(e.position));
+            this.setupProviders();
+            this.setupKeybindings();
+        });
+    },
+
+    toggleSidebar(area) {
+        this.state.activeSidebarArea = area;
+        ['explorer', 'search', 'outline'].forEach(a => {
+            document.getElementById(`editor-view-${a}`)?.classList.add('hidden');
+            document.getElementById(`editor-activity-indicator-${a}`)?.classList.add('hidden');
+            const icons = document.querySelectorAll('.editor-activity-icon');
+            if(icons.length > 0) {
+              const icon = icons[['explorer', 'search', 'outline'].indexOf(a)];
+              if(icon) { icon.classList.remove('text-white'); icon.classList.add('text-slate-500'); }
+            }
+        });
+        document.getElementById(`editor-view-${area}`)?.classList.remove('hidden');
+        document.getElementById(`editor-activity-indicator-${area}`)?.classList.remove('hidden');
+        const icons = document.querySelectorAll('.editor-activity-icon');
+        if(icons.length > 0) {
+            const activeIcon = icons[['explorer', 'search', 'outline'].indexOf(area)];
+            if(activeIcon) { activeIcon.classList.remove('text-slate-500'); activeIcon.classList.add('text-white'); }
+        }
+    },
+
+    focusGroup(groupId) {
+        this.state.activeGroup = groupId;
+        const g1 = document.getElementById('editor-group-1');
+        const g2 = document.getElementById('editor-group-2');
+        if(g1) g1.style.opacity = groupId === 1 ? '1' : '0.8';
+        if (this.state.isSplit && g2) { g2.style.opacity = groupId === 2 ? '1' : '0.8'; }
+    },
+
+    async api(url, method = 'GET', body = null) { return App.api(url, method, body); },
+    toast(msg, err=false) { App.toast(msg, err); },
+    async loadTree() {
+        const [treeData, statusData] = await Promise.all([
+            this.api('/api/tree'),
+            this.api('/api/status')
+        ]);
+        if (!treeData || !treeData.tree) return;
+        this.state.trees = treeData.tree;
+        this.state.status = statusData || { unstaged: [], staged: [], modified: [], untracked: [], deleted: [] };
+        this.renderTree();
+    },
+
+    getFileIcon(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const icons = {
+            py: 'fa-brands fa-python text-[#3776ab]', js: 'fa-brands fa-js text-[#f7df1e]',
+            ts: 'fa-solid fa-code text-[#3178c6]', html: 'fa-brands fa-html5 text-[#e34f26]',
+            css: 'fa-brands fa-css3-alt text-[#1572b6]', json: 'fa-regular fa-file-lines text-[#cbcb41]',
+            yaml: 'fa-solid fa-file-lines text-[#cb171e]', md: 'fa-brands fa-markdown text-[#ffffff]',
+            c: 'fa-solid fa-c text-[#a8b9cc]', cpp: 'fa-solid fa-c text-[#00599c]',
+            java: 'fa-brands fa-java text-[#b07219]', go: 'fa-solid fa-g text-[#00add8]',
+            rust: 'fa-brands fa-rust text-[#dea584]', sh: 'fa-solid fa-terminal text-[#4ebb8e]',
+            bash: 'fa-solid fa-terminal text-[#4ebb8e]', php: 'fa-brands fa-php text-[#777bb4]',
+            rb: 'fa-solid fa-gem text-[#701516]', txt: 'fa-regular fa-file-lines text-[#cccccc]',
+            default: 'fa-regular fa-file-code text-[#cccccc]'
+        };
+        return icons[ext] || icons.default;
+    },
+
+    getGitStatusColor(path) {
+        if (!this.state.status) return '';
+        const { modified = [], untracked = [], deleted = [], staged = [] } = this.state.status;
+        if (staged.includes(path)) return 'text-[#4ea1df]'; 
+        if (untracked.includes(path)) return 'text-[#73c991]'; 
+        if (modified.includes(path)) return 'text-[#e2c08d]'; 
+        if (deleted.includes(path)) return 'text-[#f14c4c]'; 
+        return '';
+    },
+
+    getDirGitStatus(dirPath, node) {
+        let color = '';
+        const check = (n, currentPath) => {
+            if (n._type === 'dir') {
+                for(let k in n.children) check(n.children[k], n.children[k].path || `${currentPath}/${k}`);
+            } else {
+                const c = this.getGitStatusColor(n.path || currentPath);
+                if (c) color = c; 
+            }
+        };
+        check(node, dirPath);
+        return color;
+    },
+
+    renderTree() {
+        const renderNode = (nodeMap, name, depth = 0) => {
+            const node = nodeMap[name];
+            const isDir = node._type === 'dir';
+            const currentPath = node.path || (isDir ? name : ''); 
+            const isActive = this.state.activeTab === currentPath;
+            const indent = depth * 12;
+
+            if (isDir) {
+                let childHtml = '';
+                const sortedKeys = Object.keys(node.children).sort((a, b) => {
+                    const typeA = node.children[a]._type;
+                    const typeB = node.children[b]._type;
+                    if (typeA === typeB) return a.localeCompare(b);
+                    return typeA === 'dir' ? -1 : 1;
+                });
+                for (const key of sortedKeys) childHtml += renderNode(node.children, key, depth + 1);
+                
+                const dirColor = this.getDirGitStatus(currentPath, node) || 'text-slate-300';
+                return `
+                <div>
+                    <div class="cursor-pointer flex items-center py-[2px] hover:bg-slate-800/50 transition-colors" 
+                         style="padding-left: ${indent}px;"
+                         onclick="this.nextElementSibling.classList.toggle('hidden'); const i = this.querySelector('.fa-chevron-right, .fa-chevron-down'); if(i.classList.contains('fa-chevron-right')) { i.classList.replace('fa-chevron-right', 'fa-chevron-down'); } else { i.classList.replace('fa-chevron-down', 'fa-chevron-right'); }">
+                        <i class="fa-solid fa-chevron-right text-[8px] text-slate-500 w-4 text-center"></i>
+                        <span class="${dirColor} truncate">${name}</span>
+                    </div>
+                    <div class="hidden">
+                        ${childHtml}
+                    </div>
+                </div>`;
+            } else {
+                const iconClass = this.getFileIcon(name);
+                const fileColor = this.getGitStatusColor(currentPath) || (isActive ? 'text-white' : 'text-slate-300');
+                const activeBg = isActive ? 'bg-cyan-900/60' : '';
+                
+                return `
+                <div class="cursor-pointer flex items-center py-[2px] hover:bg-slate-800/50 transition-colors ${activeBg}" 
+                     style="padding-left: ${indent + 16}px;"
+                     onclick="EditorApp.openFile('${currentPath}')"
+                     oncontextmenu="EditorApp.showContextMenu(event, '${currentPath}', 'file')"
+                     draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${currentPath}')">
+                    <i class="${iconClass} w-5 text-center text-[10px]"></i> 
+                    <span class="${fileColor} truncate">${name}</span>
+                </div>`;
+            }
+        };
+
+        const rootKeys = Object.keys(this.state.trees).sort((a,b) => {
+            const typeA = this.state.trees[a]._type;
+            const typeB = this.state.trees[b]._type;
+            if (typeA === typeB) return a.localeCompare(b);
+            return typeA === 'dir' ? -1 : 1;
+        });
+
+        let html = '<div class="pt-1">';
+        for (const key of rootKeys) html += renderNode(this.state.trees, key);
+        html += '</div>';
+
+        const treeEl = document.getElementById('editor-explorer-tree');
+        if(treeEl) treeEl.innerHTML = html;
+    },
+
+    collapseAll() {
+        document.querySelectorAll('#editor-explorer-tree .fa-chevron-down').forEach(el => {
+            el.classList.replace('fa-chevron-down', 'fa-chevron-right');
+            el.closest('div').nextElementSibling.classList.add('hidden');
+        });
+    },
+    async openFile(path, group = null) {
+        if (!path) return;
+        const targetGroup = group || this.state.activeGroup;
+        
+        if (!this.state.tabs.includes(path)) {
+            this.state.tabs.push(path);
+        }
+        
+        this.state.activeTab = path;
+        this.renderTabs();
+        this.renderTree();
+        this.updateBreadcrumbs(path);
+        
+        const editor = this.state.editors[targetGroup];
+        if (!editor) return;
+
+        if (this.state.models[path]) {
+            editor.setModel(this.state.models[path].monacoModel);
+            this.updateCursorStatus(editor.getPosition());
+            return;
+        }
+
+        const data = await this.api(`/api/file?path=${encodeURIComponent(path)}`);
+        if (!data || data.error) return this.toast(`Failed to load ${path}`, true);
+
+        const ext = path.split('.').pop().toLowerCase();
+        const langs = { py: 'python', js: 'javascript', ts: 'typescript', html: 'html', css: 'css', json: 'json', yaml: 'yaml', md: 'markdown', c: 'c', cpp: 'cpp', java: 'java', go: 'go', rs: 'rust', sh: 'shell', php: 'php', rb: 'ruby', txt: 'plaintext' };
+        
+        const model = monaco.editor.createModel(data.isBinary ? `// System Note: ${data.content}` : data.content, langs[ext] || 'plaintext');
+        model.updateOptions({ tabSize: 4, insertSpaces: true });
+        
+        this.state.models[path] = { monacoModel: model, isBinary: !!data.isBinary, dirty: false };
+
+        editor.setModel(model);
+        if(data.isBinary) editor.updateOptions({ readOnly: true });
+        else editor.updateOptions({ readOnly: false });
+        
+        this.updateCursorStatus(editor.getPosition());
+    },
+
+    closeTab(path, e) {
+        if(e) e.stopPropagation();
+        this.state.tabs = this.state.tabs.filter(t => t !== path);
+        
+        if (this.state.activeTab === path) {
+            this.state.activeTab = this.state.tabs.length > 0 ? this.state.tabs[this.state.tabs.length - 1] : null;
+            if (this.state.activeTab) {
+                this.openFile(this.state.activeTab);
+            } else {
+                this.state.editors[1].setModel(null);
+                this.state.editors[2].setModel(null);
+                this.updateBreadcrumbs('');
+            }
+        }
+        this.renderTabs();
+    },
+
+    renderTabs() {
+        const tabsEl = document.getElementById('editor-tabs');
+        if (!tabsEl) return;
+        
+        tabsEl.innerHTML = this.state.tabs.map(path => {
+            const filename = path.split('/').pop();
+            const isActive = this.state.activeTab === path;
+            const icon = this.getFileIcon(filename);
+            const isDirty = this.state.models[path]?.dirty;
+            
+            return `
+            <div class="flex items-center min-w-[120px] max-w-[200px] h-full px-3 border-r border-slate-800 cursor-pointer group ${isActive ? 'editor-active-tab' : 'bg-slate-900 text-slate-500 hover:bg-slate-900/60 hover:text-slate-300'}"
+                 onclick="EditorApp.openFile('${path}')"
+                 onauxclick="if(event.button === 1) EditorApp.closeTab('${path}', event)"
+                 ondblclick="EditorApp.showCommandPalette('Rename: ${path}')">
+                <i class="${icon} text-[12px] mr-2"></i>
+                <span class="text-[12px] truncate flex-1">${filename}</span>
+                <div class="w-4 h-4 flex items-center justify-center ml-2 rounded hover:bg-white/10 ${isDirty ? 'visible' : 'invisible group-hover:visible'}" onclick="EditorApp.closeTab('${path}', event)">
+                    ${isDirty && !isActive ? '<div class="w-2 h-2 rounded-full bg-white"></div>' : '<i class="fa-solid fa-xmark text-[10px]"></i>'}
+                </div>
+            </div>`;
+        }).join('');
+    },
+
+    updateBreadcrumbs(path) {
+        const bc = document.getElementById('editor-breadcrumbs');
+        if(!bc) return;
+        if(!path) { bc.innerHTML = ''; return; }
+        const parts = path.split('/');
+        bc.innerHTML = parts.map((p, i) => `
+            <span class="${i === parts.length - 1 ? 'text-slate-300' : 'text-slate-500'}">${p}</span>
+            ${i < parts.length - 1 ? '<i class="fa-solid fa-chevron-right text-[8px] mx-1 opacity-50"></i>' : ''}
+        `).join('');
+    },
+
+    toggleSplit() {
+        this.state.isSplit = !this.state.isSplit;
+        const g2 = document.getElementById('editor-group-2');
+        const div = document.getElementById('editor-split-divider');
+        
+        if (this.state.isSplit) {
+            g2.classList.remove('hidden'); div.classList.remove('hidden');
+            const currentModel = this.state.editors[1].getModel();
+            if (currentModel) this.state.editors[2].setModel(currentModel);
+            this.focusGroup(2);
+        } else {
+            g2.classList.add('hidden'); div.classList.add('hidden');
+            this.focusGroup(1);
+        }
+    },
+    setupProviders() {
+        const langs = ['python', 'javascript', 'typescript', 'html', 'css', 'json', 'yaml', 'markdown', 'c', 'cpp', 'java', 'go', 'rust', 'shell', 'php', 'ruby'];
+        langs.forEach(lang => {
+            monaco.languages.registerCompletionItemProvider(lang, {
+                provideCompletionItems: (model, position) => {
+                    const word = model.getWordUntilPosition(position);
+                    const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn };
+                    return { suggestions: [
+                        { label: 'log', kind: monaco.languages.CompletionItemKind.Snippet, documentation: 'Log Snippet', insertText: (lang==='python' ? 'print($1)' : 'console.log($1);'), insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range }
+                    ]};
+                }
+            });
+            
+            monaco.languages.registerHoverProvider(lang, {
+                provideHover: (model, position) => {
+                    const word = model.getWordAtPosition(position);
+                    if (word && word.word.length > 3) {
+                        return { contents: [ { value: `**${word.word}**` }, { value: `Length: ${word.word.length} chars` } ] };
+                    }
+                }
+            });
+        });
+
+        const validate = (model, langId) => {
+            const markers = [];
+            const text = model.getValue();
+            const lines = text.split('\n');
+            lines.forEach((line, i) => {
+                const ln = i + 1;
+                if (langId === 'python' && line.match(/^(def|class|if|else|elif|try|except|for|while).*[^:]\s*$/)) {
+                    markers.push({ severity: monaco.MarkerSeverity.Error, startLineNumber: ln, startColumn: 1, endLineNumber: ln, endColumn: line.length + 1, message: "Missing colon ':'" });
+                }
+            });
+            monaco.editor.setModelMarkers(model, "linting", markers);
+            this.updateErrorStatus(markers.length, 0);
+        };
+
+        this.state.editors[1].onDidChangeModelContent(() => { const m = this.state.editors[1].getModel(); if(m) validate(m, m.getLanguageId()); });
+        this.state.editors[2].onDidChangeModelContent(() => { const m = this.state.editors[2].getModel(); if(m) validate(m, m.getLanguageId()); });
+    },
+
+    setupKeybindings() {
+        const bind = (editor) => {
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => this.executeCommand('save'));
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => this.showCommandPalette('>'));
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP, () => this.showCommandPalette(''));
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Backslash, () => this.toggleSplit());
+            editor.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => this.executeCommand('format'));
+        };
+        bind(this.state.editors[1]); bind(this.state.editors[2]);
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'p') { e.preventDefault(); this.showCommandPalette(''); }
+            if (e.ctrlKey && e.shiftKey && e.key === 'P') { e.preventDefault(); this.showCommandPalette('>'); }
+            if (e.ctrlKey && e.key === '\\') { e.preventDefault(); this.toggleSplit(); }
+            if (e.ctrlKey && e.key === 's') { e.preventDefault(); this.executeCommand('save'); }
+        });
+    },
+
+    async executeCommand(cmd) {
+        if (cmd === 'save') {
+           const path = this.state.activeTab;
+           if (!path || !this.state.models[path]) return;
+           const content = this.state.models[path].monacoModel.getValue();
+           const res = await this.api('/api/file/save', 'POST', { filepath: path, content });
+           if (res) {
+               this.state.models[path].dirty = false;
+               this.renderTabs();
+               this.toast("File saved");
+               await App.refreshStatus();
+           }
+        } else if (cmd === 'format') {
+           const path = this.state.activeTab;
+           if (!path || !this.state.models[path]) return;
+           this.toast("Formatting code (Browser-native)...");
+           const editor = this.state.editors[this.state.activeGroup];
+           if (editor) {
+               editor.getAction('editor.action.formatDocument').run().then(() => {
+                   this.toast("Formatting applied!");
+               });
+           }
+        }
+    },
+
+    handleContentChange(_) {
+        const path = this.state.activeTab;
+        if (!path || !this.state.models[path]) return;
+        this.state.models[path].dirty = true;
+        this.renderTabs();
+        
+        clearTimeout(this.state.debounceSaveTimer);
+        this.state.debounceSaveTimer = setTimeout(() => { this.executeCommand('save'); }, 1000);
+    },
+
+    updateCursorStatus(pos) {
+        const cursorEl = document.getElementById('editor-status-cursor');
+        if (cursorEl && pos) { cursorEl.innerText = `Ln ${pos.lineNumber}, Col ${pos.column}`; }
+        const model = this.state.editors[this.state.activeGroup]?.getModel();
+        if (model) {
+            const langEl = document.getElementById('editor-status-lang');
+            if (langEl) langEl.innerText = model.getLanguageId();
+        }
+    },
+    
+    updateErrorStatus(errors, warnings) {
+        const el = document.getElementById('editor-status-errors');
+        if (el) {
+            if (errors === 0 && warnings === 0) el.classList.add('hidden');
+            else {
+                el.classList.remove('hidden');
+                const eEl = document.getElementById('editor-status-error-count');
+                const wEl = document.getElementById('editor-status-warn-count');
+                if(eEl) eEl.innerText = errors;
+                if(wEl) wEl.innerText = warnings;
+            }
+        }
+    },
+
+    showCommandPalette(prefix = '>', selectAll = false) {
+        const pal = document.getElementById('editor-command-palette');
+        if(!pal) return;
+        pal.classList.remove('hidden');
+        const input = document.getElementById('editor-cmd-input');
+        input.value = prefix;
+        input.focus();
+        if (selectAll) input.select();
+        this.filterCommandPalette();
+
+        input.oninput = () => this.filterCommandPalette();
+        input.onkeydown = (e) => {
+            if (e.key === 'Escape') { pal.classList.add('hidden'); } 
+            else if (e.key === 'Enter') {
+                const active = document.querySelector('.editor-cmd-item.bg-cyan-600');
+                if (active) active.click();
+            } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const items = Array.from(document.querySelectorAll('.editor-cmd-item'));
+                if (!items.length) return;
+                let idx = items.findIndex(el => el.classList.contains('bg-cyan-600'));
+                if (idx >= 0) items[idx].classList.remove('bg-cyan-600', 'text-white');
+                idx = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 < 0 ? items.length - 1 : idx - 1);
+                items[idx].classList.add('bg-cyan-600', 'text-white');
+                items[idx].scrollIntoView({ block: 'nearest' });
+            }
+        };
+    },
+
+    filterCommandPalette() {
+        const input = document.getElementById('editor-cmd-input').value;
+        const resEl = document.getElementById('editor-cmd-results');
+        
+        let html = '';
+        if (input.startsWith('Rename:')) {
+             html = '<div class="px-3 py-1 text-slate-400 text-xs">Press Enter to rename (Mock)</div>';
+        } else if (input.startsWith('>')) {
+            const query = input.slice(1).trim().toLowerCase();
+            const commands = [
+                { label: 'File: Save', cmd: () => this.executeCommand('save') },
+                { label: 'File: New File', cmd: () => this.newFile() },
+                { label: 'File: New Folder', cmd: () => this.newFolder() },
+                { label: 'Format Document', cmd: () => this.executeCommand('format') },
+                { label: 'View: Toggle Split Editor', cmd: () => this.toggleSplit() },
+                { label: 'View: Explorer', cmd: () => this.toggleSidebar('explorer') },
+                { label: 'View: Search', cmd: () => this.toggleSidebar('search') }
+            ];
+            
+            const filtered = commands.filter(c => c.label.toLowerCase().includes(query));
+            html = filtered.map((c, i) => `
+                <div class="editor-cmd-item cursor-pointer px-3 py-[6px] flex items-center ${i === 0 ? 'bg-cyan-600 text-white' : 'hover:bg-slate-800/50'}"
+                     onclick="document.getElementById('editor-command-palette').classList.add('hidden'); EditorApp.executeCommandObj(${i})">
+                    ${c.label}
+                </div>
+            `).join('');
+            this._cmdRefs = filtered;
+        } else {
+            const query = input.trim().toLowerCase();
+            const files = [];
+            const collect = (node, path) => {
+                if (node._type === 'dir') { for(let k in node.children) collect(node.children[k], node.children[k].path || `${path}/${k}`); }
+                else files.push(node.path || path);
+            };
+            for(let k in this.state.trees) collect(this.state.trees[k], this.state.trees[k].path || k);
+            
+            const filtered = files.filter(f => f.toLowerCase().includes(query)).slice(0, 50);
+            html = filtered.map((f, i) => `
+                <div class="editor-cmd-item cursor-pointer px-3 py-[6px] flex items-center ${i === 0 ? 'bg-cyan-600 text-white' : 'hover:bg-slate-800/50'}"
+                     onclick="document.getElementById('editor-command-palette').classList.add('hidden'); EditorApp.openFile('${f}')">
+                    <i class="${this.getFileIcon(f)} w-5 text-center mr-2 text-[12px]"></i>
+                    ${f.split('/').pop()} <span class="text-[10px] text-slate-500 ml-2">${f}</span>
+                </div>
+            `).join('');
+        }
+        resEl.innerHTML = html || '<div class="px-3 py-1 text-slate-500 text-xs">No matching results</div>';
+    },
+
+    executeCommandObj(idx) {
+        if (this._cmdRefs && this._cmdRefs[idx]) this._cmdRefs[idx].cmd();
+    },
+
+    updateOutline() {
+        const path = this.state.activeTab;
+        if (!path || !this.state.models[path]) return;
+        const model = this.state.models[path].monacoModel;
+        const text = model.getValue();
+        const lang = model.getLanguageId();
+        
+        let regex = null;
+        if (lang === 'python') regex = /^(def|class)\s+([a-zA-Z0-9_]+)/gm;
+        if (lang === 'javascript' || lang === 'typescript') regex = /(function|class)\s+([a-zA-Z0-9_]+)/gm;
+        if (lang === 'java' || lang === 'php') regex = /(class|interface|function)\s+([a-zA-Z0-9_]+)/gm;
+        
+        const outlineEl = document.getElementById('editor-outline-tree');
+        if (!outlineEl) return;
+        
+        if (!regex) {
+           outlineEl.innerHTML = '<div class="text-slate-500 p-2 text-xs">Outline not supported for this language.</div>';
+           return;
+        }
+        
+        let match;
+        let html = '';
+        while ((match = regex.exec(text)) !== null) {
+            const type = match[1];
+            const name = match[2];
+            const icon = (type === 'class' || type === 'interface') ? 'fa-solid fa-cubes text-[#e2c08d]' : 'fa-solid fa-cube text-[#b180d7]';
+            const pos = model.getPositionAt(match.index);
+            html += `
+                <div class="cursor-pointer hover:bg-slate-800/50 py-[2px] px-4 flex items-center truncate text-slate-300" 
+                     onclick="EditorApp.state.editors[EditorApp.state.activeGroup].revealPositionInCenter({lineNumber: ${pos.lineNumber}, column: ${pos.column}}); EditorApp.state.editors[EditorApp.state.activeGroup].setPosition({lineNumber: ${pos.lineNumber}, column: ${pos.column}});">
+                    <i class="${icon} w-5 text-center text-[10px] mr-1"></i> ${name}
+                </div>
+            `;
+        }
+        
+        outlineEl.innerHTML = html || '<div class="text-slate-500 p-2 text-xs">No symbols found</div>';
+    },
+
+    showContextMenu(e, path, type) {
+        e.preventDefault(); e.stopPropagation();
+        const menu = document.getElementById('editor-context-menu');
+        menu.style.left = `${e.pageX}px`; menu.style.top = `${e.pageY}px`;
+        menu.classList.remove('hidden');
+        menu.innerHTML = `
+            <div class="hover:bg-cyan-600 hover:text-white px-6 py-1 cursor-pointer transition-colors" onclick="EditorApp.newFile('${path}')">New File</div>
+            <div class="hover:bg-cyan-600 hover:text-white px-6 py-1 cursor-pointer transition-colors" onclick="EditorApp.newFolder('${path}')">New Folder</div>
+            <div class="h-[1px] bg-slate-700 my-1"></div>
+            <div class="hover:bg-cyan-600 hover:text-white px-6 py-1 cursor-pointer transition-colors" onclick="EditorApp.showCommandPalette('Rename: ${path}')">Rename</div>
+            <div class="hover:bg-[#f14c4c] hover:text-white px-6 py-1 cursor-pointer text-[#f14c4c] transition-colors" onclick="EditorApp.deletePath('${path}')">Delete</div>
+            <div class="h-[1px] bg-slate-700 my-1"></div>
+            <div class="hover:bg-cyan-600 hover:text-white px-6 py-1 cursor-pointer transition-colors" onclick="navigator.clipboard.writeText('${path}'); EditorApp.toast('Copied path')">Copy Path</div>
+        `;
+    },
+
+    async deletePath(path) {
+        document.getElementById('editor-context-menu').classList.add('hidden');
+        if(confirm(`Are you sure you want to delete ${path}?`)) this.toast(`Mock Delete: ${path}`);
+    },
+    
+    async newFile(basePath = '') {
+        document.getElementById('editor-context-menu').classList.add('hidden');
+        const name = prompt("File Name:");
+        if (name) {
+            const path = (basePath ? basePath + '/' : '') + name;
+            const res = await this.api('/api/item/create', 'POST', { path, type: 'file' });
+            if (res) {
+                await this.loadTree();
+                this.openFile(path);
+            }
+        }
+    },
+    async newFolder(basePath = '') {
+        document.getElementById('editor-context-menu').classList.add('hidden');
+        const name = prompt("Folder Name:");
+        if (name) {
+            const path = (basePath ? basePath + '/' : '') + name;
+            const res = await this.api('/api/item/create', 'POST', { path, type: 'folder' });
+            if (res) await this.loadTree();
+        }
+    },
+
+    setupDragDrop() {
+        let isResizing = false;
+        const divider = document.getElementById('editor-split-divider');
+        const g1 = document.getElementById('editor-group-1');
+        
+        if (divider && g1) {
+            divider.onmousedown = (e) => { isResizing = true; };
+            document.onmousemove = (e) => {
+                if (!isResizing) return;
+                const newWidth = e.clientX - 300; 
+                if(newWidth > 100) g1.style.flex = `0 0 ${newWidth}px`;
+            };
+            document.onmouseup = () => { if(isResizing) { isResizing = false; this.state.editors[1].layout(); this.state.editors[2].layout(); } };
+        }
+        setInterval(() => this.updateOutline(), 3000);
+    }
+};
