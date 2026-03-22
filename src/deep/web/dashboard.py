@@ -188,6 +188,19 @@ def _tree_entries_flat(objects_dir, tree_sha, prefix=""):
     except Exception: pass
     return entries
 
+def _get_repo_dg_dir(base_dir: Path, repo_name: str) -> Path:
+    """Security helper to resolve repository .deep directory from a base path."""
+    # Prevent basic traversals and normalize
+    safe_name = repo_name.lstrip('/').replace('\\', '/')
+    repo_path = (base_dir / safe_name).resolve()
+    base_resolved = base_dir.resolve()
+    
+    # Crucial Security Check: Ensure the resolved path stays within base_dir
+    if not str(repo_path).startswith(str(base_resolved)):
+        raise ValueError("Security Violation: Path traversal detected")
+        
+    return repo_path / DEEP_DIR
+
 def start_dashboard(repo_root: Path, host: str = "127.0.0.1", port: int = 9000):
     """Start the Web Dashboard HTTP server."""
     dg_dir = repo_root / DEEP_DIR
