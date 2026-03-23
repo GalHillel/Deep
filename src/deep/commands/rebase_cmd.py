@@ -24,6 +24,7 @@ from deep.core.refs import (
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.core.reconcile import logical_rebase
+from deep.storage.transaction import TransactionManager
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``rebase`` command."""
@@ -61,52 +62,66 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print("Deep: error: working directory not clean.", file=sys.stderr)
         raise DeepCLIException(1)
 
-    try:
-        from deep.core.merge import find_lca
-        lca = find_lca(objects_dir, head_sha, target_sha)
-        
-        if head_sha == target_sha or lca == target_sha:
-            print("Current branch is up to date.")
-            return
+    with TransactionManager(dg_dir) as tm:
+        try:
+            from deep.core.merge import find_lca
+            lca = find_lca(objects_dir, head_sha, target_sha)
+            
+            if head_sha == target_sha or lca == target_sha:
+                print("Current branch is up to date.")
+                return
 
-        # Fast-forward check
-        if lca == head_sha:
-            new_head, renamed_log = target_sha, {}
-            print(f"Fast-forwarded to {target_branch}.")
+            # Rebase operation starts.
+            curr_branch = get_current_branch(dg_dir)
+            
+            tm.begin(
+                operation="rebase",
+                details=f"rebase onto {target_branch}",
+                target_object_id=target_sha, # This will be updated by logical_rebase results
+                branch_ref=f"refs/heads/{curr_branch}" if curr_branch else "HEAD",
+                previous_commit_sha=head_sha,
+            )
+
+            # Fast-forward check
+            if lca == head_sha:
+                new_head, renamed_log = target_sha, {}
+                print(f"Fast-forwarded to {target_branch}.")
+            else:
+                new_head, renamed_log = logical_rebase(repo_root, objects_dir, head_sha, target_sha)
+                if renamed_log:
+                    print("Windows Path Sanitization applied.")
+        except RuntimeError as e:
+            print(f"Rebase aborted: {e}", file=sys.stderr)
+            raise DeepCLIException(1)
+
+        # Update branch pointer and checkout
+        if curr_branch:
+            update_branch(dg_dir, curr_branch, new_head)
         else:
-            new_head, renamed_log = logical_rebase(repo_root, objects_dir, head_sha, target_sha)
-            if renamed_log:
-                print("Windows Path Sanitization applied.")
-    except RuntimeError as e:
-        print(f"Rebase aborted: {e}", file=sys.stderr)
-        raise DeepCLIException(1)
-
-    # Update branch pointer and checkout
-    curr_branch = get_current_branch(dg_dir)
-    if curr_branch:
-        update_branch(dg_dir, curr_branch, new_head)
-    else:
-        update_head(dg_dir, new_head)
+            update_head(dg_dir, new_head)
+            
+        # Restore working directory
+        target_commit = read_object(objects_dir, new_head)
+        assert isinstance(target_commit, Commit)
+        tree = read_object(objects_dir, target_commit.tree_sha)
+        assert isinstance(tree, Tree)
         
-    # Restore working directory
-    target_commit = read_object(objects_dir, new_head)
-    assert isinstance(target_commit, Commit)
-    tree = read_object(objects_dir, target_commit.tree_sha)
-    assert isinstance(tree, Tree)
-    
-    # Clean up old files from index to avoid stale entries
-    old_index = read_index(dg_dir)
-    for rel_path in old_index.entries:
-        full = repo_root / rel_path
-        if full.exists() and full.is_file():
-            try:
-                full.unlink()
-            except OSError:
-                pass
+        # Clean up old files from index to avoid stale entries
+        from deep.storage.index import read_index_no_lock, write_index_no_lock
+        old_index = read_index_no_lock(dg_dir)
+        for rel_path in old_index.entries:
+            full = repo_root / rel_path
+            if full.exists() and full.is_file():
+                try:
+                    full.unlink()
+                except OSError:
+                    pass
 
-    new_index = DeepIndex()
-    _restore_tree_to_workdir(repo_root, objects_dir, tree, new_index)
-    write_index(dg_dir, new_index)
+        new_index = DeepIndex()
+        _restore_tree_to_workdir(repo_root, objects_dir, tree, new_index)
+        write_index_no_lock(dg_dir, new_index)
+        
+        tm.commit()
     
     if lca != head_sha:
         print(f"Deep: Successfully rebased and updated {curr_branch or 'HEAD'}.")

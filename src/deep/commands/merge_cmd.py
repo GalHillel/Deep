@@ -30,6 +30,7 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.storage.transaction import TransactionManager
 from deep.core.config import Config
 from deep.core.telemetry import TelemetryCollector, Timer
 from deep.core.audit import AuditLog
@@ -134,7 +135,14 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         print("Deep: error: no commits on current branch.", file=sys.stderr)
         raise DeepCLIException(1)
 
-    # Resolve target branch.
+    # 1. Dirty check (REQUIRED for safety)
+    from deep.core.status import compute_status
+    status = compute_status(repo_root)
+    if status.staged_new or status.staged_modified or status.staged_deleted or status.modified or status.deleted:
+        print("Deep: error: working directory not clean. Please commit or stash your changes.", file=sys.stderr)
+        raise DeepCLIException(1)
+
+    # 2. Resolve target branch.
     from deep.core.refs import resolve_revision
     target_sha = resolve_revision(dg_dir, target_branch)
     if target_sha is None:
@@ -145,75 +153,53 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         print("Already up to date.")
         return
 
-    # Find LCA.
+    # 3. Find LCA.
     lca_sha = find_lca(objects_dir, head_sha, target_sha)
-
-    # Case 1: LCA == target → already up to date.
     if lca_sha == target_sha:
         print("Already up to date.")
         return
 
-    # Acquire locks for the merge operation
-    from deep.core.locks import RepositoryLock
-    repo_lock = RepositoryLock(dg_dir)
-    try:
-        repo_lock.acquire()
-    except TimeoutError as e:
-        print(f"Deep: error: {e}", file=sys.stderr)
-        raise DeepCLIException(1)
-
-    try:
-        from deep.storage.txlog import TransactionLog
-        txlog = TransactionLog(dg_dir)
+    with TransactionManager(dg_dir) as tm:
         telemetry = TelemetryCollector(dg_dir)
         audit = AuditLog(dg_dir)
-        
         config = Config(repo_root)
         author_name = config.get("user.name", "Deep User")
         
         with Timer(telemetry, "merge"):
             current_branch = get_current_branch(dg_dir)
 
-            # Case 2: LCA == HEAD → fast-forward.
+            # Case A: Fast-forward.
             if lca_sha == head_sha:
-                tx_id = txlog.begin(
+                tm.begin(
                     operation="merge",
                     details=f"fast-forward merge {target_branch}",
                     target_object_id=target_sha,
                     branch_ref=f"refs/heads/{current_branch}" if current_branch else "HEAD",
                     previous_commit_sha=head_sha,
                 )
-                try:
-                    print(f"Updating {head_sha[:7]}..{target_sha[:7]}")
-                    print("Fast-forward")
+                print(f"Updating {head_sha[:7]}..{target_sha[:7]}")
+                print("Fast-forward")
 
-                    target_commit = read_object(objects_dir, target_sha)
-                    target_files = _get_tree_files(objects_dir, target_commit.tree_sha)
-                    current_index = read_index_no_lock(dg_dir)
+                target_commit = read_object(objects_dir, target_sha)
+                target_files = _get_tree_files(objects_dir, target_commit.tree_sha)
+                current_index = read_index_no_lock(dg_dir)
 
-                    new_index = _apply_tree_to_workdir(repo_root, objects_dir, target_files, current_index)
-                    write_index_no_lock(dg_dir, new_index)
+                new_index = _apply_tree_to_workdir(repo_root, objects_dir, target_files, current_index)
+                write_index_no_lock(dg_dir, new_index)
 
-                    # Crash hook: after index update, before ref update
-                    if os.environ.get("DEEP_CRASH_TEST") == "MERGE_FF_AFTER_INDEX_UPDATE":
-                        raise BaseException("Deep: simulated crash during FF merge (after index update)")
+                if current_branch:
+                    update_branch(dg_dir, current_branch, target_sha)
+                else:
+                    from deep.core.refs import update_head
+                    update_head(dg_dir, target_sha)
 
-                    if current_branch:
-                        update_branch(dg_dir, current_branch, target_sha)
-                    else:
-                        from deep.core.refs import update_head
-                        update_head(dg_dir, target_sha)
-
-                    txlog.commit(tx_id)
-                    validate_repo_state(repo_root)
-                    audit.record(author_name, "merge", ref=current_branch or "HEAD", details=f"FF merged {target_branch}")
-                    run_hook(dg_dir, "post-merge", args=[target_sha])
-                except Exception as e:
-                    txlog.rollback(tx_id, str(e))
-                    raise
+                tm.commit()
+                validate_repo_state(repo_root)
+                audit.record(author_name, "merge", ref=current_branch or "HEAD", details=f"FF merged {target_branch}")
+                run_hook(dg_dir, "post-merge", args=[target_sha])
                 return
 
-            # Case 3: True merge — 3-way.
+            # Case B: True merge — 3-way.
             head_commit = read_object(objects_dir, head_sha)
             target_commit = read_object(objects_dir, target_sha)
             lca_commit = read_object(objects_dir, lca_sha) if lca_sha else None
@@ -238,10 +224,9 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 message=f"Merge branch '{target_branch}' into {current_branch or 'HEAD'}",
                 timestamp=int(time.time()),
             )
-
             merge_commit_sha = merge_commit.write(objects_dir)
 
-            tx_id = txlog.begin(
+            tm.begin(
                 operation="merge",
                 details=f"3-way merge {target_branch}",
                 target_object_id=merge_commit_sha,
@@ -249,34 +234,23 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 previous_commit_sha=head_sha,
             )
 
-            try:
-                # Crash hook
-                if os.environ.get("DEEP_CRASH_TEST") == "MERGE_BEFORE_REF_UPDATE":
-                    raise BaseException("Deep: simulated crash before ref update")
+            target_files = _get_tree_files(objects_dir, merged_tree_sha)
+            current_index = read_index_no_lock(dg_dir)
+            new_index = _apply_tree_to_workdir(repo_root, objects_dir, target_files, current_index)
+            write_index_no_lock(dg_dir, new_index)
 
-                target_files = _get_tree_files(objects_dir, merged_tree_sha)
-                current_index = read_index_no_lock(dg_dir)
-                new_index = _apply_tree_to_workdir(repo_root, objects_dir, target_files, current_index)
-                write_index_no_lock(dg_dir, new_index)
+            if current_branch:
+                update_branch(dg_dir, current_branch, merge_commit_sha)
+            else:
+                from deep.core.refs import update_head
+                update_head(dg_dir, merge_commit_sha)
 
-                if current_branch:
-                    update_branch(dg_dir, current_branch, merge_commit_sha)
-                else:
-                    from deep.core.refs import update_head
-                    update_head(dg_dir, merge_commit_sha)
-
-                txlog.commit(tx_id)
-                validate_repo_state(repo_root)
-                audit.record(author_name, "merge", ref=current_branch or "HEAD", details=f"merged {target_branch}")
-                run_hook(dg_dir, "post-merge", args=[merge_commit_sha])
-            except Exception as e:
-                txlog.rollback(tx_id, str(e))
-                raise
+            tm.commit()
+            validate_repo_state(repo_root)
+            audit.record(author_name, "merge", ref=current_branch or "HEAD", details=f"merged {target_branch}")
+            run_hook(dg_dir, "post-merge", args=[merge_commit_sha])
     
             print(f"Deep: merge made by 3-way merge: {merge_commit_sha[:7]}")
-
-    finally:
-        repo_lock.release()
 
 
 def _is_binary(data: bytes) -> bool:
