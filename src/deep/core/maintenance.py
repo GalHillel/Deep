@@ -13,23 +13,29 @@ MAINTENANCE_LOG = "maintenance_log"
 def run_maintenance(repo_root: Path, force: bool = False):
     """Run all maintenance tasks if needed."""
     from deep.storage import commit_graph as cg
+    from deep.storage.transaction import TransactionManager
     dg_dir = repo_root / DEEP_DIR
     if not force and not should_run_maintenance(dg_dir):
         return
 
     print("Deep: Starting background maintenance...")
     
-    # 1. Commit Graph
-    print("Deep: Updating commit-graph...")
-    cg.build_history_graph(dg_dir)
-    
-    # 2. Repack if too many loose objects
-    if force or count_loose_objects(dg_dir) > 100:
-        print("Deep: Auto-repacking loose objects...")
-        repack_repository(dg_dir)
+    with TransactionManager(dg_dir) as tm:
+        tm.begin("maintenance")
         
-    # Update last run time
-    update_maintenance_time(dg_dir)
+        # 1. Commit Graph
+        print("Deep: Updating commit-graph...")
+        cg.build_history_graph(dg_dir)
+        
+        # 2. Repack if too many loose objects
+        if force or count_loose_objects(dg_dir) > 100:
+            print("Deep: Auto-repacking loose objects...")
+            repack_repository(dg_dir)
+            
+        # Update last run time
+        update_maintenance_time(dg_dir)
+        tm.commit()
+    
     print("Deep: Maintenance complete.")
 
 def should_run_maintenance(dg_dir: Path) -> bool:

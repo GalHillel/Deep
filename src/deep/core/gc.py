@@ -79,9 +79,15 @@ def mark_reachable(dg_dir: Path) -> Set[str]:
     return reachable
 
 
-def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = False) -> tuple[int, int]:
+def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = False, prune_expire: int = 3600) -> tuple[int, int]:
     """Sweep unreachable objects.
     
+    Args:
+        repo_root: Path to repository.
+        dry_run: If True, only report what would be done.
+        verbose: Print detailed progress.
+        prune_expire: Only prune unreachable objects older than this (seconds). Default 1h.
+        
     Returns:
         tuple (count_collected, count_total)
     """
@@ -91,22 +97,28 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
     if not objects_dir.exists():
         return 0, 0
     
-    # Safety: Check for active WAL transactions before GC
-    from deep.storage.txlog import TransactionLog
-    txlog = TransactionLog(dg_dir)
-    if txlog.log_path.exists() and txlog.needs_recovery():
-        if verbose:
-            print("Deep: skipping GC — active WAL transaction detected. Run recovery first.")
-        return 0, 0
-
     # Safety: Acquire repository lock to prevent concurrent operations during GC
     from deep.core.locks import RepositoryLock
-    repo_lock = RepositoryLock(dg_dir, timeout=10.0)
+    repo_lock = RepositoryLock(dg_dir, timeout=15.0)
     try:
         repo_lock.acquire()
     except TimeoutError:
         if verbose:
             print("Deep: skipping GC — could not acquire repository lock.")
+        return 0, 0
+    
+    # Safety: Check for active WAL transactions BEFORE this process started.
+    # If we are running inside a TransactionManager, we expect ONE incomplete 
+    # transaction (ours). If there are more, they are stale/crashed.
+    from deep.storage.txlog import TransactionLog
+    txlog = TransactionLog(dg_dir)
+    incomplete = txlog.get_incomplete()
+    
+    # If more than 1 incomplete, or 1 and it's not very recent, require recovery.
+    if len(incomplete) > 1 or (len(incomplete) == 1 and time.time() - incomplete[0].timestamp > 60):
+        if verbose:
+            print(f"Deep: skipping GC — {len(incomplete)} stale transactions detected. Run recovery first.")
+        repo_lock.release()
         return 0, 0
     
     # Identify ALL loose objects on disk BEFORE packing/unlinking
@@ -154,11 +166,20 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
         quarantine_dir.mkdir(parents=True, exist_ok=True)
         
         from deep.storage.objects import _object_path
+        now = time.time()
         for sha in unreachable:
             src = _object_path(objects_dir, sha)
-            # It's possible an object marked for packing wasn't in the loose set (already packed)
-            # but 'unreachable' is (all_loose - marked), so src should exist.
             if src.exists():
+                # Age threshold check
+                try:
+                    mtime = os.path.getmtime(src)
+                    if now - mtime < prune_expire:
+                        if verbose:
+                            print(f"Skipping recently created object: {sha}")
+                        continue
+                except OSError:
+                    continue
+
                 dst = quarantine_dir / sha
                 shutil.move(src, dst)
                 if verbose:

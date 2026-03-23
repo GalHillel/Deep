@@ -16,6 +16,7 @@ def run(args):
     from deep.storage.bitmap import generate_pack_bitmaps
     from deep.storage.objects import get_reachable_objects
     from deep.core.refs import list_branches, list_tags, resolve_head, get_branch, get_tag
+    from deep.storage.transaction import TransactionManager
     
     console = Console()
     repo_root = find_repo(Path.cwd())
@@ -26,35 +27,38 @@ def run(args):
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
-    console.print("[bold blue]Repacking repository objects...[/bold blue]")
-    
-    # 1. Identify all reachable SHAs
-    heads = set()
-    for b in list_branches(dg_dir):
-        sha = get_branch(dg_dir, b)
-        if sha: heads.add(sha)
-    for t in list_tags(dg_dir):
-        sha = get_tag(dg_dir, t)
-        if sha: heads.add(sha)
-    head_sha = resolve_head(dg_dir)
-    if head_sha: heads.add(head_sha)
-    
-    if not heads:
-        console.print("[yellow]Nothing to repack (no commits).[/yellow]")
-        return
+    with TransactionManager(dg_dir) as tm:
+        tm.begin("repack")
+        console.print("[bold blue]Repacking repository objects...[/bold blue]")
         
-    reachable_shas = get_reachable_objects(objects_dir, list(heads))
-    console.print(f"Found {len(reachable_shas)} reachable objects.")
-    
-    # 2. Write new packfile
-    pw = PackWriter(dg_dir)
-    pack_sha, idx_sha = pw.create_pack(reachable_shas)
-    console.print(f"[green]Created pack-{pack_sha}.pack[/green]")
-    
-    # 3. Generate bitmaps
-    if getattr(args, "bitmaps", True):
-        console.print("[bold blue]Generating reachability bitmaps...[/bold blue]")
-        num_bm = generate_pack_bitmaps(dg_dir, pack_sha)
-        console.print(f"[green]Generated bitmaps for {num_bm} commits.[/green]")
+        # 1. Identify all reachable SHAs
+        heads = set()
+        for b in list_branches(dg_dir):
+            sha = get_branch(dg_dir, b)
+            if sha: heads.add(sha)
+        for t in list_tags(dg_dir):
+            sha = get_tag(dg_dir, t)
+            if sha: heads.add(sha)
+        head_sha = resolve_head(dg_dir)
+        if head_sha: heads.add(head_sha)
         
-    console.print("[bold green]Repack complete.[/bold green]")
+        if not heads:
+            console.print("[yellow]Nothing to repack (no commits).[/yellow]")
+            return
+            
+        reachable_shas = get_reachable_objects(objects_dir, list(heads))
+        console.print(f"Found {len(reachable_shas)} reachable objects.")
+        
+        # 2. Write new packfile
+        pw = PackWriter(dg_dir)
+        pack_sha, idx_sha = pw.create_pack(reachable_shas)
+        console.print(f"[green]Created pack-{pack_sha}.pack[/green]")
+        
+        # 3. Generate bitmaps
+        if getattr(args, "bitmaps", True):
+            console.print("[bold blue]Generating reachability bitmaps...[/bold blue]")
+            num_bm = generate_pack_bitmaps(dg_dir, pack_sha)
+            console.print(f"[green]Generated bitmaps for {num_bm} commits.[/green]")
+            
+        tm.commit()
+        console.print("[bold green]Repack complete.[/bold green]")

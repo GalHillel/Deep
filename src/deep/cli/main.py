@@ -828,6 +828,7 @@ Examples:
     )
     p_gc.add_argument("--dry-run", action="store_true", help="Display what would be cleaned up without making changes")
     p_gc.add_argument("-v", "--verbose", action="store_true", help="Display detailed information during the optimization process")
+    p_gc.add_argument("--prune", type=int, default=3600, help="Only prune unreachable objects older than this (seconds). Default 1h.")
     
     # ── maintenance ──────────────────────────────────────────────────
     p_maint = sub.add_parser(

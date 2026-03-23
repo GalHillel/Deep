@@ -17,18 +17,26 @@ from deep.utils.ux import Color
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``gc`` command."""
+    from deep.storage.transaction import TransactionManager
+    from deep.core.constants import DEEP_DIR
+
     try:
         repo_root = find_repo()
+        dg_dir = repo_root / DEEP_DIR
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
         raise DeepCLIException(1)
 
     dry_run = getattr(args, "dry_run", False)
     verbose = getattr(args, "verbose", False)
+    prune_expire = getattr(args, "prune", 3600)
 
-    unreachable_count, total_count = collect_garbage(
-        repo_root, dry_run=dry_run, verbose=verbose
-    )
+    with TransactionManager(dg_dir) as tm:
+        tm.begin("gc")
+        unreachable_count, total_count = collect_garbage(
+            repo_root, dry_run=dry_run, verbose=verbose, prune_expire=prune_expire
+        )
+        tm.commit()
 
     if dry_run:
         print(f"Found {unreachable_count} unreachable objects (out of {total_count} total).")
