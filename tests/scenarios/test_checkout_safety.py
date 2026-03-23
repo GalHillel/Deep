@@ -7,6 +7,7 @@ from deep.storage.txlog import TransactionLog
 from deep.core.refs import resolve_head, update_branch
 from deep.storage.index import read_index
 from deep.cli.main import main
+from deep.core.errors import DeepCLIException
 
 def test_checkout_safety_uncommitted_changes(tmp_path, monkeypatch):
     """Ensure checkout fails if uncommitted changes would be overwritten."""
@@ -34,7 +35,7 @@ def test_checkout_safety_uncommitted_changes(tmp_path, monkeypatch):
     f1.write_text("modified")
     
     # Attempt to checkout v2 - should fail
-    with pytest.raises(SystemExit) as cm:
+    with pytest.raises(DeepCLIException) as cm:
         main(["checkout", v2_sha])
     assert cm.value.code == 1
     assert f1.read_text() == "modified" # Data preserved
@@ -63,7 +64,7 @@ def test_checkout_crash_recovery_after_head_update(tmp_path, monkeypatch):
     # Simulate crash after HEAD update
     monkeypatch.setenv("DEEP_CRASH_TEST", "CHECKOUT_AFTER_HEAD_UPDATE")
     
-    with pytest.raises(BaseException, match="DeepBridge: simulated crash after HEAD update"):
+    with pytest.raises(BaseException, match="Deep: simulated crash after HEAD update"):
         main(["checkout", v2_sha])
     
     # Verify state: HEAD is v2, but WAL transaction is still active (uncommitted)
@@ -98,7 +99,7 @@ def test_checkout_crash_recovery_before_wd_update(tmp_path, monkeypatch):
     
     monkeypatch.setenv("DEEP_CRASH_TEST", "CHECKOUT_BEFORE_WD_UPDATE")
     
-    with pytest.raises(BaseException, match="DeepBridge: simulated crash before working directory update"):
+    with pytest.raises(BaseException, match="Deep: simulated crash before working directory update"):
         main(["checkout", v2_sha])
     
     # Verify state: HEAD is still v1 (or ref-update hasn't happened yet)

@@ -13,6 +13,7 @@ import pytest
 from deep.storage.index import read_index
 from deep.core.refs import get_current_branch, resolve_head
 from deep.cli.main import main
+from deep.core.errors import DeepCLIException
 
 
 @pytest.fixture()
@@ -55,7 +56,7 @@ class TestCheckout:
         main(["checkout", "main"]) # Back to main (f.txt=v1)
         
         (repo / "f.txt").write_text("dirty")
-        with pytest.raises(SystemExit):
+        with pytest.raises(DeepCLIException):
             main(["checkout", "dev"]) # Should fail because dev has v-dev, we have dirty v1
 
     def test_checkout_updates_index(self, repo: Path) -> None:
@@ -69,7 +70,7 @@ class TestCheckout:
 
     def test_checkout_invalid_target(self, repo: Path) -> None:
         self._make_commit(repo, "f.txt", "x", "c1")
-        with pytest.raises(SystemExit):
+        with pytest.raises(DeepCLIException):
             main(["checkout", "nonexistent"])
 
     def test_round_trip_checkout(self, repo: Path) -> None:

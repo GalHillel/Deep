@@ -1,9 +1,11 @@
-"""Tests for predictive merge and branch management (Phase 45)."""
 from pathlib import Path
 import subprocess, sys, os, json
 import pytest
-
 from deep.core.repository import DEEP_DIR
+from deep.cli.main import build_parser
+from deep.commands import ai_cmd
+import io
+from contextlib import redirect_stdout
 
 
 @pytest.fixture
@@ -36,50 +38,44 @@ def test_predict_merge_no_conflict(merge_env):
     # Feature branch (simulated by creating a new commit from base)
     (repo / "other.txt").write_text("new file")
     subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "other.txt"], cwd=repo, env=env, check=True)
-    # We commit it. Since HEAD is 'main', this is a clean addition.
     
-    result = subprocess.run(
-        [sys.executable, "-m", "deep.cli.main", "ai", "predict-merge", "--branch", "main"],
-        cwd=repo, env=env, capture_output=True, text=True, check=True
-    )
-    assert result.returncode == 0
-    assert "looks clean" in result.stdout
+    parser = build_parser()
+    args = parser.parse_args(["ai", "predict-merge", "--branch", "main"])
+    
+    f = io.StringIO()
+    with redirect_stdout(f):
+        os.chdir(repo)
+        ai_cmd.run(args)
+    
+    stdout = f.getvalue()
+    assert "looks clean" in stdout
 
 
 def test_predict_merge_conflict(merge_env):
     repo, env = merge_env
     dg_dir = repo / DEEP_DIR
     
-    # Branch 'main' already modifies common.txt in merge_env.
-    # We want to create a 'feature' branch that also modifies common.txt.
-    from deep.core.refs import resolve_revision, update_branch
-    base_sha = resolve_revision(dg_dir, "HEAD~1")
-    assert base_sha is not None
+    parser = build_parser()
+    args = parser.parse_args(["ai", "predict-merge", "--branch", "feature"])
     
-    # We can't easily 'commit' to another branch without checkout, 
-    # but we can manually create a commit object if we had the tools,
-    # or just use 'main' as a proxy for 'feature' by comparing it to itself
-    # but that's not a real test.
+    f = io.StringIO()
+    with redirect_stdout(f):
+        os.chdir(repo)
+        ai_cmd.run(args)
     
-    # Better: trigger a "Potential conflicts" result by having 'main' 
-    # and another branch both modify the same file.
-    # Since we already have 'main' modifying common.txt since 'base',
-    # if we have another branch 'feature' also modifying it, they overlap.
-    
-    # We just need 'feature' to point to a commit that modified common.txt relative to 'base'.
-    # For simplicity of the test, let's just assert that 'predict-merge' 
-    # can run and handles branches.
-    result = subprocess.run(
-        [sys.executable, "-m", "deep.cli.main", "ai", "predict-merge", "--branch", "feature"],
-        cwd=repo, env=env, capture_output=True, text=True, check=True
-    )
-    assert "Simulation" in result.stdout or "Merge" in result.stdout
+    stdout = f.getvalue()
+    assert "Simulation" in stdout or "Merge" in stdout
 
 
 def test_ai_cleanup_cli(merge_env):
     repo, env = merge_env
-    result = subprocess.run(
-        [sys.executable, "-m", "deep.cli.main", "ai", "cleanup"],
-        cwd=repo, env=env, capture_output=True, text=True, check=True
-    )
-    assert "Hygiene" in result.stdout
+    parser = build_parser()
+    args = parser.parse_args(["ai", "cleanup"])
+    
+    f = io.StringIO()
+    with redirect_stdout(f):
+        os.chdir(repo)
+        ai_cmd.run(args)
+    
+    stdout = f.getvalue()
+    assert "Hygiene" in stdout

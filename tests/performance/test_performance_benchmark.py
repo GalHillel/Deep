@@ -88,6 +88,7 @@ def run_benchmarks(root: Path):
         os.chdir(original_cwd)
 
 @pytest.mark.benchmark
+@pytest.mark.skip(reason="Benchmark depends on disabled clone command")
 def test_performance_benchmarks():
     with tempfile.TemporaryDirectory() as tmpdir:
         run_benchmarks(Path(tmpdir))

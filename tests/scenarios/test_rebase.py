@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from deep.cli.main import main
+from deep.core.errors import DeepCLIException
 
 
 @pytest.fixture()
@@ -114,7 +115,7 @@ def test_rebase_conflict_aborts(repo_with_branches: Path, capsys: pytest.Capture
     
     main(["checkout", "feature"])
     
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(DeepCLIException) as exc:
         main(["rebase", "main"])
         
     assert exc.value.code == 1

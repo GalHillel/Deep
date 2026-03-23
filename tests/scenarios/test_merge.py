@@ -15,6 +15,7 @@ from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import resolve_head, get_branch
 from deep.cli.main import main
 from deep.core.repository import init_repo, DEEP_DIR
+from deep.core.errors import DeepCLIException
 
 
 @pytest.fixture()
@@ -118,10 +119,10 @@ class TestMerge:
         main(["checkout", "feature"])
         _commit(repo, "f.txt", "feat_v", "feat change")
         main(["checkout", "main"])
-        with pytest.raises(SystemExit):
+        with pytest.raises(DeepCLIException):
             main(["merge", "feature"])
 
     def test_nonexistent_branch(self, repo: Path) -> None:
         _commit(repo, "f.txt", "v1", "c1")
-        with pytest.raises(SystemExit):
+        with pytest.raises(DeepCLIException):
             main(["merge", "ghost"])

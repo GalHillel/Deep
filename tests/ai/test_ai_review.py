@@ -1,9 +1,11 @@
-"""Tests for AI-assisted code review (Phase 43)."""
 from pathlib import Path
 import subprocess, sys, os, json
 import pytest
-
 from deep.core.repository import DEEP_DIR
+from deep.cli.main import build_parser
+from deep.commands import ai_cmd
+import io
+from contextlib import redirect_stdout
 
 
 @pytest.fixture
@@ -26,31 +28,46 @@ def test_ai_review_findings(ai_review_repo):
     (repo / "main.py").write_text("print('hello')\n# TODO: fix this\nAPI_KEY = 'secret'")
     subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "main.py"], cwd=repo, env=env, check=True)
     
-    result = subprocess.run(
-        [sys.executable, "-m", "deep.cli.main", "ai", "review"],
-        cwd=repo, env=env, capture_output=True, text=True, check=True
-    )
-    assert "TODO found" in result.stdout
-    assert "Sensitive keyword" in result.stdout
+    parser = build_parser()
+    args = parser.parse_args(["ai", "review"])
+    
+    f = io.StringIO()
+    with redirect_stdout(f):
+        os.chdir(repo)
+        ai_cmd.run(args)
+    
+    stdout = f.getvalue()
+    assert "TODO found" in stdout
+    assert "Sensitive keyword" in stdout
 
 
 def test_ai_review_clean(ai_review_repo):
     repo, env = ai_review_repo
     # No changes
-    result = subprocess.run(
-        [sys.executable, "-m", "deep.cli.main", "ai", "review"],
-        cwd=repo, env=env, capture_output=True, text=True, check=True
-    )
-    assert "No critical issues found" in result.stdout
+    parser = build_parser()
+    args = parser.parse_args(["ai", "review"])
+    
+    f = io.StringIO()
+    with redirect_stdout(f):
+        os.chdir(repo)
+        ai_cmd.run(args)
+    
+    stdout = f.getvalue()
+    assert "No critical issues found" in stdout
 
 
 def test_ai_predict_merge_cli(ai_review_repo):
     repo, env = ai_review_repo
-    result = subprocess.run(
-        [sys.executable, "-m", "deep.cli.main", "ai", "predict-merge"],
-        cwd=repo, env=env, capture_output=True, text=True, check=True
-    )
-    assert "Prediction:" in result.stdout
+    parser = build_parser()
+    args = parser.parse_args(["ai", "predict-merge"])
+    
+    f = io.StringIO()
+    with redirect_stdout(f):
+        os.chdir(repo)
+        ai_cmd.run(args)
+    
+    stdout = f.getvalue()
+    assert "Prediction:" in stdout
 
 
 def test_ai_review_api(ai_review_repo):

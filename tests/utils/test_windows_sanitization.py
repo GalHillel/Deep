@@ -107,11 +107,17 @@ def test_checkout_sanitization_cr(tmp_path, monkeypatch):
         header = f"tree {len(content)}\x00".encode("ascii")
         f.write(zlib.compress(header + content))
     
+    # Create an initial commit to establish HEAD
+    (tmp_path / "init.txt").write_text("initial")
+    main(["add", "init.txt"])
+    main(["commit", "-m", "initial"])
+    
     commit = Commit(tree_sha=tree_sha, message="cr commit")
     commit_sha = commit.write(objects_dir)
     
     # Try to checkout this commit
-    main(["checkout", commit_sha])
+    from deep.core.repository import checkout
+    checkout(tmp_path, commit_sha)
     
     # Verify file exists on disk with sanitized name
     assert (tmp_path / "README.md_").exists()

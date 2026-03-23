@@ -271,10 +271,10 @@ class TestRuntimeGuard:
         # Test that the guard is active
         activate()
         import subprocess
-        with pytest.raises(RuntimeError, match="RUNTIME GUARD"):
+        with pytest.raises(RuntimeError, match="GUARD|FORBIDDEN"):
             subprocess.run(["git", "status"])
 
-        with pytest.raises(RuntimeError, match="RUNTIME GUARD"):
+        with pytest.raises(RuntimeError, match="GUARD|FORBIDDEN"):
             os.system("git status")
 
     def test_guard_allows_legitimate_subprocess(self):

@@ -84,7 +84,12 @@ def test_pipeline_cli_status(pipeline_repo):
         [sys.executable, "-m", "deep.cli.main", "pipeline", "list"],
         cwd=repo, env=env, capture_output=True, text=True, check=True
     )
-    run_id = list_res.stdout.splitlines()[2].split()[0]
+    run_id = None
+    for line in list_res.stdout.splitlines():
+        if line.startswith("run_"):
+            run_id = line.split()[0]
+            break
+    assert run_id is not None
     
     # Check status
     status_res = subprocess.run(

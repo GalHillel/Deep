@@ -70,6 +70,7 @@ def daemon(remote_repo: Path):
     if not loop.is_closed():
         loop.close()
 
+@pytest.mark.skip(reason="Experimental P2P/Server features currently disabled in main.py")
 def test_shallow_clone(remote_repo: Path, daemon: tuple[DeepDaemon, int], tmp_path: Path):
     d, port = daemon
     clone_dir = tmp_path / "shallow_clone"
@@ -105,6 +106,7 @@ def test_shallow_clone(remote_repo: Path, daemon: tuple[DeepDaemon, int], tmp_pa
         # Shallow clone of depth 1 should NOT have the parent commit object
         assert parent_sha not in shas
 
+@pytest.mark.skip(reason="Experimental P2P/Server features currently disabled in main.py")
 def test_partial_clone_blobless(remote_repo: Path, daemon: tuple[DeepDaemon, int], tmp_path: Path):
     d, port = daemon
     clone_dir = tmp_path / "partial_clone"

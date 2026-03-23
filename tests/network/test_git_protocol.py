@@ -525,7 +525,7 @@ class TestRefAdvertisement:
 
     def test_parse_simple_refs(self):
         """Parse a simple ref advertisement."""
-        from deep.network.git_protocol import parse_ref_advertisement
+        from deep.network.smart_protocol import parse_ref_advertisement
         from deep.network.pkt_line import write_pkt_line, write_flush
 
         buf = io.BytesIO()
@@ -549,7 +549,7 @@ class TestRefAdvertisement:
 
     def test_parse_empty_repo(self):
         """Parse advertisement from empty repo."""
-        from deep.network.git_protocol import parse_ref_advertisement
+        from deep.network.smart_protocol import parse_ref_advertisement
         from deep.network.pkt_line import write_pkt_line, write_flush
 
         buf = io.BytesIO()

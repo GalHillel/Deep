@@ -202,7 +202,7 @@ def test_audit_export_report(god_repo):
     audit.record("bob", "merge")
 
     report = audit.export_report()
-    assert "DEEPGIT AUDIT REPORT" in report
+    assert "DEEP AUDIT REPORT" in report
     assert "✅ VALID" in report
     assert "alice" in report
     assert "bob" in report
@@ -482,15 +482,23 @@ def test_verify_all_cli(god_repo):
 
 
 def test_rollback_verify_cli(god_repo):
-    """deep rollback --verify runs without errors on clean repo."""
+    """deep rollback --verify runs without errors."""
     repo, dg_dir, env = god_repo
+
+    # Create two commits so rollback has something to verify (it defaults to HEAD~1)
+    (repo / "data.txt").write_text("initial")
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "data.txt"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "initial"], cwd=repo, env=env, check=True)
+    (repo / "data.txt").write_text("second")
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "add", "data.txt"], cwd=repo, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "commit", "-m", "second"], cwd=repo, env=env, check=True)
 
     result = subprocess.run(
         [sys.executable, "-m", "deep.cli.main", "rollback", "--verify"],
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0
-    assert "No incomplete transactions" in result.stdout
+    assert "Rollback complete" in result.stdout
 
 
 def test_audit_report_cli(god_repo):

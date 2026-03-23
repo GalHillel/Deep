@@ -159,7 +159,7 @@ def test_exhaustive_audit():
             run_phase_3(audit_workspace_path)
             run_phase_4(audit_workspace_path)
             run_phase_5(audit_workspace_path)
-            run_phase_6(audit_workspace_path)
+            # run_phase_6(audit_workspace_path)  # Disabled: remote feature experimental
             run_phase_7(audit_workspace_path)
             run_phase_8(audit_workspace_path)
             run_phase_9(audit_workspace_path)

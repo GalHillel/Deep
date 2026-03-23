@@ -11,6 +11,7 @@ def search_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
     subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=tmp_path, env=env, check=True)
+    os.chdir(tmp_path)
     
     # Commit 1
     (tmp_path / "a.txt").write_text("hello search world")
@@ -25,23 +26,34 @@ def search_repo(tmp_path):
     return tmp_path, env
 
 
+import argparse, io, contextlib
+from deep.commands import search_cmd
+
 def test_search_history_hits(search_repo):
     repo, env = search_repo
-    result = subprocess.run(
-        [sys.executable, "-m", "deep.cli.main", "search", "search"],
-        cwd=repo, env=env, capture_output=True, text=True, check=True
-    )
-    assert "a.txt" in result.stdout
-    assert "hello search world" in result.stdout
+    os.chdir(repo)
+    
+    args = argparse.Namespace(query="search", pattern=None)
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        search_cmd.run(args)
+    
+    out = f.getvalue()
+    assert "a.txt" in out
+    assert "hello search world" in out
 
 
 def test_search_history_no_hits(search_repo):
     repo, env = search_repo
-    result = subprocess.run(
-        [sys.executable, "-m", "deep.cli.main", "search", "nonexistent_pattern_123"],
-        cwd=repo, env=env, capture_output=True, text=True, check=True
-    )
-    assert "No matches found" in result.stdout
+    os.chdir(repo)
+    
+    args = argparse.Namespace(query="nonexistent_pattern_123", pattern=None)
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        search_cmd.run(args)
+    
+    out = f.getvalue()
+    assert "No matches found" in out
 
 
 def test_semantic_blame(search_repo):

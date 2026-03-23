@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import struct
 import time
 import uuid
 from dataclasses import dataclass, asdict
@@ -363,11 +364,13 @@ class TransactionLog:
             obj = read_object(objects_dir, sha)
             full.write_bytes(obj.serialize_content())
             stat = full.stat()
+            p_hash_full = _hashlib.sha256(p.encode()).digest()
+            p_hash = struct.unpack(">Q", p_hash_full[:8])[0]
             current_index.entries[p] = DeepIndexEntry(
                 content_hash=sha,
                 mtime_ns=stat.st_mtime_ns,
                 size=stat.st_size,
-                path_hash=_hashlib.sha1(p.encode()).hexdigest(),
+                path_hash=p_hash,
             )
         
         write_index(dg_dir, current_index)

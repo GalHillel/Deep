@@ -61,9 +61,10 @@ def test_merge_conflict_detection(tmp_path: Path, monkeypatch):
     their_sha = their_commit.write(dg_dir / "objects")
     update_branch(dg_dir, "theirs", their_sha)
     
+    from deep.core.errors import DeepCLIException
     # Now merge 'theirs' into 'main' (which is 'ours')
-    # Expect SystemExit(1) due to conflict
-    with pytest.raises(SystemExit) as exc:
+    # Expect DeepCLIException due to conflict
+    with pytest.raises(DeepCLIException) as exc:
         merge_cmd.run(Namespace(branch="theirs"))
     assert exc.value.code == 1
 

@@ -43,17 +43,20 @@ def test_blame_attribution(blame_repo):
     assert len(authors) >= 1
 
 
-def test_heatmap_calculation(blame_repo):
-    from deep.web.dashboard import DashboardHandler
+def test_graph_data(blame_repo):
+    from deep.web.services import DashboardService
     repo, env = blame_repo
     dg_dir = repo / DEEP_DIR
     
-    # Mocking self with an object that has dg_dir
-    class MockHandler:
-        def __init__(self, d): self.dg_dir = d
+    service = DashboardService(dg_dir, repo)
+    res = service.get_graph()
+    assert res["success"] is True
     
-    mock_self = MockHandler(dg_dir)
-    heatmap = DashboardHandler._calculate_heatmap(mock_self)
+    commits = res["data"]["commits"]
+    assert len(commits) >= 2
     
-    today = time.strftime("%Y-%m-%d")
-    assert heatmap.get(today) >= 2 # c1 and c2
+    # Verify we have the latest commit
+    shas = [c["sha"] for c in commits]
+    from deep.core.refs import resolve_head
+    head_sha = resolve_head(dg_dir)
+    assert head_sha in shas

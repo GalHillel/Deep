@@ -69,109 +69,105 @@ def test_dashboard_index(dashboard_server):
     port, _ = dashboard_server
     resp = urlopen(f"http://127.0.0.1:{port}/")
     assert resp.status == 200
-    body = resp.read().decode()
-    assert "Deep" in body
-    assert "<canvas" in body or "dag" in body.lower()
+    body = resp.read().decode().lower()
+    assert "deepvcs studio" in body
+    assert "app.js" in body
 
 
-def test_api_log(dashboard_server):
+def test_api_log_graph(dashboard_server):
     port, _ = dashboard_server
-    resp = urlopen(f"http://127.0.0.1:{port}/api/log")
+    resp = urlopen(f"http://127.0.0.1:{port}/api/graph")
     res = json.loads(resp.read())
     assert res["success"] is True
     data = res["data"]
-    assert isinstance(data, list)
-    assert len(data) >= 3
-    assert "sha" in data[0]
-    assert "message" in data[0]
-    assert "parents" in data[0]
+    assert isinstance(data, dict)
+    commits = data["commits"]
+    assert isinstance(commits, list)
+    assert len(commits) >= 3
+    assert "sha" in commits[0]
+    assert "message" in commits[0]
 
 
-def test_api_refs(dashboard_server):
+def test_api_status(dashboard_server):
     port, _ = dashboard_server
-    resp = urlopen(f"http://127.0.0.1:{port}/api/refs")
+    resp = urlopen(f"http://127.0.0.1:{port}/api/status")
     res = json.loads(resp.read())
     assert res["success"] is True
     data = res["data"]
-    assert "head" in data
-    assert "branches" in data
-    assert "main" in data["branches"]
-    assert data["current_branch"] == "main"
+    assert "branch" in data
+    assert data["branch"] == "main"
+    assert "modified" in data
 
 
-def test_api_object(dashboard_server):
+def test_api_commit_details(dashboard_server):
     port, _ = dashboard_server
-    # Get HEAD sha from refs
-    refs_res = json.loads(urlopen(f"http://127.0.0.1:{port}/api/refs").read())
-    head_sha = refs_res["data"]["head"]
-    resp = urlopen(f"http://127.0.0.1:{port}/api/object/{head_sha}")
+    # Get HEAD sha from graph
+    graph_res = json.loads(urlopen(f"http://127.0.0.1:{port}/api/graph").read())
+    head_sha = graph_res["data"]["refs"]["HEAD"]
+    resp = urlopen(f"http://127.0.0.1:{port}/api/commit/details?sha={head_sha}")
     res = json.loads(resp.read())
     assert res["success"] is True
     data = res["data"]
-    assert data["type"] == "commit"
     assert data["sha"] == head_sha
+    assert "author" in data
+    assert "message" in data
 
 
 def test_api_diff(dashboard_server):
     port, _ = dashboard_server
-    refs_res = json.loads(urlopen(f"http://127.0.0.1:{port}/api/refs").read())
-    head_sha = refs_res["data"]["head"]
-    resp = urlopen(f"http://127.0.0.1:{port}/api/diff/{head_sha}")
+    graph_res = json.loads(urlopen(f"http://127.0.0.1:{port}/api/graph").read())
+    head_sha = graph_res["data"]["refs"]["HEAD"]
+    resp = urlopen(f"http://127.0.0.1:{port}/api/diff?sha={head_sha}")
     res = json.loads(resp.read())
     assert res["success"] is True
-    data = res["data"]
-    assert isinstance(data, list)
+    # The new get_diff returns {"diff": "..."}
+    assert "diff" in res["data"]
 
 
-def test_api_metrics(dashboard_server):
+def test_api_status_metrics(dashboard_server):
     port, _ = dashboard_server
-    resp = urlopen(f"http://127.0.0.1:{port}/api/metrics")
+    resp = urlopen(f"http://127.0.0.1:{port}/api/status")
     res = json.loads(resp.read())
     assert res["success"] is True
     data = res["data"]
     assert isinstance(data, dict)
+    assert "branch" in data
 
 
-def test_api_multi_repo(dashboard_server):
+def test_api_branches_list(dashboard_server):
     port, repo_root = dashboard_server
-    # Create a sibling repo
-    sibling = repo_root.parent / "sibling"
-    sibling.mkdir()
+    # Create a new branch
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")
-    subprocess.run([sys.executable, "-m", "deep.cli.main", "init"], cwd=sibling, env=env, check=True)
+    subprocess.run([sys.executable, "-m", "deep.cli.main", "branch", "feat-test"], cwd=repo_root, env=env, check=True)
     
-    resp = urlopen(f"http://127.0.0.1:{port}/api/multi-repo")
+    resp = urlopen(f"http://127.0.0.1:{port}/api/branches")
     res = json.loads(resp.read())
     assert res["success"] is True
     data = res["data"]
     assert isinstance(data, list)
-    names = [r["name"] for r in data]
-    assert "repo" in names
-    assert "sibling" in names
+    assert "main" in data
+    assert "feat-test" in data
 
 
-def test_api_heatmap(dashboard_server):
+def test_api_tree(dashboard_server):
     port, _ = dashboard_server
-    resp = urlopen(f"http://127.0.0.1:{port}/api/heatmap")
-    res = json.loads(resp.read())
-    assert res["success"] is True
-    data = res["data"]
-    assert isinstance(data, list)
-    assert len(data) > 0
-    assert "file" in data[0]
-    assert "complexity" in data[0]
-
-def test_api_commit_heatmap(dashboard_server):
-    port, _ = dashboard_server
-    resp = urlopen(f"http://127.0.0.1:{port}/api/commit-heatmap")
+    resp = urlopen(f"http://127.0.0.1:{port}/api/tree")
     res = json.loads(resp.read())
     assert res["success"] is True
     data = res["data"]
     assert isinstance(data, dict)
-    assert len(data) > 0
-    # Values represent commit counts per day
-    for date_str, count in data.items():
-        assert isinstance(date_str, str)
-        assert isinstance(count, int)
-        assert count > 0
+    assert "tree" in data
+    # Check that some files exist in the root (depth 0)
+    root_files = data["tree"]
+    assert "file_0.txt" in root_files
+    assert root_files["file_0.txt"]["_type"] == "file"
+
+def test_api_file_content(dashboard_server):
+    port, _ = dashboard_server
+    resp = urlopen(f"http://127.0.0.1:{port}/api/file?path=file_0.txt")
+    res = json.loads(resp.read())
+    assert res["success"] is True
+    data = res["data"]
+    assert "content" in data
+    assert "content 0" in data["content"]

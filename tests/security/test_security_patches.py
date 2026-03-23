@@ -48,7 +48,7 @@ def test_dashboard_path_traversal_prevention(tmp_path):
     my_repo.mkdir()
     (my_repo / DEEP_DIR).mkdir()
     
-    dg = _get_repo_dg_dir(repo_root, "my_repo")
+    dg = _get_repo_dg_dir(repo_root, "repos/my_repo")
     assert dg == my_repo / DEEP_DIR
     
     # Traversal attempt

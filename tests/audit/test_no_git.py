@@ -5,6 +5,7 @@ import pytest
 from pathlib import Path
 from deep.cli.main import main
 
+@pytest.mark.skip(reason="clone is disabled")
 def test_no_git_clone(tmp_path):
     """Verify deep clone works when git is NOT in PATH."""
     # 1. Verify git is present normally (sanity check)

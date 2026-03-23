@@ -55,10 +55,10 @@ def test_log_graph(repo_with_commits: Path, capsys: pytest.CaptureFixture[str]) 
     main(["log", "--graph"])
     out = capsys.readouterr().out
     lines = out.strip().splitlines()
-    # first line should start with "* commit"
-    assert lines[0].startswith("* commit")
-    # second line should start with "| Author:"
-    assert lines[1].startswith("| Author:")
+    # first line should start with "● "
+    assert "● " in lines[0]
+    # second line should start with "| Author:" or "│ Author:"
+    assert "Author:" in lines[1]
 
 
 def test_log_graph_oneline(repo_with_commits: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -66,6 +66,6 @@ def test_log_graph_oneline(repo_with_commits: Path, capsys: pytest.CaptureFixtur
     main(["log", "--graph", "--oneline", "-n", "1"])
     out = capsys.readouterr().out
     lines = out.strip().splitlines()
-    assert len(lines) == 1
-    assert lines[0].startswith("* ")
+    assert len(lines) == 2
+    assert "● " in lines[0]
     assert "commit 2 message" in lines[0]

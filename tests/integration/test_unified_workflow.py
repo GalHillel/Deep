@@ -86,6 +86,9 @@ def test_unified_workflow():
         # 7. Reopen issue and merge PR
         im.reopen_issue(issue.id)
         print("\n--- Testing Auto-close on Merge ---")
+        # Approve PR
+        pm.add_review(pr.id, "reviewer", "approved")
+        
         # pr merge <id>
         pr_run(argparse.Namespace(pr_command="merge", id=str(pr.id), verbose=False))
         

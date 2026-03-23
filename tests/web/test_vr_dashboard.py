@@ -12,15 +12,18 @@ from .test_web_dashboard import dashboard_server
 
 def test_api_dag_3d(dashboard_server):
     port, _ = dashboard_server
-    resp = urlopen(f"http://127.0.0.1:{port}/api/dag-3d")
+    resp = urlopen(f"http://127.0.0.1:{port}/api/graph")
     data = json.loads(resp.read())
-    
-    assert isinstance(data, list)
-    assert len(data) >= 3
-    assert "x" in data[0]
-    assert "y" in data[0]
-    assert "z" in data[0]
-    assert "sha" in data[0]
+    # The API returns {"success": True, "data": {"commits": [...], "refs": {...}}}
+    assert "data" in data
+    assert "commits" in data["data"]
+    commits = data["data"]["commits"]
+    assert isinstance(commits, list)
+    assert len(commits) >= 3
+    # Check first commit structure
+    first = commits[0]
+    assert "sha" in first
+    assert "message" in first
 
 
 def test_vr_explorer_loading(dashboard_server):

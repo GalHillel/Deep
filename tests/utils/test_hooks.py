@@ -38,7 +38,9 @@ class TestHooks(unittest.TestCase):
             self.skipTest("Windows only test")
         hook_file = self.hooks_dir / "post-merge.bat"
         hook_file.write_text("@echo off\nexit /b 0")
-        self.assertTrue(run_hook(self.dg_dir, "post-merge"))
+        with self.assertRaises(HookError) as cm:
+            run_hook(self.dg_dir, "post-merge")
+        self.assertIn("FORBIDDEN: External process", str(cm.exception))
 
     def test_bat_hook_failure(self):
         if os.name != 'nt':
@@ -47,7 +49,7 @@ class TestHooks(unittest.TestCase):
         hook_file.write_text("@echo off\necho ERRRR\nexit /b 1")
         with self.assertRaises(HookError) as cm:
             run_hook(self.dg_dir, "post-merge")
-        self.assertIn("ERRRR", str(cm.exception))
+        self.assertIn("FORBIDDEN: External process", str(cm.exception))
 
 if __name__ == "__main__":
     unittest.main()

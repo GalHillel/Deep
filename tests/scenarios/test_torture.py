@@ -1,4 +1,5 @@
 import pytest
+from deep.core.errors import DeepCLIException
 import os
 import shutil
 import tempfile
@@ -92,7 +93,7 @@ def test_torture_checkout_conflict_protection(repo_dir):
     
     # Attempt to checkout v3 (which has 'new_file.txt')
     CheckoutArgs.target = v3_sha
-    with pytest.raises(SystemExit): # Should exit(1) due to safety check
+    with pytest.raises(DeepCLIException): # Should exit(1) due to safety check
         checkout_cmd.run(CheckoutArgs())
     
     # Verify file was NOT overwritten
@@ -122,9 +123,8 @@ def test_torture_empty_commit(repo_dir):
     
     # Second commit with NO changes
     Args.message = "empty"
-    # commit_cmd should ideally fail or notify if no changes in index vs HEAD
-    # Our current implementation doesn't check this yet, let's see what happens.
-    commit_cmd.run(Args())
+    with pytest.raises(DeepCLIException):
+        commit_cmd.run(Args())
 
 def test_torture_deletion_workflow(repo_dir):
     """Test adding, then deleting, then staging deletion."""

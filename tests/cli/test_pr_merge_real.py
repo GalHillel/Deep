@@ -53,7 +53,8 @@ def test_pr_merge_real():
         from deep.core.constants import DEEP_DIR
         manager = PRManager(Path(".deep"))
         pr = manager.create_pr("Test PR", "tester", "feat", "main", "Desc")
-        print(f"Created PR #{pr.id}")
+        manager.add_review(pr.id, "reviewer", "approved")
+        print(f"Approved PR #{pr.id}")
         
         # 6. Merge PR
         merge_args = argparse.Namespace(pr_command="merge", id=str(pr.id), verbose=False)

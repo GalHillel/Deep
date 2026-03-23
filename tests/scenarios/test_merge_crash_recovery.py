@@ -5,6 +5,7 @@ from deep.core.repository import init_repo,DEEP_DIR
 from deep.storage.txlog import TransactionLog
 from deep.core.refs import resolve_head
 from deep.cli.main import main
+from deep.core.errors import DeepCLIException
 
 def test_merge_conflict_markers(tmp_path, monkeypatch):
     """Verify that merge conflicts write markers to the working directory."""
@@ -33,7 +34,7 @@ def test_merge_conflict_markers(tmp_path, monkeypatch):
     main(["commit", "-m", "side change"])
     
     # Merge 'main' into 'side'
-    with pytest.raises(SystemExit):
+    with pytest.raises(DeepCLIException):
         main(["merge", "main"])
     
     # Check for conflict markers
