@@ -17,6 +17,10 @@ import errno
 import random
 import string
 import json
+import logging
+import time
+import re
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional, Any, cast, List, Tuple
@@ -295,7 +299,13 @@ def _is_process_alive(pid: int) -> bool:
 
 class IndexLock:
     """Bulletproof reentrant atomic file lock for index operations."""
-    _thread_local_locks: Dict[str, int] = {} # Path -> recursion_level
+    _thread_local = threading.local()
+    _process_lock = threading.Lock() # Protects file-level acquisition across threads
+
+    def __get_counter(self) -> Dict[str, int]:
+        if not hasattr(self._thread_local, 'counters'):
+            self._thread_local.counters = {}
+        return self._thread_local.counters
 
     def __init__(self, dg_dir: Path, timeout: float = 10.0):
         self.lock_path = dg_dir / "index.lock"
@@ -331,24 +341,30 @@ class IndexLock:
 
     def acquire(self):
         """Acquire lock (reentrant)."""
-        # Reentrancy check
-        if self._thread_local_locks.get(self.lock_id, 0) > 0:
-            self._thread_local_locks[self.lock_id] += 1
+        counters = self.__get_counter()
+        # Thread-level reentrancy check
+        if counters.get(self.lock_id, 0) > 0:
+            counters[self.lock_id] += 1
             return
 
         start = time.time()
         while True:
+            # First, try to win the in-process thread race
+            if not self._process_lock.acquire(blocking=True, timeout=0.1):
+                if time.time() - start > self.timeout:
+                    raise TimeoutError(f"Timed out waiting for process_lock for {self.lock_path}")
+                continue
+
             try:
                 # 1. Aggressive stale cleanup AND reentrancy detection
                 if self.lock_path.exists():
                     owner_pid = self._get_lock_pid()
-                    # Reentrancy: PID matches ours
+                    # Cross-implementation reentrancy (from other modules)
                     if owner_pid == self.pid:
-                        self._thread_local_locks[self.lock_id] = self._thread_local_locks.get(self.lock_id, 0) + 1
+                        counters[self.lock_id] = 1
                         return
                     # Stale lock: PID is dead or invalid
                     if owner_pid is None or not _is_process_alive(owner_pid):
-                        logging.getLogger("Deep").warning(f"Removing stale/invalid index.lock")
                         try: os.remove(self.lock_path)
                         except OSError: pass
                 
@@ -359,31 +375,40 @@ class IndexLock:
                 finally:
                     os.close(fd)
                 
-                self._thread_local_locks[self.lock_id] = 1
+                counters[self.lock_id] = 1
                 return
             except (FileExistsError, PermissionError, OSError):
-                # On Windows, PermissionError often means another process has it open (O_EXCL)
+                self._process_lock.release() # Give others a chance
                 if time.time() - start > self.timeout:
                     raise TimeoutError(f"Timed out waiting for index.lock at {self.lock_path}")
                 time.sleep(0.05 + random.random() * 0.1)
 
     def release(self):
         """Release lock (reentrant)."""
-        if self._thread_local_locks.get(self.lock_id, 0) <= 0:
+        counters = self.__get_counter()
+        if counters.get(self.lock_id, 0) <= 0:
             return
 
-        self._thread_local_locks[self.lock_id] -= 1
-        if self._thread_local_locks[self.lock_id] == 0:
+        counters[self.lock_id] -= 1
+        if counters[self.lock_id] == 0:
             try:
                 owner_pid = self._get_lock_pid()
                 if owner_pid == self.pid or owner_pid is None:
-                    if self.lock_path.exists():
-                        os.remove(self.lock_path)
+                    # Windows retry loop for remove
+                    for i in range(5):
+                        try:
+                            if self.lock_path.exists():
+                                os.remove(self.lock_path)
+                            break
+                        except OSError:
+                            time.sleep(0.01)
             except OSError:
                 pass
             finally:
-                if self.lock_id in self._thread_local_locks:
-                    del self._thread_local_locks[self.lock_id]
+                if self.lock_id in counters:
+                    del counters[self.lock_id]
+                if self._process_lock.locked():
+                    self._process_lock.release()
 
     def __enter__(self):
         self.acquire()
@@ -418,8 +443,17 @@ def read_index(dg_dir: Path) -> DeepIndex:
     if not path.exists():
         return DeepIndex()
     
+    # Robust read with retry for Windows concurrency
+    max_read_retries = 10
+    for i in range(max_read_retries):
+        try:
+            data = path.read_bytes()
+            break
+        except (OSError, PermissionError):
+            if i == max_read_retries - 1: raise
+            time.sleep(0.01 * (i + 1))
+    
     try:
-        data = path.read_bytes()
         index = DeepIndex.from_binary(data)
         
         # Backward Compatibility (Rewrite to v2 if migrated)
@@ -461,14 +495,15 @@ def _write_index_core(dg_dir: Path, index: DeepIndex, path: Path):
             os.fsync(f.fileno())
         
         # Atomic swap with retry for Windows (handles transient reader locks)
-        max_retries = 5
+        max_retries = 20 # Increased for high contention
         for i in range(max_retries):
             try:
                 os.replace(tmp_path, path)
                 break
             except OSError as e:
+                # WinError 5: Access is denied
                 if i == max_retries - 1: raise
-                time.sleep(0.01 * (i + 1))
+                time.sleep(0.02 * (i + 1))
     except Exception as e:
         logging.getLogger("Deep").error(f"Failed to write index: {e}")
         if tmp_path.exists():
@@ -492,9 +527,8 @@ def add_to_index(dg_dir: Path, rel_path: str, sha: str, size: int, mtime_ns: int
     add_multiple_to_index(dg_dir, [(rel_path, sha, size, mtime_ns)])
 
 def add_multiple_to_index(dg_dir: Path, entries: List[Tuple[str, str, int, int]]):
-    from deep.core.locks import IndexLock
-    lock = IndexLock(dg_dir)
-    with lock:
+    # Lock index for atomicity
+    with IndexLock(dg_dir):
         index = read_index_no_lock(dg_dir)
         for rel_path, sha, size, mtime_ns in entries:
             # Use SHA256 for path_hash (take first 8 bytes for uint64)
@@ -514,9 +548,8 @@ def remove_from_index(dg_dir: Path, rel_path: str):
     remove_multiple_from_index(dg_dir, [rel_path])
 
 def remove_multiple_from_index(dg_dir: Path, rel_paths: List[str]):
-    from deep.core.locks import IndexLock
-    lock = IndexLock(dg_dir)
-    with lock:
+    # Lock index for atomicity
+    with IndexLock(dg_dir):
         index = read_index_no_lock(dg_dir)
         for p in rel_paths:
             if p in index.entries:

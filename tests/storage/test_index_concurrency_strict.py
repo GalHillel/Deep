@@ -10,8 +10,7 @@ from deep.storage.index import (
 def slow_writer(dg_dir: Path, stop_event: multiprocessing.Event):
     """Slow writer that holds the lock."""
     import time
-    from deep.storage.index import add_to_index
-    from deep.core.locks import IndexLock
+    from deep.storage.index import add_to_index, IndexLock
     lock = IndexLock(dg_dir)
     with lock:
         # Add one entry
