@@ -24,7 +24,11 @@ def is_allowed(args: Union[str, List[str]], shell: bool = False) -> bool:
     if cmd_base == os.path.basename(sys.executable).lower():
         return True
 
-    # 2. Allow SSH for transport (MUST NOT involve local git CLI)
+    # 2. Allow 'deep' CLI for integration tests
+    if cmd_base in ["deep", "deep.exe"]:
+        return True
+
+    # 3. Allow SSH for transport (MUST NOT involve local git CLI)
     if "ssh" in cmd_base:
         # Verify it's not trying to run 'git' on the other end locally?
         # Actually, the user says: "Ensure usage of: ssh git@host 'git-upload-pack repo' - MUST NOT call local git CLI"

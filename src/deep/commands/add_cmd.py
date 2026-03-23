@@ -66,7 +66,7 @@ def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sh
     return rel_path, sha, stat.st_size, stat.st_mtime_ns
 
 
-def run(args) -> None:  # type: ignore[no-untyped_def]
+def run(args) -> None:
     """Execute the ``add`` command."""
     try:
         repo_root = find_repo()
@@ -77,108 +77,102 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
 
+    from deep.storage.transaction import TransactionManager
     from deep.storage.index import read_index
-    index = read_index(dg_dir)
-    ignore_engine = IgnoreEngine(repo_root)
     
-    files_to_add: list[Path] = []
-    paths_to_remove: list[str] = []
-
-    for file_path_str in args.files:
-        path = Path(file_path_str).absolute()
-        if not path.exists():
-            # Handle staging of deletions
-            try:
-                rel_path = path.relative_to(repo_root).as_posix()
-                rel_path, _ = sanitize_path(rel_path)
-            except ValueError:
-                # Path is outside repo
-                print(f"Deep: error: {file_path_str} is outside repository", file=sys.stderr)
-                raise DeepCLIException(1)
-                
-            if rel_path in index.entries:
-                paths_to_remove.append(rel_path)
-                continue
-            else:
-                print(f"Deep: error: {file_path_str} does not exist", file=sys.stderr)
-                raise DeepCLIException(1)
-            
-        if path.is_file():
-            files_to_add.append(path)
-        elif path.is_dir():
-            for dirpath, dirnames, filenames in os.walk(path):
-                rel_dir = Path(dirpath).relative_to(repo_root).as_posix()
-                
-                valid_dirs = []
-                for d in dirnames:
-                    d_rel = f"{rel_dir}/{d}" if rel_dir != "." else d
-                    if d == DEEP_DIR:
-                        continue
-                    if not ignore_engine.is_ignored(d_rel, is_dir=True):
-                        valid_dirs.append(d)
-                dirnames[:] = valid_dirs
-                
-                for f in filenames:
-                    f_rel = f"{rel_dir}/{f}" if rel_dir != "." else f
-                    if not ignore_engine.is_ignored(f_rel, is_dir=False):
-                        files_to_add.append(Path(dirpath) / f)
-
-    if paths_to_remove:
-        remove_multiple_from_index(dg_dir, paths_to_remove)
-        for p in paths_to_remove:
-            print(f"Deep: staged deletion: {p}")
-
-    if not files_to_add:
-        return
-
-    # Phase 1: Parallel Processing
-    # No need to re-read index here
-    
-    index_updates = []
-    
-    # Phase 1: Parallel Processing
-    # No need to re-read index here
-    max_workers = min(os.cpu_count() or 4, len(files_to_add))
-    
-    results = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = []
-        for file_path in files_to_add:
-            rel_path = file_path.relative_to(repo_root).as_posix()
-            
-            p_sha = None
-            p_size = None
-            p_mtime_ns = None
-            
-            if rel_path in index.entries:
-                entry = index.entries[rel_path]
-                p_sha = entry.content_hash
-                p_size = entry.size
-                p_mtime_ns = entry.mtime_ns
-            
-            futures.append(executor.submit(
-                _add_file_worker, 
-                repo_root, 
-                dg_dir, 
-                file_path, 
-                p_sha,
-                p_size,
-                p_mtime_ns
-            ))
-            
-        for future in as_completed(futures):
-            results.append(future.result())
+    with TransactionManager(dg_dir) as tm:
+        tm.begin("add", details=" ".join(args.files))
         
-    if results:
-        # Filter results to only those that actually changed (SHA is not None)
-        # OR were previously staged but with different stats (SHA is not None)
-        # We also need to keep track of files that returned SHA=None because they were skipped by heuristic
-        # but those don't need update_multiple_index_entries.
+        index = read_index(dg_dir)
+        ignore_engine = IgnoreEngine(repo_root)
         
-        actual_results = [r for r in results if r[1] is not None]
+        files_to_add: list[Path] = []
+        paths_to_remove: list[str] = []
+
+        for file_path_str in args.files:
+            path = Path(file_path_str).absolute()
+            if not path.exists():
+                # Handle staging of deletions
+                try:
+                    rel_path = path.relative_to(repo_root).as_posix()
+                    rel_path, _ = sanitize_path(rel_path)
+                except ValueError:
+                    # Path is outside repo
+                    print(f"Deep: error: {file_path_str} is outside repository", file=sys.stderr)
+                    raise DeepCLIException(1)
+                    
+                if rel_path in index.entries:
+                    paths_to_remove.append(rel_path)
+                    continue
+                else:
+                    print(f"Deep: error: {file_path_str} does not exist", file=sys.stderr)
+                    # The transaction will automatically rollback when DeepCLIException is raised
+                    raise DeepCLIException(1)
+                
+            if path.is_file():
+                files_to_add.append(path)
+            elif path.is_dir():
+                for dirpath, dirnames, filenames in os.walk(path):
+                    rel_dir = Path(dirpath).relative_to(repo_root).as_posix()
+                    
+                    valid_dirs = []
+                    for d in dirnames:
+                        d_rel = f"{rel_dir}/{d}" if rel_dir != "." else d
+                        if d == DEEP_DIR:
+                            continue
+                        if not ignore_engine.is_ignored(d_rel, is_dir=True):
+                            valid_dirs.append(d)
+                    dirnames[:] = valid_dirs
+                    
+                    for f in filenames:
+                        f_rel = f"{rel_dir}/{f}" if rel_dir != "." else f
+                        if not ignore_engine.is_ignored(f_rel, is_dir=False):
+                            files_to_add.append(Path(dirpath) / f)
+
+        if paths_to_remove:
+            remove_multiple_from_index(dg_dir, paths_to_remove)
+            for p in paths_to_remove:
+                print(f"Deep: staged deletion: {p}")
+
+        if files_to_add:
+            # Phase 1: Parallel Processing
+            max_workers = min(os.cpu_count() or 4, len(files_to_add))
+            
+            results = []
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = []
+                for file_path in files_to_add:
+                    rel_path = file_path.relative_to(repo_root).as_posix()
+                    
+                    p_sha = None
+                    p_size = None
+                    p_mtime_ns = None
+                    
+                    if rel_path in index.entries:
+                        entry = index.entries[rel_path]
+                        p_sha = entry.content_hash
+                        p_size = entry.size
+                        p_mtime_ns = entry.mtime_ns
+                    
+                    futures.append(executor.submit(
+                        _add_file_worker, 
+                        repo_root, 
+                        dg_dir, 
+                        file_path, 
+                        p_sha,
+                        p_size,
+                        p_mtime_ns
+                    ))
+                    
+                for future in as_completed(futures):
+                    results.append(future.result())
+                
+            if results:
+                actual_results = [r for r in results if r[1] is not None]
+                if actual_results:
+                    for r in actual_results:
+                        assert len(r[1]) == 40, f"Invalid SHA length for {r[0]}: {len(r[1])}"
+                    add_multiple_to_index(dg_dir, actual_results)
+                    print(f"Deep: added {len(actual_results)} files to the index.")
         
-        if actual_results:
-            for r in actual_results:
-                assert len(r[1]) == 40, f"Invalid SHA length for {r[0]}: {len(r[1])}"
-            add_multiple_to_index(dg_dir, actual_results)
-            print(f"Deep: added {len(actual_results)} files to the index.")
+        tm.commit()
