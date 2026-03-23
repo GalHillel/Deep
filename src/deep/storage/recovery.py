@@ -41,14 +41,27 @@ def recover_stale_index_backups(dg_dir: Path):
                 try: p.unlink()
                 except OSError: pass
     
-    # 2. Aggressive stale lock cleanup (repo.lock, indexed.lock, txlog.lock, etc.)
-    for p in list(dg_dir.glob("*.lock")):
+    # 2. Aggressive stale lock and tmp file cleanup (repo.lock, index.lock, .tmp_deep_*)
+    # Check for both locks and temporary write files
+    for p in list(dg_dir.glob("*")):
         try:
-            lock = BaseLock(p)
-            owner_pid = lock._get_lock_pid()
-            if owner_pid is not None and not _is_process_alive(owner_pid):
-                logger.debug(f"Cleaning leaked stale lock: {p.name}")
-                try: os.remove(p)
-                except OSError: pass
+            # Handle stale locks
+            if p.suffix == ".lock":
+                lock = BaseLock(p)
+                owner_pid = lock._get_lock_pid()
+                if owner_pid is not None and not _is_process_alive(owner_pid):
+                    logger.debug(f"Cleaning leaked stale lock: {p.name}")
+                    try: os.remove(p)
+                    except OSError: pass
+            
+            # Handle stale AtomicWriter temp files
+            elif ".tmp_deep_" in p.name:
+                match = re.search(r"\.tmp_deep_(\d+)_", p.name)
+                if match:
+                    pid = int(match.group(1))
+                    if not _is_process_alive(pid):
+                        logger.debug(f"Cleaning stale temp file: {p.name}")
+                        try: p.unlink()
+                        except OSError: pass
         except Exception:
             pass

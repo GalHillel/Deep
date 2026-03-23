@@ -201,6 +201,12 @@ class RepositoryLock(BaseLock):
     level = 100
     def __init__(self, dg_dir: Path, timeout: float = 30.0):
         super().__init__(dg_dir / "repo.lock", timeout)
+        self.dg_dir = dg_dir
+
+    def _pre_acquire_recovery(self, stale_pid: Optional[int]):
+        """Trigger index recovery if the repository lock was left stale."""
+        from deep.storage.recovery import recover_stale_index_backups
+        recover_stale_index_backups(self.dg_dir)
 
 
 class BranchLock(BaseLock):

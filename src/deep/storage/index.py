@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Dict, Optional, Any, cast, List, Tuple
 
 from deep.utils.utils import DeepError
+from deep.core.locks import _is_process_alive
 
 # ── DeepIndex Binary Format v2 ───────────────────────────────────────
 # Header (FIXED SIZE - 45 bytes):
@@ -369,40 +370,11 @@ def write_index(dg_dir: Path, index: DeepIndex) -> None:
     path = dg_dir / "index"
     with IndexLock(dg_dir):
         _write_index_core(dg_dir, index, path)
-
 def _write_index_core(dg_dir: Path, index: DeepIndex, path: Path):
-    """Atomic write core: Temp file -> Fsync -> Atomic Replace."""
-    # Generate unique temp name
-    rand = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    tmp_path = path.with_name(f"index.tmp_{os.getpid()}_{rand}")
-    
-    try:
-        data = index.to_binary()
-        with open(tmp_path, "wb") as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
-        
-        # Atomic swap with retry for Windows (handles transient reader locks)
-        max_retries = 20 # Increased for high contention
-        for i in range(max_retries):
-            try:
-                os.replace(tmp_path, path)
-                break
-            except OSError as e:
-                # WinError 5: Access is denied
-                if i == max_retries - 1: raise
-                time.sleep(0.02 * (i + 1))
-    except Exception as e:
-        logging.getLogger("Deep").error(f"Failed to write index: {e}")
-        if tmp_path.exists():
-            try: tmp_path.unlink()
-            except OSError: pass
-        raise
-    finally:
-        if tmp_path.exists():
-            try: tmp_path.unlink()
-            except OSError: pass
+    """Atomic write core using AtomicWriter utility."""
+    from deep.utils.utils import AtomicWriter
+    with AtomicWriter(path) as f:
+        f.write(index.to_binary())
 
 def read_index_no_lock(dg_dir: Path) -> DeepIndex:
     """Read the index (lock-free due to atomic rename)."""

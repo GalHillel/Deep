@@ -95,7 +95,7 @@ class AtomicWriter:
 
         fd, tmp_name = tempfile.mkstemp(
             dir=str(self.target.parent),
-            prefix=".tmp_deep_",
+            prefix=f".tmp_deep_{os.getpid()}_",
         )
         self._fd = fd
         self._tmp_path = Path(tmp_name)
@@ -131,7 +131,19 @@ class AtomicWriter:
                 self._file = None
                 
                 if self._tmp_path is not None:
-                    os.replace(str(self._tmp_path), str(self.target))
+                    # Atomic swap with robust retry for Windows (WinError 5: Access is denied)
+                    max_retries = 30
+                    for i in range(max_retries):
+                        try:
+                            os.replace(str(self._tmp_path), str(self.target))
+                            break
+                        except (OSError, PermissionError):
+                            # On Windows, os.replace can fail if the destination is being 
+                            # read/locked by another process or if deletion is pending.
+                            if i == max_retries - 1:
+                                raise
+                            # Randomized exponential backoff
+                            time.sleep(0.01 * (i + 1) + 0.05 * (i % 2))
         finally:
             # Always ensure the lock is released if it was acquired
             if hasattr(self, "_lock") and self._lock:
