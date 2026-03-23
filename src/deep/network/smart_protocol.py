@@ -221,6 +221,7 @@ class SmartTransportClient:
         self,
         objects_dir: Path,
         depth: Optional[int] = None,
+        filter_spec: Optional[str] = None,
     ) -> Tuple[Dict[str, str], str]:
         """Clone a remote repository.
 
@@ -232,14 +233,15 @@ class SmartTransportClient:
             (refs, head_ref_name)
         """
         if self._transport_type in ("https", "http"):
-            return self._clone_https(objects_dir, depth)
+            return self._clone_https(objects_dir, depth, filter_spec)
         else:
-            return self._clone_ssh(objects_dir, depth)
+            return self._clone_ssh(objects_dir, depth, filter_spec)
 
     def _clone_https(
         self,
         objects_dir: Path,
         depth: Optional[int],
+        filter_spec: Optional[str] = None,
     ) -> Tuple[Dict[str, str], str]:
         transport = HTTPSTransport(self.url, token=self.token)
 
@@ -260,7 +262,7 @@ class SmartTransportClient:
 
         # Step 2: Build want/have negotiation request
         request_body = self._build_upload_request(
-            refs, set(), server_caps, depth
+            refs, set(), server_caps, depth=depth, filter_spec=filter_spec
         )
 
         # Step 3: POST to deep-upload-pack
@@ -281,6 +283,7 @@ class SmartTransportClient:
         self,
         objects_dir: Path,
         depth: Optional[int],
+        filter_spec: Optional[str] = None,
     ) -> Tuple[Dict[str, str], str]:
         transport = SSHTransport(self.url)
         try:
@@ -301,7 +304,7 @@ class SmartTransportClient:
 
             # Step 2: Send want/have/done
             self._send_upload_request_ssh(
-                transport, refs, set(), server_caps, depth
+                transport, refs, set(), server_caps, depth=depth, filter_spec=filter_spec
             )
 
             # Step 3: Read packfile
@@ -323,6 +326,8 @@ class SmartTransportClient:
         objects_dir: Path,
         want_shas: Optional[List[str]] = None,
         have_shas: Optional[List[str]] = None,
+        depth: Optional[int] = None,
+        filter_spec: Optional[str] = None,
     ) -> int:
         """Fetch objects from remote.
 
@@ -335,15 +340,17 @@ class SmartTransportClient:
             Number of objects fetched.
         """
         if self._transport_type in ("https", "http"):
-            return self._fetch_https(objects_dir, want_shas, have_shas)
+            return self._fetch_https(objects_dir, want_shas, have_shas, depth, filter_spec)
         else:
-            return self._fetch_ssh(objects_dir, want_shas, have_shas)
+            return self._fetch_ssh(objects_dir, want_shas, have_shas, depth, filter_spec)
 
     def _fetch_https(
         self,
         objects_dir: Path,
         want_shas: Optional[List[str]],
         have_shas: Optional[List[str]],
+        depth: Optional[int] = None,
+        filter_spec: Optional[str] = None,
     ) -> int:
         transport = HTTPSTransport(self.url, token=self.token)
         data, _ = transport.get_refs("deep-upload-pack")
@@ -365,7 +372,7 @@ class SmartTransportClient:
             return 0
 
         request_body = self._build_upload_request(
-            refs, local_shas, server_caps, want_refs=wants
+            refs, local_shas, server_caps, depth=depth, filter_spec=filter_spec, want_refs=wants
         )
         resp = transport.post_service("deep-upload-pack", request_body)
         pack_data = self._receive_pack_https(resp, server_caps)
@@ -379,6 +386,8 @@ class SmartTransportClient:
         objects_dir: Path,
         want_shas: Optional[List[str]],
         have_shas: Optional[List[str]],
+        depth: Optional[int] = None,
+        filter_spec: Optional[str] = None,
     ) -> int:
         transport = SSHTransport(self.url)
         try:
@@ -399,7 +408,7 @@ class SmartTransportClient:
                 return 0
 
             self._send_upload_request_ssh(
-                transport, refs, local_shas, server_caps, want_refs=wants
+                transport, refs, local_shas, server_caps, depth=depth, filter_spec=filter_spec, want_refs=wants
             )
             pack_data = self._receive_pack_ssh(transport, server_caps)
 
@@ -495,6 +504,7 @@ class SmartTransportClient:
         have_shas: Set[str],
         server_caps: Set[str],
         depth: Optional[int] = None,
+        filter_spec: Optional[str] = None,
         want_refs: Optional[Set[str]] = None,
     ) -> bytes:
         """Build the POST body for deep-upload-pack (HTTPS)."""
@@ -535,7 +545,6 @@ class SmartTransportClient:
             write_flush(buf)
 
         # Filter
-        filter_spec = kwargs.get("filter_spec")
         if filter_spec:
             write_pkt_line(buf, f"filter {filter_spec}".encode("ascii"))
             write_flush(buf)
@@ -556,6 +565,7 @@ class SmartTransportClient:
         have_shas: Set[str],
         server_caps: Set[str],
         depth: Optional[int] = None,
+        filter_spec: Optional[str] = None,
         want_refs: Optional[Set[str]] = None,
     ) -> None:
         """Send want/have/done over SSH."""
@@ -590,7 +600,6 @@ class SmartTransportClient:
             write_flush(transport.stdin)
 
         # Filter
-        filter_spec = kwargs.get("filter_spec")
         if filter_spec:
             write_pkt_line(transport.stdin,
                           f"filter {filter_spec}".encode("ascii"))
@@ -619,10 +628,33 @@ class SmartTransportClient:
         # Look for NAK or ACK
         use_sideband = "side-band-64k" in server_caps or "side-band" in server_caps
 
+        initial_pack_pkt = None
+        while True:
+            try:
+                pkt = read_pkt_line(stream)
+                if pkt is None: break
+                if not pkt: continue
+                
+                text = pkt.decode("ascii", errors="replace")
+                if text.startswith("NAK"): break
+                if text.startswith("ACK"):
+                    if "common" in text or "continue" in text:
+                        continue
+                    if "ready" in text:
+                        break
+                    break # Final ACK before packfile
+                
+                # If we reach here, it's NEITHER an ACK nor a NAK.
+                # This means the server skipped the final ACK and started sending the packfile!
+                initial_pack_pkt = pkt
+                break
+            except EOFError:
+                break
+
         if use_sideband:
-            return self._read_sideband_pack(stream)
+            return self._read_sideband_pack(stream, initial_pkt=initial_pack_pkt)
         else:
-            return self._read_plain_pack(stream)
+            return self._read_plain_pack(stream, initial_pkt=initial_pack_pkt)
 
     def _receive_pack_ssh(
         self,
@@ -633,34 +665,51 @@ class SmartTransportClient:
         use_sideband = "side-band-64k" in server_caps or "side-band" in server_caps
 
         # First, read NAK/ACK
+        initial_pack_pkt = None
         while True:
             try:
                 pkt = read_pkt_line(transport.stdout)
                 if pkt is None:
                     break
+                if not pkt:
+                    continue
+                
                 text = pkt.decode("ascii", errors="replace")
                 if text.startswith("NAK"):
                     break
                 if text.startswith("ACK"):
                     # multi_ack flow — continue until we get 'ready'
+                    if "common" in text or "continue" in text:
+                        continue
                     if "ready" in text:
                         break
-                    continue
+                    break # Final ACK before packfile
+                
+                # Non-ACK/NAK: server skipped negotiation exit and sent pack data
+                initial_pack_pkt = pkt
+                break
             except EOFError:
                 break
 
         if use_sideband:
-            return self._read_sideband_pack(transport.stdout)
+            return self._read_sideband_pack(transport.stdout, initial_pkt=initial_pack_pkt)
         else:
-            return self._read_plain_pack(transport.stdout)
+            return self._read_plain_pack(transport.stdout, initial_pkt=initial_pack_pkt)
 
-    def _read_sideband_pack(self, stream: BinaryIO) -> Optional[bytes]:
+    def _read_sideband_pack(self, stream: BinaryIO, initial_pkt: Optional[bytes] = None) -> Optional[bytes]:
         """Read packfile data from sideband-64k channel."""
         pack_chunks = []
 
+        first_iteration = True
         while True:
             try:
-                pkt = read_pkt_line(stream)
+                if first_iteration and initial_pkt is not None:
+                    pkt = initial_pkt
+                    first_iteration = False
+                else:
+                    pkt = read_pkt_line(stream)
+                    first_iteration = False
+
                 if pkt is None:
                     break
                 if not pkt:
@@ -686,11 +735,19 @@ class SmartTransportClient:
 
         return b"".join(pack_chunks) if pack_chunks else None
 
-    def _read_plain_pack(self, stream: BinaryIO) -> Optional[bytes]:
+    def _read_plain_pack(self, stream: BinaryIO, initial_pkt: Optional[bytes] = None) -> Optional[bytes]:
         """Read packfile directly from stream (no sideband)."""
         # Skip any pkt-line framing for NAK/ACK
         buf = io.BytesIO()
         remaining = stream.read()
+        
+        if initial_pkt:
+            # We must re-frame initial_pkt as a pkt-line if it was read by read_pkt_line
+            # Actually, read_pkt_line returns the PAYLOAD. 
+            # If it's a plain pack, the server might have sent raw data or pkt-lines.
+            # Git plain pack over HTTP/SSH is usually raw data after the final ACK.
+            remaining = initial_pkt + remaining
+
         if not remaining:
             return None
 

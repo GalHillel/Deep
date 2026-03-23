@@ -37,7 +37,7 @@ def test_cli_clone_success(tmp_path):
     repo_b = tmp_path / "repo_b"
     # Note: DeepGit clone handles local paths as URLs
     res = run_deep("clone", str(repo_a), str(repo_b), cwd=tmp_path)
-    assert res.returncode == 0
+    assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
     
     assert repo_b.exists()
     assert (repo_b / ".deep").exists()
@@ -53,7 +53,7 @@ def test_cli_clone_invalid_remote(tmp_path):
     repo_b = tmp_path / "repo_b"
     
     res = run_deep("clone", str(invalid_path), str(repo_b), cwd=tmp_path)
-    assert res.returncode != 0
+    assert res.returncode != 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
     # The directory should not exist or should be empty/removed
     if repo_b.exists():
         # If it exists, it should at least not be a valid repo or should be empty
@@ -82,7 +82,7 @@ def test_cli_fetch_success(tmp_path):
     
     # Fetch in B
     res = run_deep("fetch", "origin", cwd=repo_b)
-    assert res.returncode == 0
+    assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
     
     # Verify remote ref updated in B
     remote_ref_path = repo_b / ".deep" / "refs/remotes/origin/main"
@@ -113,7 +113,7 @@ def test_cli_fetch_invalid_remote(tmp_path):
     config.set_local("remote.origin.url", str(tmp_path / "invalid_path"))
     
     res = run_deep("fetch", "origin", cwd=repo_b)
-    assert res.returncode != 0
+    assert res.returncode != 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
     
     # Verify rollback: index and refs should remain as they were
     # Actually fetch doesn't change index, but it might have updated some refs if it were partial.

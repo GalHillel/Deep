@@ -88,7 +88,7 @@ class RemoteClient:
         return self._obj_cache[sha]
 
     def push(self, objects_dir: Path, ref: str, old_sha: str, new_sha: str):
-        shas_to_push = self._discover_objects(objects_dir, old_sha, new_sha)
+        shas_to_push = _discover_objects(objects_dir, old_sha, new_sha)
         if not shas_to_push:
             return "Everything up-to-date"
 
@@ -257,23 +257,25 @@ class RemoteClient:
         finally:
             self.disconnect()
 
-    def _discover_objects(self, objects_dir: Path, old_sha: str, new_sha: str) -> List[str]:
-        if old_sha == new_sha:
-            return []
-            
-        seen = set()
-        queue = deque([new_sha])
-        to_pack = []
+def _discover_objects(objects_dir: Path, old_sha: str, new_sha: str) -> List[str]:
+    """Discover all objects reachable from new_sha but not from old_sha."""
+    if old_sha == new_sha:
+        return []
         
-        while queue:
-            sha = queue.popleft()
-            if sha == old_sha or sha == "0"*40 or sha in seen:
-                continue
-                
-            seen.add(sha)
-            to_pack.append(sha)
+    seen = set()
+    queue = deque([new_sha])
+    to_pack = []
+    
+    while queue:
+        sha = queue.popleft()
+        if not sha or sha == old_sha or sha == "0"*40 or sha in seen:
+            continue
             
-            obj = self._get_obj(objects_dir, sha)
+        seen.add(sha)
+        to_pack.append(sha)
+        
+        try:
+            obj = read_object(objects_dir, sha)
             if isinstance(obj, Commit):
                 if obj.tree_sha:
                     queue.append(obj.tree_sha)
@@ -282,8 +284,10 @@ class RemoteClient:
             elif isinstance(obj, Tree):
                 for entry in obj.entries:
                     queue.append(entry.sha)
-                    
-        return to_pack
+        except (FileNotFoundError, ValueError):
+            pass
+                
+    return to_pack
 
     def _get_obj(self, objects_dir: Path, sha: str) -> Any:
         if sha not in self._obj_cache:
@@ -305,24 +309,120 @@ class RemoteClient:
         return url, 8888, repo_name
 
 
+class LocalClient:
+    """Client for local filesystem repository operations."""
+
+    def __init__(self, path: str):
+        self.repo_root = Path(path).resolve()
+        self.dg_dir = self.repo_root / ".deep"
+        if not self.repo_root.exists():
+            raise FileNotFoundError(f"Local path does not exist: {self.repo_root}")
+        if not self.dg_dir.exists():
+            raise FileNotFoundError(f"Not a Deep repository (missing .deep): {self.repo_root}")
+
+    def ls_remote(self) -> Dict[str, str]:
+        from deep.core.refs import list_branches, get_branch
+        branches = list_branches(self.dg_dir)
+        refs = {}
+        for b in branches:
+            sha = get_branch(self.dg_dir, b)
+            if sha:
+                refs[f"refs/heads/{b}"] = sha
+        
+        # Heuristic for HEAD
+        head_sha = ""
+        if (self.dg_dir / "refs/heads/main").exists():
+            head_sha = (self.dg_dir / "refs/heads/main").read_text().strip()
+        elif branches:
+            head_sha = get_branch(self.dg_dir, branches[0])
+        
+        if head_sha:
+            refs["HEAD"] = head_sha
+            
+        return refs
+
+    def clone(self, objects_dir: Path, depth: Optional[int] = None, filter_spec: Optional[str] = None) -> tuple[dict[str, str], str]:
+        refs = self.ls_remote()
+        head_sha = refs.get("HEAD", "")
+        if head_sha:
+            self.fetch(objects_dir, want_shas=[head_sha], depth=depth, filter_spec=filter_spec)
+        
+        # Determine head_ref
+        head_ref = "refs/heads/main"
+        for r, s in refs.items():
+            if r.startswith("refs/heads/") and s == head_sha:
+                head_ref = r
+                break
+        
+        return refs, head_ref
+
+    def fetch(self, objects_dir: Path, want_shas: Optional[List[str]] = None, have_shas: Optional[List[str]] = None, depth: Optional[int] = None, filter_spec: Optional[str] = None) -> int:
+        from deep.storage.objects import get_reachable_objects
+        from deep.storage.pack import create_pack, unpack
+        
+        if not want_shas:
+            refs = self.ls_remote()
+            want_shas = list(refs.values())
+        
+        # Get all objects from source repo
+        src_objects_dir = self.dg_dir / "objects"
+        reachable_shas = get_reachable_objects(src_objects_dir, want_shas, depth, filter_spec)
+        
+        # Create pack from source and unpack to destination
+        pack_data = create_pack(src_objects_dir, reachable_shas)
+        count = unpack(io.BytesIO(pack_data), objects_dir)
+        return count
+
+    def push(self, objects_dir: Path, ref: str, old_sha: str, new_sha: str) -> str:
+        """Push local changes to another local repository."""
+        from deep.storage.pack import create_pack, unpack
+        from deep.core.refs import update_branch
+        
+        # 1. Prepare objects to send
+        reachable_shas = _discover_objects(objects_dir, old_sha, new_sha)
+        if not reachable_shas:
+            return "Everything up-to-date"
+            
+        # 2. Pack and unpack into the target repo
+        pack_data = create_pack(objects_dir, reachable_shas)
+        target_objects_dir = self.dg_dir / "objects"
+        unpack(io.BytesIO(pack_data), target_objects_dir)
+        
+        # 3. Update the ref in the target repo
+        # Note: LocalClient handles local paths, so we update the branch in self.dg_dir
+        branch_name = ref
+        if branch_name.startswith("refs/heads/"):
+            branch_name = branch_name[len("refs/heads/"):]
+            
+        update_branch(self.dg_dir, branch_name, new_sha)
+        return f"ok push {ref} succeeded"
+
+
 def get_remote_client(url: str, auth_token: Optional[str] = None):
     """Factory to return the appropriate client for a URL."""
     if os.environ.get("DEEP_PROTOCOL_FALLBACK") == "1":
         return RemoteClient(url, auth_token=auth_token)
 
     is_deep = url.startswith("deep://")
+    
+    # Check for Windows path or Unix absolute path or existing directory
+    is_local = (
+        os.path.isdir(url) or 
+        url.startswith("/") or 
+        (len(url) > 1 and url[1] == ":" and url[2] in "/\\") or
+        "\\" in url
+    )
+    
+    if is_local:
+        return LocalClient(url)
+
     is_classic_daemon = (
         ":" in url
-        and not ("://" in url or "@" in url or
-                (len(url) > 1 and url[1] == ":" and url[2] in "/\\"))
+        and not ("://" in url or "@" in url)
     )
 
     if is_deep or is_classic_daemon:
-        if os.environ.get("DEEP_DEBUG"):
-            print(f"[DEEP_DEBUG] get_remote_client: returning RemoteClient for {url}", file=sys.stderr)
         return RemoteClient(url, auth_token=auth_token)
     else:
-        if os.environ.get("DEEP_DEBUG"):
-            print(f"[DEEP_DEBUG] get_remote_client: returning SmartTransportClient for {url}", file=sys.stderr)
         from deep.network.smart_protocol import SmartTransportClient
         return SmartTransportClient(url, token=auth_token)

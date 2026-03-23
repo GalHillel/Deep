@@ -49,6 +49,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         raise DeepCLIException(1)
 
     target_dir.mkdir(parents=True, exist_ok=True)
+    success = False
 
     old_cwd = os.getcwd()
     os.chdir(target_dir)
@@ -99,6 +100,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
         if not head_sha:
             print("Deep: warning: Remote repository appears empty", file=sys.stderr)
+            success = True # Ambiguous, but repo is initialized
             return
 
         # Update refs
@@ -128,6 +130,19 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 print(f"Deep: warning: checkout failed: {e}", file=sys.stderr)
 
         print("Done.")
+        success = True
 
-    finally:
+    except Exception as e:
+        # Step back to original CWD before deletion on Windows
         os.chdir(old_cwd)
+        import shutil
+        if target_dir.exists():
+            try:
+                shutil.rmtree(target_dir)
+            except OSError:
+                # Best effort cleanup
+                pass
+        raise e
+    finally:
+        if os.getcwd() == str(target_dir):
+            os.chdir(old_cwd)

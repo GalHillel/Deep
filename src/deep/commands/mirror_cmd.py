@@ -36,16 +36,20 @@ def run(args) -> None:
         
     elif cmd == "sync":
         print(Color.wrap(Color.CYAN, "Synchronizing all mirrors..."))
-        results = manager.sync_all(auth_token=auth_token)
-        for url, res in results.items():
-            print(f"\nMirror: {url}")
-            if "error" in res:
-                print(Color.wrap(Color.RED, f"  Error: {res['error']}"))
-            elif not res:
-                print(Color.wrap(Color.DIM, "  Everything up to date."))
-            else:
-                for k, v in res.items():
-                    print(f"  {k}: {v}")
+        from deep.storage.transaction import TransactionManager
+        with TransactionManager(dg_dir) as tm:
+            tm.begin("mirror-sync")
+            results = manager.sync_all(auth_token=auth_token)
+            for url, res in results.items():
+                print(f"\nMirror: {url}")
+                if "error" in res:
+                    print(Color.wrap(Color.RED, f"  Error: {res['error']}"))
+                elif not res:
+                    print(Color.wrap(Color.DIM, "  Everything up to date."))
+                else:
+                    for k, v in res.items():
+                        print(f"  {k}: {v}")
+            tm.commit()
                     
     elif cmd == "list":
         mirrors = manager.list_mirrors()

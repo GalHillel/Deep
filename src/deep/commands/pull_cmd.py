@@ -38,61 +38,77 @@ def run(args) -> None:
     branch = args.branch
     dg_dir = repo_root / DEEP_DIR
 
-    try:
-        from deep.network.client import get_remote_client
-        from deep.network.auth import get_auth_token
+    from deep.storage.transaction import TransactionManager
+    from deep.objects.hash_object import object_exists
 
-        auth_token = config.get("auth.token") or get_auth_token()
-        client = get_remote_client(url, auth_token=auth_token)
+    with TransactionManager(dg_dir) as tm:
+        tm.begin("pull")
+        try:
+            from deep.network.client import get_remote_client
+            from deep.network.auth import get_auth_token
 
-        print(Color.wrap(Color.CYAN, f"Pulling from {url}..."))
+            auth_token = config.get("auth.token") or get_auth_token()
+            client = get_remote_client(url, auth_token=auth_token)
 
-        # 1. Discover remote refs
-        remote_refs = client.ls_remote()
-        remote_ref = f"refs/heads/{branch}"
-        remote_sha = remote_refs.get(remote_ref)
+            print(Color.wrap(Color.CYAN, f"Pulling from {url}..."))
 
-        if not remote_sha:
-            print(f"Deep: error: Remote branch '{branch}' not found", file=sys.stderr)
-            raise DeepCLIException(1)
+            # 1. Discover remote refs
+            remote_refs = client.ls_remote()
+            remote_ref = f"refs/heads/{branch}"
+            remote_sha = remote_refs.get(remote_ref)
 
-        # 2. Determine what we have locally
-        have_shas = []
-        local_sha = get_branch(dg_dir, branch)
-        if local_sha:
-            have_shas.append(local_sha)
-        head_sha = resolve_head(dg_dir)
-        if head_sha:
-            have_shas.append(head_sha)
+            if not remote_sha:
+                print(f"Deep: error: Remote branch '{branch}' not found", file=sys.stderr)
+                raise DeepCLIException(1)
 
-        # Also check remote tracking refs
-        tracked = get_remote_ref(dg_dir, url_or_name, branch)
-        if tracked:
-            have_shas.append(tracked)
+            # 2. Determine what we have locally
+            have_shas = []
+            local_sha = get_branch(dg_dir, branch)
+            if local_sha and object_exists(dg_dir / "objects", local_sha):
+                have_shas.append(local_sha)
+            
+            head_sha = resolve_head(dg_dir)
+            if head_sha and object_exists(dg_dir / "objects", head_sha):
+                have_shas.append(head_sha)
 
-        # 3. Fetch
-        print(f"Fetching {branch} ({remote_sha[:7]})...")
-        count = client.fetch(
-            dg_dir / "objects",
-            want_shas=[remote_sha],
-            have_shas=have_shas,
-        )
-        if count:
-            print(f"Fetched {count} objects.")
-        else:
-            print("Already up to date.")
+            # Also check remote tracking refs
+            tracked = get_remote_ref(dg_dir, url_or_name, branch)
+            if tracked and object_exists(dg_dir / "objects", tracked):
+                have_shas.append(tracked)
 
-        # Update remote tracking ref
-        update_remote_ref(dg_dir, url_or_name, branch, remote_sha)
-        if url_or_name != "origin":
-            update_remote_ref(dg_dir, "origin", branch, remote_sha)
+            # 3. Fetch
+            # BUG 2 FIX: Even if tracking ref matches remote_sha, we MUST re-fetch if object is missing.
+            if object_exists(dg_dir / "objects", remote_sha) and remote_sha in have_shas:
+                print("Already up to date.")
+            else:
+                print(f"Fetching {branch} ({remote_sha[:7]})...")
+                count = client.fetch(
+                    dg_dir / "objects",
+                    want_shas=[remote_sha],
+                    have_shas=have_shas,
+                )
+                if count:
+                    print(f"Fetched {count} objects.")
+                else:
+                    # Double check if fetch returned 0 but object is STILL missing
+                    if not object_exists(dg_dir / "objects", remote_sha):
+                        print(f"Deep: error: Remote reported object {remote_sha} as existing, but fetch failed to download it.", file=sys.stderr)
+                        raise DeepCLIException(1)
 
-        # 4. Merge
-        print(f"Merging {remote_sha[:7]} into current branch...")
-        from deep.commands.merge_cmd import run as merge_run
-        merge_args = Namespace(branch=remote_sha)
-        merge_run(merge_args)
+            # Update remote tracking ref
+            update_remote_ref(dg_dir, url_or_name, branch, remote_sha)
+            if url_or_name != "origin":
+                update_remote_ref(dg_dir, "origin", branch, remote_sha)
 
-    except Exception as e:
-        print(f"Deep: error: pull failed: {e}", file=sys.stderr)
-        raise DeepCLIException(1)
+            # 4. Merge
+            print(f"Merging {remote_sha[:7]} into current branch...")
+            from deep.commands.merge_cmd import run as merge_run
+            merge_args = Namespace(branch=remote_sha)
+            merge_run(merge_args)
+
+            tm.commit()
+
+        except Exception as e:
+            if not isinstance(e, DeepCLIException):
+                print(f"Deep: error: pull failed: {e}", file=sys.stderr)
+            raise e

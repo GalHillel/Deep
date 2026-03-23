@@ -905,6 +905,16 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.init_cmd import run # type: ignore[import]
     elif args.command == "ls-remote":
         from deep.commands.ls_remote_cmd import run # type: ignore[import]
+    elif args.command == "clone":
+        from deep.commands.clone_cmd import run # type: ignore[import]
+    elif args.command == "fetch":
+        from deep.commands.fetch_cmd import run # type: ignore[import]
+    elif args.command == "push":
+        from deep.commands.push_cmd import run # type: ignore[import]
+    elif args.command == "pull":
+        from deep.commands.pull_cmd import run # type: ignore[import]
+    elif args.command == "remote":
+        from deep.commands.remote_cmd import run # type: ignore[import]
     elif args.command == "migrate":
         from deep.commands.migrate_cmd import migrate_cmd as run # type: ignore[import]
     elif args.command == "add":
@@ -969,7 +979,7 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.pipeline_cmd import run
     elif args.command == "p2p":
         from deep.commands.p2p_cmd import run
-    elif args.command in ("clone", "push", "fetch", "pull", "remote", "ls-remote", "mirror", "daemon", "sync", "server", "user", "auth", "repo"):
+    elif args.command in ("mirror", "daemon", "sync", "server", "user", "auth", "repo"):
         print("P2P/Server is currently disabled (experimental feature)", file=sys.stderr)
         raise DeepCLIException(1)
     elif args.command == "audit":
@@ -1088,6 +1098,8 @@ def main(argv: list[str] | None = None) -> None:
     except DeepError as e:
         print(f"Deep: error: {e}", file=sys.stderr)
         raise DeepCLIException(1)
+    except DeepCLIException as e:
+        sys.exit(e.code if hasattr(e, 'code') else 1)
     except Exception as e:
         # Don't silence unexpected exceptions in dev mode if requested,
         # but for CLI users, show a clean internal error.
