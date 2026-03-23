@@ -1,4 +1,5 @@
 import asyncio
+import os
 import socket
 import threading
 import sys
@@ -93,6 +94,8 @@ def run(args) -> None:
                 print(f"  - {b}: {sha[:7]}")
 
     elif p2p_cmd == "sync":
+        from deep.storage.transaction import TransactionManager # type: ignore[import]
+        
         # real-world TCP object exchange sync
         engine = P2PEngine(dg_dir)
         engine.start()
@@ -113,12 +116,9 @@ def run(args) -> None:
                 host=host,
                 port=port,
                 last_seen=time.time(),
-                branches={}, # Will be populated during handshake if we had one, 
-                             # but here we'll just try to fetch
+                branches={}, # Will be populated during handshake
                 repo_name=""
             )
-            # We still need to know WHAT to fetch. 
-            # In a real manual sync, we'd pull all refs first.
             from deep.network.client import get_remote_client
             client = get_remote_client(f"{host}:{port}")
             try:
@@ -130,7 +130,7 @@ def run(args) -> None:
             except Exception as e:
                 print(f"  ❌ Failed to connect to manual peer: {e}")
                 engine.stop()
-                return
+                raise DeepCLIException(1)
 
         print("🔍 Discovering remote states...")
         time.sleep(3)
@@ -146,34 +146,47 @@ def run(args) -> None:
         from deep.network.client import get_remote_client
         from deep.core.refs import update_branch, is_ancestor
 
-        for c in conflicts:
-            branch = c['branch']
-            peer_url = c['peer_host']
-            remote_sha = c['remote_sha']
-            local_sha = c['local_sha']
-            
-            print(f"\n🔄 Syncing branch '{branch}' from peer {c['peer']} ({peer_url})...")
-            
-            client = get_remote_client(peer_url)
+        with TransactionManager(dg_dir) as tm:
+            tm.begin("p2p_sync")
             try:
-                client.connect()
-                # Fetch missing objects
-                objects_dir = dg_dir / "objects"
-                count = client.fetch(objects_dir, remote_sha)
-                print(f"  Fetched {count} objects.")
+                for c in conflicts:
+                    branch = c['branch']
+                    peer_url = c['peer_host']
+                    remote_sha = c['remote_sha']
+                    local_sha = c['local_sha']
+                    
+                    print(f"\n🔄 Syncing branch '{branch}' from peer {c['peer']} ({peer_url})...")
+                    
+                    client = get_remote_client(peer_url)
+                    try:
+                        client.connect()
+                        # Fetch missing objects
+                        objects_dir = dg_dir / "objects"
+                        count = client.fetch(objects_dir, remote_sha)
+                        print(f"  Fetched {count} objects.")
+                        
+                        # CHAOS TRIGGER for testing rollback
+                        if os.environ.get("DEEP_P2P_CHAOS"):
+                            print("🔥 CHAOS MODE: Simulating failure mid-sync...")
+                            raise RuntimeError("P2P CHAOS: Simulated failure")
+                        
+                        # Check for fast-forward
+                        if is_ancestor(objects_dir, local_sha, remote_sha):
+                            update_branch(dg_dir, branch, remote_sha)
+                            print(f"  ✅ Fast-forwarded '{branch}' to {remote_sha[:7]}")
+                        else:
+                            print(f"  ⚠️ Diverged: Manual merge/rebase required for '{branch}'")
+                    finally:
+                        client.disconnect()
                 
-                # Check for fast-forward
-                if is_ancestor(objects_dir, local_sha, remote_sha):
-                    update_branch(dg_dir, branch, remote_sha)
-                    print(f"  ✅ Fast-forwarded '{branch}' to {remote_sha[:7]}")
-                else:
-                    print(f"  ⚠️ Diverged: Manual merge/rebase required for '{branch}'")
+                tm.commit()
             except Exception as e:
-                print(f"  ❌ Sync failed for {branch}: {e}")
+                print(f"  ❌ Sync failed: {e}")
+                # TransactionManager handles rollback
+                raise DeepCLIException(1)
             finally:
-                client.disconnect()
-
-        engine.stop()
+                engine.stop()
+                
         print("\nSync complete.")
 
 import socket

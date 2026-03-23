@@ -220,17 +220,21 @@ class DeepDaemon:
                 tmp_pack.flush()
                 tmp_pack.close()
 
-                # 2. Quarantine Unpack from File
-                with tempfile.TemporaryDirectory(dir=str(dg_dir / "tmp")) as tmp_dir:
-                    tmp_path = Path(tmp_dir)
-                    tmp_objects = tmp_path / "objects"
-                    tmp_objects.mkdir()
+                # 2. Transactional Unpack and Update
+                from deep.storage.transaction import TransactionManager
+                with TransactionManager(dg_dir) as tm:
+                    tm.begin("remote_push")
                     
-                    try:
+                    with tempfile.TemporaryDirectory(dir=str(dg_dir / "tmp")) as tmp_unpack_dir:
+                        tmp_path = Path(tmp_unpack_dir)
+                        tmp_objects = tmp_path / "objects"
+                        tmp_objects.mkdir()
+                        
                         with open(tmp_pack_path, "rb") as f:
-                            # Run synchronous unpack in a separate thread to avoid blocking the event loop
+                            # Run synchronous unpack in a separate thread
                             await asyncio.to_thread(unpack, f, tmp_objects)
                         
+                        # Validate the new tip exists in the pack we just received
                         read_object(tmp_objects, new_sha)
                         
                         # 3. Atomically move objects to main store
@@ -250,22 +254,26 @@ class DeepDaemon:
                         branch_name = ref_name.rsplit("/", 1)[-1]
                         await asyncio.to_thread(update_branch, dg_dir, branch_name, new_sha)
                         
-                        # 5. Trigger CI/CD Pipeline
-                        try:
-                            from deep.core.pipeline import PipelineRunner
-                            import threading
-                            runner = PipelineRunner(dg_dir)
-                            pipeline_run = runner.create_run(new_sha)
-                            if pipeline_run.jobs:
-                                threading.Thread(target=runner.run_pipeline, args=(pipeline_run,), daemon=True).start()
-                                msg = f"ok push successful: {moved_count} objects moved. CI run {pipeline_run.run_id} started."
-                            else:
-                                msg = f"ok push successful: {moved_count} objects moved. (no CI config)"
-                            await stream.write(msg.encode("ascii"))
-                        except Exception as ci_err:
-                            await stream.write(f"ok push successful: {moved_count} objects moved. (CI trigger failed)".encode("ascii"))
-                    except Exception as e:
-                        await stream.write(f"error push failed: processing error".encode("ascii"))
+                    tm.commit()
+                
+                # 5. Trigger CI/CD Pipeline (after commit)
+                try:
+                    from deep.core.pipeline import PipelineRunner
+                    import threading
+                    runner = PipelineRunner(dg_dir)
+                    pipeline_run = runner.create_run(new_sha)
+                    if pipeline_run.jobs:
+                        threading.Thread(target=runner.run_pipeline, args=(pipeline_run,), daemon=True).start()
+                        msg = f"ok push successful: {moved_count} objects moved. CI run {pipeline_run.run_id} started."
+                    else:
+                        msg = f"ok push successful: {moved_count} objects moved. (no CI config)"
+                    await stream.write(msg.encode("ascii"))
+                except Exception as ci_err:
+                    await stream.write(f"ok push successful: {moved_count} objects moved. (CI trigger failed)".encode("ascii"))
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                await stream.write(f"error push failed: {e}".encode("ascii"))
             finally:
                 if tmp_pack_path.exists():
                     tmp_pack_path.unlink()

@@ -46,6 +46,25 @@ class RemoteClient:
         self.server_caps: Set[str] = set()
         self._obj_cache: Dict[str, Any] = {}
 
+    def _get_obj(self, objects_dir: Path, sha: str) -> Any:
+        if sha not in self._obj_cache:
+            self._obj_cache[sha] = read_object(objects_dir, sha)
+        return self._obj_cache[sha]
+
+    def _parse_url(self, url: str) -> tuple[str, int, Optional[str]]:
+        if url.startswith("deep://"):
+            url = url[7:]
+            
+        repo_name = None
+        if "/" in url:
+            url, repo_name = url.split("/", 1)
+            
+        if ":" in url:
+            host, port_str = url.split(":", 1)
+            return host, int(port_str), repo_name
+        
+        return url, 8888, repo_name
+
     def connect(self):
         """Connect to the daemon and consume handshake."""
         self.sock = socket.create_connection((self.host, self.port), timeout=10)
@@ -230,32 +249,10 @@ class RemoteClient:
         count = unpack(bytes(pack_data), objects_dir)
         return count
 
-    def push(self, objects_dir: Path, ref: str, old_sha: str, new_sha: str) -> str:
-        """Standardized push for protocol compatibility."""
-        self.connect()
-        try:
-            shas_to_push = self._discover_objects(objects_dir, old_sha, new_sha)
-            if not shas_to_push:
-                return "Everything up-to-date"
+        from deep.storage.pack import unpack
+        count = unpack(bytes(pack_data), objects_dir)
+        return count
 
-            from deep.storage.pack import create_pack
-            pack_data = create_pack(objects_dir, shas_to_push)
-            
-            cmd = f"push {ref} {old_sha} {new_sha}".encode("ascii")
-            self.stream.write(cmd)
-            
-            header = f"packfile {len(pack_data)}".encode("ascii")
-            self.stream.write(header)
-            
-            self.sock.sendall(pack_data)
-            
-            resp = self.stream.read_pkt()
-            if not resp or not resp.startswith(b"ok "):
-                raise RuntimeError(f"Push failed: {resp}")
-                
-            return resp.decode("ascii")
-        finally:
-            self.disconnect()
 
 def _discover_objects(objects_dir: Path, old_sha: str, new_sha: str) -> List[str]:
     """Discover all objects reachable from new_sha but not from old_sha."""
@@ -288,25 +285,6 @@ def _discover_objects(objects_dir: Path, old_sha: str, new_sha: str) -> List[str
             pass
                 
     return to_pack
-
-    def _get_obj(self, objects_dir: Path, sha: str) -> Any:
-        if sha not in self._obj_cache:
-            self._obj_cache[sha] = read_object(objects_dir, sha)
-        return self._obj_cache[sha]
-
-    def _parse_url(self, url: str) -> tuple[str, int, Optional[str]]:
-        if url.startswith("deep://"):
-            url = url[7:]
-            
-        repo_name = None
-        if "/" in url:
-            url, repo_name = url.split("/", 1)
-            
-        if ":" in url:
-            host, port_str = url.split(":", 1)
-            return host, int(port_str), repo_name
-        
-        return url, 8888, repo_name
 
 
 class LocalClient:
