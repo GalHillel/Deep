@@ -989,6 +989,8 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.verify_cmd import run # type: ignore[import]
     elif args.command == "sandbox":
         from deep.commands.sandbox_cmd import run # type: ignore[import]
+    elif args.command == "ai":
+        from deep.commands.ai_cmd import run # type: ignore[import]
     elif args.command == "rollback":
         from deep.commands.rollback_cmd import run # type: ignore[import]
     elif args.command == "debug-tree":

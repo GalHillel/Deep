@@ -14,7 +14,7 @@ def test_cli_ai_refactor_safe(tmp_path):
     Run deep ai refactor.
     Verify change applied and state is consistent.
     """
-    repo = tmp_path / "repo"
+    repo = tmp_path / "repo_safe"
     repo.mkdir()
     run_deep("init", cwd=repo)
     
@@ -26,9 +26,13 @@ def test_cli_ai_refactor_safe(tmp_path):
     
     # Run refactor
     res = run_deep("ai", "refactor", cwd=repo)
+    if res.returncode != 0:
+        print(f"DEBUG Safe: res.returncode={res.returncode}")
+        print(f"DEBUG Safe: res.stdout={res.stdout}")
+        print(f"DEBUG Safe: res.stderr={res.stderr}")
     assert res.returncode == 0
     assert "Applying AI Refactors" in res.stdout
-    assert "Applied successfully" in res.stdout
+    assert "applied successfully" in res.stdout
     
     # Verify file content
     new_content = file_path.read_text(encoding="utf-8")
@@ -45,7 +49,7 @@ def test_cli_ai_abort_on_crash(tmp_path):
     Run refactor with DEEP_AI_CHAOS=REFACTOR_CRASH.
     Verify non-zero exit and file remains unchanged.
     """
-    repo = tmp_path / "repo"
+    repo = tmp_path / "repo_crash"
     repo.mkdir()
     run_deep("init", cwd=repo)
     
@@ -75,7 +79,7 @@ def test_cli_ai_cleanup_transactional(tmp_path):
     """
     Verify cleanup runs in a transaction.
     """
-    repo = tmp_path / "repo"
+    repo = tmp_path / "repo_cleanup"
     repo.mkdir()
     run_deep("init", cwd=repo)
     
