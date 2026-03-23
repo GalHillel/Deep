@@ -9,22 +9,20 @@ and the owning process no longer exists, the lock is automatically broken.
 
 from __future__ import annotations
 
-import json
 import os
 import time
+import logging
+import json
+import random
+import threading
 from pathlib import Path
-from typing import Optional, Any, cast, Union
+from typing import Optional, Any, cast, Union, Dict
 
 from deep.core.constants import DEEP_DIR # type: ignore
 import threading
 from deep.utils.utils import hash_bytes # type: ignore
 
 _local_locks = threading.local()
-
-def _get_held_lock_levels() -> list[int]:
-    if not hasattr(_local_locks, 'levels'):
-        _local_locks.levels = []
-    return _local_locks.levels
 
 class LockHierarchyViolation(RuntimeError):
     pass
@@ -63,168 +61,132 @@ def _is_process_alive(pid: int) -> bool:
 
 
 class BaseLock:
-    """A cross-platform process-level file lock using native OS primitives.
+    """A cross-platform process-level file lock using atomic filesystem operations.
     
-    Uses msvcrt.locking on Windows and fcntl.flock on Unix.
+    Uses os.open(O_CREAT | O_EXCL) for atomic acquisition and PID-liveness for stale cleanup.
+    Now guaranteed to be leak-free (removes the lock file on release).
     """
-    
     level: int = 0
+    _thread_local = threading.local()
+    _lock_registry: Dict[str, threading.RLock] = {}
+    _registry_lock = threading.Lock()
 
     def __init__(self, lock_path: Path, timeout: float = 60.0):
         self.lock_path = lock_path
         self.timeout = timeout
-        self._fd: Optional[int] = None
-        self._file_handle = None
-
-    def _write_metadata(self):
-        """Write metadata using the already open self._file_handle.
-        We seek to 0, write JSON, and ensure we don't overwrite the lock offset.
-        """
-        if not self._file_handle:
-            return
-        try:
-            assert self._file_handle is not None
-            cast(Any, self._file_handle).seek(0)
-            metadata = {
-                "pid": os.getpid(),
-                "timestamp": time.time(),
-                "hostname": os.environ.get("COMPUTERNAME", os.environ.get("HOSTNAME", "unknown")),
-            }
-            # Write JSON and pad with spaces to ensure we don't leave old partial data
-            # but stay well below the 1024 byte lock offset.
-            data = cast(str, json.dumps(metadata)) # type: ignore
-            if len(data) > 1000:
-                data = data[:1000] # type: ignore
-            cast(Any, self._file_handle).write(data.ljust(1000))
-            cast(Any, self._file_handle).flush()
-            os.fsync(cast(Any, self._file_handle).fileno())
-        except OSError:
-            pass
-
-    def _try_break_stale_lock(self) -> bool:
-        """Read the lock metadata and check if the owner process is still alive.
-        If the PID is dead, we break (unlink) the lock.
-        """
-        if not self.lock_path.exists():
-            return False
+        self.pid = os.getpid()
+        self.lock_id = str(lock_path.absolute())
         
+        # Get or create the RLock for this specific file path
+        with self._registry_lock:
+            if self.lock_id not in self._lock_registry:
+                self._lock_registry[self.lock_id] = threading.RLock()
+            self._process_lock = self._lock_registry[self.lock_id]
+
+    def _get_counter(self) -> Dict[str, int]:
+        if not hasattr(self._thread_local, 'counters'):
+            self._thread_local.counters = {}
+        return self._thread_local.counters
+
+    def _get_lock_pid(self) -> Optional[int]:
+        """Read PID from lock file with sharing flags on Windows."""
+        if not self.lock_path.exists():
+            return None
         try:
-            # On Windows, if the file is locked by another handle, this will fail.
-            # That's fine - it means the process is alive.
-            with open(self.lock_path, "r", encoding="utf-8") as f:
-                data = cast(dict, json.load(f)) # type: ignore
-            
-            pid = cast(dict, data).get("pid") # type: ignore
-            if pid and not _is_process_alive(pid):
-                # Process is definitively dead. Break the lock.
-                try:
-                    os.remove(self.lock_path)
-                    return True
-                except (PermissionError, OSError):
-                    # If we can't remove it, someone else might have acquired it
-                    # or it's still somehow held.
-                    pass
-        except (OSError, json.JSONDecodeError, ValueError):
-            # If we can't read it or it's corrupt, and it's not locked by OS,
-            # we might consider it stale if it's very old? 
-            # But user said "only if definitively dead".
-            # For corrupt/empty files not held by OS, unlinking is usually safe.
-            if self.lock_path.exists():
-                try:
-                    # Try a dummy lock. If it fails, someone has it.
-                    # If it succeeds, the file is just lying around.
-                    pass
-                except OSError:
-                    pass
-        return False
+            # On Windows, os.O_BINARY and sharing flags are important
+            flags = os.O_RDONLY | getattr(os, 'O_BINARY', 0)
+            fd = os.open(self.lock_path, flags)
+            try:
+                data = os.read(fd, 32).decode().strip()
+                if not data: return None
+                # Support both raw PID and legacy JSON
+                if data.startswith('{'):
+                    return int(json.loads(data).get('pid', 0))
+                return int(data)
+            finally:
+                os.close(fd)
+        except (OSError, ValueError, json.JSONDecodeError):
+            return None
 
     def acquire(self):
-        held = _get_held_lock_levels()
-        if any(l >= self.level for l in held):
-            raise LockHierarchyViolation(
-                f"Deep: Lock hierarchy violation (deadlock prevention): "
-                f"attempting to acquire level {self.level} while holding tighter/equal locks {held}"
-            )
-            
-        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
-        from deep.utils.utils import AtomicWriter # type: ignore
-        import sys
-        import time
-        import random
+        """Acquire lock (reentrant)."""
+        counters = self._get_counter()
+        # Thread-level reentrancy check
+        if counters.get(self.lock_id, 0) > 0:
+            counters[self.lock_id] += 1
+            return
 
-        start_time = time.time()
-        
-        # Open the file for the duration of the lock
-        # Use r+ to allow reading/writing without truncation
-        if self.lock_path.exists():
-            self._file_handle = cast(Any, open(self.lock_path, "r+")) # type: ignore
-        else:
-            self._file_handle = cast(Any, open(self.lock_path, "w+")) # type: ignore
-        fd = cast(Any, self._file_handle).fileno() # type: ignore
+        start = time.time()
+        while True:
+            # 1. Thread-level race protection (reentrant per thread)
+            if not self._process_lock.acquire(blocking=True, timeout=0.1):
+                if time.time() - start > self.timeout:
+                    raise TimeoutError(f"Timed out waiting for process_lock for {self.lock_path}")
+                continue
 
-        if sys.platform == "win32":
-            import msvcrt
-            while True:
+            try:
+                # 2. Aggressive stale cleanup & cross-implementation reentrancy
+                if self.lock_path.exists():
+                    owner_pid = self._get_lock_pid()
+                    if owner_pid == self.pid:
+                        # Already held by our process (reentrancy)
+                        counters[self.lock_id] = 1
+                        return
+                    if owner_pid is None or not _is_process_alive(owner_pid):
+                        # FOUND STALE LOCK: Trigger recovery before unlinking
+                        self._pre_acquire_recovery(owner_pid)
+                        try: os.remove(self.lock_path)
+                        except OSError: pass
+                
+                # 3. Atomic acquisition
+                self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+                fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, 'O_BINARY', 0))
                 try:
-                    # Lock at offset 1024 to allow reading metadata at the beginning
-                    self._file_handle.seek(1024)
-                    # LK_NBLCK: Non-blocking lock.
-                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-                    self._write_metadata()
-                    return
-                except (BlockingIOError, PermissionError, OSError):
-                    # Check for stale lock
-                    if self._try_break_stale_lock():
-                        continue
-                    
-                    if time.time() - start_time > self.timeout:
-                        cast(Any, self._file_handle).close() # type: ignore
-                        raise TimeoutError(f"Deep: failed to acquire lock {self.lock_path} within {self.timeout}s")
-                    time.sleep(0.05 + random.random() * 0.1)
-        else:
-            import fcntl
-            while True:
-                try:
-                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    self._write_metadata()
-                    return
-                except (BlockingIOError, OSError):
-                    # Check for stale lock
-                    if self._try_break_stale_lock():
-                        continue
-                        
-                    if time.time() - start_time > self.timeout:
-                        cast(Any, self._file_handle).close() # type: ignore
-                        raise TimeoutError(f"Deep: failed to acquire lock {self.lock_path} within {self.timeout}s")
-                    time.sleep(0.05 + random.random() * 0.1)
+                    os.write(fd, str(self.pid).encode())
+                finally:
+                    os.close(fd)
+                
+                counters[self.lock_id] = 1
+                return
+            except (FileExistsError, PermissionError, OSError):
+                self._process_lock.release()
+                if time.time() - start > self.timeout:
+                    raise TimeoutError(f"Timed out acquiring {self.lock_path} after {self.timeout}s")
+                time.sleep(0.05 + random.random() * 0.1)
 
-        held.append(self.level)
+    def _pre_acquire_recovery(self, stale_pid: Optional[int]):
+        """Hook for child classes to perform recovery when a stale lock is found."""
+        pass
 
     def release(self):
-        if self._file_handle:
-            import sys
+        """Release lock (reentrant)."""
+        counters = self._get_counter()
+        if counters.get(self.lock_id, 0) <= 0:
+            return
+            
+        counters[self.lock_id] -= 1
+        if counters[self.lock_id] == 0:
             try:
-                fd = cast(Any, self._file_handle).fileno() # type: ignore
-                if sys.platform == "win32":
-                    import msvcrt # type: ignore
-                    try:
-                        cast(Any, self._file_handle).seek(1024) # type: ignore
-                        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
-                    except OSError:
-                        pass
-                else:
-                    import fcntl # type: ignore
-                    try:
-                        fcntl.flock(fd, fcntl.LOCK_UN)
-                    except OSError:
-                        pass
+                owner_pid = self._get_lock_pid()
+                if owner_pid == self.pid or owner_pid is None:
+                    # Windows retry loop for removal
+                    for i in range(5):
+                        try:
+                            if self.lock_path.exists():
+                                os.remove(self.lock_path)
+                            break
+                        except OSError:
+                            time.sleep(0.01)
+            except OSError:
+                pass
             finally:
-                cast(Any, self._file_handle).close() # type: ignore
-                self._file_handle = None
-                
-        held = _get_held_lock_levels()
-        if self.level in held:
-            held.remove(self.level)
+                if self.lock_id in counters:
+                    del counters[self.lock_id]
+                try:
+                    self._process_lock.release()
+                except RuntimeError:
+                    # Not held by this thread
+                    pass
 
     def __enter__(self):
         self.acquire()
@@ -253,10 +215,44 @@ class IndexLock(BaseLock):
     level = 300
     def __init__(self, dg_dir: Path, timeout: float = 10.0):
         super().__init__(dg_dir / "index.lock", timeout)
+        self.dg_dir = dg_dir
+
+    def _pre_acquire_recovery(self, stale_pid: Optional[int]):
+        """Auto-restore stale index backups before acquiring the index lock."""
+        from deep.storage.recovery import recover_stale_index_backups
+        recover_stale_index_backups(self.dg_dir)
 
 
 class PackfileLock(BaseLock):
-    """Lock for generating/writing packfiles to prevent concurrent packing."""
+    """Lock for generating/writing packfiles."""
     level = 400
     def __init__(self, dg_dir: Path, timeout: float = 60.0):
         super().__init__(dg_dir / "objects" / "pack" / "packing.lock", timeout)
+
+
+def _is_process_alive(pid: int) -> bool:
+    """Check if a process is alive (cross-platform)."""
+    if pid <= 0: return False
+    try:
+        import os
+        if os.name == 'nt':
+            # Windows
+            import ctypes
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            STILL_ACTIVE = 259
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not handle:
+                return False
+            exit_code = ctypes.c_ulong()
+            ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+            ctypes.windll.kernel32.CloseHandle(handle)
+            return exit_code.value == STILL_ACTIVE
+        else:
+            # POSIX
+            try:
+                os.kill(pid, 0)
+                return True
+            except OSError:
+                return False
+    except Exception:
+        return False

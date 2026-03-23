@@ -296,126 +296,7 @@ def _is_process_alive(pid: int) -> bool:
             return True
         except (OSError, ProcessLookupError):
             return False
-
-class IndexLock:
-    """Bulletproof reentrant atomic file lock for index operations."""
-    _thread_local = threading.local()
-    _process_lock = threading.Lock() # Protects file-level acquisition across threads
-
-    def __get_counter(self) -> Dict[str, int]:
-        if not hasattr(self._thread_local, 'counters'):
-            self._thread_local.counters = {}
-        return self._thread_local.counters
-
-    def __init__(self, dg_dir: Path, timeout: float = 10.0):
-        self.lock_path = dg_dir / "index.lock"
-        self.timeout = timeout
-        self.pid = os.getpid()
-        self.lock_id = str(self.lock_path)
-
-    def _get_lock_pid(self) -> Optional[int]:
-        """Read PID from lock file, handling both raw PID and JSON metadata."""
-        if not self.lock_path.exists(): return None
-        try:
-            # On Windows, PermissionError is common if the file is locked.
-            # We use a raw os.open with sharing flags to bypass some restrictions.
-            fd = os.open(self.lock_path, os.O_RDONLY | getattr(os, 'O_BINARY', 0))
-            try:
-                content_bytes = os.read(fd, 1024)
-                content = content_bytes.decode('utf-8', errors='ignore').strip()
-            finally:
-                os.close(fd)
-            
-            if not content: return None
-            if content.startswith("{"):
-                try:
-                    data = json.loads(content.split("}")[0] + "}")
-                    return int(data.get("pid", 0))
-                except:
-                    import re
-                    m = re.search(r'"pid":\s*(\d+)', content)
-                    return int(m.group(1)) if m else None
-            return int(content)
-        except (OSError, ValueError, KeyError, json.JSONDecodeError):
-            return None
-
-    def acquire(self):
-        """Acquire lock (reentrant)."""
-        counters = self.__get_counter()
-        # Thread-level reentrancy check
-        if counters.get(self.lock_id, 0) > 0:
-            counters[self.lock_id] += 1
-            return
-
-        start = time.time()
-        while True:
-            # First, try to win the in-process thread race
-            if not self._process_lock.acquire(blocking=True, timeout=0.1):
-                if time.time() - start > self.timeout:
-                    raise TimeoutError(f"Timed out waiting for process_lock for {self.lock_path}")
-                continue
-
-            try:
-                # 1. Aggressive stale cleanup AND reentrancy detection
-                if self.lock_path.exists():
-                    owner_pid = self._get_lock_pid()
-                    # Cross-implementation reentrancy (from other modules)
-                    if owner_pid == self.pid:
-                        counters[self.lock_id] = 1
-                        return
-                    # Stale lock: PID is dead or invalid
-                    if owner_pid is None or not _is_process_alive(owner_pid):
-                        try: os.remove(self.lock_path)
-                        except OSError: pass
-                
-                # 2. Atomic acquisition
-                fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                try:
-                    os.write(fd, str(self.pid).encode())
-                finally:
-                    os.close(fd)
-                
-                counters[self.lock_id] = 1
-                return
-            except (FileExistsError, PermissionError, OSError):
-                self._process_lock.release() # Give others a chance
-                if time.time() - start > self.timeout:
-                    raise TimeoutError(f"Timed out waiting for index.lock at {self.lock_path}")
-                time.sleep(0.05 + random.random() * 0.1)
-
-    def release(self):
-        """Release lock (reentrant)."""
-        counters = self.__get_counter()
-        if counters.get(self.lock_id, 0) <= 0:
-            return
-
-        counters[self.lock_id] -= 1
-        if counters[self.lock_id] == 0:
-            try:
-                owner_pid = self._get_lock_pid()
-                if owner_pid == self.pid or owner_pid is None:
-                    # Windows retry loop for remove
-                    for i in range(5):
-                        try:
-                            if self.lock_path.exists():
-                                os.remove(self.lock_path)
-                            break
-                        except OSError:
-                            time.sleep(0.01)
-            except OSError:
-                pass
-            finally:
-                if self.lock_id in counters:
-                    del counters[self.lock_id]
-                if self._process_lock.locked():
-                    self._process_lock.release()
-
-    def __enter__(self):
-        self.acquire()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.release()
+from deep.core.locks import IndexLock
 
 # ── Public APIs (Independent of Deep naming) ──────────────────────────
 
@@ -426,17 +307,25 @@ def read_index(dg_dir: Path) -> DeepIndex:
     journal_path = dg_dir / "index.journal"
     
     # Passive cleanup (leaks/stale)
-    for p in [lock_path, journal_path]:
+    repo_lock_path = dg_dir / "repo.lock"
+    for p in [lock_path, journal_path, repo_lock_path]:
         if p.exists():
             try:
                 if p == journal_path:
-                    p.unlink()
+                    try: p.unlink()
+                    except OSError: pass
                 else:
                     # Use a temp lock object for stale check
-                    tmp_lock = IndexLock(dg_dir)
-                    owner_pid = tmp_lock._get_lock_pid()
+                    from deep.core.locks import BaseLock
+                    lock = BaseLock(p)
+                    owner_pid = lock._get_lock_pid()
                     if owner_pid is None or not _is_process_alive(owner_pid):
-                        p.unlink()
+                        # Found stale lock - potential crash. Trigger recovery.
+                        from deep.storage.recovery import recover_stale_index_backups
+                        recover_stale_index_backups(dg_dir)
+                        
+                        try: p.unlink()
+                        except OSError: pass
             except (OSError, ValueError):
                 pass
 
