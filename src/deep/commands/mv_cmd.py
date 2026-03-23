@@ -58,12 +58,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             print(f"Deep: error: destination exists, source={src_path_str}, destination={dest_path_str}", file=sys.stderr)
             raise DeepCLIException(1)
 
-        # 1. Move file on disk
-        shutil.move(str(src_path), str(dest_path))
-
-        # 2. Update index
+        # 1. Collect stats BEFORE moving
         from deep.storage.index import read_index_no_lock, write_index_no_lock
-        
         index = read_index_no_lock(dg_dir)
         to_remove = []
         to_update = {} # path -> entry
@@ -72,8 +68,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             # Single file move
             entry = index.entries[rel_src]
             to_remove.append(rel_src)
-            # Re-stat the moved file
-            stat = dest_path.stat()
+            stat = src_path.stat() # Stat source before move
             path_hash_full = hashlib.sha256(rel_dest.encode()).digest()
             path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
             to_update[rel_dest] = DeepIndexEntry(
@@ -90,7 +85,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     new_path = rel_dest + path[len(rel_src):]
                     to_remove.append(path)
                     try:
-                        stat = (repo_root / new_path).stat()
+                        stat = (repo_root / path).stat() # Stat source path
                         path_hash_full = hashlib.sha256(new_path.encode()).digest()
                         path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
                         to_update[new_path] = DeepIndexEntry(
@@ -102,6 +97,15 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     except FileNotFoundError:
                         pass
 
+        # 2. Prepare move path
+        tmp_dest = dest_path.with_name(dest_path.name + ".deep_tmp_move")
+        if tmp_dest.exists():
+             shutil.rmtree(tmp_dest) if tmp_dest.is_dir() else tmp_dest.unlink()
+        
+        # Move to temp location
+        shutil.move(str(src_path), str(tmp_dest))
+
+        # 3. Update index
         for p in to_remove:
             if p in index.entries:
                 del index.entries[p]
@@ -110,5 +114,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             
         write_index_no_lock(dg_dir, index)
         tm.commit()
+
+        # 4. Final rename to target location
+        if dest_path.exists():
+             shutil.rmtree(dest_path) if dest_path.is_dir() else dest_path.unlink()
+        shutil.move(str(tmp_dest), str(dest_path))
 
     print(f"Renamed {rel_src} -> {rel_dest}")
