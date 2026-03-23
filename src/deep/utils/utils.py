@@ -67,31 +67,27 @@ class AtomicWriter:
 
     def __init__(self, target: Union[str, Path], mode: str = "wb") -> None:
         self.target = Path(target)
+        self.original_mode = mode
         self.mode = mode
         self._tmp_path: Optional[Path] = None
         self._file: Optional[IO[Any]] = None
         self._fd: Optional[int] = None
         self._is_append = "a" in mode
         self._lock: Optional[BaseLock] = None
-        if self._is_append:
-            # If appending, we actually open the temp file in write mode
-            # because we'll copy existing contents over first.
-            self.mode = self.mode.replace("a", "w")
-
-    # ------------------------------------------------------------------
-    # Context-manager protocol
-    # ------------------------------------------------------------------
 
     def __enter__(self) -> "AtomicWriter":
         self.target.parent.mkdir(parents=True, exist_ok=True)
         
-        # If we are in append mode, we MUST use a lock to prevent the 
-        # read-copy-replace race condition during concurrent appends.
         if self._is_append:
-            from deep.core.locks import BaseLock # type: ignore[import]
+            # Native append is atomic for small writes (like WAL records)
+            from deep.core.locks import BaseLock
             self._lock = BaseLock(self.target.with_suffix(".lock"))
-            if self._lock:
-                self._lock.acquire() # type: ignore
+            self._lock.acquire()
+            
+            flags = os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(os, 'O_BINARY', 0)
+            self._fd = os.open(self.target, flags)
+            self._file = os.fdopen(self._fd, self.mode, encoding="utf-8" if 'b' not in self.mode else None)
+            return self
 
         fd, tmp_name = tempfile.mkstemp(
             dir=str(self.target.parent),
@@ -99,17 +95,7 @@ class AtomicWriter:
         )
         self._fd = fd
         self._tmp_path = Path(tmp_name)
-
-        if self._is_append and self.target.exists():
-            with open(self.target, "rb") as src:
-                # Copy current contents to the temp file
-                if self._fd is None:
-                    raise DeepError("AtomicWriter: Cannot write to uninitialized file descriptor.")
-                os.write(cast(int, self._fd), src.read()) # type: ignore[arg-type]
-
-        if self._fd is None:
-            raise DeepError("AtomicWriter: Cannot open uninitialized file descriptor.")
-        self._file = os.fdopen(cast(int, self._fd), self.mode) # type: ignore[arg-type]
+        self._file = os.fdopen(cast(int, self._fd), self.mode)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[override]

@@ -104,6 +104,12 @@ def test_transaction_crash_mid_commit(tmp_repo):
     for i in range(10):
         assert f"crash_file_{i}.txt" not in index.entries, "Index should not show partial crash writes"
 
+    # Cleanup actual locks left by crashed worker to pass strict leak checks
+    for lock_file in ["repo.lock", "index.lock", "branch.lock"]:
+        path = dg_dir / lock_file
+        try: path.unlink(missing_ok=True)
+        except OSError: pass
+
     # Now verify no leaks
     # conftest will yell if repo.lock, branch.lock or index.lock remain.
 

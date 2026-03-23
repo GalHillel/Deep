@@ -299,56 +299,51 @@ def _is_process_alive(pid: int) -> bool:
             return False
 from deep.core.locks import IndexLock
 
-# ── Public APIs (Independent of Deep naming) ──────────────────────────
-
 def read_index(dg_dir: Path) -> DeepIndex:
-    """Read index with lazy stale lock/journal cleanup and NO read lock."""
+    """Read index with NO read lock and ultra-robust retry for Windows swap races."""
     path = dg_dir / "index"
-    lock_path = dg_dir / "index.lock"
     journal_path = dg_dir / "index.journal"
+    lock_path = dg_dir / "index.lock"
     
-    # Passive cleanup (leaks/stale)
-    repo_lock_path = dg_dir / "repo.lock"
-    for p in [lock_path, journal_path, repo_lock_path]:
-        if p.exists():
-            try:
-                if p == journal_path:
-                    try: p.unlink()
-                    except OSError: pass
-                else:
-                    # Use a temp lock object for stale check
-                    from deep.core.locks import BaseLock
-                    lock = BaseLock(p)
-                    owner_pid = lock._get_lock_pid()
-                    if owner_pid is None or not _is_process_alive(owner_pid):
-                        # Found stale lock - potential crash. Trigger recovery.
-                        from deep.storage.recovery import recover_stale_index_backups
-                        recover_stale_index_backups(dg_dir)
-                        
-                        try: p.unlink()
-                        except OSError: pass
-            except (OSError, ValueError):
-                pass
-
-    if not path.exists():
-        return DeepIndex()
-    
-    # Robust read with retry for Windows concurrency
-    max_read_retries = 10
-    for i in range(max_read_retries):
+    # 1. Simple Stale Journal & Backup Cleanup/Recovery
+    # We check for backups even if a lock might exist, because IndexLock will 
+    # handle stale lock identification and trigger recovery.
+    backups = list(dg_dir.glob("index.backup_tx_*"))
+    if journal_path.exists() or backups:
         try:
-            data = path.read_bytes()
+            # Re-use IndexLock for safe recovery. 
+            # It will check if the lock is stale and trigger recovery if so.
+            with IndexLock(dg_dir, timeout=0.05):
+                if journal_path.exists():
+                    try: journal_path.unlink()
+                    except OSError: pass
+        except (TimeoutError, OSError):
+             pass
+
+    # 2. Ultra-Robust Read with Retry (Handles Windows os.replace swap window)
+    data = None
+    # 100 retries @ 10ms = 1 second. Sufficient for even the slowest Windows swaps.
+    for i in range(100):
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
             break
-        except (OSError, PermissionError):
-            if i == max_read_retries - 1: raise
-            time.sleep(0.01 * (i + 1))
-    
+        except (FileNotFoundError, PermissionError, OSError):
+            if i < 99:
+                time.sleep(0.01)
+                continue
+            # After 1 second, if it's missing, it's genuinely missing or broken
+            if not path.exists(): return DeepIndex()
+            raise
+
+    if data is None:
+        return DeepIndex()
+
     try:
         index = DeepIndex.from_binary(data)
         
-        # Backward Compatibility (Rewrite to v2 if migrated)
+        # Backward Compatibility
         if data[:8] != INDEX_MAGIC_V2:
-            logging.getLogger("Deep").info("Upgrading index to v2 format")
             write_index(dg_dir, index)
             
         return index
@@ -362,8 +357,8 @@ def read_index(dg_dir: Path) -> DeepIndex:
             pass
         return DeepIndex()
     except Exception as e:
-        logging.getLogger("Deep").error(f"Unexpected error reading index: {e}")
-        return DeepIndex()
+        logging.getLogger("Deep").critical(f"UNRECOVERABLE ERROR reading index: {e}")
+        raise
 
 def write_index(dg_dir: Path, index: DeepIndex) -> None:
     """Write the index atomically with strict ACID properties."""

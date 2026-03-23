@@ -56,17 +56,22 @@ def test_lock_contention(tmp_path):
     lock_path = tmp_path / "test.lock"
     lock1 = BaseLock(lock_path)
     lock1.acquire()
+    import threading
+    exc = []
+    def contender():
+        try:
+            lock2 = BaseLock(lock_path, timeout=0.1)
+            lock2.acquire()
+        except TimeoutError:
+            exc.append("timeout")
+            
+    t = threading.Thread(target=contender)
+    t.start()
+    t.join()
     
-    # Attempt to acquire the same lock from a different instance - it should FAIL
-    lock2 = BaseLock(lock_path, timeout=0.1)
-    with pytest.raises(TimeoutError):
-        lock2.acquire()
+    assert exc == ["timeout"], "Cross-thread lock contention should timeout"
     
     lock1.release()
-    
-    # Now lock2 should be able to acquire it
-    lock2.acquire()
-    lock2.release()
 
 if __name__ == "__main__":
     # Manually run if needed

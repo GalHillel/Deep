@@ -31,7 +31,7 @@ class TransactionManager:
                  branch_name: Optional[str] = None, 
                  use_index_lock: bool = True,
                  use_repo_lock: bool = True,
-                 timeout: float = 10.0):
+                 timeout: float = 20.0):
         self.dg_dir = dg_dir
         self.branch_name = branch_name
         self.use_index_lock = use_index_lock
@@ -49,11 +49,12 @@ class TransactionManager:
             # 1. Acquire Locks in hierarchical order: Repo -> Branch -> Index
             if self.use_repo_lock:
                 repo_lock = RepositoryLock(self.dg_dir, timeout=self.timeout)
-                # Before acquiring, handle any crash recovery from previous attempts
-                from deep.storage.recovery import recover_stale_index_backups
-                recover_stale_index_backups(self.dg_dir)
                 repo_lock.acquire()
                 self.locks.append(repo_lock)
+                
+                # After acquiring the repo lock, it's safe to handle any crash recovery
+                from deep.storage.recovery import recover_stale_index_backups
+                recover_stale_index_backups(self.dg_dir)
             
             if self.branch_name:
                 branch_lock = BranchLock(self.dg_dir, self.branch_name, timeout=self.timeout)
@@ -87,7 +88,16 @@ class TransactionManager:
             if self._index_existed_at_start:
                 self._backup_path = self.dg_dir / f"index.backup_tx_{rand}"
                 import shutil
-                shutil.copy2(index_path, self._backup_path)
+                # Robust retry for backup (Windows sharing violations)
+                max_retries = 20
+                for i in range(max_retries):
+                    try:
+                        shutil.copy2(index_path, self._backup_path)
+                        break
+                    except OSError:
+                        if i == max_retries - 1:
+                            raise
+                        time.sleep(0.01 * (i + 1))
             else:
                 # MARKER: Index didn't exist. If we crash, recovery should delete any partial index.
                 self._backup_path = self.dg_dir / f"index.backup_tx_{rand}.new"

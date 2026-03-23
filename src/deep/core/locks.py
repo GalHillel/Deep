@@ -88,8 +88,8 @@ class BaseLock:
             self._thread_local.counters = {}
         return self._thread_local.counters
 
-    def _get_lock_pid(self) -> Optional[int]:
-        """Read PID from lock file with sharing flags on Windows."""
+    def _get_lock_meta(self) -> Optional[dict]:
+        """Read JSON metadata from lock file with sharing flags on Windows."""
         if not self.lock_path.exists():
             return None
         try:
@@ -97,62 +97,100 @@ class BaseLock:
             flags = os.O_RDONLY | getattr(os, 'O_BINARY', 0)
             fd = os.open(self.lock_path, flags)
             try:
-                data = os.read(fd, 32).decode().strip()
-                if not data: return None
-                # Support both raw PID and legacy JSON
+                data = os.read(fd, 1024).decode().strip()
+                if not data:
+                    return None
                 if data.startswith('{'):
-                    return int(json.loads(data).get('pid', 0))
-                return int(data)
+                    import json
+                    return json.loads(data)
+                return {"pid": int(data), "timestamp": time.time()} # Legacy
             finally:
                 os.close(fd)
-        except (OSError, ValueError, json.JSONDecodeError):
+        except (OSError, ValueError, Exception):
             return None
 
     def acquire(self):
-        """Acquire lock (reentrant)."""
+        """Acquire lock (reentrant for both threads and processes)."""
+        # 1. Thread-level reentrancy check (using thread-local counters)
         counters = self._get_counter()
-        # Thread-level reentrancy check
         if counters.get(self.lock_id, 0) > 0:
+            # We already have it in THIS thread. Increment and we are done.
+            # (Note: we already hold _process_lock from the first acquisition)
             counters[self.lock_id] += 1
+            self._process_lock.acquire() # Increment RLock counter too
             return
 
         start = time.time()
         while True:
-            # 1. Thread-level race protection (reentrant per thread)
+            # 2. Acquire process-level threading lock (prevents thread races)
+            # Use a longer timeout for process_lock to avoid premature TimeoutError
             if not self._process_lock.acquire(blocking=True, timeout=0.1):
                 if time.time() - start > self.timeout:
                     raise TimeoutError(f"Timed out waiting for process_lock for {self.lock_path}")
                 continue
 
             try:
-                # 2. Aggressive stale cleanup & cross-implementation reentrancy
+                # 3. Check for existing lock file (Process-level race)
                 if self.lock_path.exists():
-                    owner_pid = self._get_lock_pid()
-                    if owner_pid == self.pid:
-                        # Already held by our process (reentrancy)
+                    meta = self._get_lock_meta()
+                    
+                    if meta is None:
+                        # Case: Fresh lock file created by another process but PID not yet written.
+                        pass # Loop and retry
+                    else:
+                        owner_pid = meta.get("pid")
+                        timestamp = meta.get("timestamp", time.time())
+                        
+                        is_stale = False
+                        if owner_pid is not None and not _is_process_alive(owner_pid):
+                            is_stale = True
+                        elif time.time() - timestamp > STALE_LOCK_THRESHOLD_SECONDS:
+                            is_stale = True
+                            
+                        if is_stale:
+                            # Recovery 
+                            self._pre_acquire_recovery(owner_pid)
+                            try: os.remove(self.lock_path)
+                            except OSError: pass
+                else:
+                    # 4. Try to create the lock file atomically
+                    try:
+                        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+                        fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, 'O_BINARY', 0))
+                        try:
+                            import json
+                            meta = {
+                                "pid": self.pid,
+                                "timestamp": time.time(),
+                                "thread": threading.get_ident()
+                            }
+                            os.write(fd, json.dumps(meta).encode())
+                        finally:
+                            os.close(fd)
+                        
+                        # SUCCESS: We have the lock!
+                        # We KEEP the _process_lock held.
+                        counters = self._get_counter()
                         counters[self.lock_id] = 1
                         return
-                    if owner_pid is None or not _is_process_alive(owner_pid):
-                        # FOUND STALE LOCK: Trigger recovery before unlinking
-                        self._pre_acquire_recovery(owner_pid)
-                        try: os.remove(self.lock_path)
-                        except OSError: pass
+                    except (OSError, FileExistsError):
+                        # Collision: another process beat us to it
+                        pass
                 
-                # 3. Atomic acquisition
-                self.lock_path.parent.mkdir(parents=True, exist_ok=True)
-                fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, 'O_BINARY', 0))
-                try:
-                    os.write(fd, str(self.pid).encode())
-                finally:
-                    os.close(fd)
-                
-                counters[self.lock_id] = 1
-                return
-            except (FileExistsError, PermissionError, OSError):
+            except Exception:
+                # On error, always release before raising
                 self._process_lock.release()
-                if time.time() - start > self.timeout:
-                    raise TimeoutError(f"Timed out acquiring {self.lock_path} after {self.timeout}s")
-                time.sleep(0.05 + random.random() * 0.1)
+                raise
+                
+            # If we got here, we don't have the file lock.
+            # Release process-lock for others to try, then sleep/retry.
+            self._process_lock.release()
+
+            if time.time() - start > self.timeout:
+                raise TimeoutError(f"Timed out waiting for lock {self.lock_path}")
+            
+            # exponential backoff with jitter for process-level contention
+            time.sleep(0.05 + random.random() * 0.1)
 
     def _pre_acquire_recovery(self, stale_pid: Optional[int]):
         """Hook for child classes to perform recovery when a stale lock is found."""
@@ -160,33 +198,41 @@ class BaseLock:
 
     def release(self):
         """Release lock (reentrant)."""
+        # Note: We don't use 'with self._process_lock' because we want to 
+        # release it only if we were the owner.
         counters = self._get_counter()
         if counters.get(self.lock_id, 0) <= 0:
             return
             
         counters[self.lock_id] -= 1
-        if counters[self.lock_id] == 0:
-            try:
-                owner_pid = self._get_lock_pid()
-                if owner_pid == self.pid or owner_pid is None:
-                    # Windows retry loop for removal
-                    for i in range(5):
-                        try:
-                            if self.lock_path.exists():
-                                os.remove(self.lock_path)
-                            break
-                        except OSError:
-                            time.sleep(0.01)
-            except OSError:
-                pass
-            finally:
-                if self.lock_id in counters:
-                    del counters[self.lock_id]
+        
+        try:
+            if counters[self.lock_id] == 0:
+                # Final release from this process/thread
                 try:
-                    self._process_lock.release()
-                except RuntimeError:
-                    # Not held by this thread
+                    if self.lock_path.exists():
+                        # Double check ownership (avoid accidental deletion)
+                        meta = self._get_lock_meta()
+                        if meta is None or meta.get("pid") == self.pid:
+                            # Retry loop for Windows sharing violations
+                            for i in range(10):
+                                try:
+                                    os.remove(self.lock_path)
+                                    break
+                                except OSError:
+                                    if i == 9: raise
+                                    time.sleep(0.01 * (i + 1))
+                                    
+                    if self.lock_id in counters:
+                        del counters[self.lock_id]
+                except (OSError, Exception):
                     pass
+        finally:
+            # Always release the RLock (decrements internal counter)
+            try:
+                self._process_lock.release()
+            except RuntimeError:
+                pass
 
     def __enter__(self):
         self.acquire()

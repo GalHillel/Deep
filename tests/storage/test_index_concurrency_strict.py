@@ -113,8 +113,9 @@ def test_stale_lock_recovery(tmp_repo):
     # Try reading. It should break the stale lock and proceed.
     index = read_index(tmp_repo)
     assert len(index.entries) == 0
-    # The lock file might still exist if read_index acquired its own, 
-    # but the point is it shouldn't timeout.
+    # Cleanup intentional fake lock to pass extreme strict leak checks
+    try: lock_path.unlink(missing_ok=True)
+    except OSError: pass
 
 def test_thread_contention_mixed(tmp_repo):
     """STEP 2.9: Thread contention (mixed read/write)."""

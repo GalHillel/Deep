@@ -155,14 +155,26 @@ class TransactionLog:
     def read_all(self) -> list[TxRecord]:
         if not self.log_path.exists():
             return []
-        records = []
-        for line in self.log_path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                try:
-                    records.append(TxRecord(**cast(dict, json.loads(line)))) # type: ignore
-                except Exception:
-                    pass
-        return records
+            
+        from deep.core.locks import BaseLock
+        lock = BaseLock(self.log_path.with_suffix(".lock"))
+        # Wait up to 5 seconds to get a clear read
+        try:
+            lock.acquire()
+            records = []
+            content = self.log_path.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                if line.strip():
+                    try:
+                        records.append(TxRecord(**cast(dict, json.loads(line)))) # type: ignore
+                    except Exception:
+                        pass
+            return records
+        except Exception:
+            # If we really can't read, return empty rather than crashing
+            return []
+        finally:
+            lock.release()
 
     def get_incomplete(self) -> list[TxRecord]:
         """Find transactions that were started but never committed or rolled back."""

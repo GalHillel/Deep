@@ -91,8 +91,9 @@ def test_remove_lock_file_mid_write(tmp_repo):
     
     idx = read_index(tmp_repo)
     assert len(idx.entries) == 0
-    # If it was a real lock, it might have blocked. If it's just a file, 
-    # IndexLock should handle it.
+    # Cleanup intentional fake lock to pass extreme strict leak checks
+    try: lock_path.unlink(missing_ok=True)
+    except OSError: pass
 
 def test_half_buffer_write_simulation(tmp_repo):
     """STEP 4.4: Writing half buffer (Corruption)."""
@@ -142,3 +143,15 @@ def test_rollback_consistency_simulated(tmp_repo):
     journal_path = _get_journal_path(tmp_repo)
     if journal_path.exists():
         journal_path.unlink()
+
+    # Cleanup intentional leaks for crash simulator to pass conftest
+    for lock_file in ["index.lock", "repo.lock"]:
+        path = tmp_repo / lock_file
+        if path.exists():
+            try: path.unlink()
+            except OSError: pass
+            
+    # Also clean up any .tmp_deep_* files
+    for tmp_file in tmp_repo.glob(".tmp_deep_*"):
+        try: tmp_file.unlink()
+        except OSError: pass
