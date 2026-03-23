@@ -11,6 +11,9 @@ import sys
 from pathlib import Path
 
 from deep.core.repository import find_repo
+from deep.storage.transaction import TransactionManager
+from deep.core.constants import DEEP_DIR
+import os
 
 
 def run(args) -> None:
@@ -65,20 +68,59 @@ def run(args) -> None:
         for d in result.details:
             print(f"   {d}")
     elif sub == "refactor":
-        results = ai.suggest_refactors()
-        if not results:
-            print("✨ No refactoring suggestions found for staged changes.")
-        else:
-            print(f"🛠  AI Refactor Suggestions ({len(results)}):")
-            for r in results:
-                print(f"   - {r.text}")
-                for d in r.details:
-                    print(f"     {d}")
+        dg_dir = repo_root / DEEP_DIR
+        with TransactionManager(dg_dir) as tm:
+            tm.begin("ai_refactor")
+            
+            # The AI might discover refactorings across multiple files.
+            # We must backup original versions to ensure rollback on error.
+            changes = ai.suggest_refactor_changes()
+            if not changes:
+                print("✨ No refactoring suggestions found for staged changes.")
+            else:
+                backups: dict[str, str] = {}
+                try:
+                    # TEST HOOK: Simulated Exception for rollback testing
+                    if os.environ.get("DEEP_AI_CHAOS") == "REFACTOR_CRASH":
+                        raise RuntimeError("AI Refactor Crash: Simulated failure")
+
+                    print(f"🛠  Applying AI Refactors ({len(changes)}):")
+                    from deep.ai.refactor import RefactorEngine
+                    engine = RefactorEngine()
+                    
+                    for c in changes:
+                        full_path = repo_root / c.file_path
+                        if full_path.exists():
+                            if c.file_path not in backups:
+                                backups[c.file_path] = full_path.read_text(encoding="utf-8")
+                            
+                            print(f"   - {c.description} -> {c.file_path}")
+                            content = full_path.read_text(encoding="utf-8")
+                            new_content = engine.apply_refactor(content, c)
+                            if new_content != content:
+                                full_path.write_text(new_content, encoding="utf-8")
+                    
+                    tm.commit()
+                    print("\n✅ AI refactoring applied successfully.")
+                except Exception as e:
+                    # REPO HARDENING: Restore original file states on any mutation failure
+                    for rel_path, original_content in backups.items():
+                        try:
+                            (repo_root / rel_path).write_text(original_content, encoding="utf-8")
+                        except OSError:
+                            pass # Logging could be added here
+                    raise e
+
     elif sub == "cleanup":
-        result = ai.branch_recommendations()
-        print(f"🧹 {result.text}")
-        for d in result.details:
-            print(f"   {d}")
+        dg_dir = repo_root / DEEP_DIR
+        with TransactionManager(dg_dir) as tm:
+            tm.begin("ai_cleanup")
+            result = ai.branch_recommendations()
+            print(f"🧹 {result.text}")
+            for d in result.details:
+                print(f"   {d}")
+            tm.commit()
+
     elif sub == "interactive":
         print("🤖 Deep AI Interactive Mode")
         print("   Type 'exit' or 'quit' to leave. Ask me about your changes!")

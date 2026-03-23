@@ -84,6 +84,10 @@ class RefactorEngine:
         if not change.original:
             return content
             
-        # This is a naive implementation; 
-        # real refactoring would use AST or concrete search/replace.
-        return content.replace(change.original, change.replacement)
+        import re
+        try:
+            # If it's a known regex rule, use re.sub
+            return re.sub(change.original, change.replacement, content)
+        except re.error:
+            # Fallback to literal replace if not a valid regex
+            return content.replace(change.original, change.replacement)

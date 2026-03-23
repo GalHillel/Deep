@@ -517,11 +517,24 @@ class DeepAI:
 
 
     def suggest_refactors(self) -> list[AISuggestion]:
-        """Analyze staged files and suggest specific refactorings."""
-        from deep.ai.refactor import RefactorEngine
+        """Analyze staged files and suggest specific refactorings (UI friendly)."""
+        changes = self.suggest_refactor_changes()
+        suggestions = []
+        for c in changes:
+            suggestions.append(AISuggestion(
+                suggestion_type="refactor",
+                text=f"Refactor ({c.type}): {c.file_path}",
+                confidence=0.8,
+                details=[c.description, f"Proposed: {c.replacement}"]
+            ))
+        return suggestions
+
+    def suggest_refactor_changes(self) -> list[RefactorChange]:
+        """Analyze staged files and return raw RefactorChange objects (mutation friendly)."""
+        from deep.ai.refactor import RefactorEngine, RefactorChange
         engine = RefactorEngine()
         
-        suggestions = []
+        all_changes: list[RefactorChange] = []
         index = read_index(self.dg_dir)
         objects_dir = self.dg_dir / "objects"
         
@@ -530,17 +543,11 @@ class DeepAI:
                 obj = read_object(objects_dir, entry.content_hash)
                 if isinstance(obj, Blob):
                     content = obj.data.decode("utf-8", errors="replace")
-                    changes = engine.suggest_fixes(content, rel_path)
-                    for c in changes:
-                        suggestions.append(AISuggestion(
-                            suggestion_type="refactor",
-                            text=f"Refactor ({c.type}): {rel_path}",
-                            confidence=0.8,
-                            details=[c.description, f"Proposed: {c.replacement}"]
-                        ))
+                    file_changes = engine.suggest_fixes(content, rel_path)
+                    all_changes.extend(file_changes)
             except Exception:
                 pass
-        return suggestions
+        return all_changes
 
     def handle_query(self, query: str) -> AISuggestion:
         """Process a natural language query about the repository."""
