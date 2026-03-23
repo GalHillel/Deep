@@ -1,4 +1,3 @@
-import pytest
 import struct
 import hashlib
 import os
@@ -8,13 +7,6 @@ from deep.storage.index import (
     DeepIndex, DeepIndexEntry, read_index, write_index, 
     INDEX_MAGIC_V2, INDEX_VERSION_V2, CorruptIndexError
 )
-from deep.core.repository import DEEP_DIR
-
-@pytest.fixture
-def tmp_repo(tmp_path):
-    dg_dir = tmp_path / DEEP_DIR
-    dg_dir.mkdir()
-    return dg_dir
 
 def test_deterministic_read_write_large(tmp_repo):
     """STEP 2.1: Deterministic read/write test with 5000 entries."""
@@ -62,11 +54,12 @@ def test_corruption_header_magic(tmp_repo):
     data[0:4] = b"BAD!"
     index_file.write_bytes(data)
     
-    # Should raise CorruptIndexError or handle gracefully by moving to .corrupt
-    # Since read_index handles it gracefully, we check for the move.
+    # Should detect corruption and handle gracefully by moving to .corrupt
     read_index(tmp_repo)
     assert not index_file.exists()
-    assert len(list(tmp_repo.glob("index.corrupt.*"))) == 1
+    corrupt_files = list(tmp_repo.glob("index.corrupt.*"))
+    assert len(corrupt_files) == 1
+    for f in corrupt_files: f.unlink()
 
 def test_corruption_checksum_mismatch(tmp_repo):
     """STEP 2.5: Corruption detection - Checksum mismatch."""
@@ -82,7 +75,9 @@ def test_corruption_checksum_mismatch(tmp_repo):
     
     read_index(tmp_repo)
     assert not index_file.exists()
-    assert len(list(tmp_repo.glob("index.corrupt.*"))) == 1
+    corrupt_files = list(tmp_repo.glob("index.corrupt.*"))
+    assert len(corrupt_files) == 1
+    for f in corrupt_files: f.unlink()
 
 def test_partial_write_detection(tmp_repo):
     """STEP 2.6: Partial write detection."""
@@ -99,7 +94,9 @@ def test_partial_write_detection(tmp_repo):
     
     read_index(tmp_repo)
     assert not index_file.exists()
-    assert len(list(tmp_repo.glob("index.corrupt.*"))) == 1
+    corrupt_files = list(tmp_repo.glob("index.corrupt.*"))
+    assert len(corrupt_files) == 1
+    for f in corrupt_files: f.unlink()
 
 def test_large_file_handling(tmp_repo):
     """STEP 2.7: Large file handling (100k entries)."""

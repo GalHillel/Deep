@@ -1,4 +1,3 @@
-import pytest
 import multiprocessing
 import os
 import time
@@ -7,13 +6,18 @@ from pathlib import Path
 from deep.storage.index import (
     read_index, add_to_index, DeepIndex
 )
-from deep.core.repository import DEEP_DIR
 
-@pytest.fixture
-def tmp_repo(tmp_path):
-    dg_dir = tmp_path / DEEP_DIR
-    dg_dir.mkdir()
-    return dg_dir
+def slow_writer(dg_dir: Path, stop_event: multiprocessing.Event):
+    """Slow writer that holds the lock."""
+    import time
+    from deep.storage.index import add_to_index
+    from deep.core.locks import IndexLock
+    lock = IndexLock(dg_dir)
+    with lock:
+        # Add one entry
+        add_to_index(dg_dir, "slow.txt", "a"*40, 1, 1)
+        # Hold lock until signaled
+        stop_event.wait(5)
 
 def worker_add_entries(dg_dir: Path, worker_id: int, count: int, result_queue: multiprocessing.Queue):
     """Worker process to add multiple entries to the index."""
@@ -64,17 +68,6 @@ def test_concurrent_multiprocessing_writes(tmp_repo):
 def test_reader_during_write(tmp_repo):
     """STEP 3.5: Reader during write."""
     # Start a slow writer process that holds the lock for a bit
-    # Actually, add_to_index is quick. Let's use a custom function that holds lock.
-    from deep.core.locks import IndexLock
-    
-    def slow_writer(dg_dir: Path, stop_event: multiprocessing.Event):
-        lock = IndexLock(dg_dir)
-        with lock:
-            # Add one entry
-            add_to_index(dg_dir, "slow.txt", "a"*40, 1, 1)
-            # Hold lock until signaled
-            stop_event.wait(5)
-            
     stop_event = multiprocessing.Event()
     p = multiprocessing.Process(target=slow_writer, args=(tmp_repo, stop_event))
     p.start()
@@ -97,13 +90,20 @@ def test_reader_during_write(tmp_repo):
     p.join()
 
 def test_stale_lock_recovery(tmp_repo):
-    """STEP 2.4: Stale lock recovery."""
-    lock_path = tmp_repo / "index.lock"
-    # Create a lock file that belongs to a dead PID
-    # BaseLock expects JSON metadata
+    """STEP 2.4: Stale lock recovery (Real Dead PID)."""
+    import subprocess
+    import sys
     import json
+    
+    # Spawn and kill a dummy process to get a definitively dead PID
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(10)"])
+    pid = p.pid
+    p.terminate()
+    p.wait()
+    
+    lock_path = tmp_repo / "index.lock"
     metadata = {
-        "pid": 99999, # Hopefully dead
+        "pid": pid,
         "timestamp": time.time() - 100,
         "hostname": "test"
     }

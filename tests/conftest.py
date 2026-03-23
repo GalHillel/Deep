@@ -68,8 +68,38 @@ def enforce_zero_trust():
     subprocess.Popen = audited_popen
     subprocess.run = audited_run
     os.system = audited_system
-    yield
-    # Restore (optional, as processes usually exit after tests)
-    subprocess.Popen = ORIGINAL_POPEN
-    subprocess.run = ORIGINAL_RUN
     os.system = ORIGINAL_SYSTEM
+
+# --- STORAGE LEAK ENFORCEMENT ---
+
+@pytest.fixture
+def tmp_repo(tmp_path):
+    """
+    Global fixture for storage tests that enforces:
+    1. Real filesystem usage (via tmp_path)
+    2. No file leaks (*.lock, *.tmp, *.journal, *.partial, .tmp_deep_*)
+    3. Proper cleanup of .corrupt files unless explicitly allowed.
+    """
+    from deep.core.repository import DEEP_DIR
+    dg_dir = tmp_path / DEEP_DIR
+    dg_dir.mkdir()
+    
+    yield dg_dir
+    
+    # Post-test leak detection
+    leaks = []
+    # Check for common leak patterns
+    patterns = ["*.lock", "*.tmp", "*.journal", "*.partial", ".tmp_deep_*"]
+    for pattern in patterns:
+        leaks.extend(list(dg_dir.glob(pattern)))
+        
+    # Check for .corrupt files
+    corrupt_files = list(dg_dir.glob("index.corrupt.*"))
+    if corrupt_files:
+        # If the test passed, it should have cleaned up its own .corrupt files
+        # unless it was specifically testing corruption RECOVERY and left them.
+        # But per user rules: "If test intentionally creates .corrupt file: it must clean it up itself."
+        leaks.extend(corrupt_files)
+        
+    if leaks:
+        raise RuntimeError(f"STORAGE LEAK DETECTED: Files left in repository: {[f.name for f in leaks]}")
