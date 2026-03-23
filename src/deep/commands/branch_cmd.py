@@ -33,8 +33,9 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     dg_dir = repo_root / DEEP_DIR
 
     with TransactionManager(dg_dir) as tm:
-        # 1. List branches (Read-only, but still safe inside TM)
+        # 1. List branches (Read-only)
         if args.name is None and not getattr(args, "list", False):
+            # No tm.begin() here, it's read-only
             current = get_current_branch(dg_dir)
             branches = list_branches(dg_dir)
             if not branches:
@@ -49,10 +50,12 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
         # 2. Delete branch
         if getattr(args, "delete", False):
+            tm.begin("branch_delete")
             from deep.core.refs import delete_branch
             try:
                 delete_branch(dg_dir, args.name)
                 print(f"Deleted branch '{args.name}'.")
+                tm.commit()
             except Exception as e:
                 print(f"Deep: error: {e}", file=sys.stderr)
                 raise DeepCLIException(1)
@@ -60,6 +63,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
         # 3. Rename branch
         if getattr(args, "rename", None):
+            tm.begin("branch_rename")
             from deep.core.refs import delete_branch
             old_name = args.rename
             new_name = args.name
@@ -89,9 +93,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 
             delete_branch(dg_dir, old_name)
             print(f"Renamed branch '{old_name}' to '{new_name}'.")
+            tm.commit()
             return
 
         # 4. Create a new branch.
+        tm.begin("branch_create")
         from deep.core.refs import resolve_revision
         start_point = args.start_point if hasattr(args, "start_point") else "HEAD"
         target_sha = resolve_revision(dg_dir, start_point)
@@ -102,3 +108,4 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             
         update_branch(dg_dir, args.name, target_sha)
         print(f"Created branch '{args.name}' at {target_sha[:7]}")
+        tm.commit()

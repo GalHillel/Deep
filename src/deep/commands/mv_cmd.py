@@ -20,6 +20,7 @@ from deep.storage.index import DeepIndex, DeepIndexEntry, read_index, write_inde
 from deep.storage.objects import Blob
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.storage.transaction import TransactionManager
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
@@ -31,38 +32,38 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
-    objects_dir = dg_dir / "objects"
 
-    src_path_str = args.source
-    dest_path_str = args.destination
+    with TransactionManager(dg_dir) as tm:
+        tm.begin("mv")
+        objects_dir = dg_dir / "objects"
 
-    src_path = Path(src_path_str).resolve()
-    dest_path = Path(dest_path_str).resolve()
+        src_path_str = args.source
+        dest_path_str = args.destination
 
-    if not src_path.exists():
-        print(f"Deep: error: bad source, source={src_path_str}, destination={dest_path_str}", file=sys.stderr)
-        raise DeepCLIException(1)
+        src_path = Path(src_path_str).resolve()
+        dest_path = Path(dest_path_str).resolve()
 
-    rel_src = src_path.relative_to(repo_root).as_posix()
+        if not src_path.exists():
+            print(f"Deep: error: bad source, source={src_path_str}, destination={dest_path_str}", file=sys.stderr)
+            raise DeepCLIException(1)
 
-    if dest_path.is_dir():
-        dest_path = dest_path / src_path.name
+        rel_src = src_path.relative_to(repo_root).as_posix()
+
+        if dest_path.is_dir():
+            dest_path = dest_path / src_path.name
+            
+        rel_dest = dest_path.relative_to(repo_root).as_posix()
+
+        if dest_path.exists():
+            print(f"Deep: error: destination exists, source={src_path_str}, destination={dest_path_str}", file=sys.stderr)
+            raise DeepCLIException(1)
+
+        # 1. Move file on disk
+        shutil.move(str(src_path), str(dest_path))
+
+        # 2. Update index
+        from deep.storage.index import read_index_no_lock, write_index_no_lock
         
-    rel_dest = dest_path.relative_to(repo_root).as_posix()
-
-    if dest_path.exists():
-        print(f"Deep: error: destination exists, source={src_path_str}, destination={dest_path_str}", file=sys.stderr)
-        raise DeepCLIException(1)
-
-    # 1. Move file on disk
-    shutil.move(str(src_path), str(dest_path))
-
-    # 2. Update index
-    from deep.storage.index import read_index_no_lock, write_index_no_lock
-    from deep.core.locks import RepositoryLock
-    
-    repo_lock = RepositoryLock(dg_dir)
-    with repo_lock:
         index = read_index_no_lock(dg_dir)
         to_remove = []
         to_update = {} # path -> entry
@@ -108,5 +109,6 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             index.entries[p] = e
             
         write_index_no_lock(dg_dir, index)
+        tm.commit()
 
     print(f"Renamed {rel_src} -> {rel_dest}")

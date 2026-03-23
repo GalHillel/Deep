@@ -47,6 +47,7 @@ def run(args: argparse.Namespace) -> None:
 
     with TransactionManager(dg_dir) as tm:
         if paths:
+            tm.begin("checkout_paths")
             # File-level restore
             from deep.core.refs import resolve_revision
             from deep.storage.objects import read_object, Commit, Tree
@@ -80,9 +81,11 @@ def run(args: argparse.Namespace) -> None:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(blob.serialize_content())
                 print(f"Updated 1 path from {target_sha[:7]}")
+            tm.commit()
             return
 
         # 3. Branch/Commit switching
+        tm.begin("checkout_branch")
         try:
             from deep.core.repository import checkout
             from deep.core.state import validate_repo_state
@@ -95,6 +98,7 @@ def run(args: argparse.Namespace) -> None:
                 print(f"Deep: HEAD is now at {target[:7]}")
             else:
                 print(f"Deep: switched to branch '{target}'")
+            tm.commit()
 
         except DeepError as exc:
             print(f"Deep: error: {exc}", file=sys.stderr)
