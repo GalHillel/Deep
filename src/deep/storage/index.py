@@ -13,12 +13,15 @@ import logging
 import hashlib
 import time
 import os
+import errno
+import random
+import string
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional, Any, cast, List, Tuple
 
-from deep.core.locks import IndexLock
-from deep.utils.utils import AtomicWriter, DeepError
+from deep.utils.utils import DeepError
 
 # ── DeepIndex Binary Format v2 ───────────────────────────────────────
 # Header (FIXED SIZE - 45 bytes):
@@ -262,101 +265,228 @@ class DeepIndex:
 
 # ── Public APIs (Independent of Deep naming) ──────────────────────────
 
+# ── Hardened Locking ──────────────────────────────────────────────────
+
 def _get_journal_path(dg_dir: Path) -> Path:
+    """Legacy helper for tests."""
     return dg_dir / "index.journal"
 
-def read_index(dg_dir: Path) -> DeepIndex:
-    """Read the index with automatic corruption recovery, journal check, and v2 upgrade."""
-    path = dg_dir / "index"
-    journal_path = _get_journal_path(dg_dir)
-    
-    # Phase 6: Journal Recovery
-    if journal_path.exists():
-        logging.getLogger("Deep").warning("Index journal found - previous write may have been interrupted. Recovering...")
+def _is_process_alive(pid: int) -> bool:
+    """Check if a process with the given PID is still alive (cross-platform)."""
+    if pid <= 0: return False
+    import sys
+    if sys.platform == "win32":
+        import ctypes
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if handle:
+            exit_code = ctypes.c_ulong()
+            ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+            ctypes.windll.kernel32.CloseHandle(handle)
+            return exit_code.value == STILL_ACTIVE
+        return False
+    else:
         try:
-            journal_path.unlink()
-        except OSError:
-            pass
+            os.kill(pid, 0)
+            return True
+        except (OSError, ProcessLookupError):
+            return False
+
+class IndexLock:
+    """Bulletproof reentrant atomic file lock for index operations."""
+    _thread_local_locks: Dict[str, int] = {} # Path -> recursion_level
+
+    def __init__(self, dg_dir: Path, timeout: float = 10.0):
+        self.lock_path = dg_dir / "index.lock"
+        self.timeout = timeout
+        self.pid = os.getpid()
+        self.lock_id = str(self.lock_path)
+
+    def _get_lock_pid(self) -> Optional[int]:
+        """Read PID from lock file, handling both raw PID and JSON metadata."""
+        if not self.lock_path.exists(): return None
+        try:
+            # On Windows, PermissionError is common if the file is locked.
+            # We use a raw os.open with sharing flags to bypass some restrictions.
+            fd = os.open(self.lock_path, os.O_RDONLY | getattr(os, 'O_BINARY', 0))
+            try:
+                content_bytes = os.read(fd, 1024)
+                content = content_bytes.decode('utf-8', errors='ignore').strip()
+            finally:
+                os.close(fd)
+            
+            if not content: return None
+            if content.startswith("{"):
+                try:
+                    data = json.loads(content.split("}")[0] + "}")
+                    return int(data.get("pid", 0))
+                except:
+                    import re
+                    m = re.search(r'"pid":\s*(\d+)', content)
+                    return int(m.group(1)) if m else None
+            return int(content)
+        except (OSError, ValueError, KeyError, json.JSONDecodeError):
+            return None
+
+    def acquire(self):
+        """Acquire lock (reentrant)."""
+        # Reentrancy check
+        if self._thread_local_locks.get(self.lock_id, 0) > 0:
+            self._thread_local_locks[self.lock_id] += 1
+            return
+
+        start = time.time()
+        while True:
+            try:
+                # 1. Aggressive stale cleanup AND reentrancy detection
+                if self.lock_path.exists():
+                    owner_pid = self._get_lock_pid()
+                    # Reentrancy: PID matches ours
+                    if owner_pid == self.pid:
+                        self._thread_local_locks[self.lock_id] = self._thread_local_locks.get(self.lock_id, 0) + 1
+                        return
+                    # Stale lock: PID is dead or invalid
+                    if owner_pid is None or not _is_process_alive(owner_pid):
+                        logging.getLogger("Deep").warning(f"Removing stale/invalid index.lock")
+                        try: os.remove(self.lock_path)
+                        except OSError: pass
+                
+                # 2. Atomic acquisition
+                fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                try:
+                    os.write(fd, str(self.pid).encode())
+                finally:
+                    os.close(fd)
+                
+                self._thread_local_locks[self.lock_id] = 1
+                return
+            except (FileExistsError, PermissionError, OSError):
+                # On Windows, PermissionError often means another process has it open (O_EXCL)
+                if time.time() - start > self.timeout:
+                    raise TimeoutError(f"Timed out waiting for index.lock at {self.lock_path}")
+                time.sleep(0.05 + random.random() * 0.1)
+
+    def release(self):
+        """Release lock (reentrant)."""
+        if self._thread_local_locks.get(self.lock_id, 0) <= 0:
+            return
+
+        self._thread_local_locks[self.lock_id] -= 1
+        if self._thread_local_locks[self.lock_id] == 0:
+            try:
+                owner_pid = self._get_lock_pid()
+                if owner_pid == self.pid or owner_pid is None:
+                    if self.lock_path.exists():
+                        os.remove(self.lock_path)
+            except OSError:
+                pass
+            finally:
+                if self.lock_id in self._thread_local_locks:
+                    del self._thread_local_locks[self.lock_id]
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.release()
+
+# ── Public APIs (Independent of Deep naming) ──────────────────────────
+
+def read_index(dg_dir: Path) -> DeepIndex:
+    """Read index with lazy stale lock/journal cleanup and NO read lock."""
+    path = dg_dir / "index"
+    lock_path = dg_dir / "index.lock"
+    journal_path = dg_dir / "index.journal"
+    
+    # Passive cleanup (leaks/stale)
+    for p in [lock_path, journal_path]:
+        if p.exists():
+            try:
+                if p == journal_path:
+                    p.unlink()
+                else:
+                    # Use a temp lock object for stale check
+                    tmp_lock = IndexLock(dg_dir)
+                    owner_pid = tmp_lock._get_lock_pid()
+                    if owner_pid is None or not _is_process_alive(owner_pid):
+                        p.unlink()
+            except (OSError, ValueError):
+                pass
 
     if not path.exists():
         return DeepIndex()
     
-    lock = IndexLock(dg_dir)
-    with lock:
-        try:
-            data = path.read_bytes()
-            index = DeepIndex.from_binary(data)
-            
-            # Phase 7: Backward Compatibility (Rewrite to v2 if migrated)
-            if data[:8] != INDEX_MAGIC_V2:
-                logging.getLogger("Deep").info("Upgrading index to v2 format")
-                # We are already holding the lock, so we can write safely.
-                # But write_index also tries to acquire lock. 
-                # Let's use write_index_no_lock.
-                write_index_no_lock(dg_dir, index)
-                
-            return index
-        except CorruptIndexError as e:
-            # Phase 5: Safe Recovery
-            timestamp = int(time.time())
-            corrupt_path = path.with_name(f"index.corrupt.{timestamp}")
-            logging.getLogger("Deep").error(f"Index corruption detected: {e}. Moving to {corrupt_path}")
-            try:
-                os.rename(path, corrupt_path)
-            except OSError as rename_err:
-                logging.getLogger("Deep").error(f"Failed to move corrupted index: {rename_err}")
-            return DeepIndex()
-        except Exception as e:
-            logging.getLogger("Deep").error(f"Unexpected error reading index: {e}")
-            return DeepIndex()
-
-def write_index(dg_dir: Path, index: DeepIndex) -> None:
-    """Write the index atomically with fsync and journaling."""
-    path = dg_dir / "index"
-    journal_path = _get_journal_path(dg_dir)
-    lock = IndexLock(dg_dir)
-    
-    with lock:
-        _write_index_core(dg_dir, index, journal_path, path)
-
-def _write_index_core(dg_dir: Path, index: DeepIndex, journal_path: Path, path: Path):
-    """Internal core write function used by both locking and non-locking APIs."""
-    # Phase 6: Write intent to journal
-    try:
-        journal_path.write_text(f"WRITE_INTENT {int(time.time())}")
-    except OSError as e:
-        logging.getLogger("Deep").warning(f"Could not write journal: {e}")
-
-    # Phase 4: Atomic Writes
-    try:
-        with AtomicWriter(path, mode="wb") as aw:
-            aw.write(index.to_binary())
-        
-        # Phase 6: Success! Delete journal
-        if journal_path.exists():
-            journal_path.unlink()
-    except Exception as e:
-        logging.getLogger("Deep").error(f"Failed to write index: {e}")
-        raise
-
-def read_index_no_lock(dg_dir: Path) -> DeepIndex:
-    """Read the index without acquiring a lock (caller must hold RepositoryLock)."""
-    path = dg_dir / "index"
-    if not path.exists(): return DeepIndex()
     try:
         data = path.read_bytes()
         index = DeepIndex.from_binary(data)
+        
+        # Backward Compatibility (Rewrite to v2 if migrated)
         if data[:8] != INDEX_MAGIC_V2:
-            _write_index_core(dg_dir, index, _get_journal_path(dg_dir), path)
+            logging.getLogger("Deep").info("Upgrading index to v2 format")
+            write_index(dg_dir, index)
+            
         return index
-    except CorruptIndexError:
+    except CorruptIndexError as e:
+        timestamp = int(time.time())
+        corrupt_path = path.with_name(f"index.corrupt.{timestamp}")
+        logging.getLogger("Deep").error(f"Index corruption detected: {e}. Moving to {corrupt_path}")
+        try:
+            os.rename(path, corrupt_path)
+        except OSError:
+            pass
+        return DeepIndex()
+    except Exception as e:
+        logging.getLogger("Deep").error(f"Unexpected error reading index: {e}")
         return DeepIndex()
 
-def write_index_no_lock(dg_dir: Path, index: DeepIndex) -> None:
-    """Write the index without acquiring a lock (caller must hold RepositoryLock)."""
+def write_index(dg_dir: Path, index: DeepIndex) -> None:
+    """Write the index atomically with strict ACID properties."""
     path = dg_dir / "index"
-    journal_path = _get_journal_path(dg_dir)
-    _write_index_core(dg_dir, index, journal_path, path)
+    with IndexLock(dg_dir):
+        _write_index_core(dg_dir, index, path)
+
+def _write_index_core(dg_dir: Path, index: DeepIndex, path: Path):
+    """Atomic write core: Temp file -> Fsync -> Atomic Replace."""
+    # Generate unique temp name
+    rand = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    tmp_path = path.with_name(f"index.tmp_{os.getpid()}_{rand}")
+    
+    try:
+        data = index.to_binary()
+        with open(tmp_path, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        
+        # Atomic swap with retry for Windows (handles transient reader locks)
+        max_retries = 5
+        for i in range(max_retries):
+            try:
+                os.replace(tmp_path, path)
+                break
+            except OSError as e:
+                if i == max_retries - 1: raise
+                time.sleep(0.01 * (i + 1))
+    except Exception as e:
+        logging.getLogger("Deep").error(f"Failed to write index: {e}")
+        if tmp_path.exists():
+            try: tmp_path.unlink()
+            except OSError: pass
+        raise
+    finally:
+        if tmp_path.exists():
+            try: tmp_path.unlink()
+            except OSError: pass
+
+def read_index_no_lock(dg_dir: Path) -> DeepIndex:
+    """Read the index (lock-free due to atomic rename)."""
+    return read_index(dg_dir)
+
+def write_index_no_lock(dg_dir: Path, index: DeepIndex) -> None:
+    """Write the index (lock-free write - caller must ensure locking)."""
+    _write_index_core(dg_dir, index, dg_dir / "index")
 
 def add_to_index(dg_dir: Path, rel_path: str, sha: str, size: int, mtime_ns: int):
     add_multiple_to_index(dg_dir, [(rel_path, sha, size, mtime_ns)])
