@@ -168,14 +168,18 @@ def collect_garbage(repo_root: Path, dry_run: bool = False, verbose: bool = Fals
         from deep.storage.objects import _object_path
         now = time.time()
         for sha in unreachable:
-            src = _object_path(objects_dir, sha)
+            src = _object_path(objects_dir, sha, level=2)
+            if not src.exists():
+                src = _object_path(objects_dir, sha, level=1)
+                
             if src.exists():
                 # Age threshold check
                 try:
                     mtime = os.path.getmtime(src)
-                    if now - mtime < prune_expire:
+                    age = now - mtime
+                    if age < prune_expire:
                         if verbose:
-                            print(f"Skipping recently created object: {sha}")
+                            print(f"Skipping recently created object: {sha} (age: {age:.1f}s, threshold: {prune_expire}s)")
                         continue
                 except OSError:
                     continue

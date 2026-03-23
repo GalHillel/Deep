@@ -937,11 +937,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "merge":
         from deep.commands.merge_cmd import run # type: ignore[import]
     elif args.command == "inspect-tree":
-        from deep.commands import inspect_tree_cmd # type: ignore[import]
-        inspect_tree_cmd.run(args)
+        from deep.commands.inspect_tree_cmd import run # type: ignore[import]
     elif args.command == "commit-graph":
-        from deep.commands import commit_graph_cmd # type: ignore[import]
-        commit_graph_cmd.run(args)
+        from deep.commands.commit_graph_cmd import run # type: ignore[import]
     elif args.command == "fsck":
         from deep.commands.fsck_cmd import run # type: ignore[import]
     elif args.command == "rm":
@@ -959,8 +957,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "rebase":
         from deep.commands.rebase_cmd import run # type: ignore[import]
     elif args.command == "repack":
-        from deep.commands import repack_cmd # type: ignore[import]
-        repack_cmd.run(args)
+        from deep.commands.repack_cmd import run # type: ignore[import]
     elif args.command == "doctor":
         from deep.commands.doctor_cmd import run # type: ignore[import]
     elif args.command == "gc":
@@ -970,8 +967,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "daemon":
         from deep.commands.daemon_cmd import run # type: ignore[import]
     elif args.command == "web":
-        from deep.commands import web_cmd # type: ignore[import]
-        web_cmd.run(args)
+        from deep.commands.web_cmd import run # type: ignore[import]
     elif args.command == "issue":
         from deep.commands.issue_cmd import run
     elif args.command == "pr":
@@ -1082,17 +1078,6 @@ def main(argv: list[str] | None = None) -> None:
         handler(plugin_args)
         return
 
-    if args.command == "web":
-        from deep.web.dashboard import start_dashboard
-        try:
-            repo_root = find_repo()
-            port = getattr(args, "port", 9000)
-            start_dashboard(repo_root, port=port)
-            return
-        except Exception as e:
-            if os.environ.get("DEEP_DEBUG"): raise
-            print(f"Deep: internal error: {e}", file=sys.stderr)
-            raise DeepCLIException(1)
 
     try:
         run(args)

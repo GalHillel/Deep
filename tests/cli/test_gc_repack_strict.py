@@ -7,10 +7,14 @@ import pytest
 
 def run_deep(*args, cwd=None):
     """Run a deep command and return the result."""
-    # Use the same python executable to run the module
     import sys
+    env = os.environ.copy()
+    repo_root = Path(__file__).parent.parent.parent.absolute()
+    src_dir = str(repo_root / "src")
+    env["PYTHONPATH"] = src_dir + os.pathsep + env.get("PYTHONPATH", "")
+    
     cmd = [sys.executable, "-m", "deep.cli.main"] + list(args)
-    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
 
 def test_cli_repack_safe(tmp_path):
     """
@@ -28,8 +32,11 @@ def test_cli_repack_safe(tmp_path):
         
     # Check that we have loose objects
     objs_dir = repo / ".deep" / "objects"
-    loose_count = sum(1 for root, dirs, files in os.walk(objs_dir) if "pack" not in root and files for f in files if len(f) > 30)
-    assert loose_count > 0, "Should have loose objects before repack"
+    # Find all files in objects/ excluding pack/ and quarantine/ dirs
+    all_files = list(objs_dir.rglob("*"))
+    loose_files = [f for f in all_files if f.is_file() and "pack" not in f.parts and "quarantine" not in f.parts and len(f.name) >= 30]
+    loose_count = len(loose_files)
+    assert loose_count > 0, f"Should have loose objects before repack. Found {loose_count}."
     
     # 2. Run repack
     res = run_deep("repack", cwd=repo)
