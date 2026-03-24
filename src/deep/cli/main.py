@@ -860,7 +860,8 @@ Examples:
     p_debug.add_argument("sha", nargs="?", help="The SHA-1 hash of the tree or commit object to inspect")
 
     # ── help ──────────────────────────────────────────────────────────
-    sub.add_parser("help", help="Show this help message and exit")
+    p_help = sub.add_parser("help", help="Show this help message and exit")
+    p_help.add_argument("subcommand", nargs="?", help="The command to show help for")
 
     # ── Plugins ─────────────────────────────────────────────────────
     try:
@@ -976,9 +977,20 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.pipeline_cmd import run
     elif args.command == "p2p":
         from deep.commands.p2p_cmd import run
-    elif args.command in ("mirror", "daemon", "sync", "server", "user", "auth", "repo"):
-        print("P2P/Server is currently disabled (experimental feature)", file=sys.stderr)
-        raise DeepCLIException(1)
+    elif args.command == "user":
+        from deep.commands.user_cmd import run
+    elif args.command == "auth":
+        from deep.commands.auth_cmd import run
+    elif args.command == "repo":
+        from deep.commands.repo_cmd import run
+    elif args.command == "sync":
+        from deep.commands.sync_cmd import run
+    elif args.command == "server":
+        from deep.commands.server_cmd import run
+    elif args.command == "daemon":
+        from deep.commands.daemon_cmd import run
+    elif args.command == "mirror":
+        from deep.commands.mirror_cmd import run
     elif args.command == "audit":
         from deep.commands.audit_cmd import run # type: ignore[import]
     elif args.command == "ultra":
@@ -1014,13 +1026,28 @@ def main(argv: list[str] | None = None) -> None:
             raise DeepCLIException(1)
         return
     elif args.command == "help":
-        try:
-            from rich.console import Console # type: ignore[import]
-            from rich.panel import Panel # type: ignore[import]
-            Console().print(Panel("[bold cyan]Deep Help[/bold cyan]", expand=False))
-            parser.print_help()
-        except ImportError:
-            parser.print_help()
+        if args.subcommand:
+            # We must find the subparser for this command
+            # Since build_parser is a bit monolithic, we can just call build_parser() 
+            # and search in its actions.
+            found = False
+            for action in parser._actions:
+                if isinstance(action, argparse._SubParsersAction):
+                    if args.subcommand in action.choices:
+                        action.choices[args.subcommand].print_help()
+                        found = True
+                        break
+            if not found:
+                print(f"Deep: error: unknown command '{args.subcommand}'", file=sys.stderr)
+                parser.print_help()
+        else:
+            try:
+                from rich.console import Console # type: ignore[import]
+                from rich.panel import Panel # type: ignore[import]
+                Console().print(Panel("[bold cyan]Deep Help[/bold cyan]", expand=False))
+                parser.print_help()
+            except ImportError:
+                parser.print_help()
         return
     else:
         # Plugin command check

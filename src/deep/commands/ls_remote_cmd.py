@@ -52,6 +52,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
 def _ls_remote_local(dg_dir: Path) -> None:
     """List refs from a local repository."""
+    from deep.core.refs import resolve_head
+    head_sha = resolve_head(dg_dir)
+    if head_sha:
+        print(f"{head_sha}\tHEAD")
+        
     for branch in list_branches(dg_dir):
         sha = get_branch(dg_dir, branch)
         if sha:
