@@ -11,6 +11,7 @@ No external API dependency — fully self-contained.
 from __future__ import annotations
 
 import time
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -47,20 +48,69 @@ def infer_scope_from_path(file_path: str) -> str:
     return ""
 
 
-def get_dominant_scope(files: list[str]) -> str:
+@dataclass
+class ChangeInfo:
+    """Rich metadata about a single file change."""
+    path: str
+    action: str  # "A", "M", "D", "R"
+    module: str
+    lines_added: int = 0
+    lines_removed: int = 0
+    weight: float = 0.0  # lines / total_lines_in_commit
+    depth: int = 0
+    tokens: list[str] = field(default_factory=list)
+    is_core: bool = False
+    has_logic: bool = False
+    has_fix_keywords: bool = False
+    old_path: Optional[str] = None
+
+def get_tokens(path: str) -> list[str]:
+    """Split path/filename into semantic tokens."""
+    name = Path(path).stem
+    # Split by underscore, hyphen, or CamelCase
+    parts = re.split(r"[_ \-]", name)
+    tokens = []
+    for p in parts:
+        # Simple CamelCase split
+        subparts = re.findall(r"[A-Z]?[a-z0-9]+", p)
+        tokens.extend([s.lower() for s in subparts])
+    return [t for t in tokens if t]
+
+def get_dominant_scope(changes: list[ChangeInfo]) -> str:
     """
-    Return the most frequent scope across all changed files.
+    Return the most frequent scope across all changed files, weighted by importance.
     """
-    if not files:
+    if not changes:
         return ""
 
-    scopes = [infer_scope_from_path(f) for f in files]
-    scopes = [s for s in scopes if s]
+    weights = {
+        "core": 2.5,
+        "storage": 2.0,
+        "network": 1.8,
+        "cli": 1.5,
+        "web": 1.2,
+        "ui": 1.1,
+    }
 
-    if not scopes:
+    scope_scores: dict[str, float] = {}
+    for c in changes:
+        if not c.module:
+            continue
+        # Impact = weight * importance
+        score = c.weight * weights.get(c.module, 1.0)
+        scope_scores[c.module] = scope_scores.get(c.module, 0.0) + score
+
+    if not scope_scores:
         return ""
 
-    return max(set(scopes), key=scopes.count)
+    # Sort and pick top 1 or 2 if close
+    sorted_scopes = sorted(scope_scores.items(), key=lambda x: x[1], reverse=True)
+    top_scope, top_score = sorted_scopes[0]
+    
+    if len(sorted_scopes) > 1 and sorted_scopes[1][1] > top_score * 0.7:
+        return f"{top_scope},{sorted_scopes[1][0]}"
+    
+    return top_scope
 
 
 @dataclass
@@ -95,8 +145,8 @@ class DeepAI:
         self.metrics["_total_conf"] = total_conf
         self.metrics["avg_confidence"] = total_conf / self.metrics["suggestions_made"]
 
-    def _get_staged_diff(self) -> tuple[str, ChangeStats]:
-        """Compute the diff between HEAD and Index."""
+    def _get_staged_changes(self) -> list[ChangeInfo]:
+        """Compute the rich metadata for all staged changes."""
         from deep.core.refs import resolve_head
         from deep.core.diff import diff_blobs
         from deep.web.dashboard import _tree_entries_flat
@@ -113,153 +163,207 @@ class DeepAI:
             except Exception:
                 pass
 
-        all_diff = ""
-        stats = ChangeStats()
+        changes: list[ChangeInfo] = []
+        
+        # 1. Gather Basic Info
+        total_delta = 0
+        added_raw = []
+        deleted_raw = []
+        
         for rel_path, entry in index.entries.items():
-            ext = Path(rel_path).suffix.lstrip(".")
-            stats.file_types[ext] = stats.file_types.get(ext, 0) + 1
-            
             old_sha = head_entries.get(rel_path, "")
             new_sha = entry.content_hash
             
             if old_sha == new_sha:
                 continue
-                
+
+            action = "A" if not old_sha else "M"
+            added, removed = 0, 0
+            has_logic = False
+            has_fix_keywords = False
+            
             try:
                 diff_text = diff_blobs(objects_dir, old_sha, new_sha, rel_path)
                 if diff_text:
                     added, removed = analyze_diff_text(diff_text)
-                    stats.lines_added += added
-                    stats.lines_removed += removed
-                    
-                    if not old_sha:
-                        stats.files_added += 1
-                    elif not new_sha:
-                        stats.files_deleted += 1
-                    else:
-                        stats.files_modified += 1
-                        
-                    all_diff += diff_text + "\n"
-                else:
-                    # Likely a new file if old_sha is empty
-                    if not old_sha:
-                        stats.files_added += 1
-                    else:
-                        stats.files_modified += 1
+                    has_logic = "def " in diff_text or "class " in diff_text
+                    lower_diff = diff_text.lower()
+                    has_fix_keywords = any(k in lower_diff for k in ["fix", "bug", "error", "issue", "crash", "resolve"])
             except Exception:
-                stats.files_added += 1
-                
-        # Handle deleted files (in HEAD but not in Index)
+                pass
+
+            parts = rel_path.split("/")
+            module = parts[1] if len(parts) > 1 and parts[0] in ("src", "deep") else parts[0]
+            if module == "src": module = parts[1] if len(parts) > 1 else "root"
+
+            info = ChangeInfo(
+                path=rel_path,
+                action=action,
+                module=module,
+                lines_added=added,
+                lines_removed=removed,
+                depth=len(parts),
+                tokens=get_tokens(rel_path),
+                is_core=module in ("core", "storage", "network"),
+                has_logic=has_logic,
+                has_fix_keywords=has_fix_keywords
+            )
+            changes.append(info)
+            total_delta += (added + removed)
+            if action == "A": added_raw.append(info)
+
+        # 2. Handle Deletions & Renames
         for rel_path in head_entries:
             if rel_path not in index.entries:
-                stats.files_deleted += 1
-                
-        return all_diff, stats
+                info = ChangeInfo(
+                    path=rel_path,
+                    action="D",
+                    module=rel_path.split("/")[0],
+                    lines_removed=10, # Placeholder
+                    depth=len(rel_path.split("/")),
+                    tokens=get_tokens(rel_path)
+                )
+                deleted_raw.append(info)
+                changes.append(info)
+                total_delta += 10
+
+        # 3. Simple Rename Detection
+        for d in deleted_raw:
+            for a in added_raw:
+                # If tokens are exactly same, or highly similar
+                d_set, a_set = set(d.tokens), set(a.tokens)
+                if d_set == a_set or len(d_set & a_set) / max(len(d_set), 1) > 0.8:
+                    a.action = "R"
+                    a.old_path = d.path
+                    if d in changes: changes.remove(d)
+                    break
+
+        # 4. Final Weighting
+        if total_delta > 0:
+            for c in changes:
+                c.weight = (c.lines_added + c.lines_removed) / total_delta
+        
+        return changes
 
     def suggest_commit_message(self) -> AISuggestion:
-        """Generate a commit message suggestion from staged changes."""
+        """Generate a high-quality commit message suggestion from staged changes."""
         start = time.perf_counter()
+        import hashlib
 
-        all_diff, stats = self._get_staged_diff()
-        index = read_index(self.dg_dir)
-        staged_files = list(index.entries.keys())
-
-        if not stats.total_files and not all_diff:
-            latency = (time.perf_counter() - start) * 1000
-            self._record_metric(latency, 0.1)
+        changes = self._get_staged_changes()
+        if not changes:
             return AISuggestion("commit_msg", "chore: no changes staged", 0.1)
 
-        # 1. Handle infrastructure files FIRST
-        infra_map = {
-            "requirements.txt": "chore(deps): update dependencies",
-            "package.json": "chore(deps): update dependencies",
-            "pipfile": "chore(deps): update dependencies",
-            "poetry.lock": "chore(deps): update dependencies",
-            ".gitignore": "chore(config): update ignore rules",
-            ".dockerignore": "chore(config): update ignore rules",
+        # 1. Weighted Scoring for Commit Type
+        scores = {
+            "feat": 0.0,
+            "fix": 0.0,
+            "refactor": 0.0,
+            "docs": 0.0,
+            "test": 0.0,
+            "perf": 0.0,
+            "chore": 0.1,  # Baseline
         }
-        
-        for f in staged_files:
-            base = Path(f).name.lower()
-            if base in infra_map:
-                latency = (time.perf_counter() - start) * 1000
-                self._record_metric(latency, 0.95)
-                return AISuggestion("commit_msg", infra_map[base], 0.95, [f"Detected infra file: {f}"], latency)
 
-        # 2. Run semantic extraction
-        semantics = extract_diff_semantics(all_diff)
+        for c in changes:
+            ext = Path(c.path).suffix.lower()
+            # Docs
+            if ext in (".md", ".txt", ".rst") or "license" in c.path.lower():
+                scores["docs"] += 1.0 * c.weight
+            # Test
+            elif "test" in c.path.lower() or (c.tokens[0] == "test" if c.tokens else False):
+                scores["test"] += 1.2 * c.weight
+            # Build / Chore
+            elif Path(c.path).name.lower() in ("setup.py", "requirements.txt", "pyproject.toml", "dockerfile", ".gitignore", "makefile"):
+                scores["chore"] += 1.5 * c.weight
+            # Perf
+            elif any(t in c.tokens for t in ["optimize", "cache", "fast", "performance"]):
+                scores["perf"] += 1.3 * c.weight
+            # Source Code
+            else:
+                if c.has_fix_keywords:
+                    scores["fix"] += 2.0 * c.weight
+                
+                if c.action == "A":
+                    scores["feat"] += 1.5 * c.weight
+                elif c.action == "R":
+                    scores["refactor"] += 1.4 * c.weight
+                elif c.action == "D":
+                    scores["refactor"] += 1.0 * c.weight
+                else: # M
+                    # Only call it a feat if it's a significant logic addition
+                    if c.lines_added > 5 and c.lines_added > c.lines_removed * 1.5 and c.has_logic:
+                        scores["feat"] += 1.2 * c.weight
+                    elif c.lines_removed > 5 and c.lines_removed > c.lines_added * 1.5:
+                        scores["refactor"] += 1.1 * c.weight
+                    else:
+                        scores["fix"] += 0.8 * c.weight
         
-        # 3. Change Magnitude Scoring (Phase 3)
-        total_lines = stats.lines_added + stats.lines_removed
-        if total_lines < 20:
-            magnitude = "low"
-        elif total_lines <= 100:
-            magnitude = "medium"
-        else:
-            magnitude = "high"
+        # Determine winning type
+        best_type = max(scores, key=scores.get)
+        confidence = min(0.99, scores[best_type])
+        
+        if confidence < 0.3:
+            latency = (time.perf_counter() - start) * 1000
+            return AISuggestion("commit_msg", "chore: update project files", confidence, ["Low confidence fallback"], latency)
 
-        # 4. Infer Scope
-        scope = get_dominant_scope(staged_files)
+        # 2. Scope Detection
+        scope = get_dominant_scope(changes)
         scope_part = f"({scope})" if scope else ""
 
-        # 5. Message Decision Tree (Phase 5)
-        candidates = []
-
-        if semantics["breaking_change"]:
-            candidates.append((f"refactor!{scope_part}: breaking change in {scope or 'system'}", 0.90))
-        if semantics["new_files"] and not any([semantics["logic_changes"], semantics["condition_changes"], semantics["deleted_files"]]):
-            candidates.append((f"feat{scope_part}: add new functionality", 0.85))
-        if semantics["deleted_files"] and not any([semantics["logic_changes"], semantics["condition_changes"], semantics["new_files"]]):
-            candidates.append((f"refactor{scope_part}: remove obsolete components", 0.85))
-        if semantics["exceptions_added"]:
-            candidates.append((f"fix{scope_part}: improve error handling", 0.80))
-        if semantics["logic_changes"] or semantics["condition_changes"]:
-            if semantics["functions"]:
-                func_name = semantics["functions"][0]
-                candidates.append((f"fix{scope_part}: update {func_name} logic", 0.80))
-            else:
-                candidates.append((f"fix{scope_part}: adjust application logic", 0.80))
-        if semantics["imports_added"]:
-            candidates.append((f"chore{scope_part}: add required dependencies", 0.75))
-        if semantics["classes"]:
-            cls_name = semantics["classes"][0]
-            candidates.append((f"refactor{scope_part}: update {cls_name} implementation", 0.85))
-
-        # 10. Multi-file
-        if len(staged_files) > 1:
-            change_type = classify_change(staged_files, all_diff)
-            candidates.append((f"{change_type}{scope_part}: update {len(staged_files)} files", 0.60))
-
-        # 11. Fallback
-        change_type = classify_change(staged_files, all_diff)
-        candidates.append((f"{change_type}{scope_part}: update system components", 0.50))
-
-        # Phase 8: Anti-Generic Guard
-        vague_patterns = [
-            "update files", "modify code", "update system components", 
-            f"update {len(staged_files)} files", "update code"
-        ]
+        # 3. Dynamic Description Generation
+        # Seed the variation engine deterministically based on file paths
+        seed_str = "".join(sorted([c.path for c in changes]))
+        h = int(hashlib.md5(seed_str.encode()).hexdigest(), 16)
         
-        msg, confidence = candidates[-1]
-        for cand_msg, cand_conf in candidates:
-            if not any(v in cand_msg for v in vague_patterns):
-                msg, confidence = cand_msg, cand_conf
-                break
+        # Pick the most "interesting" file as target
+        main_change = max(changes, key=lambda x: x.weight)
+        target = " ".join(main_change.tokens[:2])
+        if main_change.action == "R" and main_change.old_path:
+            target = f"{' '.join(get_tokens(main_change.old_path)[:1])} to {target}"
 
-        # Adjust confidence based on magnitude for large refactors
-        if magnitude == "high" and confidence > 0.7:
-            confidence = min(0.99, confidence + 0.05)
+        # Action Verbs
+        verbs = {
+            "feat": ["add", "introduce", "implement", "support"],
+            "fix": ["resolve", "correct", "fix", "patch"],
+            "refactor": ["refactor", "simplify", "improve", "clean"],
+            "docs": ["update", "clarify", "extend", "improve"],
+            "test": ["add", "extend", "fix", "improve"],
+            "perf": ["optimize", "improve", "accelerate", "reduce"],
+            "chore": ["update", "adjust", "cleanup", "bump"]
+        }
+        
+        action_verb = verbs[best_type][h % len(verbs[best_type])]
+        
+        # Qualifiers based on weight and content
+        qualifiers = ["logic", "handling", "interface", "implementation", "support", "behavior"]
+        qualifier = qualifiers[h % len(qualifiers)]
+        
+        if best_type == "docs":
+            qualifier = "documentation"
+        elif best_type == "test":
+            qualifier = "coverage"
+        
+        description = f"{action_verb} {target} {qualifier}"
+        
+        # Hand-tuning common descriptions
+        if main_change.action == "A":
+            description = f"{action_verb} initial {target} {qualifier}"
+        elif main_change.action == "D":
+            description = f"remove obsolete {target} {qualifier}"
 
-        # 6. Formatting Rules
-        msg = msg[:72].lower()
+        # Breaking change !
+        breaking = "!" if (main_change.lines_removed > 50 and main_change.weight > 0.6) or (main_change.is_core and main_change.action in ("D", "R")) else ""
+
+        msg = f"{best_type}{scope_part}{breaking}: {description.lower()}"
 
         latency = (time.perf_counter() - start) * 1000
         self._record_metric(latency, confidence)
         
         details = [
-            f"Magnitude: {magnitude} ({total_lines} lines)",
-            f"Semantics: {semantics}",
-            f"Files: {len(staged_files)}"
+            f"Type Scores: {scores}",
+            f"Dominant Change: {main_change.path} (weight {main_change.weight:.2f})",
+            f"Action: {main_change.action}"
         ]
 
         return AISuggestion("commit_msg", msg, confidence, details, latency)
