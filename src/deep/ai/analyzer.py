@@ -68,105 +68,81 @@ def classify_change(files: list[str], diff_text: str = "") -> str:
     return "feat"
 
 
-def extract_diff_semantics(diff_text: str) -> dict:
+def extract_diff_symbols(diff_text: str) -> dict[str, list[str]]:
     """
-    Deterministically analyze unified diff and extract structural intent.
-    State-machine based parser.
+    Extract modified function and class names from a unified diff.
+    Returns: {'functions': [], 'classes': []}
     """
-    import re
-
-    semantics = {
-        "functions": [],
-        "classes": [],
-        "imports_added": False,
-        "exceptions_added": False,
-        "logic_changes": False,
-        "condition_changes": False,
-        "returns_changed": False,
-        "breaking_change": False,
-        "new_files": False,
-        "deleted_files": False,
-        "renamed": False
-    }
-
+    symbols = {"functions": [], "classes": []}
     current_func = None
     current_class = None
 
     for line in diff_text.splitlines():
-        if line.startswith("+++ /dev/null"):
-            semantics["deleted_files"] = True
-            semantics["breaking_change"] = True
-            continue
-        if line.startswith("--- /dev/null"):
-            semantics["new_files"] = True
-            continue
-
-        if line.startswith("--- ") or line.startswith("+++ "):
-            continue
-
-        # Extract context from hunk headers
+        # Hunk header often contains the function/class context
         if line.startswith("@@"):
             match = re.search(r"@@.*@@\s*(def|class)\s+([a-zA-Z0-9_]+)", line)
             if match:
                 kind, name = match.groups()
                 if kind == "def":
-                    current_func = name
+                    if name not in symbols["functions"]: symbols["functions"].append(name)
                 elif kind == "class":
-                    current_class = name
+                    if name not in symbols["classes"]: symbols["classes"].append(name)
             continue
 
-        if len(line) == 0:
-            continue
+        # Context or Addition
+        clean = line[1:].strip()
+        f_match = re.match(r"def\s+([a-zA-Z0-9_]+)", clean)
+        c_match = re.match(r"class\s+([a-zA-Z0-9_]+)", clean)
+        
+        if f_match:
+            current_func = f_match.group(1)
+        if c_match:
+            current_class = c_match.group(1)
 
-        prefix = line[0]
-        if prefix not in ("+", "-", " "):
-            continue
-
-        clean_line = line[1:].strip()
-
-        # Update context based on context lines or additions
-        if prefix in (" ", "+"):
-            func_match = re.match(r"def\s+([a-zA-Z0-9_]+)", clean_line)
-            cls_match = re.match(r"class\s+([a-zA-Z0-9_]+)", clean_line)
-            if func_match:
-                current_func = func_match.group(1)
-            elif cls_match:
-                current_class = cls_match.group(1)
-
-        if prefix == "+":
-            if current_func and current_func not in semantics["functions"]:
-                semantics["functions"].append(current_func)
-            if current_class and current_class not in semantics["classes"]:
-                semantics["classes"].append(current_class)
-
-            if re.match(r"^(import |from .* import )", clean_line):
-                semantics["imports_added"] = True
-
-            if clean_line.startswith("raise ") or clean_line.startswith("throw "):
-                semantics["exceptions_added"] = True
-
-            if "return " in clean_line or clean_line == "return":
-                semantics["returns_changed"] = True
-
-            if any(op in clean_line for op in ["==", "!=", " > ", " < ", ">=", "<="]):
-                semantics["logic_changes"] = True
-
-            if any(clean_line.startswith(k) for k in ["if ", "elif ", "switch ", "case ", "while "]):
-                semantics["condition_changes"] = True
-
-            if "@deprecated" in clean_line.lower() or "deprecated(" in clean_line.lower():
-                semantics["breaking_change"] = True
-
-        if prefix == "-":
-            # Strict breaking change: Removal of exported function/class (no leading underscore)
-            func_remove = re.match(r"def\s+([a-zA-Z0-9][a-zA-Z0-9_]*)", clean_line)
-            if func_remove:
-                semantics["breaking_change"] = True
+        if line.startswith("+") and not line.startswith("+++"):
+            if current_func and current_func not in symbols["functions"]:
+                symbols["functions"].append(current_func)
+            if current_class and current_class not in symbols["classes"]:
+                symbols["classes"].append(current_class)
                 
-            cls_remove = re.match(r"class\s+([a-zA-Z0-9][a-zA-Z0-9_]*)", clean_line)
-            if cls_remove:
-                semantics["breaking_change"] = True
+    return symbols
 
+def extract_lexical_tokens(diff_text: str) -> list[str]:
+    """
+    Extract interesting keywords/variables from diff additions.
+    Exclude common keywords and short tokens.
+    """
+    tokens = []
+    stopwords = {"self", "cls", "import", "from", "return", "def", "class", "if", "else", "elif", "for", "while", "try", "except", "finally", "with", "as", "pass", "none", "true", "false", "and", "or", "not", "in", "is", "lambda"}
+    
+    for line in diff_text.splitlines():
+        if line.startswith("+") and not line.startswith("+++"):
+            # Extract words
+            words = re.findall(r"[a-zA-Z0-9_]{4,}", line[1:])
+            for w in words:
+                w_lower = w.lower()
+                if w_lower not in stopwords and not w[0].isdigit():
+                    if w_lower not in tokens:
+                        tokens.append(w_lower)
+    
+    return tokens[:10] # Limit to top 10 tokens
+
+def extract_diff_semantics(diff_text: str) -> dict:
+    """ Legacy wrapper for backward compatibility, enhanced with symbols. """
+    symbols = extract_diff_symbols(diff_text)
+    semantics = {
+        "functions": symbols["functions"],
+        "classes": symbols["classes"],
+        "imports_added": "import " in diff_text or "from " in diff_text,
+        "exceptions_added": "raise " in diff_text or "throw " in diff_text,
+        "logic_changes": any(op in diff_text for op in ["==", "!=", " > ", " < ", ">=", "<="]),
+        "condition_changes": any(k in diff_text for k in ["if ", "elif ", "switch ", "case ", "while "]),
+        "returns_changed": "return " in diff_text,
+        "breaking_change": "+++" in diff_text and "/dev/null" in diff_text, # Handled better elsewhere
+        "new_files": "--- /dev/null" in diff_text,
+        "deleted_files": "+++ /dev/null" in diff_text,
+        "renamed": False
+    }
     return semantics
 
 

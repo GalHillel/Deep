@@ -24,6 +24,8 @@ from deep.ai.analyzer import (
     analyze_diff_text,
     classify_change,
     extract_diff_semantics,
+    extract_diff_symbols,
+    extract_lexical_tokens,
     score_complexity,
     ChangeStats,
 )
@@ -62,6 +64,9 @@ class ChangeInfo:
     is_core: bool = False
     has_logic: bool = False
     has_fix_keywords: bool = False
+    functions: list[str] = field(default_factory=list)
+    classes: list[str] = field(default_factory=list)
+    lexical_tokens: list[str] = field(default_factory=list)
     old_path: Optional[str] = None
 
 def get_tokens(path: str) -> list[str]:
@@ -145,6 +150,20 @@ class DeepAI:
         self.metrics["_total_conf"] = total_conf
         self.metrics["avg_confidence"] = total_conf / self.metrics["suggestions_made"]
 
+    def _get_current_branch_tokens(self) -> list[str]:
+        """Extract semantic tokens from the current branch name."""
+        from deep.core.refs import get_current_branch
+        branch = get_current_branch(self.dg_dir)
+        if not branch:
+            return []
+        # common patterns: feat/network-sync, bugfix/ui-crash
+        branch = branch.replace("/", "-").replace("_", "-")
+        parts = branch.split("-")
+        # Ignore common prefixes
+        prefixes = {"feat", "feature", "bug", "bugfix", "hotfix", "refactor", "chore", "task", "issue"}
+        tokens = [p.lower() for p in parts if p.lower() not in prefixes and len(p) > 2]
+        return tokens
+
     def _get_staged_changes(self) -> list[ChangeInfo]:
         """Compute the rich metadata for all staged changes."""
         from deep.core.refs import resolve_head
@@ -189,6 +208,10 @@ class DeepAI:
                     has_logic = "def " in diff_text or "class " in diff_text
                     lower_diff = diff_text.lower()
                     has_fix_keywords = any(k in lower_diff for k in ["fix", "bug", "error", "issue", "crash", "resolve"])
+                    symbols = extract_diff_symbols(diff_text)
+                    functions = symbols["functions"]
+                    classes = symbols["classes"]
+                    lexical_tokens = extract_lexical_tokens(diff_text)
             except Exception:
                 pass
 
@@ -206,7 +229,10 @@ class DeepAI:
                 tokens=get_tokens(rel_path),
                 is_core=module in ("core", "storage", "network"),
                 has_logic=has_logic,
-                has_fix_keywords=has_fix_keywords
+                has_fix_keywords=has_fix_keywords,
+                functions=functions,
+                classes=classes,
+                lexical_tokens=lexical_tokens
             )
             changes.append(info)
             total_delta += (added + removed)
@@ -357,16 +383,48 @@ class DeepAI:
 
         msg = f"{best_type}{scope_part}{breaking}: {description.lower()}"
 
+        # 4. Multi-Line Body Generation
+        branch_tokens = self._get_current_branch_tokens()
+        # If branch tokens are relevant, maybe tweak the title?
+        if branch_tokens and any(t in msg.lower() for t in branch_tokens):
+            confidence += 0.05
+        
+        body_lines = []
+        for c in sorted(changes, key=lambda x: x.weight, reverse=True):
+            if c.weight < 0.05 and len(changes) > 5: continue
+            
+            action_map = {"A": "add", "M": "update", "D": "remove", "R": "rename"}
+            act = action_map.get(c.action, "update")
+            
+            file_summary = f"- {c.path}: {act}"
+            subs = []
+            if c.classes: subs.append(f"class {c.classes[0]}")
+            if c.functions: subs.append(f"{c.functions[0]}()")
+            
+            if subs:
+                file_summary += f" {' and '.join(subs)}"
+            
+            if c.lexical_tokens:
+                file_summary += f" to handle {', '.join(c.lexical_tokens[:2])}"
+            
+            body_lines.append(file_summary)
+            
+        if body_lines:
+            full_msg = f"{msg}\n\n" + "\n".join(body_lines[:8])
+        else:
+            full_msg = msg
+
         latency = (time.perf_counter() - start) * 1000
         self._record_metric(latency, confidence)
         
         details = [
             f"Type Scores: {scores}",
             f"Dominant Change: {main_change.path} (weight {main_change.weight:.2f})",
-            f"Action: {main_change.action}"
+            f"Action: {main_change.action}",
+            f"Branch Tokens: {branch_tokens}"
         ]
 
-        return AISuggestion("commit_msg", msg, confidence, details, latency)
+        return AISuggestion("commit_msg", full_msg, confidence, details, latency)
 
 
     def analyze_quality(self) -> AISuggestion:

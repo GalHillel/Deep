@@ -100,7 +100,9 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         suggestion = ai.suggest_commit_message()
         message = suggestion.text
         
-        print(f"Deep: AI suggestion: {message} (confidence: {suggestion.confidence:.2f})")
+        print(f"Deep: AI suggestion (confidence: {suggestion.confidence:.2f}):\n---")
+        print(message)
+        print("---")
         ans = input("Accept this commit message? [y/N]: ")
         if ans.lower() != "y":
             print("Commit aborted.", file=sys.stderr)
