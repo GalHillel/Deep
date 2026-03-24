@@ -102,7 +102,7 @@ class PRManager:
         if pr.linked_issue:
             import deep.core.issue as issue_core
             im = issue_core.IssueManager(self.dg_dir)
-            im.add_timeline_event(pr.linked_issue, "pr_created", pr=pr.id, title=pr.title)
+            im.add_event(pr.linked_issue, pr.author, "PR_CREATED", f"Opened PR #{pr.id}: {pr.title}")
             
         return pr
 
@@ -111,13 +111,7 @@ class PRManager:
         if pr.linked_issue:
             import deep.core.issue as issue_core
             issue_manager = issue_core.IssueManager(self.dg_dir)
-            issue = issue_manager.get_issue(pr.linked_issue)
-            if issue:
-                if pr.id not in issue.linked_prs:
-                    issue.linked_prs.append(pr.id)
-                    issue.status = "in-progress"
-                    issue_manager.add_timeline_event(issue.id, "linked_pr", pr=pr.id)
-                    issue_manager.save_issue(issue)
+            issue_manager.link_pr(pr.linked_issue, pr.id)
 
     def save_pr(self, pr: PullRequest):
         path = self.prs_dir / f"{pr.id}.json"
@@ -230,8 +224,20 @@ class PRManager:
         update_branch(self.dg_dir, pr.base, merge_sha)
         
         pr.status = "merged"
+        pr.merged_at = time.strftime("%Y-%m-%d %H:%M:%S")
         pr.updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
         self.save_pr(pr)
+
+        # Auto-close linked issue
+        if pr.linked_issue:
+            import deep.core.issue as issue_core
+            im = issue_core.IssueManager(self.dg_dir)
+            try:
+                im.close_issue(pr.linked_issue)
+                im.add_event(pr.linked_issue, "system", "PR_MERGED", f"Automatically closed by merging PR #{pr.id}")
+            except Exception as e:
+                print(f"Warning: Failed to auto-close issue #{pr.linked_issue}: {e}")
+
         return pr
 
     def close_pr(self, pr_id: int) -> PullRequest:
@@ -266,7 +272,7 @@ class PRManager:
         if pr.linked_issue:
             import deep.core.issue as issue_core
             im = issue_core.IssueManager(self.dg_dir)
-            im.add_timeline_event(pr.linked_issue, "thread_created", pr=pr.id, thread=thread_id, author=author)
+            im.add_event(pr.linked_issue, author, "COMMENT_ADDED", f"Added a comment to PR #{pr.id}")
             
         return thread
 
@@ -287,7 +293,7 @@ class PRManager:
         if pr.linked_issue:
             import deep.core.issue as issue_core
             im = issue_core.IssueManager(self.dg_dir)
-            im.add_timeline_event(pr.linked_issue, "reply_added", pr=pr.id, thread=thread_id, author=author)
+            im.add_event(pr.linked_issue, author, "REPLY_ADDED", f"Replied to a thread in PR #{pr.id}")
             
         return reply
 
@@ -306,7 +312,7 @@ class PRManager:
         if pr.linked_issue:
             import deep.core.issue as issue_core
             im = issue_core.IssueManager(self.dg_dir)
-            im.add_timeline_event(pr.linked_issue, "thread_resolved", pr=pr.id, thread=thread_id)
+            im.add_event(pr.linked_issue, "system", "THREAD_RESOLVED", f"Resolved a thread in PR #{pr.id}")
 
     def add_review(self, pr_id: int, author: str, status: str, comment: str = ""):
         pr = self.get_pr(pr_id)
@@ -328,5 +334,5 @@ class PRManager:
         if pr.linked_issue:
             import deep.core.issue as issue_core
             im = issue_core.IssueManager(self.dg_dir)
-            event = "review_updated" if is_update else "review_added"
-            im.add_timeline_event(pr.linked_issue, event, pr=pr.id, author=author, status=status)
+            event_type = "REVIEW_UPDATED" if is_update else "REVIEW_ADDED"
+            im.add_event(pr.linked_issue, author, event_type, f"Reviewed PR #{pr.id} as {status.upper()}")

@@ -661,6 +661,12 @@ class DashboardService:
                 })
             data["reviews"] = review_list
             data["isApproved"] = approvals >= data.get("approvals_required", 1)
+        
+        # Ensure events/timeline is always a list for the UI
+        if "events" not in data:
+            data["events"] = []
+        if "linked_prs" not in data:
+            data["linked_prs"] = []
             
         return data
 

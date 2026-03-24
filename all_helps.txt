@@ -1,0 +1,925 @@
+--- init ---
+usage: deep init [-h] [--bare] [path]
+
+Create an empty Deep repository or reinitialize an existing one. This sets up the internal .deep structures.
+
+positional arguments:
+  path        The target directory for the repository (default: current
+              directory)
+
+options:
+  -h, --help  show this help message and exit
+  --bare      Create a bare repository (without a working tree)
+
+Examples:
+  deep init                  # Initialize in the current directory
+  deep init my-project       # Create 'my-project' directory and initialize there
+  deep init /path/to/repo    # Initialize at a specific absolute path
+
+--- add ---
+usage: deep add [-h] files [files ...]
+
+Add file contents to the staging area (index) to be included in the next commit. This prepares changes for recording.
+
+positional arguments:
+  files       One or more files or directory paths to stage for commit
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep add file.txt          # Add a specific file to the index
+  deep add .                 # Add all changed and new files in the current directory
+  deep add src/*.py          # Add specific files using glob patterns
+  deep add -u                # Add only updated files (not new ones)
+
+--- commit ---
+usage: deep commit [-h] [-m MESSAGE] [-a] [--ai] [-S]
+
+Create a new commit containing the current contents of the index with a descriptive message and metadata. Using -a will automatically stage tracked file changes before committing.
+
+options:
+  -h, --help            show this help message and exit
+  -m, --message MESSAGE
+                        The commit message describing the changes
+  -a, --all             Automatically stage modified and deleted tracked files
+                        before committing (auto-stage). Does NOT include
+                        untracked files.
+  --ai                  Automatically generate a commit message using Deep AI
+  -S, --sign            Digitally sign the commit using your identity key
+
+Examples:
+  deep commit -m "Fix bug"          # Create a commit with a manual message
+  deep commit -a -m "Commit all"    # Auto-stage tracked changes and commit
+  deep commit --ai -a              # AI-generated message with auto-stage
+  deep commit -S -m "Signed"        # Create a cryptographically signed commit
+  deep commit --allow-empty         # Create a commit even if no changes are staged
+
+--- status ---
+usage: deep status [-h] [--porcelain]
+
+Displays the current state of the working directory and the staging area (index).
+
+options:
+  -h, --help   show this help message and exit
+  --porcelain  Produce machine-readable output format
+
+Examples:
+  deep status                # Display a human-friendly status overview
+  deep status --porcelain    # Generate stable, machine-readable output for scripts
+  deep status --verbose      # Show more detailed information about tracked files
+
+--- log ---
+usage: deep log [-h] [--oneline] [-n MAX_COUNT] [--graph]
+
+Browse through the commit history of the current branch or a specified commit range.
+
+options:
+  -h, --help            show this help message and exit
+  --oneline             Display each commit entry on a single concise line
+  -n, --max-count MAX_COUNT
+                        Limit the number of commits to display
+  --graph               Render a text-based representation of the commit graph
+
+Examples:
+  deep log                   # Show full detailed logs for the current branch
+  deep log --oneline         # Show a concise summary (short SHA and first line of message)
+  deep log -n 10             # Limit output to the most recent 10 commits
+  deep log --graph           # Visualize history with an ASCII-based commit graph
+  deep log master..feature   # Show commits reachable from 'feature' but not 'master'
+
+--- diff ---
+usage: deep diff [-h] [--cached] [revisions ...]
+
+Show changes between the working tree and the index, or between two arbitrary commit objects.
+
+positional arguments:
+  revisions           Revisions to compare (e.g. HEAD, or commit1 commit2)
+
+options:
+  -h, --help          show this help message and exit
+  --cached, --staged  Show changes currently in the staging area
+
+Examples:
+  deep diff                  # Compare the working tree with the staging index
+  deep diff HEAD             # Compare the working tree with the latest commit
+  deep diff abc1234 def5678  # Compare two specific commits by their SHAs
+  deep diff --cached         # Show changes currently in the staging area
+
+--- branch ---
+usage: deep branch [-h] [-d] [name] [start_point]
+
+List, create, or delete branches in the current Deep repository.
+
+positional arguments:
+  name          The name of the branch to create
+  start_point   The commit or branch name to start the new branch from
+                (default: HEAD)
+
+options:
+  -h, --help    show this help message and exit
+  -d, --delete  Delete the specified branch name
+
+Examples:
+  deep branch                # List all local branches
+  deep branch feature        # Create a new local branch named 'feature'
+  deep branch -d feature     # Delete the local 'feature' branch
+  deep branch -a             # List both local and tracked remote branches
+
+--- checkout ---
+usage: deep checkout [-h] [-f] [-b] target
+
+Switch to a different branch or restore files from a specific commit to the working tree.
+
+positional arguments:
+  target        The branch name or commit SHA to switch to
+
+options:
+  -h, --help    show this help message and exit
+  -f, --force   Force branch switching even if there are uncommitted local
+                changes
+  -b, --branch  Create a new branch
+
+Examples:
+  deep checkout main         # Switch to the 'main' branch
+  deep checkout -b feature   # Create a new 'feature' branch and switch to it immediately
+  deep checkout abc1234      # Detach HEAD and switch to a specific commit
+  deep checkout -- file.txt  # Restore a specific file from the index
+
+--- merge ---
+usage: deep merge [-h] branch
+
+Integrate changes from another branch into the current checked-out branch.
+
+positional arguments:
+  branch      The name of the branch to merge into the current one
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep merge feature         # Merge the 'feature' branch into the current branch
+  deep merge --no-ff dev     # Merge 'dev' and always create a merge commit (no fast-forward)
+  deep merge --abort         # Cancel a merge in progress that has conflicts
+
+--- rebase ---
+usage: deep rebase [-h] [--continue] [--abort] [branch]
+
+Forward-port local commits to the tip of another branch, maintaining a clean linear history.
+
+positional arguments:
+  branch      The branch or commit identifier to rebase onto
+
+options:
+  -h, --help  show this help message and exit
+  --continue  Continue the rebase process after resolving conflicts
+  --abort     Abort the rebase operation and restore the original branch state
+
+Examples:
+  deep rebase main           # Rebase the current branch onto 'main'
+  deep rebase --continue     # Resume the rebase process after resolving conflicts
+  deep rebase --abort        # Cancel the rebase and return to the original state
+  deep rebase -i HEAD~3      # Start an interactive rebase for the last 3 commits
+
+--- reset ---
+usage: deep reset [-h] [--hard] [--soft] [commit]
+
+Reset the current HEAD to a specified commit, optionally updating the index and working tree to match.
+
+positional arguments:
+  commit      The commit identifier to reset to (default: HEAD)
+
+options:
+  -h, --help  show this help message and exit
+  --hard      Reset index and working tree (all local changes will be lost)
+  --soft      Keep index and working tree (all changes are preserved as
+              staged)
+
+Examples:
+  deep reset HEAD~1          # Undo the last commit, leaving your changes staged in the index
+  deep reset --hard HEAD     # Discard all local changes (staged and unstaged) and reset to current HEAD
+  deep reset --soft HEAD~2   # Move HEAD back two commits, keeping all changes in the index
+
+--- rm ---
+usage: deep rm [-h] [--cached] files [files ...]
+
+Remove files from the working directory and the staging area. This stops tracking the specified files.
+
+positional arguments:
+  files       One or more files or directory paths to remove
+
+options:
+  -h, --help  show this help message and exit
+  --cached    Remove from the index only, keeping the file in the working tree
+
+Examples:
+  deep rm file.txt           # Permanently delete file and remove it from the index
+  deep rm -r folder/         # Recursively remove a directory and its contents
+  deep rm --cached file.txt  # Keep the file in the working tree but remove it from the index
+
+--- mv ---
+usage: deep mv [-h] source destination
+
+Move or rename a file, directory, or symlink and update the Deep index accordingly.
+
+positional arguments:
+  source       The source file or directory path
+  destination  The destination file or directory path
+
+options:
+  -h, --help   show this help message and exit
+
+Examples:
+  deep mv old.txt new.txt    # Rename a file and stage the change
+  deep mv file.txt docs/      # Move a file to a new directory
+
+--- tag ---
+usage: deep tag [-h] [-a] [-m MESSAGE] [-d] [name]
+
+Create, list, or delete tag objects for marking specific points in history as significant (e.g., releases).
+
+positional arguments:
+  name                  The name of the tag
+
+options:
+  -h, --help            show this help message and exit
+  -a, --annotate        Create an annotated tag object with metadata
+  -m, --message MESSAGE
+                        The message accompanying the annotated tag
+  -d, --delete          Delete the specified tag
+
+Examples:
+  deep tag v1.0.0            # Create a lightweight tag at current HEAD
+  deep tag -a v1.1.0 -m "Rel" # Create an annotated tag with a message
+  deep tag -d v1.0.0         # Delete the specified tag
+  deep tag                   # List all existing tags in the repository
+
+--- stash ---
+usage: deep stash [-h] [{push,save,pop,list,drop,clear,apply}]
+
+Save local changes in a temporary stack (stash) to clean your working tree for other tasks.
+
+positional arguments:
+  {push,save,pop,list,drop,clear,apply}
+                        The stash operation to perform (default: save)
+
+options:
+  -h, --help            show this help message and exit
+
+Examples:
+  deep stash save "Work"     # Save currently staged/unstaged changes to the stash
+  deep stash pop             # Apply the latest stash and remove it from the stack
+  deep stash list            # View all stashed changes in the current repository
+  deep stash apply           # Apply the latest stash without removing it
+
+--- migrate ---
+usage: deep migrate [-h]
+
+Repacks history and converts metadata to the high-performance Deep v2 format.
+
+options:
+  -h, --help  show this help message and exit
+
+--- config ---
+usage: deep config [-h] [--global] key [value]
+
+Get and set configuration options for the local repository or the global user environment.
+
+positional arguments:
+  key         The configuration key (e.g., user.name)
+  value       The value to assign to the key
+
+options:
+  -h, --help  show this help message and exit
+  --global    Target the global configuration instead of local
+
+Examples:
+  deep config user.name "Alice"      # Set the local user name for this repository
+  deep config --global user.email ... # Set the global user email for all repositories
+  deep config core.editor vim       # Set the preferred text editor
+
+--- clone ---
+usage: deep clone [-h] [--depth DEPTH] [--filter FILTER]
+                  [--shallow-since SHALLOW_SINCE]
+                  url [dir]
+
+Create a local copy of a remote Deep repository, including all history and metadata.
+
+positional arguments:
+  url                   The repository URL or local path to clone from
+  dir                   The name of the new directory to clone into
+
+options:
+  -h, --help            show this help message and exit
+  --depth DEPTH         Limit the history to the specified number of commits
+  --filter FILTER       Specify object filtering for a partial clone
+  --shallow-since SHALLOW_SINCE
+                        Create a shallow clone containing history after a
+                        specific date
+
+Examples:
+  deep clone https://deep-vcs.dev/user/project  # Clone from a remote URL
+  deep clone /path/to/local/repo                  # Clone from a local directory path
+  deep clone repo --depth 1                       # Create a shallow clone with truncated history
+
+--- push ---
+usage: deep push [-h] url branch
+
+Update remote references and associated objects in the target repository from your local history.
+
+positional arguments:
+  url         The remote name (e.g., 'origin') or a direct URL
+  branch      The name of the branch to push
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep push origin main      # Push the local 'main' branch to the 'origin' remote
+  deep push --tags origin    # Push all local tags to the remote
+
+--- pull ---
+usage: deep pull [-h] url branch
+
+Fetch changes from another repository or local branch and integrate them into the current branch.
+
+positional arguments:
+  url         The remote name or URL to pull from
+  branch      The name of the branch to integrate
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep pull origin main      # Pull changes from the 'main' branch of the 'origin' remote
+  deep pull --rebase origin  # Fetch and rebase local changes onto the remote branch
+
+--- fetch ---
+usage: deep fetch [-h] url [sha]
+
+Download objects, branches, and tags from a remote repository without integrating them into your current local branches.
+
+positional arguments:
+  url         The remote name or URL to fetch from
+  sha         A specific commit SHA to fetch (optional)
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep fetch origin          # Fetch all branches and objects from the 'origin' remote
+  deep fetch --all           # Fetch updates from all registered remotes
+
+--- ls-remote ---
+usage: deep ls-remote [-h] url
+
+Connect to a remote repository and output its available references (branches,
+tags) and their target SHAs.
+
+positional arguments:
+  url         The remote name or URL
+
+options:
+  -h, --help  show this help message and exit
+
+--- remote ---
+usage: deep remote [-h] {add,remove,list} [name] [url]
+
+Manage the list of remote repositories ('remotes') that you track for synchronization.
+
+positional arguments:
+  {add,remove,list}  The remote management action to perform
+  name               The short name for the remote
+  url                The URL of the remote repository
+
+options:
+  -h, --help         show this help message and exit
+
+Examples:
+  deep remote add origin <url> # Track a new remote repository named 'origin'
+  deep remote remove origin    # Stop tracking the 'origin' remote
+  deep remote list             # Display all currently registered remotes
+
+--- mirror ---
+usage: deep mirror [-h] url path
+
+Create a complete mirror of a Deep repository, including all references, branches, and internal metadata.
+
+positional arguments:
+  url         The URL of the source repository to mirror
+  path        The local directory path to store the mirrored repository
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep mirror https://deep-vcs.dev/repo /local/mirror # Create a mirror at the specified path
+
+--- daemon ---
+usage: deep daemon [-h] [--port PORT]
+
+Launch a background daemon process to serve the current repository over the network to other Deep clients.
+
+options:
+  -h, --help   show this help message and exit
+  --port PORT  The network port to listen on (default: 9090)
+
+Examples:
+  deep daemon --port 9090    # Start the daemon listening on port 9090
+
+--- p2p ---
+usage: deep p2p [-h] [--peer PEER] [--port PORT]
+                {discover,list,start,sync,status} [target]
+
+Discover nearby peers and synchronize repository data over a decentralized Peer-to-Peer network.
+
+positional arguments:
+  {discover,list,start,sync,status}
+                        The P2P operation to execute
+  target                The identifier of the target peer for operations like
+                        'sync'
+
+options:
+  -h, --help            show this help message and exit
+  --peer PEER           Manually specify a peer address in 'host:port' format
+  --port PORT           The port to use for the P2P listener
+
+Examples:
+  deep p2p discover          # Scan the local network for Deep peers
+  deep p2p sync <peer-id>    # Initiate a direct synchronization with a specific peer
+  deep p2p start             # Start the P2P listener for decentralized discovery
+
+--- sync ---
+usage: deep sync [-h]
+
+High-level orchestration command to automatically synchronize the current branch with its upstream counterpart.
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep sync                  # Perform a smart fetch and integration of upstream changes
+
+--- server ---
+usage: deep server [-h] {start,stop,status,restart}
+
+Control the lifecycle of the Deep platform server process (start, stop, restart, status).
+
+positional arguments:
+  {start,stop,status,restart}
+                        The lifecycle command to execute
+
+options:
+  -h, --help            show this help message and exit
+
+Examples:
+  deep server start          # Launch the Deep background server
+  deep server stop           # Gracefully terminate the server process
+  deep server status         # Check if the server is currently running
+
+--- repo ---
+usage: deep repo [-h] [--user USER] [--role ROLE]
+                 {create,delete,list,clone,permit} [name] [url]
+
+Interface with and manage repositories hosted on the Deep platform.
+
+positional arguments:
+  {create,delete,list,clone,permit}
+                        The repository operation to perform
+  name                  The name of the repository
+  url                   The platform URL for cloning (optional)
+
+options:
+  -h, --help            show this help message and exit
+  --user USER           The platform username to target for permissions
+  --role ROLE           The access role (admin/write/read) to assign to the
+                        user
+
+Examples:
+  deep repo create my-app    # Create a new repository on the Deep platform
+  deep repo list             # List all repositories you have access to on the platform
+  deep repo permit --user bob --role write # Grant 'write' access to user 'bob'
+
+--- user ---
+usage: deep user [-h] {add,remove,list,info} [username] [public_key] [email]
+
+Manage user profiles, settings, and accounts on the Deep platform.
+
+positional arguments:
+  {add,remove,list,info}
+                        The user account operation to perform
+  username              The username of the account
+  public_key            The public SSH key for authentication
+  email                 The email address associated with the account
+
+options:
+  -h, --help            show this help message and exit
+
+Examples:
+  deep user create bob       # Create a new user profile named 'bob'
+  deep user info alice       # Display detailed information for user 'alice'
+
+--- auth ---
+usage: deep auth [-h] {login,logout,status,token}
+
+Manage session tokens, credentials, and login status for the Deep platform.
+
+positional arguments:
+  {login,logout,status,token}
+                        The authentication action to perform
+
+options:
+  -h, --help            show this help message and exit
+
+Examples:
+  deep auth login            # Interactively authenticate with the Deep platform
+  deep auth status           # Display the current authentication status and active user
+  deep auth logout           # Clear local session tokens and logout
+
+--- pr ---
+usage: deep pr [-h] [--verbose] [-m TITLE] [-d DESCRIPTION] [--head HEAD]
+               [--base BASE]
+               {create,list,show,merge,close,reopen,sync,comment,reply,resolve,review}
+               [id] [thread]
+
+Elite Pull Request & Code Review Platform
+Manage local-first discussions, threads, formal reviews, and merge intelligence.
+
+positional arguments:
+  {create,list,show,merge,close,reopen,sync,comment,reply,resolve,review}
+                        The Pull Request action to perform
+  id                    The numerical ID of the Pull Request
+  thread                The numerical ID of the Thread (for reply/resolve)
+
+options:
+  -h, --help            show this help message and exit
+  --verbose             Enable verbose output for API requests
+  -m, --message TITLE   PR title (for create)
+  -d, --description DESCRIPTION
+                        PR description (for create)
+  --head HEAD           Source branch (for create)
+  --base BASE           Target branch (for create)
+
+[CORE COMMANDS]
+  deep pr create       # Open a new Pull Request interactively
+  deep pr list         # Display all local pull requests
+  deep pr show <id>    # Show PR summary, threads, and merge status
+
+[COLLABORATION]
+  deep pr comment <id> # Start a new discussion thread
+  deep pr reply <id> <tid> # Reply to thread <tid> in PR <id>
+  deep pr resolve <id> <tid> # Mark a discussion thread as resolved
+  deep pr review <id>  # Interactive review (Approve / Request Changes)
+
+[WORKFLOW]
+  deep pr merge <id>   # Verify rules and perform a local merge
+  deep pr sync         # Synchronize local PRs with GitHub remote
+
+[REVIEW WORKFLOW GUIDE]
+  1. Create PR      deep pr create
+  2. Review         deep pr review <id>
+  3. Discuss        deep pr comment/reply
+  4. Resolve        deep pr resolve <id> <tid>
+  5. Merge          deep pr merge <id>
+
+--- issue ---
+usage: deep issue [-h] [--verbose] [-m TITLE] [-d DESCRIPTION]
+                  {create,list,show,close,reopen,sync} [id]
+
+Hybrid Local-First Issue Tracking Engine
+Seamlessly manage tasks and bugs locally with optional GitHub synchronization.
+
+positional arguments:
+  {create,list,show,close,reopen,sync}
+                        The issue tracking action to perform
+  id                    The numerical ID of the issue
+
+options:
+  -h, --help            show this help message and exit
+  --verbose             Enable verbose output for API requests
+  -m, --message TITLE   Issue title (for create)
+  -d, --description DESCRIPTION
+                        Issue description (for create)
+
+[CORE COMMANDS]
+  deep issue create     # Open a smart, interactive issue template
+  deep issue list       # Display all local issues with status colors
+  deep issue show <id>  # Display detailed report, description, and timeline
+
+[WORKFLOW]
+  deep issue close <id> # Mark an issue as resolved (locally)
+  deep issue reopen <id> # Resume work on a closed issue
+  deep issue sync       # Synchronize local issues with GitHub remote
+
+[WHY LOCAL-FIRST?]
+  - Instant responsiveness (no network lag)
+  - Full offline support for deep work
+  - Native integration with Deep PRs and commits
+
+--- pipeline ---
+usage: deep pipeline [-h] [--commit COMMIT] [--verbose]
+                     {run,trigger,list,status,sync} [id]
+
+Manage CI/CD pipelines locally and optionally sync with GitHub Actions.
+
+positional arguments:
+  {run,trigger,list,status,sync}
+                        The CI/CD pipeline action to perform
+  id                    The specific Pipeline Run ID
+
+options:
+  -h, --help            show this help message and exit
+  --commit COMMIT       Target a specific commit SHA for the pipeline run
+  --verbose             Enable verbose output for API requests
+
+Examples:
+  deep pipeline list      # List all local pipeline runs
+  deep pipeline trigger   # Trigger a new local pipeline run
+  deep pipeline status 5  # Show status for run #5
+  deep pipeline sync      # Sync local runs with GitHub Actions
+
+Setup Token (Windows):
+  $env:GH_TOKEN="..."  # PowerShell
+  set GH_TOKEN=...      # CMD
+
+Note: 'sync' requires a GitHub remote and GH_TOKEN/DEEP_TOKEN. 
+      Without these, all operations remain local-only.
+
+--- web ---
+usage: deep web [-h] [--port PORT]
+
+Launch an interactive, browser-based dashboard for visual repository management and history browsing.
+
+options:
+  -h, --help   show this help message and exit
+  --port PORT  The network port to listen on (default: 9000)
+
+Examples:
+  deep web                   # Open the Deep dashboard on the default port (9000)
+  deep web --port 8080       # Start the dashboard on port 8080
+
+--- commit-graph ---
+usage: deep commit-graph [-h] {write,verify,clear}
+
+Manage the binary commit graph index for accelerated history traversal.
+
+positional arguments:
+  {write,verify,clear}  The commit-graph operation to perform
+
+options:
+  -h, --help            show this help message and exit
+
+--- doctor ---
+usage: deep doctor [-h] [--fix]
+
+Audit the health of the local Deep repository and optionally fix common corruption or configuration issues.
+
+options:
+  -h, --help  show this help message and exit
+  --fix       Attempt to automatically repair detected repository problems
+
+Examples:
+  deep doctor                # Run a comprehensive suite of diagnostic checks
+  deep doctor --fix          # Attempt to automatically resolve any detected issues
+
+--- benchmark ---
+usage: deep benchmark [-h] [--compare-legacy] [--report]
+
+Measure and analyze the performance of core Deep VCS operations.
+
+options:
+  -h, --help            show this help message and exit
+  --compare-legacy, --compare-deep
+                        Include legacy VCS comparison (Deep) for performance
+                        baseline
+  --report              Generate and export a detailed JSON performance report
+
+Examples:
+  deep benchmark                 # Run the default performance benchmark suite
+  deep benchmark --compare-legacy # Compare performance with legacy VCS (Deep)
+  deep benchmark --report        # Export the benchmark results to a JSON file
+
+--- graph ---
+usage: deep graph [-h] [--all] [-n MAX_COUNT]
+
+Renders a text-based ASCII visualization of the commit history graph, showing branch relationships and merge points.
+
+options:
+  -h, --help            show this help message and exit
+  --all                 Include all references (branches and tags) in the
+                        graph
+  -n, --max-count MAX_COUNT
+                        Maximum number of commits to display in the graph
+                        (default: 100)
+
+Examples:
+  deep graph                 # Visualize history for the current branch
+  deep graph --all           # Include all branches and tags in the visualization
+  deep graph -n 20           # Limit the graph to the most recent 20 commits
+
+--- audit ---
+usage: deep audit [-h] [{show,report,scan}]
+
+Access detailed logs recording security-sensitive actions and administrative changes within the repository.
+
+positional arguments:
+  {show,report,scan}  The audit action to perform (default: show)
+
+options:
+  -h, --help          show this help message and exit
+
+Examples:
+  deep audit show            # Display recent security events in the terminal
+  deep audit report          # Generate a comprehensive security audit report
+
+--- verify ---
+usage: deep verify [-h] [--all] [--verbose]
+
+Cryptographically verify the integrity of all stored objects (commits, trees, blobs) using their SHA-1 hashes.
+
+options:
+  -h, --help  show this help message and exit
+  --all       Verify all objects in the database, not justreachable ones
+  --verbose   Display detailed progress during the verification process
+
+Examples:
+  deep verify                # Run a full integrity check on all reachable objects
+  deep verify --all          # Verify every object in the database, including unreachable ones
+
+--- fsck ---
+usage: deep fsck [-h]
+
+Check the internal consistency and connectivity of the commit graph, tree structures, and data blobs.
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep fsck                  # Perform a comprehensive repository consistency check
+
+--- repack ---
+usage: deep repack [-h] [--no-bitmaps]
+
+Optimize the object database by packing loose objects into efficient packfiles and generating reachability bitmaps.
+
+options:
+  -h, --help    show this help message and exit
+  --no-bitmaps  Disable bitmap generation
+
+Examples:
+  deep repack                # Consolidate objects and generate bitmaps
+  deep repack --no-bitmaps   # Repack without generating bitmaps
+
+--- sandbox ---
+usage: deep sandbox [-h] {run,init} [cmd]
+
+Execute potentially unsafe commands within an isolated and restricted sandbox environment for safety.
+
+positional arguments:
+  {run,init}  The sandbox action to perform
+  cmd         The shell command string to execute within the sandbox
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep sandbox run "ls -R"   # Execute the 'ls -R' command inside the secure sandbox
+  deep sandbox init          # Initialize the sandbox environment for the first time
+
+--- rollback ---
+usage: deep rollback [-h] [--verify] [commit]
+
+Roll back the repository state to its condition prior to the last transaction using the Write-Ahead Log (WAL).
+
+positional arguments:
+  commit      The commit to rollback to (default: parent of current HEAD)
+
+options:
+  -h, --help  show this help message and exit
+  --verify    Perform a verification check on the WAL state before rolling
+              back
+
+Examples:
+  deep rollback              # Restore the repository to its state before the last successful operation
+  deep rollback --verify     # Verify the WAL integrity before performing the rollback
+
+--- ai ---
+usage: deep ai [-h] [--description DESCRIPTION] [--source SOURCE]
+               [--branch BRANCH]
+               [{suggest,analyze,branch-name,review,predict-merge,predict-push,cross-repo,refactor,cleanup,interactive,assistant}]
+               [target]
+
+Harness the power of AI for generating commit messages, performing code reviews, and predicting merge outcomes.
+
+positional arguments:
+  {suggest,analyze,branch-name,review,predict-merge,predict-push,cross-repo,refactor,cleanup,interactive,assistant}
+                        The Deep AI tool to invoke (default: suggest)
+  target                The target file, branch, or commit SHA for the AI tool
+
+options:
+  -h, --help            show this help message and exit
+  --description DESCRIPTION
+                        Provide an additional prompt or description to guide
+                        the AI
+  --source SOURCE       The source branch for predictive merge analysis
+  --branch BRANCH       The target branch for predictive merge analysis
+
+Examples:
+  deep ai suggest            # Generate a suggested commit message based on staged changes
+  deep ai explain            # Provide a natural language explanation of the recent changes
+  deep ai review             # Perform an automated AI code review of current changes
+
+--- ultra ---
+usage: deep ultra [-h]
+
+Access 'Ultra' level tools to run aggressive garbage collection, object repacking, and commit graph rebuilding in a single optimized pass.
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep ultra                 # Run the full Deep optimization suite
+
+--- batch ---
+usage: deep batch [-h] script
+
+Run a sequence of Deep operations defined in a script as a single atomic transaction.
+
+positional arguments:
+  script      The filesystem path to the batch operation script file
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep batch script.deep     # Execute the sequence of commands defined in 'script.deep'
+
+--- search ---
+usage: deep search [-h] query
+
+Locate text patterns or regular expressions across the entire commit history and all tree objects.
+
+positional arguments:
+  query       The text string or regular expression to search for
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep search "TODO"        # Search for the literal string "TODO" in all historical versions
+  deep search "^fixed:"     # Search using a regular expression
+
+--- gc ---
+usage: deep gc [-h] [--dry-run] [-v] [--prune PRUNE]
+
+Clean up unreachable objects and optimize the internal object database to reclaim storage space.
+
+options:
+  -h, --help     show this help message and exit
+  --dry-run      Display what would be cleaned up without making changes
+  -v, --verbose  Display detailed information during the optimization process
+  --prune PRUNE  Only prune unreachable objects older than this (seconds).
+                 Default 1h.
+
+Examples:
+  deep gc                    # Execute garbage collection and database optimization
+  deep gc --dry-run          # List objects that would be removed without deleting them
+
+--- maintenance ---
+usage: deep maintenance [-h] [--force]
+
+Optimize the repository by repacking objects, updating indices, and pruning unreachable data.
+
+options:
+  -h, --help  show this help message and exit
+  --force     Force run maintenance even if recently completed
+
+Examples:
+  deep maintenance           # Run scheduled maintenance tasks
+  deep maintenance --force   # Force run all maintenance tasks immediately
+
+--- version ---
+usage: deep version [-h]
+
+options:
+  -h, --help  show this help message and exit
+
+--- debug-tree ---
+usage: deep debug-tree [-h] [sha]
+
+Forensic tool to inspect Deep tree objects. Uses repr() to reveal hidden characters for debugging purposes.
+
+positional arguments:
+  sha         The SHA-1 hash of the tree or commit object to inspect
+
+options:
+  -h, --help  show this help message and exit
+
+Examples:
+  deep debug-tree <sha>      # Reveal hidden characters in the specified tree or commit object
+
+--- help ---
+usage: deep help [-h]
+
+options:
+  -h, --help  show this help message and exit

@@ -27,7 +27,7 @@ class Issue:
     assignee: Optional[str] = None
     labels: List[str] = field(default_factory=list)
     linked_prs: List[int] = field(default_factory=list)
-    timeline: List[Dict[str, Any]] = field(default_factory=list)
+    events: List[Dict[str, Any]] = field(default_factory=list)
 
 class IssueManager:
     """Manages Issues for a repository."""
@@ -76,6 +76,9 @@ class IssueManager:
             return None
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
+            # Backward compatibility: migrate timeline to events
+            if "timeline" in data and "events" not in data:
+                data["events"] = data.pop("timeline")
             return Issue(**data)
 
     def list_issues(self) -> List[Issue]:
@@ -105,17 +108,34 @@ class IssueManager:
         self.save_issue(issue)
         return issue
 
-    def add_timeline_event(self, issue_id: int, event: str, **kwargs):
-        """Add an event to the issue timeline."""
+    def link_pr(self, issue_id: int, pr_id: int):
+        """Link a PR to the issue and record the event."""
         issue = self.get_issue(issue_id)
         if not issue:
             raise ValueError(f"Issue #{issue_id} not found.")
         
+        if pr_id not in issue.linked_prs:
+            issue.linked_prs.append(pr_id)
+            # Add event directly to this instance to avoid race conditions with nested saves
+            self.add_event(issue_id, "system", "PR_LINKED", f"Linked to PR #{pr_id}", already_loaded_issue=issue)
+            # The add_event call above now handles the save_issue call.
+
+    def add_event(self, issue_id: int, actor: str, action: str, description: str, already_loaded_issue: Optional[Issue] = None, **kwargs):
+        """Add an event to the issue timeline (event sourcing)."""
+        if already_loaded_issue:
+            issue = already_loaded_issue
+        else:
+            issue = self.get_issue(issue_id)
+            if not issue:
+                raise ValueError(f"Issue #{issue_id} not found.")
+        
         entry = {
-            "event": event,
+            "actor": actor,
+            "action": action,
+            "description": description,
             "timestamp": datetime.datetime.now().isoformat(),
         }
         entry.update(kwargs)
-        issue.timeline.append(entry)
+        issue.events.append(entry)
         self.save_issue(issue)
         return issue
