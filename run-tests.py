@@ -50,6 +50,7 @@ TEST_SUITES: list[Suite] = [
     # ── Performance ──────────────────────────
     Suite("Perf / Cache Layer",        ["tests/perf/test_cache_layer.py"]),
     Suite("Perf / Cache Invalidation", ["tests/perf/test_cache_invalidation.py"]),
+    Suite("Perf / Cache Coherency",    ["tests/perf/test_cache_coherency_strict.py"]),
 
     # ── הוסף סוויטות נוספות כאן ──────────────
     # Suite("My New Suite",            ["tests/my_new_folder/test_something.py"]),

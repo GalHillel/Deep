@@ -238,3 +238,26 @@ def sanitize_filename(name: str) -> str:
 
 # ── CLI Utilities (DEPRECATED: Use deep.utils.ux instead) ───────────────────────────
 # Note: Classes have been moved to deep.utils.ux for better consolidation.
+
+# ── Path & Repository Resolution ─────────────────────────────────────
+
+def resolve_dg_dir(path: Path) -> Path:
+    """Resolve the .deep directory from a given path.
+    
+    If the path is a repository root containing .deep, returns path/.deep.
+    If the path is already the .deep directory, returns it.
+    """
+    if (path / ".deep").exists():
+        return path / ".deep"
+    if path.name == ".deep":
+        return path
+    # Fallback for unit tests passing a path that is meant to be the .deep dir
+    return path
+
+def resolve_cache_dir(dg_dir: Path) -> Path:
+    """Return the absolute path to the .deep/cache directory.
+    
+    Ensures that dg_dir is resolved correctly first.
+    """
+    dg = resolve_dg_dir(dg_dir)
+    return dg / "cache"

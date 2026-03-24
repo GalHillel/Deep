@@ -3,17 +3,13 @@ import os
 import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from deep.utils.utils import resolve_dg_dir
 
 class CacheManager:
     """Manages the .deep/cache directory for read-optimized data."""
     
     def __init__(self, dg_dir: Path):
-        # Allow dg_dir to be either the repo root or the .deep directory
-        if (dg_dir / ".deep").exists():
-            self.dg_dir = dg_dir / ".deep"
-        else:
-            self.dg_dir = dg_dir
-            
+        self.dg_dir = resolve_dg_dir(dg_dir)
         self.cache_dir = self.dg_dir / "cache"
         self.diff_cache_dir = self.cache_dir / "diffs"
         self._ensure_dirs()

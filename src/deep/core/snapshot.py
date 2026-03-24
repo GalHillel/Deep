@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 from deep.core.refs import resolve_head
 from deep.storage.objects import Commit, read_object
+from deep.utils.utils import resolve_dg_dir
 
 class RepositorySnapshot:
     """A point-in-time, read-optimized view of the repository.
@@ -12,12 +13,7 @@ class RepositorySnapshot:
     """
     
     def __init__(self, dg_dir: Path, target_sha: Optional[str] = None):
-        # Allow dg_dir to be either the repo root or the .deep directory
-        if (dg_dir / ".deep").exists():
-            self.dg_dir = dg_dir / ".deep"
-        else:
-            self.dg_dir = dg_dir
-            
+        self.dg_dir = resolve_dg_dir(dg_dir)
         self.objects_dir = self.dg_dir / "objects"
         # If no SHA provided, snapshot the current HEAD
         self.snapshot_sha = target_sha or resolve_head(self.dg_dir)

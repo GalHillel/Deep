@@ -30,7 +30,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Union, ClassVar, Any, cast
 
-from deep.utils.utils import AtomicWriter, get_local_timezone_offset, hash_bytes # type: ignore[import]
+from deep.utils.utils import (
+    AtomicWriter, get_local_timezone_offset, hash_bytes, 
+    resolve_cache_dir, resolve_dg_dir
+) # type: ignore[import]
 
 _SHA_RE = re.compile(r'^[0-9a-f]{40}$')
 
@@ -569,14 +572,17 @@ def read_object(objects_dir: Path, sha: str) -> DeepObject:
     This function transparently handles compressed (zlib), 
     DELTA-compressed, and Vaulted objects.
     """
+    # Phase 16.6: Delta depth safety reset
+    if get_delta_depth() == 0:
+        set_delta_depth(0)
     if not sha or not isinstance(sha, str) or len(sha) != 40:
         raise ValueError(f"Invalid object SHA: {sha!r}")
         
     path = _object_path(objects_dir, sha, level=2)
     l1_path = _object_path(objects_dir, sha, level=1)
     
-    # Level 2 optimization: check global index first
-    cache_dir = objects_dir.parent / "cache"
+    # Phase 16.6: Use standardized cache resolution
+    cache_dir = resolve_cache_dir(objects_dir.parent)
     index_path = cache_dir / "object_index.json"
     if index_path.exists():
         try:
@@ -852,12 +858,14 @@ def generate_object_index(dg_dir: Path) -> Dict[str, str]:
             except Exception:
                 continue
                 
-    # Ensure dg_dir points to .deep folder
-    real_dg_dir = dg_dir / ".deep" if (dg_dir / ".deep").exists() else dg_dir
-    cache_dir = real_dg_dir / "cache"
+    # Phase 16.6: Use standardized cache resolution
+    cache_dir = resolve_cache_dir(dg_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
     index_path = cache_dir / "object_index.json"
-    index_path.write_text(json.dumps(index), encoding="utf-8")
+    
+    # Phase 16.6: Atomic write for object index
+    with AtomicWriter(index_path, mode="w") as aw:
+        aw.write(json.dumps(index, indent=2))
     return index
 
 def get_reachable_objects(objects_dir: Path, shas: list[str], max_depth: int | None = None, filter_spec: str | None = None) -> list[str]:

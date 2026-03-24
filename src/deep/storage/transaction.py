@@ -131,6 +131,21 @@ class TransactionManager:
             index = read_index(self.dg_dir)
             write_index(self.dg_dir, index) # This performs fsync & replace
             
+            # Phase 16.6: Transactional Cache Invalidation (Disk)
+            # Must occur BEFORE WAL commit to ensure consistency on crash.
+            try:
+                CacheManager(self.dg_dir).invalidate_all()
+            except Exception as e:
+                logger.warning(f"Disk cache invalidation failed: {e}")
+            
+            # Phase 16.6: RAM Cache Invalidation (LRU)
+            # Critical for preventing stale reads in long-running processes (Web Dashboard).
+            from deep.storage.objects import read_object
+            try:
+                read_object.cache_clear()
+            except Exception as e:
+                logger.warning(f"RAM cache clear failed: {e}")
+
             self.txlog.commit(self._tx_id)
             logger.debug(f"Transaction committed: {self._tx_id}")
             self._tx_id = None
@@ -140,13 +155,6 @@ class TransactionManager:
                 try: self._backup_path.unlink()
                 except OSError: pass
                 self._backup_path = None
-            
-            # Phase 16: Automatic Cache Invalidation
-            # Any successful mutation must purge read caches (DAG, diffs) to prevent stale UI.
-            try:
-                CacheManager(self.dg_dir).invalidate_all()
-            except Exception as e:
-                logger.warning(f"Cache invalidation failed after commit: {e}")
         except Exception as e:
             raise TransactionError(f"Transaction commit failed: {e}")
 
