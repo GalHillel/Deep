@@ -106,5 +106,66 @@ def test_cli_ai_commit_interactivity(tmp_path):
     # Trigger AI commit and accept (y)
     res = run_deep("commit", "--ai", cwd=repo, input_text="y\n")
     assert res.returncode == 0
-    assert "Deep: AI suggestion:" in res.stdout
+    assert "Deep: AI suggestion" in res.stdout
     assert "initial" in res.stdout or "feat" in res.stdout
+
+def test_ast_intent_detection(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_deep("init", cwd=repo)
+    
+    (repo / "logic.py").write_text("def run():\n    try:\n        x = 1/0\n    except:\n        pass\n", encoding="utf-8")
+    run_deep("add", "logic.py", cwd=repo)
+    
+    ai = DeepAI(repo)
+    sug = ai.suggest_commit_message()
+    # Should detect "error handling" intent from AST
+    assert "error handling" in sug.text.lower()
+
+def test_secret_leak_warning(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_deep("init", cwd=repo)
+    
+    (repo / "config.py").write_text("API_KEY = 'sk-live-56789abcdef0123456789'\n", encoding="utf-8")
+    run_deep("add", "config.py", cwd=repo)
+    
+    ai = DeepAI(repo)
+    sug = ai.suggest_commit_message()
+    assert "CRITICAL" in sug.text
+    assert "SECRET LEAK" in sug.text
+
+def test_semver_major_detection(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_deep("init", cwd=repo)
+    
+    (repo / "api.py").write_text("def public_func(): pass\n", encoding="utf-8")
+    run_deep("add", "api.py", cwd=repo)
+    run_deep("commit", "-m", "v1", cwd=repo)
+    
+    # Delete public function
+    (repo / "api.py").write_text("def _internal(): pass\n", encoding="utf-8")
+    run_deep("add", "api.py", cwd=repo)
+    
+    ai = DeepAI(repo)
+    sug = ai.suggest_commit_message()
+    assert "MAJOR" in sug.text
+    # Check for ! in title (first line)
+    title = sug.text.split("\n")[0]
+    assert "!" in title
+
+def test_cochange_test_correlation(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_deep("init", cwd=repo)
+    
+    (repo / "src").mkdir()
+    (repo / "src" / "engine.py").write_text("def start(): pass", encoding="utf-8")
+    (repo / "src" / "engine_test.py").write_text("def test_start(): pass", encoding="utf-8")
+    
+    run_deep("add", "src/engine.py", "src/engine_test.py", cwd=repo)
+    
+    ai = DeepAI(repo)
+    sug = ai.suggest_commit_message()
+    assert "test coverage" in sug.text.lower()

@@ -26,6 +26,8 @@ from deep.ai.analyzer import (
     extract_diff_semantics,
     extract_diff_symbols,
     extract_lexical_tokens,
+    extract_ast_changes,
+    scan_secrets,
     score_complexity,
     ChangeStats,
 )
@@ -67,6 +69,12 @@ class ChangeInfo:
     functions: list[str] = field(default_factory=list)
     classes: list[str] = field(default_factory=list)
     lexical_tokens: list[str] = field(default_factory=list)
+    ast_added: list[str] = field(default_factory=list)
+    ast_removed: list[str] = field(default_factory=list)
+    ast_modified: list[str] = field(default_factory=list)
+    intents: list[str] = field(default_factory=list)
+    complexity_score: float = 0.0
+    secrets: list[str] = field(default_factory=list)
     old_path: Optional[str] = None
 
 def get_tokens(path: str) -> list[str]:
@@ -164,6 +172,33 @@ class DeepAI:
         tokens = [p.lower() for p in parts if p.lower() not in prefixes and len(p) > 2]
         return tokens
 
+    def _correlate_tests(self, changes: list[ChangeInfo]) -> list[str]:
+        """Detect source + test co-changes."""
+        correlations = []
+        staged_paths = {c.path for c in changes}
+        for c in changes:
+            if c.path.endswith(".py") and "test" not in c.path:
+                test_path = c.path.replace(".py", "_test.py") # convention A
+                test_path_2 = "tests/" + c.path.split("/")[-1].replace(".py", "_test.py") # convention B
+                if test_path in staged_paths or test_path_2 in staged_paths or any("test_"+Path(c.path).name in p for p in staged_paths):
+                    correlations.append(f"Includes comprehensive test coverage for {Path(c.path).name}")
+        return correlations
+
+    def _predict_semver(self, changes: list[ChangeInfo]) -> str:
+        """Predict MAJOR/MINOR/PATCH bump."""
+        major_reasons = []
+        for c in changes:
+            # If a public function/class was removed in AST
+            if any(not s.startswith("_") for s in c.ast_removed):
+                major_reasons.append(f"Deleted public symbol in {c.path}")
+                
+        if major_reasons: return "MAJOR"
+        
+        has_minor = any(len(c.ast_added) > 0 for c in changes)
+        if has_minor: return "MINOR"
+        
+        return "PATCH"
+
     def _get_staged_changes(self) -> list[ChangeInfo]:
         """Compute the rich metadata for all staged changes."""
         from deep.core.refs import resolve_head
@@ -212,6 +247,25 @@ class DeepAI:
                     functions = symbols["functions"]
                     classes = symbols["classes"]
                     lexical_tokens = extract_lexical_tokens(diff_text)
+                    secrets = scan_secrets(diff_text)
+                    
+                    # AST Diffing
+                    ast_data = {"added":[], "removed":[], "modified":[], "intents":[], "complexity":0.1}
+                    if rel_path.endswith(".py"):
+                        old_src = ""
+                        if old_sha:
+                            try:
+                                old_blob = read_object(objects_dir, old_sha)
+                                if isinstance(old_blob, Blob): old_src = old_blob.data.decode("utf-8", errors="replace")
+                            except: pass
+                        
+                        new_src = ""
+                        abs_path = self.repo_root / rel_path
+                        if abs_path.exists():
+                            new_src = abs_path.read_text(encoding="utf-8", errors="replace")
+                            
+                        ast_data = extract_ast_changes(old_src, new_src)
+                        
             except Exception:
                 pass
 
@@ -232,7 +286,13 @@ class DeepAI:
                 has_fix_keywords=has_fix_keywords,
                 functions=functions,
                 classes=classes,
-                lexical_tokens=lexical_tokens
+                lexical_tokens=lexical_tokens,
+                ast_added=ast_data["added"],
+                ast_removed=ast_data["removed"],
+                ast_modified=ast_data["modified"],
+                intents=ast_data["intents"],
+                complexity_score=ast_data["complexity"],
+                secrets=secrets
             )
             changes.append(info)
             total_delta += (added + removed)
@@ -379,40 +439,69 @@ class DeepAI:
             description = f"remove obsolete {target} {qualifier}"
 
         # Breaking change !
-        breaking = "!" if (main_change.lines_removed > 50 and main_change.weight > 0.6) or (main_change.is_core and main_change.action in ("D", "R")) else ""
+        semver = self._predict_semver(changes)
+        is_major = semver == "MAJOR"
+        breaking = "!" if is_major or (main_change.lines_removed > 50 and main_change.weight > 0.6) else ""
 
         msg = f"{best_type}{scope_part}{breaking}: {description.lower()}"
 
-        # 4. Multi-Line Body Generation
+        # 4. God-Tier Multi-Line Body Generation
         branch_tokens = self._get_current_branch_tokens()
-        # If branch tokens are relevant, maybe tweak the title?
         if branch_tokens and any(t in msg.lower() for t in branch_tokens):
             confidence += 0.05
         
         body_lines = []
+        
+        # 4.1 Secrets Leak Alert (CRITICAL)
+        all_secrets = []
+        for c in changes: all_secrets.extend(c.secrets)
+        if all_secrets:
+            body_lines.append(f"[🚨 CRITICAL: POTENTIAL SECRET LEAK DETECTED]\n{all_secrets[0]}")
+            body_lines.append("")
+
+        # 4.2 File AST summaries
         for c in sorted(changes, key=lambda x: x.weight, reverse=True):
             if c.weight < 0.05 and len(changes) > 5: continue
             
             action_map = {"A": "add", "M": "update", "D": "remove", "R": "rename"}
             act = action_map.get(c.action, "update")
             
-            file_summary = f"- {c.path}: {act}"
-            subs = []
-            if c.classes: subs.append(f"class {c.classes[0]}")
-            if c.functions: subs.append(f"{c.functions[0]}()")
+            # Use AST data if available
+            change_details = []
+            if c.ast_added: change_details.append(f"added {', '.join(c.ast_added)}")
+            if c.ast_modified: change_details.append(f"modified {', '.join(c.ast_modified)}")
+            if c.ast_removed: change_details.append(f"removed {', '.join(c.ast_removed)}")
             
-            if subs:
-                file_summary += f" {' and '.join(subs)}"
+            # Fallback to simple symbols or merge lexical tokens
+            if not change_details:
+                if c.classes: change_details.append(f"class {c.classes[0]}")
+                if c.functions: change_details.append(f"{c.functions[0]}()")
+                if c.lexical_tokens: change_details.append(f"handle {', '.join(c.lexical_tokens[:2])}")
+            else:
+                # Merge lexical tokens into AST summary for more "magic"
+                if c.lexical_tokens:
+                    change_details[-1] += f" (handling {', '.join(c.lexical_tokens[:2])})"
             
-            if c.lexical_tokens:
-                file_summary += f" to handle {', '.join(c.lexical_tokens[:2])}"
+            detail_str = f": {', '.join(change_details)}" if change_details else f": {act}"
+            intent_str = f" ({c.intents[0]})" if c.intents else ""
             
-            body_lines.append(file_summary)
+            body_lines.append(f"- {c.path}{detail_str}{intent_str}")
+        
+        body_lines.append("")
+        
+        # 4.3 Co-change Analytics
+        test_correlations = self._correlate_tests(changes)
+        for correlation in test_correlations:
+            body_lines.append(f"- {correlation}")
             
-        if body_lines:
-            full_msg = f"{msg}\n\n" + "\n".join(body_lines[:8])
-        else:
-            full_msg = msg
+        # 4.4 Risk & SemVer
+        avg_complexity = sum(c.complexity_score for c in changes) / len(changes)
+        risk = "High" if avg_complexity > 0.6 or is_major else "Medium" if avg_complexity > 0.3 else "Low"
+        
+        body_lines.append(f"\n[Risk Assessment: {risk}]")
+        body_lines.append(f"[SemVer Impact: {semver}]")
+            
+        full_msg = f"{msg}\n\n" + "\n".join(body_lines)
 
         latency = (time.perf_counter() - start) * 1000
         self._record_metric(latency, confidence)
@@ -421,7 +510,8 @@ class DeepAI:
             f"Type Scores: {scores}",
             f"Dominant Change: {main_change.path} (weight {main_change.weight:.2f})",
             f"Action: {main_change.action}",
-            f"Branch Tokens: {branch_tokens}"
+            f"AST Intents: {[c.intents for c in changes if c.intents]}",
+            f"SemVer: {semver}"
         ]
 
         return AISuggestion("commit_msg", full_msg, confidence, details, latency)

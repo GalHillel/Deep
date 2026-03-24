@@ -7,6 +7,7 @@ Diff and code quality analysis engine.
 from __future__ import annotations
 
 import re
+import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -127,9 +128,89 @@ def extract_lexical_tokens(diff_text: str) -> list[str]:
     
     return tokens[:10] # Limit to top 10 tokens
 
+def scan_secrets(diff_text: str) -> list[str]:
+    """
+    Scan for potential secrets in diff additions.
+    Returns: list of warnings
+    """
+    findings = []
+    # Simplified regex for secrets (passwords, tokens, api keys)
+    secret_patterns = [
+        r"(?i)(password|secret|api[_-]?key|token|auth|credential|apikey)\s*[:=]\s*['\"][a-zA-Z0-9\-_]{10,}['\"]",
+        r"(?i)bearer\s+[a-zA-Z0-9\-\._~+/]+=*",
+        r"(?i)pk_[live|test]_[a-zA-Z0-9]{24,}"
+    ]
+    
+    for line in diff_text.splitlines():
+        if line.startswith("+"):
+            for pattern in secret_patterns:
+                if re.search(pattern, line):
+                    findings.append(f"Potential secret leak detected in: {line[1:].strip()[:20]}...")
+                    break
+    return findings
+
+def extract_ast_changes(old_src: str, new_src: str) -> dict:
+    """
+    Perform deep AST-based comparison between two Python source strings.
+    Returns: {'added': [], 'removed': [], 'modified': [], 'intents': [], 'complexity': float}
+    """
+    def get_symbols(tree):
+        symbols = {}
+        if not tree: return symbols
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                symbols[node.name] = node
+        return symbols
+
+    try:
+        old_tree = ast.parse(old_src) if old_src.strip() else None
+        new_tree = ast.parse(new_src) if new_src.strip() else None
+    except SyntaxError:
+        # Fallback to empty if syntax is broken
+        return {"added": [], "removed": [], "modified": [], "intents": [], "complexity": 0.1}
+
+    old_syms = get_symbols(old_tree)
+    new_syms = get_symbols(new_tree)
+
+    added = [name for name in new_syms if name not in old_syms]
+    removed = [name for name in old_syms if name not in new_syms]
+    modified = []
+    intents = set()
+    max_depth_h = 0
+
+    for name, node in new_syms.items():
+        if name in old_syms:
+            # Simple content comparison for "modified"
+            if ast.dump(node) != ast.dump(old_syms[name]):
+                modified.append(name)
+        
+        # Behavior/Intent analysis in NEW nodes
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Try):
+                intents.add("add error handling")
+            if isinstance(sub, ast.With):
+                # Check for locks/context managers
+                if any(lock_token in ast.dump(sub).lower() for lock_token in ["lock", "mutex", "resource", "atomic"]):
+                    intents.add("introduce resource management / thread-safety")
+            
+            # Complexity check (nesting depth)
+            depth = 0
+            if isinstance(sub, (ast.If, ast.For, ast.While, ast.Try)):
+                depth += 1
+            max_depth_h = max(max_depth_h, depth)
+
+    return {
+        "added": added,
+        "removed": removed,
+        "modified": modified,
+        "intents": list(intents),
+        "complexity": min(1.0, max_depth_h / 5.0)
+    }
+
 def extract_diff_semantics(diff_text: str) -> dict:
-    """ Legacy wrapper for backward compatibility, enhanced with symbols. """
+    """ Legacy wrapper for backward compatibility, enhanced with secrets. """
     symbols = extract_diff_symbols(diff_text)
+    secrets = scan_secrets(diff_text)
     semantics = {
         "functions": symbols["functions"],
         "classes": symbols["classes"],
@@ -138,10 +219,11 @@ def extract_diff_semantics(diff_text: str) -> dict:
         "logic_changes": any(op in diff_text for op in ["==", "!=", " > ", " < ", ">=", "<="]),
         "condition_changes": any(k in diff_text for k in ["if ", "elif ", "switch ", "case ", "while "]),
         "returns_changed": "return " in diff_text,
-        "breaking_change": "+++" in diff_text and "/dev/null" in diff_text, # Handled better elsewhere
+        "breaking_change": "+++" in diff_text and "/dev/null" in diff_text,
         "new_files": "--- /dev/null" in diff_text,
         "deleted_files": "+++ /dev/null" in diff_text,
-        "renamed": False
+        "renamed": False,
+        "secrets_found": secrets
     }
     return semantics
 
