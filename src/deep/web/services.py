@@ -12,6 +12,9 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Callable
 import argparse
+from deep.storage.cache import CacheManager
+from deep.core.snapshot import RepositorySnapshot
+from deep.ai import analyzer
 
 def api_lang_format(code, language):
     try:
@@ -365,6 +368,24 @@ class DashboardService:
                 except: continue
         return {"commits": commits, "refs": refs}
 
+    def get_graph_v2(self) -> Dict[str, Any]:
+        """High-performance V2 graph retrieval from cache."""
+        return self._safe(self._get_graph_v2_internal)
+
+    def _get_graph_v2_internal(self) -> Dict[str, Any]:
+        cm = CacheManager(self.dg_dir)
+        graph = cm.get_commit_graph()
+        
+        # Get refs (Refs are always live)
+        old_res = self._get_graph_internal()
+        refs = old_res.get("refs", {})
+
+        if graph:
+            return {"commits": graph, "refs": refs, "v": 2, "source": "cache"}
+        
+        # If cache missing, use V1 but mark it as V2-attempted
+        return {**old_res, "v": 2, "source": "v1_fallback"}
+
     def get_commit_details(self, sha: str) -> Dict[str, Any]:
         """Fetch full commit metadata and list of changed files."""
         return self._safe(self._get_commit_details_internal, sha)
@@ -408,6 +429,76 @@ class DashboardService:
             "parents": commit.parent_shas,
             "files": files_changed
         }
+
+    def get_commit_details_v2(self, sha: str) -> Dict[str, Any]:
+        """Enhanced V2 commit details with semantic intelligence."""
+        return self._safe(self._get_commit_details_v2_internal, sha)
+
+    def _get_commit_details_v2_internal(self, sha: str) -> Dict[str, Any]:
+        # Start with V1 data
+        base = self._get_commit_details_internal(sha)
+        
+        from deep.storage.objects import read_object, Commit
+        from deep.core.diff import diff_trees
+        objs_dir = self.dg_dir / "objects"
+        commit = read_object(objs_dir, sha)
+        
+        # Semantic Enrichment
+        intents = set()
+        total_complexity = 0.0
+        is_breaking = False
+        
+        if commit.parent_shas:
+            parent_sha = commit.parent_shas[0]
+            diffs = diff_trees(self.dg_dir, parent_sha, sha)
+        else:
+            # Initial commit: diff against empty tree
+            from deep.core.diff import _get_tree_entries_recursive, diff_blobs
+            entries = _get_tree_entries_recursive(objs_dir, commit.tree_sha)
+            diffs = []
+            for path, blob_sha in entries.items():
+                res = diff_blobs(objs_dir, None, blob_sha, path)
+                if res: diffs.append((path, res))
+        
+        if diffs:
+            all_diff_text = ""
+            for path, diff_text in diffs:
+                all_diff_text += diff_text
+                # If Python, do deep AST analysis
+                if path.endswith(".py"):
+                    from deep.core.diff import _get_tree_entries_recursive
+                    old_sha = None
+                    if commit.parent_shas:
+                        parent_commit = read_object(objs_dir, commit.parent_shas[0])
+                        old_entries = _get_tree_entries_recursive(objs_dir, parent_commit.tree_sha)
+                        old_sha = old_entries.get(path)
+                    
+                    new_entries = _get_tree_entries_recursive(objs_dir, commit.tree_sha)
+                    new_sha = new_entries.get(path)
+                    
+                    old_src = read_object(objs_dir, old_sha).data.decode('utf-8') if old_sha else ""
+                    new_src = read_object(objs_dir, new_sha).data.decode('utf-8') if new_sha else ""
+                    
+                    ast_data = analyzer.extract_ast_changes(old_src, new_src)
+                    intents.update(ast_data.get("intents", []))
+                    total_complexity = max(total_complexity, ast_data.get("complexity", 0.0))
+            
+            # General Classification
+            files = [f["path"] for f in base.get("files", [])]
+            primary_intent = analyzer.classify_change(files, all_diff_text)
+            intents.add(primary_intent)
+            
+            # SemVer / Breaking Change check
+            if "!" in base.get("message", "") or primary_intent == "security":
+                is_breaking = True
+            if any("breaking" in f.get("type", "").lower() for f in base.get("files", [])):
+                is_breaking = True
+
+        base["intent"] = ", ".join(sorted(list(intents))) if intents else "update"
+        base["risk"] = total_complexity
+        base["semver"] = "MAJOR" if is_breaking else ("MINOR" if "feat" in base["intent"] else "PATCH")
+        base["v"] = 2
+        return base
 
     def checkout_branch_forced(self, name: str) -> Dict[str, Any]:
         """Forced checkout to prevent UI stalls."""
@@ -482,6 +573,22 @@ class DashboardService:
         diff_text = ansi_escape.sub('', diff_text)
         return {"diff": diff_text}
 
+    def get_diff_v2(self, sha1: str, sha2: str) -> Dict[str, Any]:
+        """High-performance V2 diff retrieval from cache."""
+        return self._safe(self._get_diff_v2_internal, sha1, sha2)
+
+    def _get_diff_v2_internal(self, sha1: str, sha2: str) -> Dict[str, Any]:
+        cm = CacheManager(self.dg_dir)
+        cached_diff = cm.get_diff(sha1, sha2)
+        if cached_diff:
+            return {"diff": cached_diff, "cached": True, "v": 2}
+        
+        # Fallback to diff_trees (v1 logic)
+        from deep.core.diff import diff_trees
+        diffs = diff_trees(self.dg_dir, sha1, sha2)
+        combined = "\n".join(d[1] for d in diffs)
+        return {"diff": combined, "cached": False, "v": 2, "source": "v1_fallback"}
+
     def get_branches_list(self) -> Dict[str, Any]:
         """Simple flat list of branch names for dropdowns."""
         return self._safe(self._get_branches_list_internal)
@@ -489,6 +596,15 @@ class DashboardService:
     def _get_branches_list_internal(self) -> List[str]:
         from deep.core.refs import list_branches
         return list_branches(self.dg_dir)
+
+    def get_branches_v2(self) -> Dict[str, Any]:
+        """V2 branch list via RepositorySnapshot."""
+        return self._safe(self._get_branches_v2_internal)
+
+    def _get_branches_v2_internal(self) -> List[str]:
+        snap = RepositorySnapshot(self.repo_root)
+        from deep.core.refs import list_branches
+        return list_branches(snap.dg_dir)
 
     # --- Collaboration Hub ---
 
