@@ -121,3 +121,20 @@ def test_atomic_cache_write(tmp_path):
     # Final check: JSON is valid
     graph = cm.get_commit_graph()
     assert len(graph) == 1000
+
+def test_dashboard_collaboration_endpoints(repo_with_server):
+    repo, url = repo_with_server
+    
+    # Test PRs
+    resp = requests.get(f"{url}/api/prs/local")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert "prs" in data["data"]
+
+    # Test Issues
+    resp = requests.get(f"{url}/api/issues/local")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert "issues" in data["data"]

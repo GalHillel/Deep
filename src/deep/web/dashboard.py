@@ -75,6 +75,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if path == "" or path == "/" or path == "/index.html":
                 return self._serve_file(STATIC_DIR / "index.html", "text/html")
             elif path == "/api/tree": return self.send_json(self.get_service().get_tree())
+            elif path == "/api/prs/local": return self.send_json(self.get_service().get_prs_local())
+            elif path == "/api/issues/local": return self.send_json(self.get_service().get_issues_local())
             elif path == "/api/file":
                 filepath = qs.get("path")
                 if not filepath: return self.send_json({"success": False, "error": "Missing path"}, 400)
@@ -121,8 +123,6 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 svc = self.get_service()
                 return self.send_json(_call_v2_safe(svc.get_commit_details_v2, svc.get_commit_details, qs.get("sha", "")))
             elif path == "/api/status": return self.send_json(self.get_service().get_full_status())
-            elif path == "/api/prs/local": return self.send_json(self.get_service().get_prs_local())
-            elif path == "/api/issues/local": return self.send_json(self.get_service().get_issues_local())
             elif path == "/api/ai/suggest":
                 from deep.web.services import api_ai_suggest
                 return self.send_json(api_ai_suggest())
