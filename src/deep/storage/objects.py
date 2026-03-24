@@ -22,6 +22,7 @@ import os
 import sys
 import time
 import threading
+import json
 import zlib
 import functools
 from collections import deque
@@ -572,60 +573,66 @@ def read_object(objects_dir: Path, sha: str) -> DeepObject:
         raise ValueError(f"Invalid object SHA: {sha!r}")
         
     path = _object_path(objects_dir, sha, level=2)
+    l1_path = _object_path(objects_dir, sha, level=1)
+    
+    # Level 2 optimization: check global index first
+    cache_dir = objects_dir.parent / "cache"
+    index_path = cache_dir / "object_index.json"
+    if index_path.exists():
+        try:
+            global_index = json.loads(index_path.read_text(encoding="utf-8"))
+            loc = global_index.get(sha)
+            if loc and loc.startswith("pack:"):
+                pack_info = loc[5:] # sha@offset
+                p_sha, off_str = pack_info.split("@")
+                from deep.storage.pack import PackReader
+                reader = PackReader(objects_dir.parent)
+                if hasattr(reader, "_read_at"):
+                    p_path = objects_dir / "pack" / f"pack-{p_sha}.pack"
+                    return reader._read_at(p_path, int(off_str))
+        except Exception:
+            pass
+
     if not path.exists():
-        # Fallback to Level 1
-        l1_path = _object_path(objects_dir, sha, level=1)
         if l1_path.exists():
             path = l1_path
-    
-    if not path.exists():
-        # Check packfiles
-        # Check Vault (v2) and Pack (v1 fallback)
-        from deep.storage.vault import DeepVaultReader # type: ignore
-        vault_dir = objects_dir / "vault"
-        if vault_dir.exists():
-            for v_path in vault_dir.glob("*.dvpf"):
-                reader = DeepVaultReader(v_path)
-                res = reader.get_object(sha)
-                if res:
-                    obj_type, content = res
-                    # Helper for instantiation below
-                    raw = _serialize(obj_type, content)
-                    # We continue to the standard read paths
-                    break
-            else: res = None
-        else: res = None
-
-        if not res:
-            from deep.storage.pack import PackReader # type: ignore[import]
-            reader = PackReader(objects_dir.parent)
-            obj = reader.get_object(sha)
-            if obj:
-                return obj
+        else:
+            # Check Vault (v2) and Pack (v1 fallback)
+            from deep.storage.vault import DeepVaultReader # type: ignore
+            vault_dir = objects_dir / "vault"
+            res = None
+            if vault_dir.exists():
+                for v_path in vault_dir.glob("*.dvpf"):
+                    reader = DeepVaultReader(v_path)
+                    res = reader.get_object(sha)
+                    if res:
+                        obj_type, content = res
+                        raw = _serialize(obj_type, content)
+                        break
             
-        # Lazy fetch from promisor
-        from deep.core.config import get_promisor_remote # type: ignore[import]
-        promisor_url = get_promisor_remote(objects_dir.parent)
-        if promisor_url:
-            from deep.network.client import get_remote_client # type: ignore[import]
-            try:
-                client = get_remote_client(promisor_url)
-                client.connect()
-                client.fetch(objects_dir, sha, depth=1)
-                client.disconnect()
-                # Re-check disk
-                if path.exists():
-                    pass # Continue to read below
-                else:
-                    reader = PackReader(objects_dir.parent)
-                    obj = reader.get_object(sha)
-                    if obj: return obj
-            except Exception:
-                # If fetch fails, we fall back to raise FileNotFoundError
-                pass
-        
-        if not path.exists():
-            raise FileNotFoundError(f"Object {sha} not found in loose or pack storage.")
+            if not res:
+                from deep.storage.pack import PackReader # type: ignore[import]
+                reader = PackReader(objects_dir.parent)
+                obj = reader.get_object(sha)
+                if obj:
+                    return obj
+            
+            # Lazy fetch from promisor
+            from deep.core.config import get_promisor_remote # type: ignore[import]
+            promisor_url = get_promisor_remote(objects_dir.parent)
+            if promisor_url:
+                from deep.network.client import get_remote_client # type: ignore[import]
+                try:
+                    client = get_remote_client(promisor_url)
+                    client.connect()
+                    client.fetch(objects_dir, sha, depth=1)
+                    client.disconnect()
+                    if path.exists(): pass
+                    elif l1_path.exists(): path = l1_path
+                except Exception: pass
+            
+            if not path.exists() and not l1_path.exists():
+                raise FileNotFoundError(f"Object {sha} not found in loose or pack storage.")
         
     data = path.read_bytes()
     
@@ -804,11 +811,52 @@ def _attempt_p2p_heal(dg_dir: Path, sha: str, timeout: float = 5.0) -> Optional[
         return None
 
     try:
+        import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(cast(Any, _do_heal))
             return future.result(timeout=timeout)
     except (concurrent.futures.TimeoutError, Exception):
         return None
+
+def generate_object_index(dg_dir: Path) -> Dict[str, str]:
+    """Scan all loose and packed objects to build a global index [sha -> pack_sha@offset]."""
+    objects_dir = dg_dir / ".deep" / "objects" # Standard deep layout
+    if not objects_dir.exists():
+         objects_dir = dg_dir / "objects" # Fallback if run from repo root
+         
+    index = {}
+    
+    # 1. Loose objects
+    for sha in walk_loose_shas(objects_dir):
+        index[sha] = "loose"
+        
+    # 2. Packfiles
+    from deep.storage.pack import PackReader
+    import struct
+    pack_dir = objects_dir / "pack"
+    if pack_dir.exists():
+        for idx_file in pack_dir.glob("*.idx"):
+            pack_sha = idx_file.stem[5:]
+            try:
+                data = idx_file.read_bytes()
+                if data[:4] == b"DIDX":
+                    total_count = struct.unpack(">I", data[1028:1032])[0]
+                    sha_start = 1032
+                    offset_start = sha_start + total_count * 20
+                    for i in range(total_count):
+                        sha_pos = sha_start + i * 20
+                        off_pos = offset_start + i * 8
+                        sha = data[sha_pos : sha_pos + 20].hex()
+                        offset = struct.unpack(">Q", data[off_pos : off_pos + 8])[0]
+                        index[sha] = f"pack:{pack_sha}@{offset}"
+            except Exception:
+                continue
+                
+    cache_dir = dg_dir / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    index_path = cache_dir / "object_index.json"
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+    return index
 
 def get_reachable_objects(objects_dir: Path, shas: list[str], max_depth: int | None = None, filter_spec: str | None = None) -> list[str]:
     """Return all objects reachable from the given SHAs (commits, trees, blobs), supporting depth and filters."""
