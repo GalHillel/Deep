@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from deep.utils.utils import resolve_dg_dir
+from deep.storage.atomic import AtomicWriter
 
 class CacheManager:
     """Manages the .deep/cache directory for read-optimized data."""
@@ -20,7 +21,8 @@ class CacheManager:
         # Prevent cache from being tracked if .deep was somehow partially tracked
         gitignore = self.cache_dir / ".gitignore"
         if not gitignore.exists():
-            gitignore.write_text("*\n", encoding="utf-8")
+            with AtomicWriter(gitignore, mode="w") as aw:
+                aw.write("*\n")
 
     def get_commit_graph(self) -> Optional[List[Dict[str, Any]]]:
         """Load the cached commit DAG."""
@@ -35,7 +37,8 @@ class CacheManager:
     def update_commit_graph(self, graph_data: List[Dict[str, Any]]):
         """Save the commit DAG to cache."""
         path = self.cache_dir / "commit_graph.json"
-        path.write_text(json.dumps(graph_data, indent=2), encoding="utf-8")
+        with AtomicWriter(path, mode="w") as aw:
+            aw.write(json.dumps(graph_data, indent=2))
 
     def get_diff(self, sha1: str, sha2: str) -> Optional[str]:
         """Retrieve a cached diff between two commits."""
@@ -49,7 +52,8 @@ class CacheManager:
         """Cache a diff between two commits."""
         name = f"{sha1}_{sha2}.diff"
         path = self.diff_cache_dir / name
-        path.write_text(diff_text, encoding="utf-8")
+        with AtomicWriter(path, mode="w") as aw:
+            aw.write(diff_text)
 
     def invalidate_diffs(self):
         """Clear all cached diffs."""
