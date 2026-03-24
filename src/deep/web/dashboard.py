@@ -23,7 +23,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     """Serve the Web Dashboard SPA and REST API."""
 
     repo_root: ClassVar[Path]
-    service: ClassVar[DashboardService]
+
+    def get_service(self) -> DashboardService:
+        """Create a new service instance per request for thread safety."""
+        dg_dir = self.repo_root / DEEP_DIR
+        return DashboardService(dg_dir, self.repo_root)
 
     def log_message(self, format, *args):
         """Mute standard HTTP logging to keep terminal clean."""
@@ -70,41 +74,53 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
             if path == "" or path == "/" or path == "/index.html":
                 return self._serve_file(STATIC_DIR / "index.html", "text/html")
-            elif path == "/api/tree": return self.send_json(self.service.get_tree())
+            elif path == "/api/tree": return self.send_json(self.get_service().get_tree())
             elif path == "/api/file":
                 filepath = qs.get("path")
                 if not filepath: return self.send_json({"success": False, "error": "Missing path"}, 400)
                 decoded_path = urllib.parse.unquote(filepath)
-                return self.send_json(self.service.get_file_content(decoded_path))
+                # Security: Path Traversal hardening
+                try:
+                    (self.repo_root / decoded_path.lstrip("/")).resolve().relative_to(self.repo_root.resolve())
+                except ValueError:
+                    return self.send_json({"success": False, "error": "Path traversal denied"}, 403)
+                return self.send_json(self.get_service().get_file_content(decoded_path))
             
             # --- V2 DEFAULT ENDPOINTS ---
             elif path == "/api/graph": 
-                return self.send_json(_call_v2_safe(self.service.get_graph_v2, self.service.get_graph))
+                svc = self.get_service()
+                return self.send_json(_call_v2_safe(svc.get_graph_v2, svc.get_graph))
             elif path == "/api/branches": 
-                return self.send_json(_call_v2_safe(self.service.get_branches_v2, self.service.get_branches_list))
+                svc = self.get_service()
+                return self.send_json(_call_v2_safe(svc.get_branches_v2, svc.get_branches_list))
             elif path == "/api/diff": 
-                # Diff V2 needs sha1/sha2. Legacy calls use sha/path.
-                # We prioritize V2 if sha is provided (commit diff).
+                svc = self.get_service()
                 sha = qs.get("sha")
+                diff_path = qs.get("path")
+                if diff_path:
+                    try:
+                        (self.repo_root / diff_path.lstrip("/")).resolve().relative_to(self.repo_root.resolve())
+                    except ValueError:
+                        return self.send_json({"success": False, "error": "Path traversal denied"}, 403)
                 if sha:
-                    # Resolve parent sha
                     from deep.storage.objects import read_object, Commit
                     try:
-                        commit = read_object(self.service.dg_dir / "objects", sha)
+                        commit = read_object(svc.dg_dir / "objects", sha)
                         if commit.parent_shas:
-                            return self.send_json(_call_v2_safe(self.service.get_diff_v2, self.service.get_diff, commit.parent_shas[0], sha))
+                            return self.send_json(_call_v2_safe(svc.get_diff_v2, svc.get_diff, commit.parent_shas[0], sha))
                     except: pass
-                return self.send_json(self.service.get_diff(qs.get("sha"), qs.get("path")))
+                return self.send_json(svc.get_diff(sha, diff_path))
 
             # --- EXPLICIT V2 ENDPOINTS ---
-            elif path == "/api/v2/commits": return self.send_json(self.service.get_graph_v2())
-            elif path == "/api/v2/branches": return self.send_json(self.service.get_branches_v2())
-            elif path == "/api/v2/diff": return self.send_json(self.service.get_diff_v2(qs.get("sha1", ""), qs.get("sha2", "")))
+            elif path == "/api/v2/commits": return self.send_json(self.get_service().get_graph_v2())
+            elif path == "/api/v2/branches": return self.send_json(self.get_service().get_branches_v2())
+            elif path == "/api/v2/diff": return self.send_json(self.get_service().get_diff_v2(qs.get("sha1", ""), qs.get("sha2", "")))
 
             # --- LEGACY DETAILS ---
             elif path == "/api/commit/details": 
-                return self.send_json(_call_v2_safe(self.service.get_commit_details_v2, self.service.get_commit_details, qs.get("sha", "")))
-            elif path == "/api/status": return self.send_json(self.service.get_full_status())
+                svc = self.get_service()
+                return self.send_json(_call_v2_safe(svc.get_commit_details_v2, svc.get_commit_details, qs.get("sha", "")))
+            elif path == "/api/status": return self.send_json(self.get_service().get_full_status())
             elif path == "/api/ai/suggest":
                 from deep.web.services import api_ai_suggest
                 return self.send_json(api_ai_suggest())
@@ -146,8 +162,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             elif "/api/stash/pop" in path:
                 from deep.web.services import api_stash_pop
                 return self.send_json(api_stash_pop(body))
-            elif path == "/api/item/create": return self.send_json(self.service.create_item(body.get("path"), body.get("type")))
-            elif path == "/api/file/save": return self.send_json(self.service.save_file_only(body.get("filepath") or body.get("path", ""), body.get("content", "")))
+            elif path == "/api/item/create": return self.send_json(self.get_service().create_item(body.get("path"), body.get("type")))
+            elif path == "/api/file/save": 
+                filepath = body.get("filepath") or body.get("path", "")
+                try:
+                    (self.repo_root / filepath.lstrip("/")).resolve().relative_to(self.repo_root.resolve())
+                except ValueError:
+                    return self.send_json({"success": False, "error": "Path traversal denied"}, 403)
+                return self.send_json(self.get_service().save_file_only(filepath, body.get("content", "")))
             elif path == "/api/stage": 
                 from deep.web.services import api_stage_file
                 return self.send_json(api_stage_file(body))
@@ -163,20 +185,20 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             elif path == '/api/discard_all':
                 from deep.web.services import api_discard_all
                 return self.send_json(api_discard_all())
-            elif path == "/api/branch/checkout": return self.send_json(self.service.checkout_branch_forced(body.get("branch") or body.get("name", "")))
-            elif path == "/api/branch/create": return self.send_json(self.service.create_branch(body.get("name", "")))
-            elif path == "/api/merge": return self.send_json(self.service.merge_branch(body.get("branch") or body.get("name", "")))
-            elif path == "/api/pr/create": return self.send_json(self.service.create_pr_enhanced(body))
-            elif path == "/api/pr/review": return self.send_json(self.service.review_pr(body))
-            elif path == "/api/pr/merge": return self.send_json(self.service.merge_local_pr(body))
-            elif path == "/api/pr/comment": return self.send_json(self.service.add_pr_comment(body))
-            elif path == "/api/pr/reply": return self.send_json(self.service.add_pr_reply(body))
-            elif path == "/api/pr/resolve": return self.send_json(self.service.resolve_pr_thread(body))
-            elif path == "/api/issue/create": return self.send_json(self.service.create_issue(body))
-            elif path == "/api/issue/manage": return self.send_json(self.service.manage_issue(body))
-            elif path == "/api/item/create": return self.send_json(self.service.create_item(body.get("path"), body.get("type")))
-            elif path == "/api/item/rename": return self.send_json(self.service.rename_item(body.get("path"), body.get("new_name")))
-            elif path == "/api/item/delete": return self.send_json(self.service.delete_item(body.get("path")))
+            elif path == "/api/branch/checkout": return self.send_json(self.get_service().checkout_branch_forced(body.get("branch") or body.get("name", "")))
+            elif path == "/api/branch/create": return self.send_json(self.get_service().create_branch(body.get("name", "")))
+            elif path == "/api/merge": return self.send_json(self.get_service().merge_branch(body.get("branch") or body.get("name", "")))
+            elif path == "/api/pr/create": return self.send_json(self.get_service().create_pr_enhanced(body))
+            elif path == "/api/pr/review": return self.send_json(self.get_service().review_pr(body))
+            elif path == "/api/pr/merge": return self.send_json(self.get_service().merge_local_pr(body))
+            elif path == "/api/pr/comment": return self.send_json(self.get_service().add_pr_comment(body))
+            elif path == "/api/pr/reply": return self.send_json(self.get_service().add_pr_reply(body))
+            elif path == "/api/pr/resolve": return self.send_json(self.get_service().resolve_pr_thread(body))
+            elif path == "/api/issue/create": return self.send_json(self.get_service().create_issue(body))
+            elif path == "/api/issue/manage": return self.send_json(self.get_service().manage_issue(body))
+            elif path == "/api/item/create": return self.send_json(self.get_service().create_item(body.get("path"), body.get("type")))
+            elif path == "/api/item/rename": return self.send_json(self.get_service().rename_item(body.get("path"), body.get("new_name")))
+            elif path == "/api/item/delete": return self.send_json(self.get_service().delete_item(body.get("path")))
             elif path == '/api/language/format':
                 from deep.web.services import api_lang_format
                 return self.send_json(api_lang_format(body.get('code', ''), body.get('language', '')))
@@ -233,9 +255,7 @@ def _get_repo_dg_dir(base_dir: Path, repo_name: str) -> Path:
 
 def start_dashboard(repo_root: Path, host: str = "127.0.0.1", port: int = 9000):
     """Start the Web Dashboard HTTP server."""
-    dg_dir = repo_root / DEEP_DIR
     DashboardHandler.repo_root = repo_root
-    DashboardHandler.service = DashboardService(dg_dir, repo_root)
 
     server = ThreadingHTTPServer((host, port), DashboardHandler)
     print(f"Deep Studio (Final) running at http://{host}:{port}")

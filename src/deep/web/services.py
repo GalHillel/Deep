@@ -50,7 +50,7 @@ def api_lang_analyze(code, language):
             
             # Using absolute path for flake8 if it's in the environment. 
             # Note: subprocess.run on windows might need shell=True or finding the full path if not in the PATH of the python process.
-            result = subprocess.run(['flake8', temp_name, '--format=%(row)d:%(col)d:%(code)s:%(text)s'], capture_output=True, text=True)
+            result = subprocess.run(['flake8', temp_name, '--format=%(row)d:%(col)d:%(code)s:%(text)s'], capture_output=True, text=True, timeout=2)
             import os
             try:
                 os.remove(temp_name)
@@ -377,14 +377,15 @@ class DashboardService:
         graph = cm.get_commit_graph()
         
         # Get refs (Refs are always live)
-        old_res = self._get_graph_internal()
-        refs = old_res.get("refs", {})
+        old_res = self.get_graph()
+        data = old_res.get("data", {})
+        refs = data.get("refs", {})
 
         if graph:
             return {"commits": graph, "refs": refs, "v": 2, "source": "cache"}
         
         # If cache missing, use V1 but mark it as V2-attempted
-        return {**old_res, "v": 2, "source": "v1_fallback"}
+        return {**data, "v": 2, "source": "v1_fallback"}
 
     def get_commit_details(self, sha: str) -> Dict[str, Any]:
         """Fetch full commit metadata and list of changed files."""
@@ -435,8 +436,14 @@ class DashboardService:
         return self._safe(self._get_commit_details_v2_internal, sha)
 
     def _get_commit_details_v2_internal(self, sha: str) -> Dict[str, Any]:
+        cm = CacheManager(self.dg_dir)
+        cached = cm.get_commit_semantics(sha)
+        if cached:
+            return cached
+
         # Start with V1 data
-        base = self._get_commit_details_internal(sha)
+        base_res = self.get_commit_details(sha)
+        base = base_res.get("data", {})
         
         from deep.storage.objects import read_object, Commit
         from deep.core.diff import diff_trees
@@ -463,7 +470,10 @@ class DashboardService:
         if diffs:
             all_diff_text = ""
             for path, diff_text in diffs:
-                all_diff_text += diff_text
+                # Bounded accumulation for memory protection
+                if len(all_diff_text) < 2000:
+                    all_diff_text += diff_text[:2000 - len(all_diff_text)]
+                
                 # If Python, do deep AST analysis
                 if path.endswith(".py"):
                     from deep.core.diff import _get_tree_entries_recursive
@@ -498,6 +508,9 @@ class DashboardService:
         base["risk"] = total_complexity
         base["semver"] = "MAJOR" if is_breaking else ("MINOR" if "feat" in base["intent"] else "PATCH")
         base["v"] = 2
+        
+        # Cache for future requests
+        cm.set_commit_semantics(sha, base)
         return base
 
     def checkout_branch_forced(self, name: str) -> Dict[str, Any]:

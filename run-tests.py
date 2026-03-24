@@ -54,6 +54,7 @@ TEST_SUITES: list[Suite] = [
 
     # ── Web ──────────────────────────────────
     Suite("Web / Dashboard Resilience", ["tests/web/test_dashboard_resilience.py"]),
+    Suite("Web / Dashboard Hardening", ["tests/web/test_web_dashboard.py"]),
 
     # ── הוסף סוויטות נוספות כאן ──────────────
     # Suite("My New Suite",            ["tests/my_new_folder/test_something.py"]),

@@ -70,3 +70,19 @@ class CacheManager:
                 elif item.name != ".gitignore":
                     item.unlink()
         self._ensure_dirs()
+
+    def get_commit_semantics(self, sha: str) -> Optional[Dict[str, Any]]:
+        """Retrieve cached AST semantic results."""
+        path = self.cache_dir / f"semantics_{sha}.json"
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+
+    def set_commit_semantics(self, sha: str, data: Dict[str, Any]):
+        """Persistently store AST semantic results using AtomicWriter."""
+        path = self.cache_dir / f"semantics_{sha}.json"
+        with AtomicWriter(path, mode="w") as aw:
+            aw.write(json.dumps(data, indent=2))
