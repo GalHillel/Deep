@@ -852,7 +852,9 @@ def generate_object_index(dg_dir: Path) -> Dict[str, str]:
             except Exception:
                 continue
                 
-    cache_dir = dg_dir / "cache"
+    # Ensure dg_dir points to .deep folder
+    real_dg_dir = dg_dir / ".deep" if (dg_dir / ".deep").exists() else dg_dir
+    cache_dir = real_dg_dir / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     index_path = cache_dir / "object_index.json"
     index_path.write_text(json.dumps(index), encoding="utf-8")
