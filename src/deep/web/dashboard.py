@@ -121,6 +121,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 svc = self.get_service()
                 return self.send_json(_call_v2_safe(svc.get_commit_details_v2, svc.get_commit_details, qs.get("sha", "")))
             elif path == "/api/status": return self.send_json(self.get_service().get_full_status())
+            elif path == "/api/prs/local": return self.send_json(self.get_service().get_prs_local())
+            elif path == "/api/issues/local": return self.send_json(self.get_service().get_issues_local())
             elif path == "/api/ai/suggest":
                 from deep.web.services import api_ai_suggest
                 return self.send_json(api_ai_suggest())
