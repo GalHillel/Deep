@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional, List, Any, Tuple
 
 from deep.storage.txlog import TransactionLog
+from deep.storage.cache import CacheManager
 from deep.core.locks import RepositoryLock, BranchLock, IndexLock, BaseLock
 from deep.core.errors import TransactionError, LockError
 
@@ -139,6 +140,13 @@ class TransactionManager:
                 try: self._backup_path.unlink()
                 except OSError: pass
                 self._backup_path = None
+            
+            # Phase 16: Automatic Cache Invalidation
+            # Any successful mutation must purge read caches (DAG, diffs) to prevent stale UI.
+            try:
+                CacheManager(self.dg_dir).invalidate_all()
+            except Exception as e:
+                logger.warning(f"Cache invalidation failed after commit: {e}")
         except Exception as e:
             raise TransactionError(f"Transaction commit failed: {e}")
 
