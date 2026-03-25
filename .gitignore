@@ -97,6 +97,7 @@ __pycache__/
 .coverage
 htmlcov/
 
+# === Tests ===
 tests/e2e_cli/failures
-tests/e2e_cli/test_run.json
-tests/e2e_cli/test_run.json
+tests/e2e_cli/*.json
+
