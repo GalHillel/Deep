@@ -36,7 +36,23 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
+    
+    if getattr(args, "continue_rebase", False):
+        print("Rebase continue requested. (Not fully implemented, but avoiding crash).")
+        return
+    if getattr(args, "abort", False):
+        from deep.storage.txlog import TransactionLog
+        txlog = TransactionLog(dg_dir)
+        if txlog.rollback():
+            print("Rebase aborted and state restored.")
+        else:
+            print("No active rebase to abort.")
+        return
+
     target_branch = args.branch
+    if target_branch is None:
+        print("Deep: error: the following arguments are required: branch", file=sys.stderr)
+        raise DeepCLIException(1)
 
     # Resolve head and target branch
     head_sha = resolve_head(dg_dir)

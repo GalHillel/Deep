@@ -114,7 +114,12 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             for p, sha in target_files.items():
                 full = repo_root / p
                 full.parent.mkdir(parents=True, exist_ok=True)
-                full.write_bytes(read_object(objects_dir, sha).serialize_content())
+                obj = read_object(objects_dir, sha)
+                if isinstance(obj, Blob):
+                    full.write_bytes(obj.data)
+                else:
+                    # Fallback for non-blob objects in tree (e.g. submodules/links)
+                    full.write_bytes(obj.serialize_content())
                 stat = full.stat()
                 new_index.entries[p] = DeepIndexEntry(
                     content_hash=sha, 

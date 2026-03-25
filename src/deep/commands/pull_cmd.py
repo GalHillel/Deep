@@ -100,11 +100,31 @@ def run(args) -> None:
             if url_or_name != "origin":
                 update_remote_ref(dg_dir, "origin", branch, remote_sha)
 
-            # 4. Merge
-            print(f"Merging {remote_sha[:7]} into current branch...")
-            from deep.commands.merge_cmd import run as merge_run
-            merge_args = Namespace(branch=remote_sha)
-            merge_run(merge_args)
+            # 4. Merge (or fast-forward if local has no commits)
+            head_sha = resolve_head(dg_dir)
+            if not head_sha:
+                # Empty repo: fast-forward by setting branch and checking out
+                print(f"Fast-forwarding empty branch to {remote_sha[:7]}...")
+                update_branch(dg_dir, branch, remote_sha)
+                from deep.core.refs import update_head
+                update_head(dg_dir, f"ref: refs/heads/{branch}")
+                try:
+                    from deep.commands.checkout_cmd import run as checkout_run
+                    checkout_run(Namespace(target=branch, force=True, branch=None, files=[]))
+                except Exception:
+                    pass  # Working tree update is best-effort
+            else:
+                print(f"Merging {remote_sha[:7]} into current branch...")
+                from deep.commands.merge_cmd import run as merge_run
+                merge_args = Namespace(branch=remote_sha)
+                try:
+                    merge_run(merge_args)
+                except DeepCLIException:
+                    # Write MERGE_HEAD so next commit creates a merge commit
+                    merge_head = dg_dir / "MERGE_HEAD"
+                    if not merge_head.exists():
+                        merge_head.write_text(remote_sha + "\n", encoding="utf-8")
+                    raise
 
             tm.commit()
 

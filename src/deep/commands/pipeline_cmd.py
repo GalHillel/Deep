@@ -67,12 +67,19 @@ def run(args) -> None:
 
     elif cmd == "status":
         run_id = getattr(args, "id", None) or getattr(args, "run_id", None)
-        if not run_id:
-            print_error("Missing run ID.")
-            raise DeepCLIException(1)
-            
         runs = runner.list_runs()
-        match = [r for r in runs if r.run_id == run_id]
+        
+        if not run_id:
+            # No run_id provided: show latest run if available
+            if not runs:
+                print_error("No pipeline runs found.")
+                raise DeepCLIException(1)
+            r = runs[-1]
+            run_id = r.run_id
+            match = [r]
+        else:
+            match = [r for r in runs if r.run_id == run_id]
+        
         if not match:
             print_error(f"Run '{run_id}' not found locally.")
             raise DeepCLIException(1)

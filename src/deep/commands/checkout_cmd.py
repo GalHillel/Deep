@@ -79,7 +79,10 @@ def run(args: argparse.Namespace) -> None:
                 
                 dest = repo_root / rel_p
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(blob.serialize_content())
+                if hasattr(blob, "data"):
+                    dest.write_bytes(blob.data)
+                else:
+                    dest.write_bytes(blob.serialize_content())
                 print(f"Updated 1 path from {target_sha[:7]}")
             tm.commit()
             return

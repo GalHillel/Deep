@@ -37,15 +37,52 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         if args.name is None and not getattr(args, "list", False):
             # No tm.begin() here, it's read-only
             current = get_current_branch(dg_dir)
+            from deep.core.config import Config
+            config = Config(repo_root)
+            
             branches = list_branches(dg_dir)
+            if getattr(args, "all", False):
+                # Add remote branches
+                from deep.core.refs import list_remote_branches
+                for remote, b_list in list_remote_branches(dg_dir).items():
+                    for b in b_list:
+                        branches.append(f"remotes/{remote}/{b}")
+
             if not branches:
                 print("No branches yet (make a commit first).")
                 return
+
+            verbose = getattr(args, "verbose", 0)
+            if getattr(args, "vv", False):
+                verbose = 2
             for b in branches:
+                is_remote = b.startswith("remotes/")
+                actual_name = b.split("/", 2)[-1] if is_remote else b
+                
+                prefix = "* " if b == current else "  "
+                line = f"{prefix}{b}"
+                
+                if verbose > 0:
+                    from deep.core.refs import get_branch, get_remote_ref
+                    if is_remote:
+                        parts = b.split("/")
+                        sha = get_remote_ref(dg_dir, parts[1], parts[2])
+                    else:
+                        sha = get_branch(dg_dir, b)
+                    
+                    sha_str = Color.wrap(Color.YELLOW, sha[:7] if sha else "unknown")
+                    line = f"{prefix}{sha_str} {b}"
+                    
+                    if verbose > 1 and not is_remote:
+                        remote = config.get(f"branch.{b}.remote")
+                        merge = config.get(f"branch.{b}.merge")
+                        if remote and merge:
+                            line += f" [{Color.wrap(Color.BLUE, remote)}/{Color.wrap(Color.CYAN, merge.replace('refs/heads/', ''))}]"
+
                 if b == current:
-                    print(Color.wrap(Color.GREEN, f"* {b}"))
+                    print(Color.wrap(Color.GREEN, line))
                 else:
-                    print(f"  {b}")
+                    print(line)
             return
 
         # 2. Delete branch

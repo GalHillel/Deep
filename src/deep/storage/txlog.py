@@ -374,7 +374,10 @@ class TransactionLog:
             full = repo_root / p
             full.parent.mkdir(parents=True, exist_ok=True)
             obj = read_object(objects_dir, sha)
-            full.write_bytes(obj.serialize_content())
+            if hasattr(obj, "data"):
+                full.write_bytes(obj.data)
+            else:
+                full.write_bytes(obj.serialize_content())
             stat = full.stat()
             p_hash_full = _hashlib.sha256(p.encode()).digest()
             p_hash = struct.unpack(">Q", p_hash_full[:8])[0]

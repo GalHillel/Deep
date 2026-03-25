@@ -32,8 +32,9 @@ def test_show_commit(repo_factory):
     repo_factory.run(["add", "f.txt"], cwd=path)
     repo_factory.run(["commit", "-m", "initial"], cwd=path)
     
-    res = repo_factory.run(["log", "-n", "1", "--format", "%H"], cwd=path)
-    sha = res.stdout.strip()
+    res = repo_factory.run(["log", "-n", "1"], cwd=path)
+    # Parse 'commit <sha>'
+    sha = res.stdout.splitlines()[0].split()[1]
     
     res = repo_factory.run(["show", sha], cwd=path)
     assert "initial" in res.stdout

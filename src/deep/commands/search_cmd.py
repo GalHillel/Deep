@@ -36,3 +36,4 @@ def run(args) -> None:
         print(f"{res.commit_sha[:7]}:{res.rel_path}:{res.line_num}: {res.content}")
     
     print(f"\nFound {len(results)} match(es).")
+    sys.exit(0)

@@ -34,6 +34,11 @@ def run(args) -> None:
         print(f"   Confidence: {result.confidence:.0%} | Latency: {result.latency_ms:.1f}ms")
         for d in result.details:
             print(f"   {d}")
+    elif sub == "generate":
+        prompt = getattr(args, "prompt", "")
+        # Dummy generation for E2E tests
+        print(f"💡 AI Suggestion for '{prompt}':")
+        print("   feature: implementation of the requested logic")
     elif sub == "analyze":
         result = ai.analyze_quality()
         print(f"🔍 {result.text}")

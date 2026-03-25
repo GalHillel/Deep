@@ -50,8 +50,10 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     else:
         diffs = diff_working_tree(repo_root)
 
-    if not diffs:
-        return  # no output = no differences
+    stat = getattr(args, "stat", False)
+    if stat:
+        _print_diff_stat(diffs)
+        return
 
     for rel_path, diff_text in diffs:
         print(f"\033[1;36mdiff --deep a/{rel_path} b/{rel_path}\033[0m")
@@ -67,3 +69,37 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 print(f"\033[33m{line}\033[0m") # yellow
             else:
                 print(line)
+
+
+def _print_diff_stat(diffs: list[tuple[str, str]]) -> None:
+    """Print a summary of changes per file and a total summary."""
+    total_files = len(diffs)
+    total_ins = 0
+    total_del = 0
+    
+    for rel_path, diff_text in diffs:
+        ins = 0
+        dele = 0
+        for line in diff_text.splitlines():
+            if line.startswith("+") and not line.startswith("+++"):
+                ins += 1
+            elif line.startswith("-") and not line.startswith("---"):
+                dele += 1
+        
+        total_ins += ins
+        total_del += dele
+        
+        # Simple bar representation
+        combined = ins + dele
+        if combined > 0:
+            plus = "+" * ins
+            minus = "-" * dele
+            print(f" {rel_path:<40} | {combined:>3} {plus}{minus}")
+        else:
+            print(f" {rel_path:<40} |   0")
+
+    files_label = "file changed" if total_files == 1 else "files changed"
+    ins_label = "insertion(+)" if total_ins == 1 else "insertions(+)"
+    del_label = "deletion(-)" if total_del == 1 else "deletions(-)"
+    
+    print(f"\n {total_files} {files_label}, {total_ins} {ins_label}, {total_del} {del_label}")

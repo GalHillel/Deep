@@ -20,6 +20,17 @@ from deep.core.constants import DEEP_DIR
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``ls-remote`` command."""
     url = args.url
+    repo_root = None
+    try:
+        from deep.core.repository import find_repo
+        repo_root = find_repo()
+    except Exception:
+        pass
+
+    if repo_root:
+        from deep.core.config import Config
+        config = Config(repo_root)
+        url = config.get(f"remote.{url}.url", url)
 
     # Check if it's a local path first
     target = Path(url).resolve()
@@ -52,6 +63,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
 def _ls_remote_local(dg_dir: Path) -> None:
     """List refs from a local repository."""
+    # Debug
+    print(f"DEBUG: ls-remote-local dg_dir={dg_dir}", file=sys.stderr)
     from deep.core.refs import resolve_head
     head_sha = resolve_head(dg_dir)
     if head_sha:

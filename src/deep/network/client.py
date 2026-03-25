@@ -302,18 +302,15 @@ class LocalClient:
         from deep.core.refs import list_branches, get_branch
         branches = list_branches(self.dg_dir)
         refs = {}
-        for b in branches:
+        # Add all branches
+        for b in list_branches(self.dg_dir):
             sha = get_branch(self.dg_dir, b)
             if sha:
                 refs[f"refs/heads/{b}"] = sha
         
-        # Heuristic for HEAD
-        head_sha = ""
-        if (self.dg_dir / "refs/heads/main").exists():
-            head_sha = (self.dg_dir / "refs/heads/main").read_text().strip()
-        elif branches:
-            head_sha = get_branch(self.dg_dir, branches[0])
-        
+        # Resolve HEAD
+        from deep.core.refs import resolve_head
+        head_sha = resolve_head(self.dg_dir)
         if head_sha:
             refs["HEAD"] = head_sha
             

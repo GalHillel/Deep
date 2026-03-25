@@ -88,8 +88,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         except Exception:
             pass
 
-    # Phase 7 / 5: Commit Without Changes Guard
-    if parent_tree_sha and tree_sha == parent_tree_sha and not allow_empty:
+    # Phase 7 / 5: Commit Without Changes Guard (skip for --amend)
+    if parent_tree_sha and tree_sha == parent_tree_sha and not allow_empty and not getattr(args, "amend", False):
         print("No changes to commit.")
         raise DeepCLIException(1)
 
@@ -107,6 +107,18 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         if ans.lower() != "y":
             print("Commit aborted.", file=sys.stderr)
             raise DeepCLIException(1)
+    
+    # Handle --amend message logic
+    if getattr(args, "amend", False):
+        if not message:
+            parent_sha = resolve_head(dg_dir)
+            if parent_sha:
+                try:
+                    p_obj = read_object(objects_dir, parent_sha)
+                    if isinstance(p_obj, Commit):
+                        message = p_obj.message
+                except Exception:
+                    pass
     
     if not message:
         print("Deep: error: must provide a commit message (-m) or use --ai.", file=sys.stderr)
@@ -195,7 +207,25 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 tree_sha = _build_tree_from_index(dg_dir, allow_empty=allow_empty)
 
                 parent_sha = resolve_head(dg_dir)
-                parent_shas = [parent_sha] if parent_sha else []
+                if getattr(args, "amend", False) and parent_sha:
+                    try:
+                        p_obj = read_object(objects_dir, parent_sha)
+                        if isinstance(p_obj, Commit):
+                            parent_shas = p_obj.parent_shas
+                    except Exception:
+                        parent_shas = [parent_sha]
+                else:
+                    parent_shas = [parent_sha] if parent_sha else []
+
+                # Check for MERGE_HEAD (conflict resolution creates merge commit)
+                merge_head_path = dg_dir / "MERGE_HEAD"
+                if merge_head_path.exists():
+                    try:
+                        merge_sha = merge_head_path.read_text(encoding="utf-8").strip()
+                        if merge_sha and merge_sha not in parent_shas:
+                            parent_shas.append(merge_sha)
+                    except Exception:
+                        pass
 
                 config = Config(repo_root)
                 author_name = config.get("user.name", "Deep User")
@@ -293,6 +323,14 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     update_head_no_lock(dg_dir, commit_sha)
 
                 tx.commit()
+
+                # Clean up MERGE_HEAD after successful commit
+                merge_head_path = dg_dir / "MERGE_HEAD"
+                if merge_head_path.exists():
+                    try:
+                        merge_head_path.unlink()
+                    except Exception:
+                        pass
 
         # Commit Intelligence (Part 4)
         import re

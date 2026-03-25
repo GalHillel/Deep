@@ -67,8 +67,9 @@ class IssueManager:
 
     def save_issue(self, issue: Issue):
         path = self.issues_dir / f"{issue.id}.json"
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(asdict(issue), f, indent=2, ensure_ascii=False)
+        from deep.utils.utils import AtomicWriter
+        with AtomicWriter(path, mode="w") as aw:
+            json.dump(asdict(issue), aw, indent=2, ensure_ascii=False)
 
     def get_issue(self, issue_id: int) -> Optional[Issue]:
         path = self.issues_dir / f"{issue_id}.json"

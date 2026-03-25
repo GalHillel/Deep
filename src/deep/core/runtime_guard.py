@@ -240,6 +240,7 @@ def scan_source(source_dir: str) -> list[tuple[str, int, str]]:
         # Self-referencing patterns in the guard (tab/newline variants)
         "\"git\\\\t\"",
         "\"git\\\\n\"",
+        "\"git \"",
     ]
 
     for root, dirs, files in os.walk(source_dir):

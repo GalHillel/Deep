@@ -1,6 +1,8 @@
 import pytest
 import threading
 import time
+import tempfile
+import shutil
 from pathlib import Path
 
 def test_parallel_commits_isolation(repo_factory):
@@ -11,12 +13,21 @@ def test_parallel_commits_isolation(repo_factory):
     repo_factory.run(["commit", "-m", "root"], cwd=path)
     
     def worker(idx):
-        bname = f"branch_{idx}"
-        repo_factory.run(["checkout", "-b", bname], cwd=path)
-        (path / f"file_{idx}.txt").write_text(f"data {idx}")
-        repo_factory.run(["add", f"file_{idx}.txt"], cwd=path)
-        res = repo_factory.run(["commit", "-m", f"commit {idx}"], cwd=path)
-        assert res.returncode == 0
+        # Create a fresh clone for each worker to ensure worktree isolation
+        worker_path = Path(tempfile.mkdtemp(prefix=f"worker_{idx}_"))
+        try:
+            repo_factory.run(["clone", str(path), str(worker_path)])
+            bname = f"branch_{idx}"
+            repo_factory.run(["checkout", "-b", bname], cwd=worker_path)
+            (worker_path / f"file_{idx}.txt").write_text(f"data {idx}")
+            repo_factory.run(["add", f"file_{idx}.txt"], cwd=worker_path)
+            res = repo_factory.run(["commit", "-m", f"commit {idx}"], cwd=worker_path)
+            assert res.returncode == 0
+            
+            # Push back to origin to verify coordination
+            repo_factory.run(["push", "origin", bname], cwd=worker_path)
+        finally:
+            shutil.rmtree(worker_path, ignore_errors=True)
 
     threads = []
     for i in range(5):

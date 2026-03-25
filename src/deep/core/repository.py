@@ -134,7 +134,9 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                 raise DeepError(f"branch already exists: {target}")
             commit_sha = resolve_head(dg_dir)
             if not commit_sha:
-                raise DeepError("cannot create branch without commits")
+                # Empty repo: just switch HEAD to the new branch name
+                update_head(dg_dir, f"ref: refs/heads/{target}")
+                return
         else:
             # Resolve target — branch name, commit SHA, or revision.
             commit_sha = resolve_revision(dg_dir, target)
@@ -241,7 +243,10 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                     full = repo_root / p
                     full.parent.mkdir(parents=True, exist_ok=True)
                     obj = read_object(objects_dir, sha)
-                    full.write_bytes(obj.serialize_content())
+                    if hasattr(obj, "data"):
+                        full.write_bytes(obj.data)
+                    else:
+                        full.write_bytes(obj.serialize_content())
                     stat = full.stat()
                     new_index.entries[p] = DeepIndexEntry(content_hash=sha, size=stat.st_size, mtime_ns=stat.st_mtime_ns, path_hash=p_hash_val, flags=0)
                 else:

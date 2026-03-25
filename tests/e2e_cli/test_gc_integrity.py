@@ -18,11 +18,11 @@ def test_gc_and_repack_flow(repo_factory):
     repo_factory.run(["branch", "-D", "temp"], cwd=path)
     
     # GC / Prune
-    res = repo_factory.run(["maintenance", "gc", "--prune=now"], cwd=path)
+    res = repo_factory.run(["gc"], cwd=path)
     assert res.returncode == 0
     
     # Repack
-    res = repo_factory.run(["maintenance", "repack"], cwd=path)
+    res = repo_factory.run(["repack"], cwd=path)
     assert res.returncode == 0
     
     # Verify integrity

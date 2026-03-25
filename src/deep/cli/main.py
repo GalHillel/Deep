@@ -103,6 +103,8 @@ Examples:
     p_commit.add_argument("-a", "--all", action="store_true", help="Automatically stage modified and deleted tracked files before committing (auto-stage). Does NOT include untracked files.")
     p_commit.add_argument("--ai", action="store_true", help="Automatically generate a commit message using Deep AI")
     p_commit.add_argument("-S", "--sign", action="store_true", help="Digitally sign the commit using your identity key")
+    p_commit.add_argument("--amend", action="store_true", help="Amend the last commit")
+    p_commit.add_argument("--allow-empty", action="store_true", help="Create a commit even if no changes are staged")
 
     # ── status ───────────────────────────────────────────────────────
     p_status = sub.add_parser(
@@ -153,6 +155,7 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_diff.add_argument("--cached", "--staged", action="store_true", help="Show changes currently in the staging area")
+    p_diff.add_argument("--stat", action="store_true", help="Show a summary of changes instead of the full diff")
     p_diff.add_argument("revisions", nargs="*", help="Revisions to compare (e.g. HEAD, or commit1 commit2)")
 
     # ── branch ───────────────────────────────────────────────────────
@@ -171,6 +174,9 @@ Examples:
     )
     p_branch.add_argument("name", nargs="?", default=None, help="The name of the branch to create")
     p_branch.add_argument("-d", "--delete", action="store_true", help="Delete the specified branch name")
+    p_branch.add_argument("-a", "--all", action="store_true", help="List both local and tracked remote branches")
+    p_branch.add_argument("-v", "--verbose", action="count", default=0, help="Show more detail (SHA and tracking info)")
+    p_branch.add_argument("-vv", action="store_true", help="Show extremely detailed tracking info")
     p_branch.add_argument("start_point", nargs="?", default="HEAD", help="The commit or branch name to start the new branch from (default: HEAD)")
 
     p_checkout = sub.add_parser(
@@ -203,7 +209,8 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_merge.add_argument("branch", help="The name of the branch to merge into the current one")
+    p_merge.add_argument("branch", nargs="?", default=None, help="The name of the branch to merge into the current one")
+    p_merge.add_argument("--abort", action="store_true", help="Abort the current merge operation")
 
     # ── rm ──────────────────────────────────────────────────────────
     p_rm = sub.add_parser(
@@ -357,6 +364,7 @@ Examples:
     p_clone.add_argument("--depth", type=int, help="Limit the history to the specified number of commits")
     p_clone.add_argument("--filter", help="Specify object filtering for a partial clone")
     p_clone.add_argument("--shallow-since", help="Create a shallow clone containing history after a specific date")
+    p_clone.add_argument("--mirror", action="store_true", help="Clone as a bare repository with 1:1 ref mapping")
 
     # ── push ────────────────────────────────────────────────────────
     p_push = sub.add_parser(
@@ -370,8 +378,10 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_push.add_argument("url", help="The remote name (e.g., 'origin') or a direct URL")
-    p_push.add_argument("branch", help="The name of the branch to push")
+    p_push.add_argument("url", nargs="?", help="The remote name (e.g., 'origin') or a direct URL")
+    p_push.add_argument("branch", nargs="?", help="The name of the branch to push")
+    p_push.add_argument("-u", "--set-upstream", action="store_true", help="Set upstream tracking for the branch")
+    p_push.add_argument("--force", action="store_true", help="Force the push even if it's non-fast-forward")
 
     # ── pull ────────────────────────────────────────────────────────
     p_pull = sub.add_parser(
@@ -385,8 +395,8 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_pull.add_argument("url", help="The remote name or URL to pull from")
-    p_pull.add_argument("branch", help="The name of the branch to integrate")
+    p_pull.add_argument("url", nargs="?", help="The remote name or URL to pull from")
+    p_pull.add_argument("branch", nargs="?", help="The name of the branch to integrate")
 
     # ── fetch ────────────────────────────────────────────────────────
     p_fetch = sub.add_parser(
@@ -484,6 +494,36 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    p_sync.add_argument("--peer", type=str, help="Manually specify a peer address or path for synchronization")
+
+    # ── show ────────────────────────────────────────────────────────
+    p_show = sub.add_parser(
+        "show",
+        help="Show various types of objects",
+        description="Show one or more objects (commits, tags, trees) with their content and metadata.",
+        epilog="""
+Examples:
+  deep show HEAD             # Show the last commit and its diff
+  deep show abc1234          # Show a specific commit or object
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_show.add_argument("object", nargs="?", default="HEAD", help="The object identifier to show (default: HEAD)")
+
+    # ── ls-tree ─────────────────────────────────────────────────────
+    p_ls_tree = sub.add_parser(
+        "ls-tree",
+        help="List the contents of a tree object",
+        description="Displays the contents of a tree object, similar to `ls -l` but for the Deep database.",
+        epilog="""
+Examples:
+  deep ls-tree HEAD          # List files in the current commit
+  deep ls-tree abc1234       # List contents of a specific tree or commit
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_ls_tree.add_argument("treeish", help="The tree or commit identifier to list")
+    p_ls_tree.add_argument("-r", "--recursive", action="store_true", help="Recurse into sub-trees")
 
     # ── server ───────────────────────────────────────────────────────
     p_server = sub.add_parser(
@@ -531,10 +571,13 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_user.add_argument("user_command", choices=["add", "remove", "list", "info"], help="The user account operation to perform")
+    p_user.add_argument("user_command", choices=["add", "remove", "list", "info", "show"], help="The user account operation to perform")
     p_user.add_argument("username", nargs="?", help="The username of the account")
     p_user.add_argument("public_key", nargs="?", help="The public SSH key for authentication")
     p_user.add_argument("email", nargs="?", help="The email address associated with the account")
+    p_user.add_argument("--username", dest="username_flag", help="The username (alternative to positional)")
+    p_user.add_argument("--public-key", dest="public_key_flag", help="The public key (alternative to positional)")
+    p_user.add_argument("--email", dest="email_flag", help="The email (alternative to positional)")
 
     # ── auth ─────────────────────────────────────────────────────────
     p_auth = sub.add_parser(
@@ -564,7 +607,7 @@ Examples:
     p_pr.add_argument("id", nargs="?", help="The numerical ID of the Pull Request")
     p_pr.add_argument("thread", nargs="?", help="The numerical ID of the Thread (for reply/resolve)")
     p_pr.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
-    p_pr.add_argument("-m", "--message", dest="title", help="PR title (for create)")
+    p_pr.add_argument("-t", "-m", "--title", "--message", dest="title", help="PR title (for create)")
     p_pr.add_argument("-d", "--description", help="PR description (for create)")
     p_pr.add_argument("--head", help="Source branch (for create)")
     p_pr.add_argument("--base", help="Target branch (for create)")
@@ -581,8 +624,10 @@ Examples:
     p_issue.add_argument("issue_command", choices=["create", "list", "show", "close", "reopen", "sync"], help="The issue tracking action to perform")
     p_issue.add_argument("id", nargs="?", help="The numerical ID of the issue")
     p_issue.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
-    p_issue.add_argument("-m", "--message", dest="title", help="Issue title (for create)")
+    p_issue.add_argument("-t", "-m", "--title", "--message", dest="title", help="Issue title (for create)")
     p_issue.add_argument("-d", "--description", help="Issue description (for create)")
+    p_issue.add_argument("--type", help="Issue type (e.g. bug, feature)")
+    p_issue.add_argument("--priority", help="Issue priority (e.g. high, low)")
 
     # ── pipeline ────────────────────────────────────────────────────
     from deep.commands import pipeline_cmd
@@ -765,7 +810,7 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ai_choices = [
-        "suggest", "analyze", "branch-name", "review", 
+        "suggest", "generate", "analyze", "branch-name", "review", 
         "predict-merge", "predict-push", "cross-repo", 
         "refactor", "cleanup", "interactive", "assistant"
     ]
@@ -985,6 +1030,12 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.repo_cmd import run
     elif args.command == "sync":
         from deep.commands.sync_cmd import run
+    elif args.command == "show":
+        from deep.commands.show_cmd import run
+    elif args.command == "ls-tree":
+        from deep.commands.ls_tree_cmd import run
+    elif args.command == "search":
+        from deep.commands.search_cmd import run
     elif args.command == "server":
         from deep.commands.server_cmd import run
     elif args.command == "daemon":

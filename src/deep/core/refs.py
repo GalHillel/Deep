@@ -76,7 +76,11 @@ def get_current_branch(dg_dir: Path) -> Optional[str]:
     raw = read_head(dg_dir)
     if raw.startswith("ref:"):
         # "ref: refs/heads/main" → "main"
+        # "ref: refs/heads/feature/new" → "feature/new"
         ref_path = raw.split("ref:", 1)[1].strip()
+        prefix = "refs/heads/"
+        if ref_path.startswith(prefix):
+            return ref_path[len(prefix):]
         return ref_path.rsplit("/", 1)[-1]
     return None
 
@@ -269,15 +273,15 @@ def is_ancestor(objects_dir: Path, ancestor_sha: Optional[str], tip_sha: str) ->
 
 
 def list_branches(dg_dir: Path) -> list[str]:
-    """Return a sorted list of branch names."""
+    """Return a sorted list of branch names (supports nested branches like feature/new)."""
     heads_dir = dg_dir / "refs" / "heads"
     if not heads_dir.exists():
         return []
-    branches = []
-    for p in heads_dir.iterdir():
-        if p.is_file() and not p.name.endswith(".lock") and not p.name.startswith("."):
-            branches.append(p.name)
-    return sorted(branches)
+    return sorted(
+        p.relative_to(heads_dir).as_posix()
+        for p in heads_dir.rglob("*")
+        if p.is_file() and not p.name.endswith(".lock") and not p.name.startswith(".")
+    )
 
 
 def get_all_branches(dg_dir: Path) -> list[str]:
@@ -285,8 +289,10 @@ def get_all_branches(dg_dir: Path) -> list[str]:
     return list_branches(dg_dir)
 
 
-def get_branch(dg_dir: Path, name: str) -> Optional[str]:
+def get_branch(dg_dir: Path, name: str | None) -> Optional[str]:
     """Return the commit SHA a branch points to, or ``None`` if it doesn't exist or is invalid."""
+    if name is None:
+        return None
     bp = _branch_path(dg_dir, name)
     if not bp.exists():
         return None
@@ -335,9 +341,11 @@ def delete_branch(dg_dir: Path, name: str) -> None:
     if current == name:
         raise ValueError(f"Cannot delete the currently checked-out branch {name!r}")
     bp = _branch_path(dg_dir, name)
-    if not bp.exists():
-        raise FileNotFoundError(f"Branch {name!r} does not exist")
-    bp.unlink()
+    lock = FileLock(str(bp) + ".lock")
+    with lock:
+        if not bp.exists():
+            raise FileNotFoundError(f"Branch {name!r} does not exist")
+        bp.unlink()
 
 
 # ── Tag helpers ──────────────────────────────────────────────────────
@@ -354,9 +362,11 @@ def list_tags(dg_dir: Path) -> list[str]:
     return sorted(p.name for p in tags_dir.iterdir() if p.is_file() and not p.name.endswith(".lock"))
 
 
-def get_tag(dg_dir: Path, name: str) -> Optional[str]:
+def get_tag(dg_dir: Path, name: str | None) -> Optional[str]:
     """Return the object SHA a tag points to, or ``None`` if it doesn't exist."""
-    tp = _tag_path(dg_dir, name)
+    if name is None:
+        return None
+    tp = dg_dir / "refs" / "tags" / name
     if not tp.exists():
         return None
     return tp.read_text(encoding="utf-8").strip()

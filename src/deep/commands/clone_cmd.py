@@ -48,15 +48,16 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print(f"Deep: error: Target directory '{target_dir}' already exists and is not empty", file=sys.stderr)
         raise DeepCLIException(1)
 
+    mirror = getattr(args, "mirror", False)
     target_dir.mkdir(parents=True, exist_ok=True)
     success = False
 
     old_cwd = os.getcwd()
     os.chdir(target_dir)
     try:
-        init_cmd.run(ns(path=None, files=[]))
+        init_cmd.run(ns(path=None, files=[], bare=mirror))
 
-        dg_dir = target_dir / DEEP_DIR
+        dg_dir = target_dir if mirror else target_dir / DEEP_DIR
         objects_dir = dg_dir / "objects"
 
         # Use native smart protocol
@@ -115,19 +116,25 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 update_remote_ref(dg_dir, "origin", branch, sha)
 
         # Save remote URL
-        config = Config(target_dir)
+        config = Config(dg_dir.parent if not mirror else dg_dir)
         config.set_local("remote.origin.url", url)
+        config.set_local(f"branch.{main_branch}.remote", "origin")
+        config.set_local(f"branch.{main_branch}.merge", f"refs/heads/{main_branch}")
+        if mirror:
+            config.set_local("remote.origin.mirror", "true")
+            config.set_local("remote.origin.fetch", "+refs/*:refs/*")
 
         # Checkout working tree
-        try:
-            checkout_cmd.run(ns(
-                target=main_branch, force=True, branch=None, files=[]
-            ))
-        except (FileNotFoundError, ValueError) as e:
-            if getattr(args, "filter", None) or getattr(args, "depth", None):
-                print(f"Partial clone: skipping initial checkout ({e})")
-            else:
-                print(f"Deep: warning: checkout failed: {e}", file=sys.stderr)
+        if not mirror:
+            try:
+                checkout_cmd.run(ns(
+                    target=main_branch, force=True, branch=None, files=[]
+                ))
+            except (FileNotFoundError, ValueError) as e:
+                if getattr(args, "filter", None) or getattr(args, "depth", None):
+                    print(f"Partial clone: skipping initial checkout ({e})")
+                else:
+                    print(f"Deep: warning: checkout failed: {e}", file=sys.stderr)
 
         print("Done.")
         success = True

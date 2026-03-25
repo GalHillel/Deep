@@ -59,6 +59,11 @@ def get_author(repo_root: Path) -> str:
 
 def interactive_create(manager: IssueManager, repo_root: Path) -> Issue:
     """Smart interactive issue creation flow."""
+    is_interactive = sys.stdin.isatty()
+    if not is_interactive:
+        # Should not be reached if run() handles it, but safety first
+        return manager.create_issue("Auto Issue", "Auto Description", "bug", get_author(repo_root))
+
     print(Color.wrap(Color.CYAN, "\n--- Create Issue ---"))
     
     print("\nSelect issue type:")
@@ -111,7 +116,7 @@ def interactive_create(manager: IssueManager, repo_root: Path) -> Issue:
 
     author = get_author(repo_root)
     issue = manager.create_issue(title, description, itype, author)
-    manager.add_timeline_event(issue.id, "created")
+    manager.add_event(issue.id, author, "created", f"Issue created via CLI")
     
     # Optional GitHub Sync
     gh_repo = net.get_github_remote(repo_root)
@@ -146,12 +151,22 @@ def run(args: Any) -> None:
     cmd = getattr(args, "issue_command", "list")
 
     if cmd == "create":
-        try:
-            issue = interactive_create(manager, repo_root)
-            print_success(f"Issue #{issue.id} created locally.")
-        except KeyboardInterrupt:
-            print("\nAborted.")
-            return
+        title = getattr(args, "title", None)
+        itype = getattr(args, "type", "bug")
+        
+        if title:
+            # Non-interactive creation
+            author = get_author(repo_root)
+            issue = manager.create_issue(title, "", itype, author)
+            manager.add_event(issue.id, author, "created", "Issue created via CLI")
+            print_success(f"Issue #{issue.id} created locally (non-interactive).")
+        else:
+            try:
+                issue = interactive_create(manager, repo_root)
+                print_success(f"Issue #{issue.id} created locally.")
+            except KeyboardInterrupt:
+                print("\nAborted.")
+                return
 
     elif cmd == "list":
         issues = manager.list_issues()
@@ -197,9 +212,9 @@ def run(args: Any) -> None:
         if issue.linked_prs:
             print(f"Linked PRs: {', '.join(f'#{pr_id}' for pr_id in issue.linked_prs)}")
 
-        if issue.timeline:
+        if issue.events:
             print(f"\nTimeline:")
-            for event in issue.timeline:
+            for event in issue.events:
                 ts = event.get("timestamp", "")
                 if ts:
                     try:

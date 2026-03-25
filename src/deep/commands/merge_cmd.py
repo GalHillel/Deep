@@ -105,7 +105,11 @@ def _apply_tree_to_workdir(
     for p, sha in target_files.items():
         full = repo_root / p
         full.parent.mkdir(parents=True, exist_ok=True)
-        full.write_bytes(read_object(objects_dir, sha).serialize_content())
+        obj = read_object(objects_dir, sha)
+        if hasattr(obj, "data"):
+            full.write_bytes(obj.data)
+        else:
+            full.write_bytes(obj.serialize_content())
         stat = full.stat()
         import struct
         new_index.entries[p] = DeepIndexEntry(
@@ -134,6 +138,14 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
     if head_sha is None:
         print("Deep: error: no commits on current branch.", file=sys.stderr)
         raise DeepCLIException(1)
+
+    # Handle --abort
+    if getattr(args, "abort", False):
+        print("Aborting merge: resetting working directory and index to HEAD.")
+        from deep.commands.reset_cmd import run as reset_run
+        reset_args = type('Namespace', (), {'commit': 'HEAD', 'hard': True, 'soft': False})()
+        reset_run(reset_args)
+        return
 
     # 1. Dirty check (REQUIRED for safety)
     from deep.core.status import compute_status
@@ -215,6 +227,9 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 for conflict_name in conflicts:
                     _write_conflict_markers(repo_root, objects_dir, conflict_name,
                                             head_commit.tree_sha, target_commit.tree_sha, base_tree_sha)
+                # Write MERGE_HEAD so commit creates a proper merge commit
+                merge_head_path = dg_dir / "MERGE_HEAD"
+                merge_head_path.write_text(target_sha + "\n", encoding="utf-8")
                 print("Deep: fix conflicts and then run 'deep commit'.", file=sys.stderr)
                 raise DeepCLIException(1)
 
@@ -294,11 +309,11 @@ def _write_conflict_markers(
     theirs_content = theirs_raw.decode("utf-8", errors="replace") if theirs_raw else ""
 
     conflict_content = (
-        f"<<<<<<< OURS\n"
+        f"<<<<<<< HEAD\n"
         f"{ours_content}"
         f"=======\n"
         f"{theirs_content}"
-        f">>>>>>> THEIRS\n"
+        f">>>>>>> {name}\n"
     )
 
     file_path = repo_root / name

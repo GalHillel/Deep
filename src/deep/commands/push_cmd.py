@@ -34,12 +34,21 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print(f"Deep: error: {exc}", file=sys.stderr)
         raise DeepCLIException(1)
 
-    url_or_name = args.url
+    dg_dir = repo_root / DEEP_DIR
     config = Config(repo_root)
+    from deep.core.refs import get_current_branch
+
+    # Resolving Remote URL
+    url_or_name = args.url or "origin"
     url = config.get(f"remote.{url_or_name}.url", url_or_name)
 
-    branch = args.branch
-    local_sha = get_branch(repo_root / DEEP_DIR, branch)
+    # Resolving Branch
+    branch = args.branch or get_current_branch(dg_dir)
+    if not branch:
+        print("Deep: error: could not determine branch to push (specify <branch> or set upstream).", file=sys.stderr)
+        raise DeepCLIException(1)
+
+    local_sha = get_branch(dg_dir, branch)
     if not local_sha:
         print(f"Deep: error: Branch '{branch}' not found locally", file=sys.stderr)
         raise DeepCLIException(1)
@@ -88,14 +97,19 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     from deep.core.refs import is_ancestor
                     objects_dir = dg_dir / "objects"
 
-                    # Try to check if remote is ancestor of local
-                    if not is_ancestor(objects_dir, remote_sha, local_sha):
+                    # Try to check if remote is ancestor of local (FF check)
+                    is_ff = is_ancestor(objects_dir, remote_sha, local_sha)
+                    
+                    if not is_ff:
+                        # Extra check: if local is ancestor of remote, it's definitely divergent/behind
                         print(Color.wrap(Color.YELLOW,
-                              "Warning: Non-fast-forward push. "
-                              "Remote has diverged. Use 'deep pull' first or push with --force."),
+                              "hint: Updates were rejected because the tip of your current branch is behind\n"
+                              "hint: its remote counterpart. Integrate the remote changes (e.g.,\n"
+                              "hint: 'deep pull ...') before pushing again.\n"
+                              "hint: See the 'Note about fast-forwards' in 'deep push --help' for details."),
                               file=sys.stderr)
+                        
                         if not getattr(args, 'force', False):
-                            # Must raise to trigger rollback
                             raise DeepCLIException(1)
 
                 print(f"Pushing {branch} to {url}...")
@@ -111,6 +125,12 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 update_remote_ref(dg_dir, url_or_name, branch, local_sha)
                 if url_or_name != "origin":
                     update_remote_ref(dg_dir, "origin", branch, local_sha)
+
+                # Support --set-upstream
+                if getattr(args, "set_upstream", False):
+                    config.set_local(f"branch.{branch}.remote", url_or_name)
+                    config.set_local(f"branch.{branch}.merge", f"refs/heads/{branch}")
+                    print(f"Branch '{branch}' set up to track remote branch '{branch}' from '{url_or_name}'.")
 
             tm.commit()
             audit.record("local", "push", ref=branch, sha=local_sha, client=url)

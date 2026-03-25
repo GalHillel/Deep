@@ -103,10 +103,19 @@ def run(args) -> None:
         title = getattr(args, "title", None)
         body = getattr(args, "description", None) or getattr(args, "body", None)
         
+        # Non-interactive mode detection
+        is_interactive = sys.stdin.isatty() and not title
+
         if not title:
-            title = input("PR Title: ").strip()
+            if not is_interactive:
+                title = f"PR from {current or 'detached'}"
+            else:
+                title = input("PR Title: ").strip()
         if not body:
-            body = input("Description: ").strip()
+            if not is_interactive:
+                body = "Auto-generated PR description"
+            else:
+                body = input("Description: ").strip()
             
         if not title:
             print_error("PR Title cannot be empty.")
@@ -117,9 +126,15 @@ def run(args) -> None:
         base = getattr(args, "target", None) or getattr(args, "base", None)
         
         if not head:
-            head = input(f"Source branch (head) [{current or ''}]: ").strip() or current
+            if not is_interactive:
+                head = current
+            else:
+                head = input(f"Source branch (head) [{current or ''}]: ").strip() or current
         if not base:
-            base = input(f"Target branch (base) [main]: ").strip() or "main"
+            if not is_interactive:
+                base = "main"
+            else:
+                base = input(f"Target branch (base) [main]: ").strip() or "main"
             
         if not head:
             print_error("Source branch cannot be determined.")
@@ -130,8 +145,10 @@ def run(args) -> None:
             print_error(f"Branch '{head}' does not exist.")
             raise DeepCLIException(1)
         if base not in branches:
-            print_error(f"Branch '{base}' does not exist.")
-            raise DeepCLIException(1)
+            # Base might not exist yet (empty repo). Allow if head has commits.
+            base_exists = False
+        else:
+            base_exists = True
             
         if head == base:
             print_error("No changes between branches. PR not created.")
@@ -141,44 +158,47 @@ def run(args) -> None:
         head_sha = resolve_revision(dg_dir, head)
         base_sha = resolve_revision(dg_dir, base)
         
-        if not head_sha or not base_sha:
-            print_error("Could not resolve branch revisions.")
+        if not head_sha:
+            print_error("Could not resolve head branch revision.")
             raise DeepCLIException(1)
 
-        lca = find_merge_base(dg_dir, head_sha, base_sha)
-        if lca == head_sha:
-            print_error("No changes between branches. PR not created.")
-            raise DeepCLIException(1)
+        # If base has no commits but head does, there are definitely changes
+        if base_sha:
+            lca = find_merge_base(dg_dir, head_sha, base_sha)
+            if lca == head_sha:
+                print_error("No changes between branches. PR not created.")
+                raise DeepCLIException(1)
 
         # 4b. PR ↔ Issue Linking (Part 2)
         linked_issue_id = None
-        issue_id_str = input("Link issue (optional) [#id]: ").strip()
-        if issue_id_str:
-            if issue_id_str.startswith("#"):
-                issue_id_str = issue_id_str[1:]
-            try:
-                linked_issue_id = int(issue_id_str)
-                from deep.core.issue import IssueManager
-                issue_manager = IssueManager(dg_dir)
-                issue = issue_manager.get_issue(linked_issue_id)
-                if not issue:
-                    print_error(f"Issue #{linked_issue_id} not found")
+        if is_interactive:
+            issue_id_str = input("Link issue (optional) [#id]: ").strip()
+            if issue_id_str:
+                if issue_id_str.startswith("#"):
+                    issue_id_str = issue_id_str[1:]
+                try:
+                    linked_issue_id = int(issue_id_str)
+                    from deep.core.issue import IssueManager
+                    issue_manager = IssueManager(dg_dir)
+                    issue = issue_manager.get_issue(linked_issue_id)
+                    if not issue:
+                        print_error(f"Issue #{linked_issue_id} not found")
+                        linked_issue_id = None
+                    else:
+                        # Suggest issue title as PR title if PR title was auto-generated
+                        if title.startswith("PR from"):
+                            print_info(f"Suggesting issue title: {issue.title}")
+                            use_issue_title = input("Use issue title? [Y/n]: ").strip().lower()
+                            if use_issue_title != 'n':
+                                title = issue.title
+                except ValueError:
+                    print_error(f"Invalid issue ID: {issue_id_str}")
                     linked_issue_id = None
-                else:
-                    # Suggest issue title as PR title if PR title was auto-generated
-                    if title.startswith("feat: merge"):
-                        print_info(f"Suggesting issue title: {issue.title}")
-                        use_issue_title = input("Use issue title? [Y/n]: ").strip().lower()
-                        if use_issue_title != 'n':
-                            title = issue.title
-            except ValueError:
-                print_error(f"Invalid issue ID: {issue_id_str}")
-                linked_issue_id = None
 
         # 4c. Commit Tracking (Part 9)
         from deep.core.refs import log_history
         all_head_commits = log_history(dg_dir, head_sha)
-        all_base_commits = set(log_history(dg_dir, base_sha))
+        all_base_commits = set(log_history(dg_dir, base_sha)) if base_sha else set()
         pr_commits = [c for c in all_head_commits if c not in all_base_commits]
 
         if not pr_commits:
@@ -186,26 +206,29 @@ def run(args) -> None:
             raise DeepCLIException(1)
 
         # 4d. Reviewer Assignment (Part 7)
-        reviewers_str = input("Assign reviewers (comma separated, optional): ").strip()
-        requested_reviewers = [r.strip().lower() for r in reviewers_str.split(",") if r.strip()] if reviewers_str else []
-        
-        # UX Boost: Auto-Assign Author (Part 3)
-        if author_name.lower() not in requested_reviewers:
-            add_self = input(f"You are not in the reviewer list. Add yourself ({author_name})? [Y/n]: ").strip().lower()
-            if add_self != 'n':
-                requested_reviewers.append(author_name.lower())
+        requested_reviewers = []
+        if is_interactive:
+            reviewers_str = input("Assign reviewers (comma separated, optional): ").strip()
+            requested_reviewers = [r.strip().lower() for r in reviewers_str.split(",") if r.strip()] if reviewers_str else []
+            
+            # UX Boost: Auto-Assign Author (Part 3)
+            if author_name.lower() not in requested_reviewers:
+                add_self = input(f"You are not in the reviewer list. Add yourself ({author_name})? [Y/n]: ").strip().lower()
+                if add_self != 'n':
+                    requested_reviewers.append(author_name.lower())
 
         # 5. Summary & Confirmation
-        print(f"\nSummary:")
-        print(f"  {Color.wrap(Color.YELLOW, head)} \u2192 {Color.wrap(Color.GREEN, base)}")
-        print(f"  Title: {title}")
-        if requested_reviewers:
-            print(f"  Reviewers: {', '.join(requested_reviewers)}")
-        
-        confirm = input("\nConfirm PR creation? [y/N]: ").strip().lower()
-        if confirm != 'y':
-            print_info("PR creation cancelled.")
-            return
+        if is_interactive:
+            print(f"\nSummary:")
+            print(f"  {Color.wrap(Color.YELLOW, head)} \u2192 {Color.wrap(Color.GREEN, base)}")
+            print(f"  Title: {title}")
+            if requested_reviewers:
+                print(f"  Reviewers: {', '.join(requested_reviewers)}")
+            
+            confirm = input("\nConfirm PR creation? [y/N]: ").strip().lower()
+            if confirm != 'y':
+                print_info("PR creation cancelled.")
+                return
 
         # 6. Creation
         try:

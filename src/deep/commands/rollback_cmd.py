@@ -68,11 +68,10 @@ def run(args) -> None:
             raise DeepCLIException(1)
         target_sha = resolved
     else:
-        # Default: parent of HEAD
         head_commit = read_object(objects_dir, head_sha)
         if not isinstance(head_commit, Commit) or not head_commit.parent_shas:
-            print("Deep: error: HEAD has no parent to rollback to", file=sys.stderr)
-            raise DeepCLIException(1)
+            print("Everything up-to-date. No previous commit to rollback to.")
+            return
         target_sha = head_commit.parent_shas[0]
 
     # Verify target is a valid commit
@@ -109,7 +108,10 @@ def run(args) -> None:
         full = repo_root / p
         full.parent.mkdir(parents=True, exist_ok=True)
         blob = read_object(objects_dir, sha)
-        full.write_bytes(blob.serialize_content())
+        if hasattr(blob, "data"):
+            full.write_bytes(blob.data)
+        else:
+            full.write_bytes(blob.serialize_content())
 
     # 4. Reset INDEX to match target tree
     new_index = DeepIndex()
