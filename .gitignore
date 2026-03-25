@@ -98,3 +98,4 @@ __pycache__/
 htmlcov/
 
 tests/e2e_cli/failures
+tests/e2e_cli/test_run.json
