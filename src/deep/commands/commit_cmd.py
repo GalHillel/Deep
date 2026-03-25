@@ -219,11 +219,13 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
                 # Check for MERGE_HEAD (conflict resolution creates merge commit)
                 merge_head_path = dg_dir / "MERGE_HEAD"
+                found_merge_head = False
                 if merge_head_path.exists():
                     try:
                         merge_sha = merge_head_path.read_text(encoding="utf-8").strip()
                         if merge_sha and merge_sha not in parent_shas:
                             parent_shas.append(merge_sha)
+                            found_merge_head = True
                     except Exception:
                         pass
 

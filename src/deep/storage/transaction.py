@@ -180,6 +180,7 @@ class TransactionManager:
     def _restore_backup(self):
         """Restore the index from backup atomically or remove it if it was new."""
         index_path = self.dg_dir / "index"
+        
         if self._backup_path and self._backup_path.exists():
             max_retries = 20
             for i in range(max_retries):
@@ -195,7 +196,8 @@ class TransactionManager:
         elif not self._index_existed_at_start:
             # Index was created during transaction, delete it on rollback
             if index_path.exists():
-                try: os.remove(index_path)
+                try:
+                    os.remove(index_path)
                 except OSError: pass
 
     def _recover_stale_backups(self):

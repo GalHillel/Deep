@@ -92,16 +92,30 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     tm.commit()
                     return
 
+                objects_dir = dg_dir / "objects"
+
+                # Fetch remote objects before FF check so is_ancestor
+                # can walk the DAG reliably even after merge/conflict resolution
+                if remote_sha and remote_sha != "0" * 40:
+                    from deep.objects.hash_object import object_exists
+                    if not object_exists(objects_dir, remote_sha):
+                        try:
+                            client.fetch(
+                                objects_dir,
+                                want_shas=[remote_sha],
+                                have_shas=[local_sha],
+                            )
+                        except Exception:
+                            pass  # Best-effort; is_ancestor will still try
+
                 # Check for divergence/non-fast-forward
                 if remote_sha and remote_sha != "0" * 40:
                     from deep.core.refs import is_ancestor
-                    objects_dir = dg_dir / "objects"
+                    from deep.storage.objects import read_object as _ro, Commit as _Commit
 
-                    # Try to check if remote is ancestor of local (FF check)
                     is_ff = is_ancestor(objects_dir, remote_sha, local_sha)
-                    
+
                     if not is_ff:
-                        # Extra check: if local is ancestor of remote, it's definitely divergent/behind
                         print(Color.wrap(Color.YELLOW,
                               "hint: Updates were rejected because the tip of your current branch is behind\n"
                               "hint: its remote counterpart. Integrate the remote changes (e.g.,\n"
@@ -114,7 +128,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
                 print(f"Pushing {branch} to {url}...")
                 resp = client.push(
-                    dg_dir / "objects",
+                    objects_dir,
                     remote_ref,
                     remote_sha,
                     local_sha,

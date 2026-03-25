@@ -31,12 +31,18 @@ def run(args) -> None:
         print(f"Deep: error: {exc}", file=sys.stderr)
         raise DeepCLIException(1)
 
-    url_or_name = args.url
+    from deep.core.refs import get_current_branch
+
+    dg_dir = repo_root / DEEP_DIR
+
+    url_or_name = args.url or "origin"
     config = Config(repo_root)
     url = config.get(f"remote.{url_or_name}.url", url_or_name)
 
-    branch = args.branch
-    dg_dir = repo_root / DEEP_DIR
+    branch = args.branch or get_current_branch(dg_dir)
+    if not branch:
+        print("Deep: error: could not determine branch to pull. Specify a branch.", file=sys.stderr)
+        raise DeepCLIException(1)
 
     from deep.storage.transaction import TransactionManager
     from deep.objects.hash_object import object_exists
@@ -120,7 +126,7 @@ def run(args) -> None:
                 try:
                     merge_run(merge_args)
                 except DeepCLIException:
-                    # Write MERGE_HEAD so next commit creates a merge commit
+                    # Write MERGE_HEAD
                     merge_head = dg_dir / "MERGE_HEAD"
                     if not merge_head.exists():
                         merge_head.write_text(remote_sha + "\n", encoding="utf-8")

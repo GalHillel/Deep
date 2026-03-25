@@ -91,6 +91,8 @@ def test_push_pull_conflicts(repo_factory):
     
     # P2 pull should result in conflict
     res = repo_factory.run(["pull"], cwd=p2)
+    print("P2 PULL STDOUT:", res.stdout)
+    print("P2 PULL STDERR:", res.stderr)
     assert "CONFLICT" in res.stdout or res.returncode != 0
     
     # Resolve
