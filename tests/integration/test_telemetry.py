@@ -7,6 +7,7 @@ from deep.core.telemetry import TelemetryCollector, Timer
 from deep.core.repository import DEEP_DIR
 
 
+@pytest.fixture
 def telem_repo(tmp_path):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path.cwd() / "src")

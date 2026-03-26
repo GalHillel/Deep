@@ -11,6 +11,7 @@ def ns(**kwargs):
     import argparse
     return argparse.Namespace(**kwargs)
 
+@pytest.fixture
 def repo(tmp_path):
     repo_path = tmp_path / "repo"
     repo_path.mkdir()

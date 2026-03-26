@@ -290,6 +290,7 @@ def unpack(stream_or_data: "Union[bytes, BinaryIO]", objects_dir: Path) -> int:
     count = struct.unpack(">I", count_bytes)[0]
     
     shas_to_write = []
+    local_cache = {} # sha -> full_serialize result
 
     for i in range(count):
         # 2. Read entry header: type_id (1B) and compressed_size (8B)
@@ -336,8 +337,16 @@ def unpack(stream_or_data: "Union[bytes, BinaryIO]", objects_dir: Path) -> int:
             if type_id == 7:
                 # Resolve delta: base_full -> target_full
                 from deep.storage.delta import apply_delta
-                base_obj = read_object(objects_dir.parent, base_sha)
-                uncompressed = apply_delta(base_obj.full_serialize(), uncompressed)
+                
+                # Check local cache first (for objects in the same pack)
+                if base_sha in local_cache:
+                    base_full = local_cache[base_sha]
+                else:
+                    # Fallback to loose/stored objects
+                    base_obj = read_object(objects_dir.parent, base_sha)
+                    base_full = base_obj.full_serialize()
+                
+                uncompressed = apply_delta(base_full, uncompressed)
                 # Re-calculate hash and re-compress for loose storage
                 hasher = hashlib.sha1()
                 hasher.update(uncompressed)
@@ -346,6 +355,9 @@ def unpack(stream_or_data: "Union[bytes, BinaryIO]", objects_dir: Path) -> int:
             else:
                 sha = hasher.hexdigest()
                 compressed = b"".join(compressed_chunks)
+            
+            # Always update local cache for future deltas in this pack
+            local_cache[sha] = uncompressed
         except zlib.error:
             raise ValueError("Corrupt pack entry: zlib decompression failed")
         
