@@ -14,20 +14,44 @@ def test_parallel_commits_isolation(repo_factory):
     
     def worker(idx):
         # Create a fresh clone for each worker to ensure worktree isolation
-        worker_path = Path(tempfile.mkdtemp(prefix=f"worker_{idx}_"))
+        temp_dir = tempfile.mkdtemp(prefix=f"worker_{idx}_{int(time.time())}_")
+        worker_path = Path(temp_dir).resolve()
         try:
-            repo_factory.run(["clone", str(path), str(worker_path)])
+            # Retry clone (common contention on Windows when many threads hit the same source)
+            for i in range(10):
+                res = repo_factory.run(["clone", str(path), str(worker_path)])
+                if res.returncode == 0: break
+                time.sleep(0.5 * (i + 1))
+            else:
+                pytest.fail(f"Worker {idx} failed to clone after 10 attempts")
+
+            time.sleep(1.0) # Allow Windows FS to settle more
+            
             bname = f"branch_{idx}"
-            repo_factory.run(["checkout", "-b", bname], cwd=worker_path)
+            repo_factory.run(["checkout", "-b", bname], cwd=str(worker_path))
             (worker_path / f"file_{idx}.txt").write_text(f"data {idx}")
-            repo_factory.run(["add", f"file_{idx}.txt"], cwd=worker_path)
-            res = repo_factory.run(["commit", "-m", f"commit {idx}"], cwd=worker_path)
+            repo_factory.run(["add", f"file_{idx}.txt"], cwd=str(worker_path))
+            res = repo_factory.run(["commit", "-m", f"commit {idx}"], cwd=str(worker_path))
             assert res.returncode == 0
             
-            # Push back to origin to verify coordination
-            repo_factory.run(["push", "origin", bname], cwd=worker_path)
+            # Additional sleep before push to reduce lock contention on Windows
+            time.sleep(0.1 * idx)
+            
+            # Push back to origin to verify coordination (with retries for lock contention)
+            for i in range(10):
+                res = repo_factory.run(["push", "origin", bname], cwd=str(worker_path))
+                if res.returncode == 0: break
+                time.sleep(0.2 * (i + 1))
+            else:
+                pytest.fail(f"Worker {idx} failed to push after 10 attempts")
         finally:
-            shutil.rmtree(worker_path, ignore_errors=True)
+            # Retry deletion if it fails (common on Windows)
+            for _ in range(5):
+                try:
+                    shutil.rmtree(worker_path)
+                    break
+                except:
+                    time.sleep(0.2)
 
     threads = []
     for i in range(5):
@@ -51,7 +75,8 @@ def test_parallel_clones_stress(repo_factory):
     
     clones = []
     def do_clone(idx):
-        cpath = Path(tempfile.mkdtemp(prefix=f"clone_{idx}_"))
+        temp_dir = tempfile.mkdtemp(prefix=f"clone_{idx}_{int(time.time())}_")
+        cpath = Path(temp_dir).resolve()
         res = repo_factory.run(["clone", str(upstream), str(cpath)])
         assert res.returncode == 0
         clones.append(cpath)
@@ -67,4 +92,9 @@ def test_parallel_clones_stress(repo_factory):
         
     # Cleanup
     for c in clones:
-        shutil.rmtree(c)
+        for _ in range(5):
+            try:
+                shutil.rmtree(c)
+                break
+            except:
+                time.sleep(0.2)

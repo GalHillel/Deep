@@ -46,7 +46,7 @@ class TestRm:
     def test_rm_untracked_fails(self, repo: Path) -> None:
         f = repo / "ghost.txt"
         f.write_text("boo")
-        with pytest.raises(DeepCLIException):
+        with pytest.raises(SystemExit):
             main(["rm", str(f)])
 
     def test_rm_multiple_files(self, repo: Path) -> None:
@@ -99,7 +99,7 @@ class TestReset:
 
     def test_reset_invalid_sha(self, repo: Path) -> None:
         _commit(repo, "f.txt", "v1", "c1")
-        with pytest.raises(DeepCLIException):
+        with pytest.raises(SystemExit):
             main(["reset", "0" * 40])
 
     def test_reset_round_trip(self, repo: Path) -> None:

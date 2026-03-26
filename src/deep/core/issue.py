@@ -117,6 +117,8 @@ class IssueManager:
         
         if pr_id not in issue.linked_prs:
             issue.linked_prs.append(pr_id)
+            if issue.status == "open":
+                issue.status = "in-progress"
             # Add event directly to this instance to avoid race conditions with nested saves
             self.add_event(issue_id, "system", "PR_LINKED", f"Linked to PR #{pr_id}", already_loaded_issue=issue)
             # The add_event call above now handles the save_issue call.
@@ -140,3 +142,14 @@ class IssueManager:
         issue.events.append(entry)
         self.save_issue(issue)
         return issue
+
+    # Backward compatibility for tests and older integrations
+    def add_timeline_event(self, issue_id: int, event_type: str, **kwargs):
+        desc = kwargs.pop("reason", "")
+        if not desc and "sha" in kwargs:
+            desc = f"Commit linked: {kwargs['sha'][:7]}"
+        if not desc and "pr" in kwargs:
+            desc = f"PR linked: {kwargs['pr']}"
+        if not desc:
+            desc = f"System event: {event_type}"
+        return self.add_event(issue_id, actor="system", action=event_type, description=desc, **kwargs)

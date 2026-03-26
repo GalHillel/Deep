@@ -43,6 +43,9 @@ from deep.network.transport import (
     parse_git_url,
     create_transport,
 )
+from deep.utils.logger import get_logger, setup_repo_logging
+
+logger = get_logger("deep.network.smart_protocol")
 from deep.objects.packfile import (
     unpack_to_store,
     build_pack,
@@ -189,7 +192,48 @@ class SmartTransportClient:
     def __init__(self, url: str, token: Optional[str] = None):
         self.url = url
         self.token = token
-        self._transport_type, _, _, _ = parse_git_url(url)
+        self._transport_type, self._host, _, _ = parse_git_url(url)
+        self._remote_type = self._detect_remote_type()
+
+    def _detect_remote_type(self) -> str:
+        """Detect whether the remote is an external Git server or a Deep daemon.
+
+        Returns:
+            'external' for Git-compatible servers (GitHub, GitLab, etc.)
+            'deep' for Deep daemon remotes
+        """
+        # HTTPS/HTTP to any host is always a Git-compatible server
+        if self._transport_type in ("https", "http"):
+            return "external"
+
+        # SSH to a non-localhost host is an external Git server
+        if self._transport_type == "ssh":
+            host_lower = self._host.lower()
+            # Strip user@ prefix for comparison
+            bare_host = host_lower.split("@")[-1] if "@" in host_lower else host_lower
+            if bare_host not in ("localhost", "127.0.0.1", "::1"):
+                return "external"
+
+        return "deep"
+
+    @staticmethod
+    def _select_service(service: str, remote_type: str) -> str:
+        """Select the correct service name based on remote type.
+
+        External Git servers (GitHub, GitLab) require standard
+        'git-upload-pack' / 'git-receive-pack' service names.
+        Deep daemon remotes use 'deep-upload-pack' / 'deep-receive-pack'.
+
+        Args:
+            service: Base service name (e.g., 'deep-upload-pack').
+            remote_type: 'external' or 'deep'.
+
+        Returns:
+            The appropriate service name for the remote.
+        """
+        if remote_type == "external":
+            return service.replace("deep-", "git-")
+        return service
 
     def ls_remote(self) -> Dict[str, str]:
         """List remote references.
@@ -204,7 +248,8 @@ class SmartTransportClient:
 
     def _ls_remote_https(self) -> Dict[str, str]:
         transport = HTTPSTransport(self.url, token=self.token)
-        data, content_type = transport.get_refs("deep-upload-pack")
+        service = self._select_service("deep-upload-pack", self._remote_type)
+        data, content_type = transport.get_refs(service)
         refs, _ = parse_ref_advertisement(data)
         return refs
 
@@ -244,9 +289,10 @@ class SmartTransportClient:
         filter_spec: Optional[str] = None,
     ) -> Tuple[Dict[str, str], str]:
         transport = HTTPSTransport(self.url, token=self.token)
+        service = self._select_service("deep-upload-pack", self._remote_type)
 
         # Step 1: Discover refs
-        data, _ = transport.get_refs("deep-upload-pack")
+        data, _ = transport.get_refs(service)
         refs, server_caps = parse_ref_advertisement(data)
 
         if not refs:
@@ -265,8 +311,8 @@ class SmartTransportClient:
             refs, set(), server_caps, depth=depth, filter_spec=filter_spec
         )
 
-        # Step 3: POST to deep-upload-pack
-        resp = transport.post_service("deep-upload-pack", request_body)
+        # Step 3: POST upload-pack request
+        resp = transport.post_service(service, request_body)
 
         # Step 4: Parse response and extract packfile
         pack_data = self._receive_pack_https(resp, server_caps)
@@ -274,8 +320,7 @@ class SmartTransportClient:
         # Step 5: Unpack objects
         if pack_data:
             count = unpack_to_store(pack_data, objects_dir)
-            if os.environ.get("DEEP_DEBUG"):
-                print(f"[DEEP_DEBUG] Unpacked {count} objects", file=sys.stderr)
+            logger.debug(f"Unpacked {count} objects")
 
         return refs, head_ref
 
@@ -313,9 +358,7 @@ class SmartTransportClient:
             # Step 4: Unpack
             if pack_data:
                 count = unpack_to_store(pack_data, objects_dir)
-                if os.environ.get("DEEP_DEBUG"):
-                    print(f"[DEEP_DEBUG] Unpacked {count} objects",
-                          file=sys.stderr)
+                logger.debug(f"Unpacked {count} objects")
 
             return refs, head_ref
         finally:
@@ -353,7 +396,8 @@ class SmartTransportClient:
         filter_spec: Optional[str] = None,
     ) -> int:
         transport = HTTPSTransport(self.url, token=self.token)
-        data, _ = transport.get_refs("deep-upload-pack")
+        service = self._select_service("deep-upload-pack", self._remote_type)
+        data, _ = transport.get_refs(service)
         refs, server_caps = parse_ref_advertisement(data)
 
         if not refs:
@@ -374,7 +418,7 @@ class SmartTransportClient:
         request_body = self._build_upload_request(
             refs, local_shas, server_caps, depth=depth, filter_spec=filter_spec, want_refs=wants
         )
-        resp = transport.post_service("deep-upload-pack", request_body)
+        resp = transport.post_service(service, request_body)
         pack_data = self._receive_pack_https(resp, server_caps)
 
         if pack_data:
@@ -451,7 +495,8 @@ class SmartTransportClient:
         transport = HTTPSTransport(self.url, token=self.token)
 
         # Discover remote refs
-        data, _ = transport.get_refs("deep-receive-pack")
+        push_service = self._select_service("deep-receive-pack", self._remote_type)
+        data, _ = transport.get_refs(push_service)
         refs, server_caps = parse_ref_advertisement(data)
 
         # Build push request
@@ -459,7 +504,7 @@ class SmartTransportClient:
             objects_dir, ref, old_sha, new_sha, server_caps
         )
 
-        resp = transport.post_service("deep-receive-pack", request_body)
+        resp = transport.post_service(push_service, request_body)
         return self._parse_push_response(resp)
 
     def _push_ssh(

@@ -33,7 +33,6 @@ def env():
     return e
 
 
-@pytest.mark.skip(reason="Experimental P2P/Server features currently disabled in main.py")
 def test_distributed_workflow(tmp_path: Path, env: dict[str, str]):
     # 1. Setup Server Repo
     server_root = tmp_path / "server"

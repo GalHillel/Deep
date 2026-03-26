@@ -105,8 +105,9 @@ class TestIssueCmd(unittest.TestCase):
                 self.assertIn("Test Show", output)
 
     @patch("deep.commands.issue_cmd.find_repo")
+    @patch("sys.stdin.isatty", return_value=True)
     @patch("builtins.input", return_value="1") # Select 'bug'
-    def test_run_create(self, mock_input, mock_find_repo):
+    def test_run_create(self, mock_input, mock_isatty, mock_find_repo):
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
@@ -141,8 +142,9 @@ class TestIssueCmd(unittest.TestCase):
     @patch("deep.utils.network.get_github_remote")
     @patch("deep.utils.network.get_token")
     @patch("deep.commands.issue_cmd.find_repo")
+    @patch("sys.stdin.isatty", return_value=True)
     @patch("builtins.input")
-    def test_sync_during_create(self, mock_input, mock_find_repo, mock_get_token, mock_get_remote, mock_api):
+    def test_sync_during_create(self, mock_input, mock_isatty, mock_find_repo, mock_get_token, mock_get_remote, mock_api):
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)

@@ -212,7 +212,11 @@ def _branch_path(dg_dir: Path, name: str) -> Path:
 
 
 def _remote_ref_path(dg_dir: Path, remote: str, branch: str) -> Path:
-    return dg_dir / "refs" / "remotes" / remote / branch
+    # Sanitize remote name for filesystem safety (especially Windows)
+    # Replace characters that are invalid in Windows filenames (like :)
+    # and characters that could cause path traversal or confusion (like / or \)
+    safe_remote = remote.replace(":", "_").replace("/", "_").replace("\\", "_")
+    return dg_dir / "refs" / "remotes" / safe_remote / branch
 
 
 def get_remote_ref(dg_dir: Path, remote: str, branch: str) -> Optional[str]:

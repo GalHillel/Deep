@@ -1164,8 +1164,8 @@ def main(argv: list[str] | None = None) -> None:
     except DeepError as e:
         print(f"Deep: error: {e}", file=sys.stderr)
         raise DeepCLIException(1)
-    except DeepCLIException as e:
-        sys.exit(e.code if hasattr(e, 'code') else 1)
+    except DeepCLIException:
+        raise
     except Exception as e:
         # Don't silence unexpected exceptions in dev mode if requested,
         # but for CLI users, show a clean internal error.

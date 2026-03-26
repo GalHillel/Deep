@@ -69,9 +69,10 @@ def test_pr_merge_real():
             raise Exception(f"Verification failed: PR status is {pr_status}, expected 'merged'")
             
         print("\n\u2714 SUCCESS: PR merge performed real integration safely.")
-        
     finally:
         os.chdir("..")
+        from deep.utils.logger import shutdown_logging
+        shutdown_logging()
         shutil.rmtree(test_dir)
 
 if __name__ == "__main__":

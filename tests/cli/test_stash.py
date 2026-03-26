@@ -84,9 +84,9 @@ def test_stash_pop_with_conflict(repo_with_commit: Path, capsys: pytest.CaptureF
     main(["commit", "-m", "v3 commit"])
     
     # Now pop
-    with pytest.raises(DeepCLIException) as exc:
+    with pytest.raises(SystemExit) as exc:
         main(["stash", "pop"])
-    assert "CLI exited with 1" in str(exc.value)
+    assert exc.value.code == 1
     
     # Check that it kept OURS (v3)
     content = f.read_text(encoding="utf-8")

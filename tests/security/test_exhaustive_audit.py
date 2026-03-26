@@ -91,6 +91,9 @@ def run_phase_4(workspace: Path):
     env["PYTHONPATH"] = str(Path(__file__).parent.parent / "src")
     res = subprocess.run([sys.executable, "-m", "deep.cli.main", "diff"], capture_output=True, text=True, env=env)
     check("+modified content" in res.stdout, "Diff shows added line")
+    
+    # Clean up for Phase 5 (Merging) which requires a clean WD
+    main(["reset", "--hard", "HEAD"])
 
 def run_phase_5(workspace: Path):
     log("Phase 5: Merging")
@@ -165,6 +168,11 @@ def test_exhaustive_audit():
             run_phase_9(audit_workspace_path)
         finally:
             os.chdir(original_cwd)
+            try:
+                from deep.utils.logger import shutdown_logging
+                shutdown_logging()
+            except ImportError:
+                pass
 
 if __name__ == "__main__":
     test_exhaustive_audit()

@@ -17,6 +17,8 @@ def repo_dir():
     init_repo(tmpdir)
     yield Path(tmpdir)
     os.chdir(original_cwd)
+    from deep.utils.logger import shutdown_logging
+    shutdown_logging()
     shutil.rmtree(tmpdir)
 
 def test_basic_workflow(repo_dir):

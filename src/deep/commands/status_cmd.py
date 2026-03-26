@@ -21,6 +21,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``status`` command."""
     try:
         repo_root = find_repo()
+        from deep.utils.logger import setup_repo_logging
+        setup_repo_logging(repo_root)
     except FileNotFoundError as exc:
         print(f"Deep: error: {exc}", file=sys.stderr)
         raise DeepCLIException(1)

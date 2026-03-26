@@ -62,7 +62,7 @@ def interactive_create(manager: IssueManager, repo_root: Path) -> Issue:
     is_interactive = sys.stdin.isatty()
     if not is_interactive:
         # Should not be reached if run() handles it, but safety first
-        return manager.create_issue("Auto Issue", "Auto Description", "bug", get_author(repo_root))
+        return manager.create_issue("New Issue", "Auto Description", "bug", get_author(repo_root))
 
     print(Color.wrap(Color.CYAN, "\n--- Create Issue ---"))
     

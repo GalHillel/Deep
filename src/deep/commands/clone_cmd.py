@@ -58,6 +58,9 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         init_cmd.run(ns(path=None, files=[], bare=mirror))
 
         dg_dir = target_dir if mirror else target_dir / DEEP_DIR
+        from deep.utils.logger import setup_repo_logging
+        setup_repo_logging(target_dir, is_bare=mirror) # Initialize file logging in the new repo
+        
         objects_dir = dg_dir / "objects"
 
         # Use native smart protocol
@@ -142,10 +145,15 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     except Exception as e:
         # Step back to original CWD before deletion on Windows
         os.chdir(old_cwd)
-        import shutil
+        from deep.utils.logger import shutdown_logging
+        from deep.utils.system import safe_rmtree
+        
+        # Release log handle before cleanup
+        shutdown_logging()
+        
         if target_dir.exists():
             try:
-                shutil.rmtree(target_dir)
+                safe_rmtree(target_dir, ignore_errors=True)
             except OSError:
                 # Best effort cleanup
                 pass

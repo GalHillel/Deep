@@ -122,12 +122,10 @@ def ns(**kwargs):
     import argparse
     return argparse.Namespace(**kwargs)
 
-from deep.core.constants import DEEP_DIR # Keep this for now, as the new DEEP_DIR import is part of a larger block that's not fully replacing the old one.
-from deep.core.refs import resolve_head, get_current_branch, list_branches, resolve_revision
-from deep.core.repository import find_repo
-from deep.storage.index import read_index, write_index
+from deep.core.constants import DEEP_DIR
 from deep.core.status import compute_status
-from deep.core.errors import DeepError
+from deep.core.refs import get_current_branch, resolve_head, resolve_revision, list_branches, get_branch, list_tags
+from deep.core.errors import DeepError, DeepCLIException
 from deep.core.pr import PRManager
 from deep.core.issue import IssueManager
 from deep.core.diff import diff_working_tree, diff_trees
@@ -151,9 +149,10 @@ class DashboardService:
         try:
             res = fn(*args, **kwargs)
             return {"success": True, "data": res}
-        except Exception as e:
+        except (Exception, DeepCLIException) as e:
             traceback.print_exc()
-            return {"success": False, "error": str(e)}
+            msg = getattr(e, "message", str(e)) if not isinstance(e, DeepCLIException) else f"CLI Exit {e.code}"
+            return {"success": False, "error": msg}
 
     # --- File System ---
 
@@ -165,7 +164,7 @@ class DashboardService:
         exclude = {".git", "node_modules", DEEP_DIR}
         
         for root, dirs, files in os.walk(self.repo_root):
-            dirs[:] = [d for d in dirs if d not in exclude and not d.startswith(".")]
+            dirs[:] = [d for d in dirs if d not in exclude]
             rel_root = Path(root).relative_to(self.repo_root)
             if str(rel_root) == '.':
                 current_level = tree_dict
@@ -939,5 +938,6 @@ def perform_commit(filepath, content, message, amend=False):
  
         return {"success": True}
  
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except (Exception, DeepCLIException) as e:
+        msg = getattr(e, "message", str(e)) if not isinstance(e, DeepCLIException) else f"CLI Exit {e.code}"
+        return {"success": False, "error": msg}

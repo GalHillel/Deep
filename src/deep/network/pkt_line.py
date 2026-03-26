@@ -83,10 +83,6 @@ def read_pkt_line(stream: BinaryIO) -> Optional[bytes]:
         suffix = "..." if len(payload) > 100 else ""
         print(f"[PKT] <<< {display!r}{suffix}", file=sys.stderr)
 
-    # Strip trailing newline if present
-    if payload.endswith(b"\n"):
-        payload = payload[:-1]
-
     return payload
 
 

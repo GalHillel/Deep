@@ -54,7 +54,6 @@ def remote_repo(tmp_path: Path) -> Path:
 
     return remote_dir
 
-@pytest.mark.skip(reason="Experimental P2P/Server features currently disabled in main.py")
 def test_full_remote_workflow(remote_repo: Path, tmp_path: Path) -> None:
     # 1. Start Daemon in background
     port = get_free_port()

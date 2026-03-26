@@ -296,6 +296,12 @@ def unpack(stream_or_data: "Union[bytes, BinaryIO]", objects_dir: Path) -> int:
         header = sw.read(9)
         type_id, comp_size = struct.unpack(">BQ", header)
         
+        base_sha = None
+        if type_id == 7:
+            # 2.1 Read 20-byte base SHA for deltas
+            base_sha_bytes = sw.read(20)
+            base_sha = base_sha_bytes.hex()
+        
         # 3. Read compressed data in chunks to avoid memory spikes
         # Stream decompression to prevent memory exhaustion / zip bombs
         MAX_OBJECT_SIZE = 50 * 1024 * 1024 # 50MB
@@ -317,18 +323,32 @@ def unpack(stream_or_data: "Union[bytes, BinaryIO]", objects_dir: Path) -> int:
                 if raw_size > MAX_OBJECT_SIZE:
                     raise ValueError(f"Pack entry exceeds maximum allowed size of {MAX_OBJECT_SIZE} bytes")
                 hasher.update(uncompressed_chunk)
-            
+                raw_chunks.append(uncompressed_chunk)
+
             uncompressed_chunk = decompressor.flush()
             raw_size += len(uncompressed_chunk)
             if raw_size > MAX_OBJECT_SIZE:
                 raise ValueError(f"Pack entry exceeds maximum allowed size of {MAX_OBJECT_SIZE} bytes")
             hasher.update(uncompressed_chunk)
-            
-            compressed = b"".join(compressed_chunks)
+            raw_chunks.append(uncompressed_chunk)
+
+            uncompressed = b"".join(raw_chunks)
+            if type_id == 7:
+                # Resolve delta: base_full -> target_full
+                from deep.storage.delta import apply_delta
+                base_obj = read_object(objects_dir.parent, base_sha)
+                uncompressed = apply_delta(base_obj.full_serialize(), uncompressed)
+                # Re-calculate hash and re-compress for loose storage
+                hasher = hashlib.sha1()
+                hasher.update(uncompressed)
+                sha = hasher.hexdigest()
+                compressed = zlib.compress(uncompressed)
+            else:
+                sha = hasher.hexdigest()
+                compressed = b"".join(compressed_chunks)
         except zlib.error:
             raise ValueError("Corrupt pack entry: zlib decompression failed")
         
-        sha = hasher.hexdigest()
         shas_to_write.append((sha, compressed))
 
     # 4. Validate trailer (next 20 bytes - NOT hashed into the content hash)

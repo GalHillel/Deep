@@ -16,13 +16,16 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional, Set, Any, cast, List
-
+import sys
 from deep.core.ignore import IgnoreEngine # type: ignore
 from deep.storage.index import read_index, DeepIndex # type: ignore
 from deep.storage.objects import Blob, Commit, Tree, read_object # type: ignore
 from deep.core.refs import resolve_head # type: ignore
 from deep.core.constants import DEEP_DIR # type: ignore
 from deep.utils.utils import hash_bytes # type: ignore
+from deep.utils.logger import get_logger
+
+logger = get_logger("deep.core.status")
 
 
 @dataclass
@@ -77,14 +80,12 @@ def _walk_working_dir(repo_root: Path) -> Set[str]:
     """
     files: set[str] = set()
     for dirpath, dirnames, filenames in os.walk(repo_root):
-        # Skip .deep and hidden dirs.
-        dirnames[:] = [ # type: ignore
+        # Skip internal directories
+        dirnames[:] = [
             d for d in dirnames
-            if d != DEEP_DIR and not d.startswith(".")
+            if d != DEEP_DIR and d != ".git"
         ]
         for fname in filenames:
-            if fname.startswith("."):
-                continue
             full = Path(dirpath) / fname
             rel = full.relative_to(repo_root).as_posix()
             files.add(rel)
@@ -156,6 +157,7 @@ def compute_status(repo_root: Path, index: Optional[DeepIndex] = None) -> Status
             for f in futures:
                 path, is_mod = f.result()
                 if is_mod:
+                    logger.debug(f"File modified: {path}")
                     modified_paths.add(path)
 
     for path in sorted(all_paths):
@@ -165,10 +167,13 @@ def compute_status(repo_root: Path, index: Optional[DeepIndex] = None) -> Status
 
         # --- Staged changes (DeepIndex vs HEAD) ---
         if in_index and not in_head:
+            logger.debug(f"Staged new: {path}")
             result.staged_new.append(path)
         elif in_index and in_head and index.entries[path].content_hash != head_entries[path]:
+            logger.debug(f"Staged modified: {path}")
             result.staged_modified.append(path)
         elif not in_index and in_head:
+            logger.debug(f"Staged deleted: {path}")
             result.staged_deleted.append(path)
 
         # --- Unstaged changes (Working dir vs DeepIndex) ---
@@ -177,6 +182,7 @@ def compute_status(repo_root: Path, index: Optional[DeepIndex] = None) -> Status
                 result.modified.append(path)
         elif in_index and not in_wd:
             if not index.entries[path].skip_worktree:
+                logger.debug(f"File deleted: {path}")
                 result.deleted.append(path)
 
         # --- Untracked ---

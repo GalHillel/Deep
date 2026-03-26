@@ -78,7 +78,6 @@ def tempfile_dir():
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
-@pytest.mark.skip(reason="Platform commands (user, repo, remote) are disabled")
 def test_platform_scenarios():
     with tempfile_dir() as tmpdir:
         run_scenarios(Path(tmpdir))

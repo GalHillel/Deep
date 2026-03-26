@@ -34,6 +34,10 @@ from typing import (
 )
 from pathlib import Path
 
+from deep.utils.logger import get_logger
+
+logger = get_logger("deep.objects.packfile")
+
 from deep.objects.delta import apply_delta as deep_apply_delta
 
 # Packfile constants
@@ -162,10 +166,8 @@ def _decompress_object(stream: BinaryIO, expected_size: int) -> bytes:
     if len(result) != expected_size:
         # Some servers send slightly different sizes; be tolerant
         # but log a warning for debugging
-        if os.environ.get("DEEP_DEBUG"):
-            import sys
-            print(f"[DEEP_DEBUG] Object size mismatch: expected {expected_size}, "
-                  f"got {len(result)}", file=sys.stderr)
+        logger.debug(f"Object size mismatch: expected {expected_size}, "
+                     f"got {len(result)}")
 
     return bytes(result)
 
@@ -219,10 +221,7 @@ class PackfileParser:
         count_bytes = self._hashed_read(4)
         count = struct.unpack(">I", count_bytes)[0]
 
-        if os.environ.get("DEEP_DEBUG"):
-            import sys
-            print(f"[DEEP_DEBUG] Packfile: version={version}, objects={count}",
-                  file=sys.stderr)
+        logger.debug(f"Packfile: version={version}, objects={count}")
 
         # Parse each object
         results: List[Tuple[str, bytes]] = []
@@ -326,10 +325,7 @@ class PackfileParser:
             expected_hash = self._hasher.digest()
             trailer = self._stream.read(20)
             if len(trailer) == 20 and trailer != expected_hash:
-                if os.environ.get("DEEP_DEBUG"):
-                    import sys
-                    print(f"[DEEP_DEBUG] Pack trailer mismatch (non-fatal)",
-                          file=sys.stderr)
+                logger.debug("Pack trailer mismatch (non-fatal)")
         except Exception:
             pass  # Some streams may not have trailer accessible
 

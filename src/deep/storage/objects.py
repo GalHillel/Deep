@@ -165,6 +165,13 @@ class Blob(DeepObject):
     OBJ_TYPE: str = field(init=False, default="blob", repr=False)
     data: bytes = b""
 
+    def __repr__(self) -> str:
+        DEBUG_MODE = os.environ.get("DEEP_DEBUG") == "1"
+        if DEBUG_MODE:
+            return f"Blob(data={self.data!r})"
+        preview = self.data[:64]
+        return f"Blob(data={preview!r}..., len={len(self.data)})"
+
     def serialize_content(self) -> bytes:
         return self.data
 
@@ -499,6 +506,13 @@ class Chunk(DeepObject):
     """A sub-file content chunk for deduplication."""
     OBJ_TYPE: str = field(init=False, default="chunk", repr=False)
     data: bytes
+
+    def __repr__(self) -> str:
+        DEBUG_MODE = os.environ.get("DEEP_DEBUG") == "1"
+        if DEBUG_MODE:
+            return f"Chunk(data={self.data!r})"
+        preview = self.data[:64]
+        return f"Chunk(data={preview!r}..., len={len(self.data)})"
 
     def serialize_content(self) -> bytes:
         return self.data

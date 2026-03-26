@@ -16,8 +16,9 @@ from deep.storage.txlog import TransactionLog
 from deep.storage.cache import CacheManager
 from deep.core.locks import RepositoryLock, BranchLock, IndexLock, BaseLock
 from deep.core.errors import TransactionError, LockError
+from deep.utils.logger import get_logger
 
-logger = logging.getLogger("deep.storage.transaction")
+logger = get_logger("deep.storage.transaction")
 
 class TransactionManager:
     """Context manager for atomic repository operations.

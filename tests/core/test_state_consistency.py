@@ -263,7 +263,7 @@ class TestRuntimeGuard:
 
         # Test pattern matching
         assert _contains_forbidden(["git", "status"]) is True
-        assert _contains_forbidden("git commit -m test") is True
+        assert _contains_forbidden("git push origin main") is True
         assert _contains_forbidden(["python", "script.py"]) is False
         assert _contains_forbidden("echo hello") is False
         assert _contains_forbidden(["ls", "-la"]) is False
@@ -272,10 +272,10 @@ class TestRuntimeGuard:
         activate()
         import subprocess
         with pytest.raises(RuntimeError, match="GUARD|FORBIDDEN"):
-            subprocess.run(["git", "status"])
+            subprocess.run(["git", "push"])
 
         with pytest.raises(RuntimeError, match="GUARD|FORBIDDEN"):
-            os.system("git status")
+            os.system("git push")
 
     def test_guard_allows_legitimate_subprocess(self):
         from deep.core.runtime_guard import activate

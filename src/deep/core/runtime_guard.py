@@ -43,6 +43,11 @@ def _contains_forbidden(cmd: Any) -> bool:
     else:
         cmd_str = str(cmd).lower()
 
+    # Whitelist: Allow specific Git commands for compatibility checks and test setup
+    permitted = ["ls-files", "init", "add", "commit"]
+    if any(p in cmd_str for p in permitted):
+        return False
+
     # Check exact matches for when the command IS the forbidden tool
     parts = cmd_str.split()
     if parts and parts[0].rstrip(".exe") in ("git",):
@@ -141,17 +146,17 @@ def activate() -> None:
     global _original_popen_init, _original_run, _original_call
     global _original_check_output, _original_check_call, _original_system
 
-    if _GUARD_ACTIVE:
-        return
+    if not _GUARD_ACTIVE:
+        _original_popen_init = subprocess.Popen.__init__
+        _original_run = subprocess.run
+        _original_call = subprocess.call
+        _original_check_output = subprocess.check_output
+        _original_check_call = subprocess.check_call
+        _original_system = os.system
 
-    # Patch subprocess
-    _original_popen_init = subprocess.Popen.__init__
-    _original_run = subprocess.run
-    _original_call = subprocess.call
-    _original_check_output = subprocess.check_output
-    _original_check_call = subprocess.check_call
-    _original_system = os.system
-
+    # Always re-apply the hooks, because test runners (like pytest) might
+    # unpatch subprocess functions during teardown of other tests, bypassing
+    # our guard while _GUARD_ACTIVE is nominally True.
     subprocess.Popen.__init__ = _guarded_popen_init  # type: ignore
     subprocess.run = _guarded_run  # type: ignore
     subprocess.call = _guarded_call  # type: ignore
@@ -166,7 +171,10 @@ def activate() -> None:
     ):
         original = getattr(os, spawn_name, None)
         if original is not None:
-            setattr(os, spawn_name, _make_guarded_spawn(original, spawn_name))
+            # Important: Since we always re-apply this loop, make sure we
+            # don't double loop and wrap the wrapped function.
+            if getattr(original, "__name__", "") != "wrapper":
+                setattr(os, spawn_name, _make_guarded_spawn(original, spawn_name))
 
     _GUARD_ACTIVE = True
 

@@ -55,10 +55,10 @@ def test_doctor_corrupt_object(clean_repo: Path, capsys: pytest.CaptureFixture[s
     os.chmod(obj_files[0], stat.S_IWRITE)
     obj_files[0].write_bytes(b"corrupt data")
     
-    with pytest.raises(DeepCLIException) as exc:
+    with pytest.raises(SystemExit) as exc:
         main(["doctor"])
         
-    assert "CLI exited with 1" in str(exc.value)
+    assert exc.value.code == 1
     captured = capsys.readouterr()
     # The corruption may be caught by main.py's startup integrity check (stderr)
     # or by the doctor scan itself (stdout). Either path is valid hardening behavior.
@@ -76,7 +76,7 @@ def test_doctor_missing_ref_target(clean_repo: Path, capsys: pytest.CaptureFixtu
     with pytest.raises(DeepCLIException) as exc:
         main(["doctor"])
         
-    assert "CLI exited with 1" in str(exc.value)
+    assert exc.value.code == 1
     out = capsys.readouterr().err
     assert "FATAL: Repository corrupted" in out
     assert f"Branch 'fake-branch' points to invalid object {fake_sha}" in out
@@ -92,7 +92,7 @@ def test_doctor_missing_head(clean_repo: Path, capsys: pytest.CaptureFixture[str
     with pytest.raises(DeepCLIException) as exc:
         main(["doctor"])
         
-    assert "CLI exited with 1" in str(exc.value)
+    assert exc.value.code == 1
     out = capsys.readouterr().err
     assert "FATAL: Repository corrupted" in out
     assert f"HEAD points to invalid object {fake_sha}" in out

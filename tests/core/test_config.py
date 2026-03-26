@@ -68,11 +68,11 @@ def test_commit_uses_config(repo_with_home: Path, capsys: pytest.CaptureFixture[
     assert "Author: Alice <alice@wonder.land>" in out
 
 
-def test_missing_config_fallback(repo_with_home: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    # Exits 1 if not found
-    with pytest.raises(DeepCLIException) as excinfo:
-        main(["config", "does.notexist"])
-    assert "CLI exited with 1" in str(excinfo.value)
+    def test_missing_config_fallback(repo_with_home: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        # Exits 1 if not found
+        with pytest.raises(SystemExit) as excinfo:
+            main(["config", "does.notexist"])
+        assert excinfo.value.code == 1
 
 def test_config_outside_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     fake_home = tmp_path / "home"
@@ -88,6 +88,6 @@ def test_config_outside_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ca
     assert out == "Out Repo"
     
     # Local get/set fails outside repo
-    with pytest.raises(DeepCLIException) as excinfo:
+    with pytest.raises(SystemExit) as excinfo:
         main(["config", "user.name"])
-    assert "CLI exited with 1" in str(excinfo.value)
+    assert excinfo.value.code == 1

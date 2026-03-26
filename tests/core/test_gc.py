@@ -45,7 +45,7 @@ def repo_with_orphan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[P
     return tmp_path, orphan_sha
 
 
-def test_gc_collects_orphan(repo_with_orphan: tuple[Path, str], capsys: pytest.CaptureFixture[str]) -> None:
+def test_gc_collects_orphan(repo_with_orphan: tuple[Path, str], capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
     repo_root, orphan_sha = repo_with_orphan
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -54,6 +54,11 @@ def test_gc_collects_orphan(repo_with_orphan: tuple[Path, str], capsys: pytest.C
     from deep.storage.objects import _object_path
     orphan_path = _object_path(objects_dir, orphan_sha)
     assert orphan_path.exists()
+
+    # Fast-forward time to bypass age restrictions
+    import time
+    original_time = time.time
+    monkeypatch.setattr(time, "time", lambda: original_time() + 4000)
     
     # Run GC
     main(["gc"])

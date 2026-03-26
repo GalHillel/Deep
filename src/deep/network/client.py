@@ -67,6 +67,8 @@ class RemoteClient:
 
     def connect(self):
         """Connect to the daemon and consume handshake."""
+        if self.sock:
+            return
         self.sock = socket.create_connection((self.host, self.port), timeout=10)
         self.reader = self.sock.makefile('rb')
         self.writer = self.sock.makefile('wb')
@@ -107,6 +109,7 @@ class RemoteClient:
         return self._obj_cache[sha]
 
     def push(self, objects_dir: Path, ref: str, old_sha: str, new_sha: str):
+        self.connect()
         shas_to_push = _discover_objects(objects_dir, old_sha, new_sha)
         if not shas_to_push:
             return "Everything up-to-date"
@@ -128,6 +131,7 @@ class RemoteClient:
         return resp.decode("ascii")
 
     def ls_refs(self) -> Dict[str, str]:
+        self.connect()
         self.stream.write(b"ls-refs")
         pkts = self.stream.read_until_flush()
         

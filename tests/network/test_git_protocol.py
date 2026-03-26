@@ -40,7 +40,7 @@ class TestPktLine:
         buf.seek(0)
 
         result = read_pkt_line(buf)
-        assert result == b"hello world"
+        assert result == b"hello world\n"
 
     def test_flush_packet(self):
         """Verify flush packet (0000) returns None."""
@@ -68,9 +68,9 @@ class TestPktLine:
 
         lines = read_pkt_lines(buf)
         assert len(lines) == 3
-        assert lines[0] == b"line 1"
-        assert lines[1] == b"line 2"
-        assert lines[2] == b"line 3"
+        assert lines[0] == b"line 1\n"
+        assert lines[1] == b"line 2\n"
+        assert lines[2] == b"line 3\n"
 
     def test_length_prefix_format(self):
         """Verify the 4-byte hex length prefix."""
@@ -103,7 +103,9 @@ class TestPktLine:
         buf.seek(0)
 
         result = read_pkt_line(buf)
-        assert result == data
+        expected_data = data + b"\n"
+        assert len(result) == len(expected_data)
+        assert hashlib.sha1(result).hexdigest() == hashlib.sha1(expected_data).hexdigest()
 
     def test_packet_too_large_raises(self):
         """Verify packets exceeding max size raise ValueError."""
@@ -173,7 +175,8 @@ class TestDelta:
 
         delta = create_delta(source, target)
         result = apply_delta(source, delta)
-        assert result == target
+        assert len(result) == len(target)
+        assert hashlib.sha1(result).hexdigest() == hashlib.sha1(target).hexdigest()
 
     def test_delta_identical_objects(self):
         """Delta of identical objects should produce the same result."""
@@ -182,7 +185,8 @@ class TestDelta:
         data = b"Hello, World! " * 100
         delta = create_delta(data, data)
         result = apply_delta(data, delta)
-        assert result == data
+        assert len(result) == len(data)
+        assert hashlib.sha1(result).hexdigest() == hashlib.sha1(data).hexdigest()
 
     def test_delta_empty_target_error(self):
         """Applying empty delta should raise."""
@@ -243,7 +247,8 @@ class TestPackfile:
             objects, parsed
         ):
             assert parsed_type == orig_type
-            assert parsed_data == orig_data
+            assert len(parsed_data) == len(orig_data)
+            assert hashlib.sha1(parsed_data).hexdigest() == hashlib.sha1(orig_data).hexdigest()
 
     def test_build_pack_with_different_types(self):
         """Build pack with commit, tree, blob, tag objects."""
@@ -307,7 +312,8 @@ class TestPackfile:
                 sha = hash_object(data, obj_type)
                 read_type, read_data = read_raw_object(objects_dir, sha)
                 assert read_type == obj_type
-                assert read_data == data
+                assert len(read_data) == len(data)
+                assert hashlib.sha1(read_data).hexdigest() == hashlib.sha1(data).hexdigest()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -370,7 +376,8 @@ class TestObjectStore:
 
             obj_type, content = read_raw_object(objects_dir, sha)
             assert obj_type == "blob"
-            assert content == data
+            assert len(content) == len(data)
+            assert hashlib.sha1(content).hexdigest() == hashlib.sha1(data).hexdigest()
 
     def test_write_and_read_tree(self):
         """Write and read a tree object."""
@@ -390,7 +397,8 @@ class TestObjectStore:
 
             obj_type, content = read_raw_object(objects_dir, tree_sha)
             assert obj_type == "tree"
-            assert content == tree_data
+            assert len(content) == len(tree_data)
+            assert hashlib.sha1(content).hexdigest() == hashlib.sha1(tree_data).hexdigest()
 
     def test_write_and_read_commit(self):
         """Write and read a commit object."""
@@ -411,7 +419,8 @@ class TestObjectStore:
             sha = write_object(objects_dir, commit_data, "commit")
             obj_type, content = read_raw_object(objects_dir, sha)
             assert obj_type == "commit"
-            assert content == commit_data
+            assert len(content) == len(commit_data)
+            assert hashlib.sha1(content).hexdigest() == hashlib.sha1(commit_data).hexdigest()
 
     def test_object_exists(self):
         """Test object existence check."""

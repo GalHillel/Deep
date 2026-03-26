@@ -23,6 +23,10 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Optional, Tuple, BinaryIO
+
+from deep.utils.logger import get_logger
+
+logger = get_logger("deep.network.transport")
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
@@ -125,7 +129,15 @@ class SSHTransport:
         if not repo_path.endswith(".git"):
             repo_path += ".git"
 
-        ssh_cmd = ["ssh"]
+        ssh_bin = "ssh"
+        if os.name == "nt":
+            import shutil
+            # Attempt to use Git's binary-safe ssh.exe to avoid Windows OpenSSH CRLF corruption
+            git_ssh = shutil.which("ssh", path=r"C:\Program Files\Git\usr\bin")
+            if git_ssh:
+                ssh_bin = git_ssh
+
+        ssh_cmd = [ssh_bin]
 
         # Add port if specified
         if self.port:
@@ -139,9 +151,8 @@ class SSHTransport:
             f"{service} '{repo_path}'"
         ])
 
-        if os.environ.get("DEEP_DEBUG"):
-            safe_cmd = " ".join(ssh_cmd)
-            print(f"[DEEP_DEBUG] SSH: {safe_cmd}", file=sys.stderr)
+        safe_cmd = " ".join(ssh_cmd)
+        logger.debug(f"SSH: {safe_cmd}")
 
         try:
             self._proc = subprocess.Popen(
@@ -216,13 +227,12 @@ class HTTPSTransport:
         """
         info_url = f"{self._base_url}/info/refs?service={service}"
 
-        if os.environ.get("DEEP_DEBUG"):
-            safe_url = sanitize_url_for_logging(info_url)
-            print(f"[DEEP_DEBUG] HTTP GET {safe_url}", file=sys.stderr)
+        safe_url = sanitize_url_for_logging(info_url)
+        logger.debug(f"HTTP GET {safe_url}")
 
         req = Request(info_url)
-        req.add_header("User-Agent", "deep-vcs/1.0")
-        req.add_header("Git-Protocol", "version=2")
+        req.add_header("User-Agent", "git/2.43.0")
+        req.add_header("Accept", "application/x-git-upload-pack-advertisement")
         req = apply_auth_to_request(req, self._base_url, self.token)
 
         try:
@@ -264,16 +274,13 @@ class HTTPSTransport:
         """
         post_url = f"{self._base_url}/{service}"
 
-        if os.environ.get("DEEP_DEBUG"):
-            safe_url = sanitize_url_for_logging(post_url)
-            print(f"[DEEP_DEBUG] HTTP POST {safe_url} ({len(data)} bytes)",
-                  file=sys.stderr)
+        safe_url = sanitize_url_for_logging(post_url)
+        logger.debug(f"HTTP POST {safe_url} ({len(data)} bytes)")
 
         req = Request(post_url, data=data, method="POST")
         req.add_header("Content-Type",
                         f"application/x-{service}-request")
-        req.add_header("User-Agent", "deep-vcs/1.0")
-        req.add_header("Git-Protocol", "version=2")
+        req.add_header("User-Agent", "git/2.43.0")
         req = apply_auth_to_request(req, self._base_url, self.token)
 
         try:

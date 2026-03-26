@@ -15,6 +15,7 @@ from urllib.parse import urlparse, parse_qs
 from typing import ClassVar, Any
 
 from deep.core.constants import DEEP_DIR
+from deep.core.errors import DeepCLIException
 from deep.web.services import DashboardService
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -74,6 +75,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
             if path == "" or path == "/" or path == "/index.html":
                 return self._serve_file(STATIC_DIR / "index.html", "text/html")
+            elif path == "/api/health": return self.send_json({"success": True, "status": "healthy"})
+            elif path == "/api/work": return self.send_json(self.get_service().get_full_status())
             elif path == "/api/tree": return self.send_json(self.get_service().get_tree())
             elif path == "/api/prs/local": return self.send_json(self.get_service().get_prs_local())
             elif path == "/api/issues/local": return self.send_json(self.get_service().get_issues_local())
@@ -137,9 +140,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 return self._serve_file(fpath, ctype)
             
             return self.send_error(404)
-        except Exception as e:
+        except (Exception, DeepCLIException) as e:
             traceback.print_exc()
-            return self.send_json({"success": False, "error": f"Server GET Error: {str(e)}"}, 500)
+            msg = getattr(e, "message", str(e)) if not isinstance(e, DeepCLIException) else f"CLI Exit {e.code}"
+            return self.send_json({"success": False, "error": f"Server GET Error: {msg}"}, 500)
 
     def do_POST(self):
         try:
@@ -215,9 +219,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 return self.send_json(api_lang_definition(body))
             elif path.startswith("/api/"):
                 return self.send_json({"success": False, "error": f"API POST route not found: {path}"}, 404)
-        except Exception as e:
+        except (Exception, DeepCLIException) as e:
             traceback.print_exc()
-            return self.send_json({"success": False, "error": f"Server POST Error: {str(e)}"}, 500)
+            msg = getattr(e, "message", str(e)) if not isinstance(e, DeepCLIException) else f"CLI Exit {e.code}"
+            return self.send_json({"success": False, "error": f"Server POST Error: {msg}"}, 500)
 
     def do_OPTIONS(self):
         self.send_response(204)

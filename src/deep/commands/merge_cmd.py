@@ -199,6 +199,10 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 new_index = _apply_tree_to_workdir(repo_root, objects_dir, target_files, current_index)
                 write_index_no_lock(dg_dir, new_index)
 
+                # Crash hook: before ref update
+                if os.environ.get("DEEP_CRASH_TEST") == "MERGE_BEFORE_REF_UPDATE":
+                    raise BaseException("Deep: simulated crash before ref update")
+
                 if current_branch:
                     update_branch(dg_dir, current_branch, target_sha)
                 else:
@@ -253,6 +257,10 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             current_index = read_index_no_lock(dg_dir)
             new_index = _apply_tree_to_workdir(repo_root, objects_dir, target_files, current_index)
             write_index_no_lock(dg_dir, new_index)
+
+            # Crash hook: before ref update
+            if os.environ.get("DEEP_CRASH_TEST") == "MERGE_BEFORE_REF_UPDATE":
+                raise BaseException("Deep: simulated crash before ref update")
 
             if current_branch:
                 update_branch(dg_dir, current_branch, merge_commit_sha)
@@ -309,11 +317,11 @@ def _write_conflict_markers(
     theirs_content = theirs_raw.decode("utf-8", errors="replace") if theirs_raw else ""
 
     conflict_content = (
-        f"<<<<<<< HEAD\n"
+        f"<<<<<<< OURS\n"
         f"{ours_content}"
         f"=======\n"
         f"{theirs_content}"
-        f">>>>>>> {name}\n"
+        f">>>>>>> THEIRS\n"
     )
 
     file_path = repo_root / name

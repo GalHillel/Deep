@@ -69,7 +69,7 @@ class TestAddCLI:
         assert "b.txt" in idx.entries
 
     def test_add_nonexistent_file_fails(self, repo: Path) -> None:
-        with pytest.raises(DeepCLIException):
+        with pytest.raises(SystemExit):
             main(["add", "ghost.txt"])
 
 
@@ -87,7 +87,7 @@ class TestCommitCLI:
         assert sha is not None and len(sha) == 40
 
     def test_commit_empty_index_fails(self, repo: Path) -> None:
-        with pytest.raises(DeepCLIException):
+        with pytest.raises(SystemExit):
             main(["commit", "-m", "empty"])
 
     def test_two_commits_form_chain(self, repo: Path) -> None:
@@ -155,7 +155,7 @@ class TestBranchCLI:
         assert "  dev" in out
 
     def test_create_branch_no_commits_fails(self, repo: Path) -> None:
-        with pytest.raises(DeepCLIException):
+        with pytest.raises(SystemExit):
             main(["branch", "oops"])
 
 

@@ -24,10 +24,8 @@ class ChangeStats:
     file_types: dict[str, int] = field(default_factory=dict)
     large_files: list[str] = field(default_factory=list)
     binary_files: list[str] = field(default_factory=list)
+    total_files: int = 0  # Replaced @property with simple attribute for instantiation
 
-    @property
-    def total_files(self) -> int:
-        return self.files_added + self.files_modified + self.files_deleted
 
     @property
     def dominant_type(self) -> str:

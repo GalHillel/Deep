@@ -100,13 +100,13 @@ def test_crash_after_branch_update_before_txlog_commit(tmp_path: Path):
         raise OSError("Simulated power loss during txlog commit")
 
     with mock.patch("deep.commands.add_cmd.find_repo", return_value=tmp_path):
-        with mock.patch("deep.commands.commit_cmd.find_repo", return_value=tmp_path):
-            with mock.patch.object(TransactionLog, "commit", side_effect=crashing_txlog_commit, autospec=True):
-                with mock.patch.object(TransactionLog, "rollback"):
-                    add_run(AddArgs())
-                    from deep.core.errors import TransactionError
-                    with pytest.raises(TransactionError, match="Simulated power loss during txlog commit"):
-                        commit_run(MockArgs("second commit"))
+            with mock.patch("deep.commands.commit_cmd.find_repo", return_value=tmp_path):
+                add_run(AddArgs())
+                with mock.patch.object(TransactionLog, "commit", side_effect=crashing_txlog_commit, autospec=True):
+                    with mock.patch.object(TransactionLog, "rollback"):
+                        from deep.core.errors import TransactionError
+                        with pytest.raises(TransactionError, match="Simulated power loss during txlog commit"):
+                            commit_run(MockArgs("second commit"))
 
     # The branch WAS updated, but the transaction is incomplete
     from deep.core.refs import resolve_head
@@ -158,7 +158,7 @@ def test_concurrency_file_locking(tmp_path: Path):
         try:
             commit_run(MockArgs(f"Thread commit {i}"))
             results.append(True)
-        except Exception as e:
+        except BaseException as e:
             results.append(e)
 
     # Apply mock ONCE from the main thread so restoration is thread-safe

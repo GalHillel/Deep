@@ -7,7 +7,6 @@ Tests for Phase 59: Hyper GUI + Web + VR Explorer.
 import pytest
 import json
 from urllib.request import urlopen
-from .test_web_dashboard import dashboard_server
 
 
 def test_api_dag_3d(dashboard_server):

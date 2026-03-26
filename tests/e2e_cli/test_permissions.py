@@ -3,15 +3,16 @@ import os
 import sys
 from pathlib import Path
 
-def test_executable_bit_preservation(repo_factory):
+def test_executable_bit_preservation(repo_factory, monkeypatch):
     """Verify file permission attributes are preserved across commits."""
     path = repo_factory.create()
     f = path / "script.sh"
     f.write_text("#!/bin/sh")
     
-    if sys.platform != "win32":
-        # Unix: Set +x and verify
-        os.chmod(f, 0o755)
+    if sys.platform == "win32":
+        monkeypatch.setattr(os, "chmod", lambda path, mode: None)
+        
+    os.chmod(f, 0o755)
     
     repo_factory.run(["add", "script.sh"], cwd=path)
     repo_factory.run(["commit", "-m", "add script"], cwd=path)

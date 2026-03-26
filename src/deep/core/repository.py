@@ -161,15 +161,22 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
                 raise DeepError("you have staged changes. Please commit or stash them before switching.")
             
             # Check for conflict between modified tracked files and target tree
+            from deep.core.git_compat import get_git_tracked_files, is_git_managed # type: ignore
+            git_tracked = get_git_tracked_files(repo_root)
+            
             target_files = _get_tree_files(objects_dir, commit_obj.tree_sha)
             
             conflicts = []
             for path in status.untracked:
                 if path in target_files:
-                    conflicts.append(path)
+                    # Ignore if managed by Git
+                    if not is_git_managed(repo_root, path, git_tracked):
+                        conflicts.append(path)
             
             for path in status.modified:
                 p_str = cast(str, path)
+                if is_git_managed(repo_root, p_str, git_tracked):
+                    continue
                 # Any locally modified file that either 1) will be removed or 2) overwritten with a different target version
                 entry = current_index.entries.get(p_str, DeepIndexEntry(content_hash="", size=0, mtime_ns=0, path_hash=0))
                 if p_str not in target_files or target_files[p_str] != entry.content_hash:
@@ -177,6 +184,8 @@ def checkout(repo_root: Path, target: str, create_branch: bool = False, force: b
 
             for path in status.deleted:
                 p_str = cast(str, path)
+                if is_git_managed(repo_root, p_str, git_tracked):
+                    continue
                 if p_str in target_files:
                     conflicts.append(p_str)
 

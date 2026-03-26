@@ -106,6 +106,8 @@ def test_unified_workflow():
 
     finally:
         os.chdir(initial_cwd)
+        from deep.utils.logger import shutdown_logging
+        shutdown_logging()
         if test_dir.exists():
             shutil.rmtree(test_dir)
 

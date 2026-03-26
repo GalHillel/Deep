@@ -36,7 +36,8 @@ def test_search_history_hits(search_repo):
     args = argparse.Namespace(query="search", pattern=None)
     f = io.StringIO()
     with contextlib.redirect_stdout(f):
-        search_cmd.run(args)
+        with pytest.raises(SystemExit):
+            search_cmd.run(args)
     
     out = f.getvalue()
     assert "a.txt" in out

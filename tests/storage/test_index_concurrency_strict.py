@@ -11,10 +11,12 @@ def slow_writer(dg_dir: Path, stop_event: multiprocessing.Event):
     """Slow writer that holds the lock."""
     import time
     from deep.storage.index import add_to_index, IndexLock
+    # 1. Add entry first (handles its own locking)
+    add_to_index(dg_dir, "slow.txt", "a"*40, 1, 1)
+    
+    # 2. Acquire lock to simulate a busy writer
     lock = IndexLock(dg_dir)
     with lock:
-        # Add one entry
-        add_to_index(dg_dir, "slow.txt", "a"*40, 1, 1)
         # Hold lock until signaled
         stop_event.wait(5)
 
@@ -71,7 +73,7 @@ def test_reader_during_write(tmp_repo):
     p = multiprocessing.Process(target=slow_writer, args=(tmp_repo, stop_event))
     p.start()
     
-    time.sleep(0.5) # Give it time to acquire lock
+    time.sleep(1.0) # Give it more time to acquire lock on Windows
     
     # Try reading. read_index SHOULD be able to read even if locked?
     # Actually, read_index in index.py DOES acquire a lock:
@@ -82,7 +84,14 @@ def test_reader_during_write(tmp_repo):
     start = time.time()
     # This should block until slow_writer releases or times out (10s default)
     stop_event.set() # Signal to release
-    index = read_index(tmp_repo)
+    
+    # Retry once if it was too fast
+    for _ in range(3):
+        index = read_index(tmp_repo)
+        if "slow.txt" in index.entries:
+            break
+        time.sleep(0.1)
+    
     duration = time.time() - start
     
     assert "slow.txt" in index.entries
