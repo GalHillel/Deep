@@ -4,7 +4,7 @@ COMMANDS = [
     "init", "add", "commit", "status", "log", "diff", "branch", "checkout", "merge", 
     "rm", "mv", "reset", "rebase", "inspect-tree", "tag", "stash", "migrate", "config", 
     "clone", "push", "pull", "fetch", "ls-remote", "remote", "mirror", "daemon", "p2p", 
-    "sync", "server", "repo", "user", "auth", "pr", "issue", "pipeline", "web", 
+    "sync", "server", "repo", "user", "auth", "pr", "issue", "pipeline", "studio", 
     "commit-graph", "doctor", "benchmark", "graph", "audit", "verify", "fsck", 
     "repack", "sandbox", "rollback", "ai", "ultra", "batch", "search", "gc", 
     "maintenance", "version", "debug-tree", "help"

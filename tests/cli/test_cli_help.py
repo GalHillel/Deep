@@ -8,7 +8,7 @@ COMMANDS = [
     "init", "add", "commit", "status", "log", "diff", "branch", "checkout",
     "merge", "rebase", "reset", "rm", "mv", "tag", "stash", "clone", "push",
     "pull", "fetch", "remote", "mirror", "daemon", "p2p", "sync", "server",
-    "repo", "user", "auth", "pr", "issue", "pipeline", "web", "audit", "doctor",
+    "repo", "user", "auth", "pr", "issue", "pipeline", "studio", "audit", "doctor",
     "verify", "search", "ai", "ultra", "gc", "graph", "batch", "rollback",
     "sandbox", "fsck", "inspect-tree"
 ]
