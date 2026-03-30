@@ -31320,3 +31320,1559 @@ uration": 0.8790699999954086}
 {"cmd": "deep commit -m commit 12", "exit_code": 0, "duration": 0.9382734000100754}
 {"cmd": "deep pr -h", "exit_code": 0, "duration": 0.7458433999563567}
 {"cmd": "deep config -h", "exit_code": 0, "duration": 0.7004153000307269}
+{"cmd": "deep pr -h", "exit_code": 0, "duration": 0.6944228999782354}
+{"cmd": "deep add file_13.txt", "exit_code": 0, "duration": 0.8977731000049971}
+{"cmd": "deep config -h", "exit_code": 0, "duration": 0.6374389999546111}
+{"cmd": "deep pr -h", "exit_code": 0, "duration": 0.7495547999860719}
+{"cmd": "deep config -h", "exit_code": 0, "duration": 0.7107236000010744}
+{"cmd": "deep commit -m commit 13", "exit_code": 0, "duration": 1.2387569999555126}
+{"cmd": "deep benchmark", "exit_code": 0, "duration": 5.788740399992093}
+{"cmd": "deep pr -h", "exit_code": 0, "duration": 1.6319347000098787}
+{"cmd": "deep config -h", "exit_code": 0, "duration": 1.5852507999516092}
+{"cmd": "deep add file_14.txt", "exit_code": 0, "duration": 1.3660626000491902}
+{"cmd": "deep verify", "exit_code": 0, "duration": 0.9332460999721661}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.8292315999860875}
+{"cmd": "deep config -h", "exit_code": 0, "duration": 0.6954558999859728}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.7465861000237055}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6256108999950811}
+{"cmd": "deep commit -m commit 14", "exit_code": 0, "duration": 0.9335232999874279}
+{"cmd": "deep sandbox run ls", "exit_code": 1, "duration": 0.654006400029175}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6036759999697097}
+{"cmd": "deep issue -h", "exit_code": 0, "duration": 0.6150239999988116}
+{"cmd": "deep audit", "exit_code": 0, "duration": 0.6088513000286184}
+{"cmd": "deep clone -h", "exit_code": 0, "duration": 0.5543767000199296}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5784258000203408}
+{"cmd": "deep issue -h", "exit_code": 0, "duration": 0.5590986000024714}
+{"cmd": "deep add file_15.txt", "exit_code": 0, "duration": 0.7357339999871328}
+{"cmd": "deep commit-graph write", "exit_code": 0, "duration": 0.7988569000153802}
+{"cmd": "deep clone -h", "exit_code": 0, "duration": 0.5568409999832511}
+{"cmd": "deep issue -h", "exit_code": 0, "duration": 0.6539764999761246}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.8439588000182994}
+{"cmd": "deep commit -m commit 15", "exit_code": 0, "duration": 0.8625232999911532}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.627448600018397}
+{"cmd": "deep clone -h", "exit_code": 0, "duration": 0.6331877000047825}
+{"cmd": "deep issue -h", "exit_code": 0, "duration": 0.5471085000317544}
+{"cmd": "deep commit -m secure", "exit_code": 0, "duration": 0.7695088000036776}
+{"cmd": "deep add file_16.txt", "exit_code": 0, "duration": 0.7818389000021853}
+{"cmd": "deep clone -h", "exit_code": 0, "duration": 0.5755782999913208}
+{"cmd": "deep issue -h", "exit_code": 0, "duration": 0.574249500001315}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.866543999989517}
+{"cmd": "deep audit", "exit_code": 0, "duration": 0.5786970999906771}
+{"cmd": "deep clone -h", "exit_code": 0, "duration": 0.5894627000088803}
+{"cmd": "deep issue -h", "exit_code": 0, "duration": 0.5921663999906741}
+{"cmd": "deep commit -m commit 16", "exit_code": 0, "duration": 0.8635716999997385}
+{"cmd": "deep commit -m v1", "exit_code": 0, "duration": 0.7638355999952182}
+{"cmd": "deep verify", "exit_code": 0, "duration": 0.7032895000302233}
+{"cmd": "deep issue -h", "exit_code": 0, "duration": 0.6260551000013947}
+{"cmd": "deep clone -h", "exit_code": 0, "duration": 0.6817571999854408}
+{"cmd": "deep add file_17.txt", "exit_code": 0, "duration": 0.7748120000469498}
+{"cmd": "deep diff", "exit_code": 0, "duration": 0.6453006000374444}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6599357000086457}
+{"cmd": "deep clone -h", "exit_code": 0, "duration": 0.6161279999651015}
+{"cmd": "deep issue -h", "exit_code": 0, "duration": 0.6718823999981396}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.8014374999911524}
+{"cmd": "deep clone -h", "exit_code": 0, "duration": 0.6001046000164934}
+{"cmd": "deep issue -h", "exit_code": 0, "duration": 0.594663500029128}
+{"cmd": "deep commit -m commit 17", "exit_code": 0, "duration": 1.017683100013528}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.9172900000121444}
+{"cmd": "deep clone -h", "exit_code": 0, "duration": 0.653293399955146}
+
+{"cmd": "deep diff --staged", "exit_code": 0, "duration": 0.7020754999830388}
+{"cmd": "deep add file_18.txt", "exit_code": 0, "duration": 0.7446195000084117}
+{"cmd": "deep commit -m v1", "exit_code": 0, "duration": 0.7989917999948375}
+{"cmd": "deep clone -h", "exit_code": 0, "duration": 0.5833189999684691}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6509826999972574}
+{"cmd": "deep commit -m v2", "exit_code": 0, "duration": 0.8684135999646969}
+{"cmd": "deep commit -m commit 18", "exit_code": 0, "duration": 0.8909676999901421}
+{"cmd": "deep doctor", "exit_code": 0, "duration": 0.71307140000863}
+{"cmd": "deep pipeline -h", "exit_code": 0, "duration": 0.5738798000384122}
+{"cmd": "deep diff HEAD~1 HEAD", "exit_code": 0, "duration": 0.649296100018546}
+{"cmd": "deep push -h", "exit_code": 0, "duration": 0.5745335000101477}
+{"cmd": "deep pipeline -h", "exit_code": 0, "duration": 0.5743832999723963}
+{"cmd": "deep add bad.txt", "exit_code": 0, "duration": 0.7117390999919735}
+{"cmd": "deep add file_19.txt", "exit_code": 0, "duration": 0.7669309999910183}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6462582999956794}
+{"cmd": "deep pipeline -h", "exit_code": 0, "duration": 0.5560259000048973}
+{"cmd": "deep push -h", "exit_code": 0, "duration": 0.5679960999987088}
+{"cmd": "deep commit -m bad commit", "exit_code": 0, "duration": 0.83446520002326}
+{"cmd": "deep commit -m commit 19", "exit_code": 0, "duration": 0.8771617000456899}
+{"cmd": "deep pipeline -h", "exit_code": 0, "duration": 0.5806855999981053}
+{"cmd": "deep push -h", "exit_code": 0, "duration": 0.6206689000246115}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.8405853000003844}
+{"cmd": "deep rollback", "exit_code": 0, "duration": 0.719751600001473}
+{"cmd": "deep add file_20.txt", "exit_code": 0, "duration": 0.726210200053174}
+{"cmd": "deep pipeline -h", "exit_code": 0, "duration": 0.5664121000445448}
+{"cmd": "deep push -h", "exit_code": 0, "duration": 0.6269320999854244}
+{"cmd": "deep commit -m initial", "exit_code": 0, "duration": 0.8400126000051387}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.6448852000175975}
+{"cmd": "deep pipeline -h", "exit_code": 0, "duration": 0.5804982000263408}
+{"cmd": "deep push -h", "exit_code": 0, "duration": 0.5693674000212923}
+{"cmd": "deep commit -m commit 20", "exit_code": 0, "duration": 0.9018905999837443}
+{"cmd": "deep log -n 1", "exit_code": 0, "duration": 0.6832179999910295}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6450459000188857}
+{"cmd": "deep pipeline -h", "exit_code": 0, "duration": 0.6015376999857835}
+{"cmd": "deep push -h", "exit_code": 0, "duration": 0.6003924999968149}
+{"cmd": "deep add file_21.txt", "exit_code": 0, "duration": 0.7492964999983087}
+{"cmd": "deep show 1b50a4ebf6d419462861ff1e91e95185ff7c9733", "exit_code": 0, "duration": 0.628570300003048}
+{"cmd": "deep pipeline -h", "exit_code": 0, "duration": 0.5500036999583244}
+{"cmd": "deep push -h", "exit_code": 0, "duration": 0.547905899991747}
+{"cmd": "deep version", "exit_code": 0, "duration": 0.7460887000197545}
+{"cmd": "deep pipeline -h", "exit_code": 0, "duration": 0.562785999965854}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6277181000332348}
+{"cmd": "deep push -h", "exit_code": 0, "duration": 0.6048644999973476}
+{"cmd": "deep commit -m commit 21", "exit_code": 0, "duration": 0.9030349000240676}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7720804000273347}
+{"cmd": "deep pipeline -h", "exit_code": 0, "duration": 0.6392088000429794}
+{"cmd": "deep push -h", "exit_code": 0, "duration": 0.6868901000125334}
+{"cmd": "deep add file_22.txt", "exit_code": 0, "duration": 0.7552490999805741}
+{"cmd": "deep add .", "exit_code": 0, "duration": 0.9234445000183769}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6331118000089191}
+{"cmd": "deep commit -m init", "exit_code": 0, "duration": 0.8989230999723077}
+{"cmd": "deep push -h", "exit_code": 0, "duration": 0.5894142999895848}
+{"cmd": "deep diff --staged --stat", "exit_code": 0, "duration": 0.6085308000328951}
+{"cmd": "deep commit -m commit 22", "exit_code": 0, "duration": 0.903712400002405}
+{"cmd": "deep studio -h", "exit_code": 0, "duration": 0.5497391999815591}
+{"cmd": "deep log -n 1 --format %H", "exit_code": 2, "duration": 0.6386131999897771}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6003010999993421}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6220140000223182}
+{"cmd": "deep studio -h", "exit_code": 0, "duration": 0.5306040999712422}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.595028200012166}
+{"cmd": "deep add file_23.txt", "exit_code": 0, "duration": 0.710816300008446}
+{"cmd": "deep pull -h", "exit_code": 0, "duration": 0.5339792000013404}
+{"cmd": "deep nonexistent-command", "exit_code": 2, "duration": 0.5562003999948502}
+{"cmd": "deep studio -h", "exit_code": 0, "duration": 0.5277628000476398}
+{"cmd": "deep pull -h", "exit_code": 0, "duration": 0.5572802000096999}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.785239199991338}
+{"cmd": "deep commit -m commit 23", "exit_code": 0, "duration": 0.8109260000055656}
+{"cmd": "deep add --invalid-flag", "exit_code": 2, "duration": 0.5914232999784872}
+{"cmd": "deep studio -h", "exit_code": 0, "duration": 0.5645661000162363}
+{"cmd": "deep pull -h", "exit_code": 0, "duration": 0.5421814000001177}
+{"cmd": "deep studio -h", "exit_code": 0, "duration": 0.5253825999679975}
+{"cmd": "deep add missing.txt", "exit_code": 1, "duration": 0.6964581999927759}
+{"cmd": "deep commit -m commit 0", "exit_code": 0, "duration": 0.7667731999536045}
+{"cmd": "deep add file_24.txt", "exit_code": 0, "duration": 0.7381424999912269}
+{"cmd": "deep pull -h", "exit_code": 0, "duration": 0.5917539999936707}
+{"cmd": "deep studio -h", "exit_code": 0, "duration": 0.5980664999806322}
+{"cmd": "deep rm missing.txt", "exit_code": 1, "duration": 0.6046892000013031}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7098448000033386}
+{"cmd": "deep pull -h", "exit_code": 0, "duration": 0.5554389000171795}
+{"cmd": "deep commit -m commit 24", "exit_code": 0, "duration": 0.8276472000288777}
+{"cmd": "deep studio -h", "exit_code": 0, "duration": 0.5425838999799453}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6079570000292733}
+{"cmd": "deep pull -h", "exit_code": 0, "duration": 0.5452832999872044}
+{"cmd": "deep commit -m commit 1", "exit_code": 0, "duration": 0.7969054999994114}
+{"cmd": "deep add file_25.txt", "exit_code": 0, "duration": 0.6957678999751806}
+{"cmd": "deep studio -h", "exit_code": 0, "duration": 0.5392737999791279}
+{"cmd": "deep pull -h", "exit_code": 0, "duration": 0.5451224999851547}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7820017000194639}
+{"cmd": "deep studio -h", "exit_code": 0, "duration": 0.5526991999940947}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7175086999777704}
+{"cmd": "deep pull -h", "exit_code": 0, "duration": 0.5125908999470994}
+{"cmd": "deep commit -m commit 25", "exit_code": 0, "duration": 0.8870393999968655}
+{"cmd": "deep studio -h", "exit_code": 0, "duration": 0.5123281999840401}
+{"cmd": "deep commit -m v1", "exit_code": 0, "duration": 0.7408626000396907}
+{"cmd": "deep pull -h", "exit_code": 0, "duration": 0.5266654000151902}
+{"cmd": "deep commit -m commit 2", "exit_code": 0, "duration": 0.7908931000274606}
+{"cmd": "deep add file_26.txt", "exit_code": 0, "duration": 0.6997715000179596}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6620922000147402}
+{"cmd": "deep rollback", "exit_code": 0, "duration": 0.6289262999780476}
+{"cmd": "deep pull -h", "exit_code": 0, "duration": 0.5773609000025317}
+{"cmd": "deep commit-graph -h", "exit_code": 0, "duration": 0.5133637000108138}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.8209163999999873}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5551053999806754}
+{"cmd": "deep commit -m commit 26", "exit_code": 0, "duration": 0.8448326000361703}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6167414999799803}
+{"cmd": "deep commit-graph -h", "exit_code": 0, "duration": 0.5130199000122957}
+{"cmd": "deep commit -m empty", "exit_code": 1, "duration": 0.5671123000211082}
+{"cmd": "deep fetch -h", "exit_code": 0, "duration": 0.5221571000292897}
+{"cmd": "deep commit -m commit 3", "exit_code": 0, "duration": 0.7734065999975428}
+{"cmd": "deep add file_27.txt", "exit_code": 0, "duration": 0.6929797999910079}
+{"cmd": "deep commit-graph -h", "exit_code": 0, "duration": 0.5267085999948904}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.5621299999766052}
+{"cmd": "deep fetch -h", "exit_code": 0, "duration": 0.5396947999834083}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6953836000175215}
+{"cmd": "deep commit-graph -h", "exit_code": 0, "duration": 0.550072000012733}
+{"cmd": "deep commit -m commit 27", "exit_code": 0, "duration": 0.8040268999757245}
+{"cmd": "deep fetch -h", "exit_code": 0, "duration": 0.5181078999885358}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5605734999990091}
+{"cmd": "deep commit-graph -h", "exit_code": 0, "duration": 0.49376460001803935}
+{"cmd": "deep commit -m commit 4", "exit_code": 0, "duration": 0.7942974999896251}
+{"cmd": "deep add file_28.txt", "exit_code": 0, "duration": 0.6753718999680132}
+{"cmd": "deep fetch -h", "exit_code": 0, "duration": 0.5318815999780782}
+{"cmd": "deep add file with space \ud83d\ude80.txt", "exit_code": 0, "duration": 0.7876569000072777}
+{"cmd": "deep commit-graph -h", "exit_code": 0, "duration": 0.5611762999906205}
+{"cmd": "deep fetch -h", "exit_code": 0, "duration": 0.6017800999688916}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7012352999881841}
+{"cmd": "deep commit -m commit 28", "exit_code": 0, "duration": 0.8222647999646142}
+{"cmd": "deep commit-graph -h", "exit_code": 0, "duration": 0.5435808999463916}
+{"cmd": "deep fetch -h", "exit_code": 0, "duration": 0.5397075999644585}
+{"cmd": "deep commit -m chaos commit", "exit_code": 0, "duration": 0.9853358999826014}
+{"cmd": "deep commit-graph -h", "exit_code": 0, "duration": 0.55624910001643}
+{"cmd": "deep commit -m commit 5", "exit_code": 0, "duration": 0.7993192999856547}
+{"cmd": "deep add file_29.txt", "exit_code": 0, "duration": 0.6696332999854349}
+{"cmd": "deep fetch -h", "exit_code": 0, "duration": 0.5122679999913089}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.5675054000457749}
+{"cmd": "deep commit-graph -h", "exit_code": 0, "duration": 0.4708634000271559}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6334383999928832}
+{"cmd": "deep fetch -h", "exit_code": 0, "duration": 0.5038761000032537}
+{"cmd": "deep commit -m commit 29", "exit_code": 0, "duration": 0.7618590999627486}
+{"cmd": "deep ls-tree HEAD", "exit_code": 0, "duration": 0.5482041999930516}
+{"cmd": "deep commit-graph -h", "exit_code": 0, "duration": 0.5013516000472009}
+{"cmd": "deep fetch -h", "exit_code": 0, "duration": 0.49422599998069927}
+{"cmd": "deep commit -m commit 6", "exit_code": 0, "duration": 0.7708767000003718}
+{"cmd": "deep add file_30.txt", "exit_code": 0, "duration": 0.6385554999578744}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5410975000122562}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5355354999774136}
+{"cmd": "deep fetch -h", "exit_code": 0, "duration": 0.4823796999990009}
+{"cmd": "deep doctor -h", "exit_code": 0, "duration": 0.4754897000384517}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6266903000068851}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7146181000280194}
+{"cmd": "deep commit -m commit 30", "exit_code": 0, "duration": 0.8098954000161029}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5698591999826021}
+{"cmd": "deep doctor -h", "exit_code": 0, "duration": 0.5639234999543987}
+{"cmd": "deep commit -m commit 7", "exit_code": 0, "duration": 0.760051499994006}
+{"cmd": "deep ls-remote -h", "exit_code": 0, "duration": 0.5488227999885567}
+{"cmd": "deep add file_31.txt", "exit_code": 0, "duration": 0.6813926000031643}
+{"cmd": "deep commit -m v1", "exit_code": 0, "duration": 0.7189341000048444}
+{"cmd": "deep doctor -h", "exit_code": 0, "duration": 0.5180654000141658}
+{"cmd": "deep ls-remote -h", "exit_code": 0, "duration": 0.4763268000097014}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.629540599999018}
+{"cmd": "deep doctor -h", "exit_code": 0, "duration": 0.47932560002664104}
+{"cmd": "deep checkout -b temp", "exit_code": 0, "duration": 0.7286199999507517}
+{"cmd": "deep commit -m commit 31", "exit_code": 0, "duration": 0.771628399961628}
+{"cmd": "deep ls-remote -h", "exit_code": 0, "duration": 0.481035900011193}
+{"cmd": "deep doctor -h", "exit_code": 0, "duration": 0.47499399998923764}
+{"cmd": "deep commit -m commit 8", "exit_code": 0, "duration": 0.7444073999649845}
+{"cmd": "deep ls-remote -h", "exit_code": 0, "duration": 0.4915196999791078}
+{"cmd": "deep add un_f.txt", "exit_code": 0, "duration": 0.6670941999764182}
+{"cmd": "deep add file_32.txt", "exit_code": 0, "duration": 0.6520287999883294}
+{"cmd": "deep doctor -h", "exit_code": 0, "duration": 0.47560130001511425}
+{"cmd": "deep ls-remote -h", "exit_code": 0, "duration": 0.4645188000285998}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6138640000135638}
+{"cmd": "deep doctor -h", "exit_code": 0, "duration": 0.48112599999876693}
+{"cmd": "deep commit -m unreachable", "exit_code": 0, "duration": 0.7249050000100397}
+{"cmd": "deep commit -m commit 32", "exit_code": 0, "duration": 0.7413883999688551}
+{"cmd": "deep ls-remote -h", "exit_code": 0, "duration": 0.48101849999511614}
+{"cmd": "deep doctor -h", "exit_code": 0, "duration": 0.46931120002409443}
+{"cmd": "deep commit -m commit 9", "exit_code": 0, "duration": 0.7264906000345945}
+{"cmd": "deep ls-remote -h", "exit_code": 0, "duration": 0.46254249999765307}
+{"cmd": "deep add file_33.txt", "exit_code": 0, "duration": 0.6198352000210434}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.731758699985221}
+{"cmd": "deep doctor -h", "exit_code": 0, "duration": 0.4979559000348672}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6545903999940492}
+{"cmd": "deep ls-remote -h", "exit_code": 0, "duration": 0.53444350004429}
+{"cmd": "deep branch -D temp", "exit_code": 2, "duration": 0.5191776999854483}
+{"cmd": "deep doctor -h", "exit_code": 0, "duration": 0.5199443000019528}
+{"cmd": "deep commit -m commit 33", "exit_code": 0, "duration": 0.7806430000346154}
+{"cmd": "deep ls-remote -h", "exit_code": 0, "duration": 0.5018850999767892}
+{"cmd": "deep gc", "exit_code": 0, "duration": 0.6475548000307754}
+{"cmd": "deep commit -m commit 10", "exit_code": 0, "duration": 0.7890460999915376}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5175970999989659}
+{"cmd": "deep add file_34.txt", "exit_code": 0, "duration": 0.6429830999695696}
+{"cmd": "deep ls-remote -h", "exit_code": 0, "duration": 0.4908572999993339}
+{"cmd": "deep benchmark -h", "exit_code": 0, "duration": 0.47656360000837594}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6075563000049442}
+{"cmd": "deep repack", "exit_code": 0, "duration": 0.8098253000061959}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5205179000040516}
+{"cmd": "deep commit -m commit 34", "exit_code": 0, "duration": 0.7523453999892808}
+{"cmd": "deep benchmark -h", "exit_code": 0, "duration": 0.48629329999675974}
+{"cmd": "deep remote -h", "exit_code": 0, "duration": 0.5073256000177935}
+{"cmd": "deep commit -m commit 11", "exit_code": 0, "duration": 0.7360197000089101}
+{"cmd": "deep benchmark -h", "exit_code": 0, "duration": 0.4652099999948405}
+{"cmd": "deep fsck", "exit_code": 0, "duration": 0.6977415999863297}
+{"cmd": "deep add file_35.txt", "exit_code": 0, "duration": 0.6381050000200048}
+{"cmd": "deep remote -h", "exit_code": 0, "duration": 0.47336669999640435}
+{"cmd": "deep benchmark -h", "exit_code": 0, "duration": 0.46044370002346113}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6193390000262298}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5309954999829642}
+{"cmd": "deep remote -h", "exit_code": 0, "duration": 0.4902214000467211}
+{"cmd": "deep commit -m commit 35", "exit_code": 0, "duration": 0.7527030000346713}
+{"cmd": "deep benchmark -h", "exit_code": 0, "duration": 0.49068930000066757}
+{"cmd": "deep commit -m commit 12", "exit_code": 0, "duration": 0.7520119999535382}
+{"cmd": "deep remote -h", "exit_code": 0, "duration": 0.47274080000352114}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7233026999747381}
+{"cmd": "deep benchmark -h", "exit_code": 0, "duration": 0.48695629998110235}
+{"cmd": "deep add file_36.txt", "exit_code": 0, "duration": 0.6216444000019692}
+{"cmd": "deep remote -h", "exit_code": 0, "duration": 0.47312469995813444}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.607427800016012}
+{"cmd": "deep benchmark -h", "exit_code": 0, "duration": 0.490464799979236}
+{"cmd": "deep commit -m data", "exit_code": 0, "duration": 0.6806885999976657}
+{"cmd": "deep commit -m commit 36", "exit_code": 0, "duration": 0.7595609999843873}
+{"cmd": "deep remote -h", "exit_code": 0, "duration": 0.4743222999968566}
+{"cmd": "deep benchmark -h", "exit_code": 0, "duration": 0.4742530999938026}
+{"cmd": "deep doctor", "exit_code": 0, "duration": 0.5446053000050597}
+{"cmd": "deep commit -m commit 13", "exit_code": 0, "duration": 0.7525057999882847}
+{"cmd": "deep remote -h", "exit_code": 0, "duration": 0.49317819997668266}
+{"cmd": "deep benchmark -h", "exit_code": 0, "duration": 0.4893012000247836}
+{"cmd": "deep add file_37.txt", "exit_code": 0, "duration": 0.6542675000382587}
+{"cmd": "deep verify", "exit_code": 0, "duration": 0.5460868999944068}
+{"cmd": "deep remote -h", "exit_code": 0, "duration": 0.47193980001611635}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6294730000081472}
+{"cmd": "deep benchmark -h", "exit_code": 0, "duration": 0.4751426000148058}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5144308999879286}
+{"cmd": "deep commit -m commit 37", "exit_code": 0, "duration": 0.7592498000012711}
+{"cmd": "deep remote -h", "exit_code": 0, "duration": 0.4816949999658391}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5270644000265747}
+{"cmd": "deep commit -m commit 14", "exit_code": 0, "duration": 0.728568600025028}
+{"cmd": "deep init -h", "exit_code": 0, "duration": 0.4948191000148654}
+{"cmd": "deep remote -h", "exit_code": 0, "duration": 0.46730389998992905}
+{"cmd": "deep add file_38.txt", "exit_code": 0, "duration": 0.6352114999899641}
+{"cmd": "deep graph -h", "exit_code": 0, "duration": 0.49124509998364374}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.638154799991753}
+{"cmd": "deep init -h", "exit_code": 0, "duration": 0.5415431999717839}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5761837000027299}
+{"cmd": "deep graph -h", "exit_code": 0, "duration": 0.49697909998940304}
+{"cmd": "deep commit -m commit 38", "exit_code": 0, "duration": 0.766154499957338}
+{"cmd": "deep init -h", "exit_code": 0, "duration": 0.46039660001406446}
+{"cmd": "deep mirror -h", "exit_code": 0, "duration": 0.42932150000706315}
+{"cmd": "deep commit -m commit 15", "exit_code": 0, "duration": 0.7165021999971941}
+{"cmd": "deep graph -h", "exit_code": 0, "duration": 0.43768059997819364}
+{"cmd": "deep init -h", "exit_code": 0, "duration": 0.43101780000142753}
+{"cmd": "deep mirror -h", "exit_code": 0, "duration": 0.425954400037881}
+{"cmd": "deep add file_39.txt", "exit_code": 0, "duration": 0.5805288999690674}
+{"cmd": "deep graph -h", "exit_code": 0, "duration": 0.44149719999404624}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.576701799989678}
+{"cmd": "deep init -h", "exit_code": 0, "duration": 0.4620573000283912}
+{"cmd": "deep mirror -h", "exit_code": 0, "duration": 0.4631770999985747}
+{"cmd": "deep graph -h", "exit_code": 0, "duration": 0.45994469994911924}
+{"cmd": "deep commit -m commit 39", "exit_code": 0, "duration": 0.7281184999737889}
+{"cmd": "deep init -h", "exit_code": 0, "duration": 0.4465368000091985}
+{"cmd": "deep mirror -h", "exit_code": 0, "duration": 0.44452319998526946}
+{"cmd": "deep commit -m commit 16", "exit_code": 0, "duration": 0.7095198000315577}
+{"cmd": "deep graph -h", "exit_code": 0, "duration": 0.43167139997240156}
+{"cmd": "deep init -h", "exit_code": 0, "duration": 0.4498351999791339}
+{"cmd": "deep mirror -h", "exit_code": 0, "duration": 0.4576410999870859}
+{"cmd": "deep add file_40.txt", "exit_code": 0, "duration": 0.6051800000132062}
+{"cmd": "deep graph -h", "exit_code": 0, "duration": 0.49281409999821335}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6412684000097215}
+{"cmd": "deep init -h", "exit_code": 0, "duration": 0.5681786999921314}
+{"cmd": "deep mirror -h", "exit_code": 0, "duration": 0.5924172999802977}
+{"cmd": "deep graph -h", "exit_code": 0, "duration": 0.5025740999844857}
+{"cmd": "deep commit -m commit 40", "exit_code": 0, "duration": 0.8547621999750845}
+{"cmd": "deep init -h", "exit_code": 0, "duration": 0.47368669998832047}
+{"cmd": "deep commit -m commit 17", "exit_code": 0, "duration": 0.720166600018274}
+{"cmd": "deep mirror -h", "exit_code": 0, "duration": 0.4560854999581352}
+{"cmd": "deep graph -h", "exit_code": 0, "duration": 0.4519927999936044}
+{"cmd": "deep init -h", "exit_code": 0, "duration": 0.42934129998320714}
+{"cmd": "deep add file_41.txt", "exit_code": 0, "duration": 0.5880634000059217}
+{"cmd": "deep mirror -h", "exit_code": 0, "duration": 0.43222199997399}
+{"cmd": "deep graph -h", "exit_code": 0, "duration": 0.43800359999295324}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5786651000380516}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.4780583999818191}
+{"cmd": "deep mirror -h", "exit_code": 0, "duration": 0.4255025000311434}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.46748330001719296}
+{"cmd": "deep commit -m commit 41", "exit_code": 0, "duration": 0.714722000004258}
+{"cmd": "deep commit -m commit 18", "exit_code": 0, "duration": 0.6950391999562271}
+{"cmd": "deep add -h", "exit_code": 0, "duration": 0.44722699996782467}
+{"cmd": "deep mirror -h", "exit_code": 0, "duration": 0.4409487000084482}
+{"cmd": "deep audit -h", "exit_code": 0, "duration": 0.43060839996906}
+{"cmd": "deep add file_42.txt", "exit_code": 0, "duration": 0.5764472000300884}
+{"cmd": "deep add -h", "exit_code": 0, "duration": 0.41613269998924807}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.47731390001717955}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5718481999938376}
+{"cmd": "deep audit -h", "exit_code": 0, "duration": 0.45235899998806417}
+{"cmd": "deep add -h", "exit_code": 0, "duration": 0.4492556999903172}
+{"cmd": "deep daemon -h", "exit_code": 0, "duration": 0.45001579995732754}
+{"cmd": "deep audit -h", "exit_code": 0, "duration": 0.4750146000296809}
+{"cmd": "deep commit -m commit 42", "exit_code": 0, "duration": 0.7424513999721967}
+{"cmd": "deep commit -m commit 19", "exit_code": 0, "duration": 0.7293664999888279}
+{"cmd": "deep add -h", "exit_code": 0, "duration": 0.49939810001524165}
+{"cmd": "deep daemon -h", "exit_code": 0, "duration": 0.5649670999846421}
+{"cmd": "deep audit -h", "exit_code": 0, "duration": 0.5291600999771617}
+{"cmd": "deep add file_43.txt", "exit_code": 0, "duration": 0.6572277000523172}
+{"cmd": "deep add -h", "exit_code": 0, "duration": 0.5067010000348091}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6437405999749899}
+{"cmd": "deep daemon -h", "exit_code": 0, "duration": 0.46124580001924187}
+{"cmd": "deep audit -h", "exit_code": 0, "duration": 0.4529138999641873}
+{"cmd": "deep add -h", "exit_code": 0, "duration": 0.4532739999704063}
+{"cmd": "deep daemon -h", "exit_code": 0, "duration": 0.4529465999803506}
+{"cmd": "deep audit -h", "exit_code": 0, "duration": 0.4519974000286311}
+{"cmd": "deep commit -m commit 43", "exit_code": 0, "duration": 0.7501809000386856}
+{"cmd": "deep commit -m commit 20", "exit_code": 0, "duration": 0.7066425000084564}
+{"cmd": "deep add -h", "exit_code": 0, "duration": 0.4496822999790311}
+{"cmd": "deep daemon -h", "exit_code": 0, "duration": 0.43079640000360087}
+{"cmd": "deep audit -h", "exit_code": 0, "duration": 0.42735090001951903}
+{"cmd": "deep add file_44.txt", "exit_code": 0, "duration": 0.5726503999903798}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5594836000236683}
+{"cmd": "deep add -h", "exit_code": 0, "duration": 0.43914470000891015}
+{"cmd": "deep daemon -h", "exit_code": 0, "duration": 0.4311364999739453}
+{"cmd": "deep audit -h", "exit_code": 0, "duration": 0.4435572999645956}
+{"cmd": "deep add -h", "exit_code": 0, "duration": 0.4405168000375852}
+{"cmd": "deep daemon -h", "exit_code": 0, "duration": 0.45478609995916486}
+{"cmd": "deep commit -m commit 21", "exit_code": 0, "duration": 0.7083965999772772}
+{"cmd": "deep commit -m commit 44", "exit_code": 0, "duration": 0.7430782999726944}
+{"cmd": "deep add -h", "exit_code": 0, "duration": 0.4917991000111215}
+{"cmd": "deep daemon -h", "exit_code": 0, "duration": 0.4871761000249535}
+{"cmd": "deep audit -h", "exit_code": 0, "duration": 0.5123740999842994}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6342610000283457}
+{"cmd": "deep add file_45.txt", "exit_code": 0, "duration": 0.6429906000266783}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.549205899995286}
+{"cmd": "deep daemon -h", "exit_code": 0, "duration": 0.4959606999764219}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5143267000094056}
+{"cmd": "deep commit -h", "exit_code": 0, "duration": 0.4939723000279628}
+{"cmd": "deep daemon -h", "exit_code": 0, "duration": 0.4991283999988809}
+{"cmd": "deep commit -m commit 22", "exit_code": 0, "duration": 0.7614763000165112}
+{"cmd": "deep commit -m commit 45", "exit_code": 0, "duration": 0.7956210999982432}
+{"cmd": "deep verify -h", "exit_code": 0, "duration": 0.5178814000100829}
+{"cmd": "deep commit -h", "exit_code": 0, "duration": 0.4816813999786973}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5568523000110872}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6324712999630719}
+{"cmd": "deep verify -h", "exit_code": 0, "duration": 0.48449170001549646}
+{"cmd": "deep add file_46.txt", "exit_code": 0, "duration": 0.6337595999939367}
+{"cmd": "deep commit -h", "exit_code": 0, "duration": 0.48297950002597645}
+{"cmd": "deep p2p -h", "exit_code": 0, "duration": 0.47589389997301623}
+{"cmd": "deep verify -h", "exit_code": 0, "duration": 0.4894747999496758}
+{"cmd": "deep commit -m commit 23", "exit_code": 0, "duration": 0.742484999995213}
+{"cmd": "deep commit -h", "exit_code": 0, "duration": 0.47488250001333654}
+{"cmd": "deep commit -m commit 46", "exit_code": 0, "duration": 0.8029420000384562}
+{"cmd": "deep p2p -h", "exit_code": 0, "duration": 0.49077249999390915}
+{"cmd": "deep verify -h", "exit_code": 0, "duration": 0.4992142000119202}
+{"cmd": "deep commit -h", "exit_code": 0, "duration": 0.47485659999074414}
+{"cmd": "deep p2p -h", "exit_code": 0, "duration": 0.46177529997657984}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6417237999849021}
+{"cmd": "deep add file_47.txt", "exit_code": 0, "duration": 0.6192425999906845}
+{"cmd": "deep verify -h", "exit_code": 0, "duration": 0.5131915000383742}
+{"cmd": "deep commit -h", "exit_code": 0, "duration": 0.5480440999963321}
+{"cmd": "deep p2p -h", "exit_code": 0, "duration": 0.5083261000108905}
+{"cmd": "deep verify -h", "exit_code": 0, "duration": 0.5160087000112981}
+{"cmd": "deep commit -m commit 24", "exit_code": 0, "duration": 0.7901430000201799}
+{"cmd": "deep commit -m commit 47", "exit_code": 0, "duration": 0.8235452999942936}
+{"cmd": "deep commit -h", "exit_code": 0, "duration": 0.5426153999869712}
+{"cmd": "deep p2p -h", "exit_code": 0, "duration": 0.5199005999602377}
+{"cmd": "deep verify -h", "exit_code": 0, "duration": 0.5403052000328898}
+{"cmd": "deep commit -h", "exit_code": 0, "duration": 0.5350466999807395}
+{"cmd": "deep p2p -h", "exit_code": 0, "duration": 0.5180340000079013}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7222356999991462}
+{"cmd": "deep add file_48.txt", "exit_code": 0, "duration": 0.7069556000060402}
+{"cmd": "deep verify -h", "exit_code": 0, "duration": 0.5122908999910578}
+{"cmd": "deep commit -h", "exit_code": 0, "duration": 0.535194700001739}
+{"cmd": "deep p2p -h", "exit_code": 0, "duration": 0.52489770000102}
+{"cmd": "deep verify -h", "exit_code": 0, "duration": 0.4735520000103861}
+{"cmd": "deep commit -m commit 25", "exit_code": 0, "duration": 0.7588357999920845}
+{"cmd": "deep commit -m commit 48", "exit_code": 0, "duration": 0.7811299000168219}
+{"cmd": "deep p2p -h", "exit_code": 0, "duration": 0.4871788999880664}
+{"cmd": "deep commit -h", "exit_code": 0, "duration": 0.5074777000118047}
+{"cmd": "deep verify -h", "exit_code": 0, "duration": 0.48452820000238717}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6140664999838918}
+{"cmd": "deep p2p -h", "exit_code": 0, "duration": 0.4875972999725491}
+{"cmd": "deep add file_49.txt", "exit_code": 0, "duration": 0.6268215000163764}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5247947000316344}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5214780999813229}
+{"cmd": "deep p2p -h", "exit_code": 0, "duration": 0.513890000001993}
+{"cmd": "deep status -h", "exit_code": 0, "duration": 0.49071310000726953}
+{"cmd": "deep commit -m commit 26", "exit_code": 0, "duration": 0.7677031999919564}
+{"cmd": "deep fsck -h", "exit_code": 0, "duration": 0.5651265999767929}
+{"cmd": "deep commit -m commit 49", "exit_code": 0, "duration": 0.8036901999730617}
+{"cmd": "deep status -h", "exit_code": 0, "duration": 0.5230697999941185}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5753682999638841}
+{"cmd": "deep fsck -h", "exit_code": 0, "duration": 0.5224260999821126}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6759745000163093}
+{"cmd": "deep add file_50.txt", "exit_code": 0, "duration": 0.6899332000175491}
+{"cmd": "deep status -h", "exit_code": 0, "duration": 0.5485581000102684}
+{"cmd": "deep sync -h", "exit_code": 0, "duration": 0.5724769000080414}
+{"cmd": "deep fsck -h", "exit_code": 0, "duration": 0.7489366999943741}
+{"cmd": "deep status -h", "exit_code": 0, "duration": 0.8114420999772847}
+{"cmd": "deep commit -m commit 27", "exit_code": 0, "duration": 1.1622154000215232}
+{"cmd": "deep sync -h", "exit_code": 0, "duration": 0.8300527000101283}
+{"cmd": "deep fsck -h", "exit_code": 0, "duration": 0.9233574999962002}
+{"cmd": "deep commit -m commit 50", "exit_code": 0, "duration": 1.47637869999744}
+{"cmd": "deep status -h", "exit_code": 0, "duration": 0.882893200032413}
+{"cmd": "deep sync -h", "exit_code": 0, "duration": 0.8065614000079222}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.9755722000263631}
+{"cmd": "deep fsck -h", "exit_code": 0, "duration": 0.5930093000060879}
+{"cmd": "deep add file_51.txt", "exit_code": 0, "duration": 0.7377700000070035}
+{"cmd": "deep status -h", "exit_code": 0, "duration": 0.47854539996478707}
+{"cmd": "deep sync -h", "exit_code": 0, "duration": 0.46860750002088025}
+{"cmd": "deep fsck -h", "exit_code": 0, "duration": 0.46707979997154325}
+{"cmd": "deep commit -m commit 28", "exit_code": 0, "duration": 0.7102201000088826}
+{"cmd": "deep sync -h", "exit_code": 0, "duration": 0.4878440999891609}
+{"cmd": "deep status -h", "exit_code": 0, "duration": 0.5044563999981619}
+{"cmd": "deep commit -m commit 51", "exit_code": 0, "duration": 0.8101977999904193}
+{"cmd": "deep fsck -h", "exit_code": 0, "duration": 0.5364541999879293}
+{"cmd": "deep sync -h", "exit_code": 0, "duration": 0.5165225000237115}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6426342999911867}
+{"cmd": "deep status -h", "exit_code": 0, "duration": 0.557991600013338}
+{"cmd": "deep fsck -h", "exit_code": 0, "duration": 0.4964728999766521}
+{"cmd": "deep add file_52.txt", "exit_code": 0, "duration": 0.7062721999827772}
+{"cmd": "deep sync -h", "exit_code": 0, "duration": 0.5015412000357173}
+{"cmd": "deep status -h", "exit_code": 0, "duration": 0.5592136000050232}
+{"cmd": "deep fsck -h", "exit_code": 0, "duration": 0.5206013999995776}
+{"cmd": "deep commit -m commit 29", "exit_code": 0, "duration": 0.8117400000337511}
+{"cmd": "deep sync -h", "exit_code": 0, "duration": 0.5457896000007167}
+{"cmd": "deep status -h", "exit_code": 0, "duration": 0.6070480999769643}
+{"cmd": "deep fsck -h", "exit_code": 0, "duration": 0.5250757999601774}
+{"cmd": "deep commit -m commit 52", "exit_code": 0, "duration": 0.9016783999977633}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6890554000274278}
+{"cmd": "deep sync -h", "exit_code": 0, "duration": 0.5342971000354737}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5600404000142589}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5676085000159219}
+{"cmd": "deep add file_53.txt", "exit_code": 0, "duration": 0.6672756999614649}
+{"cmd": "deep sync -h", "exit_code": 0, "duration": 0.4990961999865249}
+{"cmd": "deep log -h", "exit_code": 0, "duration": 0.49065480002900586}
+{"cmd": "deep commit -m commit 30", "exit_code": 0, "duration": 0.7879722999641672}
+{"cmd": "deep repack -h", "exit_code": 0, "duration": 0.4928560999687761}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5320769000099972}
+{"cmd": "deep log -h", "exit_code": 0, "duration": 0.4715760999824852}
+{"cmd": "deep commit -m commit 53", "exit_code": 0, "duration": 0.7829014000017196}
+{"cmd": "deep repack -h", "exit_code": 0, "duration": 0.470132399990689}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6240369000006467}
+{"cmd": "deep server -h", "exit_code": 0, "duration": 0.47800820000702515}
+{"cmd": "deep log -h", "exit_code": 0, "duration": 0.476240299991332}
+{"cmd": "deep repack -h", "exit_code": 0, "duration": 0.47776039998279884}
+{"cmd": "deep add file_54.txt", "exit_code": 0, "duration": 0.6163298999890685}
+{"cmd": "deep server -h", "exit_code": 0, "duration": 0.48001749999821186}
+{"cmd": "deep commit -m commit 31", "exit_code": 0, "duration": 0.730030499980785}
+{"cmd": "deep log -h", "exit_code": 0, "duration": 0.48157040000660345}
+{"cmd": "deep repack -h", "exit_code": 0, "duration": 0.45595789997605607}
+{"cmd": "deep server -h", "exit_code": 0, "duration": 0.4954051999957301}
+{"cmd": "deep commit -m commit 54", "exit_code": 0, "duration": 0.7587999999523163}
+{"cmd": "deep log -h", "exit_code": 0, "duration": 0.5154782999888994}
+{"cmd": "deep repack -h", "exit_code": 0, "duration": 0.4926186000229791}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6244367000181228}
+{"cmd": "deep server -h", "exit_code": 0, "duration": 0.493920499982778}
+{"cmd": "deep log -h", "exit_code": 0, "duration": 0.5059292000369169}
+{"cmd": "deep repack -h", "exit_code": 0, "duration": 0.506853399972897}
+{"cmd": "deep add file_55.txt", "exit_code": 0, "duration": 0.6698340000002645}
+{"cmd": "deep commit -m commit 32", "exit_code": 0, "duration": 0.7572708000079729}
+{"cmd": "deep server -h", "exit_code": 0, "duration": 0.5618136000121012}
+{"cmd": "deep log -h", "exit_code": 0, "duration": 0.5351912999758497}
+{"cmd": "deep repack -h", "exit_code": 0, "duration": 0.5125636999728158}
+{"cmd": "deep commit -m commit 55", "exit_code": 0, "duration": 0.7725229000207037}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6196105999988504}
+{"cmd": "deep log -h", "exit_code": 0, "duration": 0.47503000003052875}
+{"cmd": "deep repack -h", "exit_code": 0, "duration": 0.48783060000278056}
+{"cmd": "deep server -h", "exit_code": 0, "duration": 0.46850680001080036}
+{"cmd": "deep log -h", "exit_code": 0, "duration": 0.4795797999831848}
+{"cmd": "deep repack -h", "exit_code": 0, "duration": 0.47741639998275787}
+{"cmd": "deep add file_56.txt", "exit_code": 0, "duration": 0.6625040000071749}
+{"cmd": "deep commit -m commit 33", "exit_code": 0, "duration": 0.742937000002712}
+{"cmd": "deep server -h", "exit_code": 0, "duration": 0.49623310001334175}
+{"cmd": "deep log -h", "exit_code": 0, "duration": 0.49917379999533296}
+{"cmd": "deep repack -h", "exit_code": 0, "duration": 0.5002613000106066}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6755310000153258}
+{"cmd": "deep server -h", "exit_code": 0, "duration": 0.5657317999866791}
+{"cmd": "deep commit -m commit 56", "exit_code": 0, "duration": 0.8786008000024594}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6218667000066489}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.6535950000397861}
+{"cmd": "deep server -h", "exit_code": 0, "duration": 0.5300329999881797}
+{"cmd": "deep add file_57.txt", "exit_code": 0, "duration": 0.7014544000267051}
+{"cmd": "deep commit -m commit 34", "exit_code": 0, "duration": 0.8081782999797724}
+{"cmd": "deep diff -h", "exit_code": 0, "duration": 0.5885551999672316}
+{"cmd": "deep sandbox -h", "exit_code": 0, "duration": 0.5934346999856643}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5731584999593906}
+{"cmd": "deep diff -h", "exit_code": 0, "duration": 0.5608891999581829}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7704530999762937}
+{"cmd": "deep sandbox -h", "exit_code": 0, "duration": 0.6521049999864772}
+{"cmd": "deep commit -m commit 57", "exit_code": 0, "duration": 0.8465405000024475}
+{"cmd": "deep repo -h", "exit_code": 0, "duration": 0.7065409999922849}
+{"cmd": "deep diff -h", "exit_code": 0, "duration": 0.5867671999731101}
+{"cmd": "deep sandbox -h", "exit_code": 0, "duration": 0.6073009999818169}
+{"cmd": "deep add file_58.txt", "exit_code": 0, "duration": 0.7463856000103988}
+{"cmd": "deep commit -m commit 35", "exit_code": 0, "duration": 0.8816152000217699}
+{"cmd": "deep repo -h", "exit_code": 0, "duration": 0.6321344999596477}
+{"cmd": "deep diff -h", "exit_code": 0, "duration": 0.6450393000268377}
+{"cmd": "deep sandbox -h", "exit_code": 0, "duration": 0.5879647000110708}
+{"cmd": "deep repo -h", "exit_code": 0, "duration": 0.5953970000264235}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7452148000011221}
+{"cmd": "deep diff -h", "exit_code": 0, "duration": 0.5604096999741159}
+{"cmd": "deep commit -m commit 58", "exit_code": 0, "duration": 0.9419103999971412}
+{"cmd": "deep sandbox -h", "exit_code": 0, "duration": 0.6229809999931604}
+{"cmd": "deep repo -h", "exit_code": 0, "duration": 0.6214282000437379}
+{"cmd": "deep diff -h", "exit_code": 0, "duration": 0.6259356000227854}
+{"cmd": "deep sandbox -h", "exit_code": 0, "duration": 0.6304099000408314}
+{"cmd": "deep add file_59.txt", "exit_code": 0, "duration": 0.7154137999750674}
+{"cmd": "deep commit -m commit 36", "exit_code": 0, "duration": 0.9026312999776565}
+{"cmd": "deep repo -h", "exit_code": 0, "duration": 0.5869347000261769}
+{"cmd": "deep diff -h", "exit_code": 0, "duration": 0.5288528999662958}
+{"cmd": "deep sandbox -h", "exit_code": 0, "duration": 0.5179930999875069}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6692971000447869}
+{"cmd": "deep commit -m commit 59", "exit_code": 0, "duration": 0.7957484999787994}
+{"cmd": "deep diff -h", "exit_code": 0, "duration": 0.5303668000269681}
+{"cmd": "deep repo -h", "exit_code": 0, "duration": 0.58181100001093}
+{"cmd": "deep sandbox -h", "exit_code": 0, "duration": 0.5297704999684356}
+{"cmd": "deep diff -h", "exit_code": 0, "duration": 0.5251826999592595}
+{"cmd": "deep repo -h", "exit_code": 0, "duration": 0.5285312999621965}
+{"cmd": "deep add file_60.txt", "exit_code": 0, "duration": 0.6987780999625102}
+{"cmd": "deep commit -m commit 37", "exit_code": 0, "duration": 0.7775047000031918}
+{"cmd": "deep sandbox -h", "exit_code": 0, "duration": 0.5404780000098981}
+{"cmd": "deep repo -h", "exit_code": 0, "duration": 0.5177188999950886}
+{"cmd": "deep diff -h", "exit_code": 0, "duration": 0.5319263000274077}
+{"cmd": "deep sandbox -h", "exit_code": 0, "duration": 0.5044646000023931}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6620545000187121}
+{"cmd": "deep commit -m commit 60", "exit_code": 0, "duration": 0.8376262999954633}
+{"cmd": "deep repo -h", "exit_code": 0, "duration": 0.5416784000117332}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5896286999923177}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5576839999994263}
+{"cmd": "deep commit -m commit 38", "exit_code": 0, "duration": 0.7736837000120431}
+{"cmd": "deep repo -h", "exit_code": 0, "duration": 0.5282712000189349}
+{"cmd": "deep add file_61.txt", "exit_code": 0, "duration": 0.6717770000104792}
+{"cmd": "deep branch -h", "exit_code": 0, "duration": 0.5752567000454292}
+{"cmd": "deep rollback -h", "exit_code": 0, "duration": 0.5366299000452273}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5208352000336163}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.608489100006409}
+{"cmd": "deep branch -h", "exit_code": 0, "duration": 0.4811794000561349}
+{"cmd": "deep rollback -h", "exit_code": 0, "duration": 0.494288099987898}
+{"cmd": "deep commit -m commit 61", "exit_code": 0, "duration": 0.7893998000072315}
+{"cmd": "deep user -h", "exit_code": 0, "duration": 0.46477770002093166}
+{"cmd": "deep branch -h", "exit_code": 0, "duration": 0.48172150005120784}
+{"cmd": "deep rollback -h", "exit_code": 0, "duration": 0.48581430001650006}
+{"cmd": "deep commit -m commit 39", "exit_code": 0, "duration": 0.7329262000275776}
+{"cmd": "deep add file_62.txt", "exit_code": 0, "duration": 0.6265459000132978}
+{"cmd": "deep user -h", "exit_code": 0, "duration": 0.47042359999613836}
+{"cmd": "deep branch -h", "exit_code": 0, "duration": 0.46748849999858066}
+{"cmd": "deep rollback -h", "exit_code": 0, "duration": 0.4752792000072077}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6229962999932468}
+{"cmd": "deep user -h", "exit_code": 0, "duration": 0.5027642999775708}
+{"cmd": "deep branch -h", "exit_code": 0, "duration": 0.5676787999691442}
+{"cmd": "deep rollback -h", "exit_code": 0, "duration": 0.5304240000550635}
+{"cmd": "deep commit -m commit 62", "exit_code": 0, "duration": 0.8087327999528497}
+{"cmd": "deep user -h", "exit_code": 0, "duration": 0.49877679999917746}
+{"cmd": "deep branch -h", "exit_code": 0, "duration": 0.4612431999994442}
+{"cmd": "deep rollback -h", "exit_code": 0, "duration": 0.4512741999933496}
+{"cmd": "deep commit -m commit 40", "exit_code": 0, "duration": 0.775680500024464}
+{"cmd": "deep add file_63.txt", "exit_code": 0, "duration": 0.5984230000176467}
+{"cmd": "deep user -h", "exit_code": 0, "duration": 0.43750130000989884}
+{"cmd": "deep branch -h", "exit_code": 0, "duration": 0.4508496999624185}
+{"cmd": "deep rollback -h", "exit_code": 0, "duration": 0.4465563999838196}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5856154999928549}
+{"cmd": "deep user -h", "exit_code": 0, "duration": 0.4582512999768369}
+{"cmd": "deep branch -h", "exit_code": 0, "duration": 0.4899921999895014}
+{"cmd": "deep rollback -h", "exit_code": 0, "duration": 0.46875330002512783}
+{"cmd": "deep commit -m commit 63", "exit_code": 0, "duration": 0.7742343000136316}
+{"cmd": "deep user -h", "exit_code": 0, "duration": 0.492388199956622}
+{"cmd": "deep branch -h", "exit_code": 0, "duration": 0.46808489999966696}
+{"cmd": "deep commit -m commit 41", "exit_code": 0, "duration": 0.7346291999565437}
+{"cmd": "deep rollback -h", "exit_code": 0, "duration": 0.48238410003250465}
+{"cmd": "deep add file_64.txt", "exit_code": 0, "duration": 0.6435632999637164}
+{"cmd": "deep user -h", "exit_code": 0, "duration": 0.485216400003992}
+{"cmd": "deep branch -h", "exit_code": 0, "duration": 0.4906228999607265}
+{"cmd": "deep rollback -h", "exit_code": 0, "duration": 0.4943998000235297}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6415225000237115}
+{"cmd": "deep user -h", "exit_code": 0, "duration": 0.47452240000711754}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5145037000183947}
+{"cmd": "deep commit -m commit 64", "exit_code": 0, "duration": 0.7869706999626942}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5252959000063129}
+{"cmd": "deep user -h", "exit_code": 0, "duration": 0.4992121999966912}
+{"cmd": "deep commit -m commit 42", "exit_code": 0, "duration": 0.7739103999920189}
+{"cmd": "deep checkout -h", "exit_code": 0, "duration": 0.4922604000312276}
+{"cmd": "deep ai -h", "exit_code": 0, "duration": 0.5008988000336103}
+{"cmd": "deep add file_65.txt", "exit_code": 0, "duration": 0.6879996999632567}
+{"cmd": "deep checkout -h", "exit_code": 0, "duration": 0.4881976000033319}
+{"cmd": "deep ai -h", "exit_code": 0, "duration": 0.47382050001760945}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6402629000367597}
+{"cmd": "deep checkout -h", "exit_code": 0, "duration": 0.44844330003252253}
+{"cmd": "deep commit -m commit 65", "exit_code": 0, "duration": 0.7779891999671236}
+{"cmd": "deep ai -h", "exit_code": 0, "duration": 0.46783949999371544}
+{"cmd": "deep commit -m commit 43", "exit_code": 0, "duration": 0.7151201000087894}
+{"cmd": "deep checkout -h", "exit_code": 0, "duration": 0.4794716000324115}
+{"cmd": "deep ai -h", "exit_code": 0, "duration": 0.46285890002036467}
+{"cmd": "deep add file_66.txt", "exit_code": 0, "duration": 0.6167034999816678}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6471350999781862}
+{"cmd": "deep checkout -h", "exit_code": 0, "duration": 0.5499167000525631}
+{"cmd": "deep ai -h", "exit_code": 0, "duration": 0.551743499992881}
+{"cmd": "deep commit -m commit 66", "exit_code": 0, "duration": 0.9240626999526285}
+{"cmd": "deep checkout -h", "exit_code": 0, "duration": 0.6646818000008352}
+{"cmd": "deep ai -h", "exit_code": 0, "duration": 0.7457388000329956}
+{"cmd": "deep commit -m commit 44", "exit_code": 0, "duration": 0.97928770002909}
+{"cmd": "deep checkout -h", "exit_code": 0, "duration": 0.605765699991025}
+{"cmd": "deep add file_67.txt", "exit_code": 0, "duration": 0.7175004999735393}
+{"cmd": "deep ai -h", "exit_code": 0, "duration": 0.5291350999614224}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7035369999939576}
+{"cmd": "deep checkout -h", "exit_code": 0, "duration": 0.5321517999982461}
+{"cmd": "deep ai -h", "exit_code": 0, "duration": 0.5363252999959514}
+{"cmd": "deep commit -m commit 67", "exit_code": 0, "duration": 0.8237012999597937}
+{"cmd": "deep checkout -h", "exit_code": 0, "duration": 0.4617926999926567}
+{"cmd": "deep ai -h", "exit_code": 0, "duration": 0.4723896000068635}
+{"cmd": "deep commit -m commit 45", "exit_code": 0, "duration": 0.7032886000233702}
+{"cmd": "deep checkout -h", "exit_code": 0, "duration": 0.4629304999834858}
+{"cmd": "deep add file_68.txt", "exit_code": 0, "duration": 0.6710164999822155}
+{"cmd": "deep ai -h", "exit_code": 0, "duration": 0.47978369996417314}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6157155999680981}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5236161000211723}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5415368999820203}
+{"cmd": "deep commit -m commit 68", "exit_code": 0, "duration": 0.8270201000268571}
+{"cmd": "deep commit -m commit 46", "exit_code": 0, "duration": 0.7783965999842621}
+{"cmd": "deep merge -h", "exit_code": 0, "duration": 0.537631000042893}
+{"cmd": "deep ultra -h", "exit_code": 0, "duration": 0.5104887000052258}
+{"cmd": "deep add file_69.txt", "exit_code": 0, "duration": 0.6825821000384167}
+{"cmd": "deep merge -h", "exit_code": 0, "duration": 0.5009187999530695}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6300772000104189}
+{"cmd": "deep ultra -h", "exit_code": 0, "duration": 0.5391945000155829}
+{"cmd": "deep merge -h", "exit_code": 0, "duration": 0.4736212000134401}
+{"cmd": "deep ultra -h", "exit_code": 0, "duration": 0.449425800004974}
+{"cmd": "deep commit -m commit 69", "exit_code": 0, "duration": 0.7856452999985777}
+{"cmd": "deep commit -m commit 47", "exit_code": 0, "duration": 0.7181503000319935}
+{"cmd": "deep merge -h", "exit_code": 0, "duration": 0.438144400017336}
+{"cmd": "deep ultra -h", "exit_code": 0, "duration": 0.4584024000214413}
+{"cmd": "deep merge -h", "exit_code": 0, "duration": 0.45995180000318214}
+{"cmd": "deep add file_70.txt", "exit_code": 0, "duration": 0.6383657999685965}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6301960000419058}
+{"cmd": "deep ultra -h", "exit_code": 0, "duration": 0.4897285000188276}
+{"cmd": "deep merge -h", "exit_code": 0, "duration": 0.4894782999763265}
+{"cmd": "deep ultra -h", "exit_code": 0, "duration": 0.47767410002416}
+{"cmd": "deep commit -m commit 48", "exit_code": 0, "duration": 0.7624852999579161}
+{"cmd": "deep commit -m commit 70", "exit_code": 0, "duration": 0.8136094000074081}
+{"cmd": "deep merge -h", "exit_code": 0, "duration": 0.5230883000185713}
+{"cmd": "deep ultra -h", "exit_code": 0, "duration": 0.5092582000070252}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.686641399981454}
+{"cmd": "deep merge -h", "exit_code": 0, "duration": 0.5199876999831758}
+{"cmd": "deep add file_71.txt", "exit_code": 0, "duration": 0.6863657999783754}
+{"cmd": "deep ultra -h", "exit_code": 0, "duration": 0.5078433000016958}
+{"cmd": "deep merge -h", "exit_code": 0, "duration": 0.4623109999811277}
+{"cmd": "deep ultra -h", "exit_code": 0, "duration": 0.46956520003732294}
+{"cmd": "deep commit -m commit 49", "exit_code": 0, "duration": 0.7274060000199825}
+{"cmd": "deep commit -m commit 71", "exit_code": 0, "duration": 0.7844672999926843}
+{"cmd": "deep merge -h", "exit_code": 0, "duration": 0.4825036999536678}
+{"cmd": "deep ultra -h", "exit_code": 0, "duration": 0.5010920999920927}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6274884000304155}
+{"cmd": "deep add file_72.txt", "exit_code": 0, "duration": 0.6587880000006407}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5565201999852434}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5458712999825366}
+{"cmd": "deep rm -h", "exit_code": 0, "duration": 0.5024411999620497}
+{"cmd": "deep commit -m commit 50", "exit_code": 0, "duration": 0.7747094000224024}
+{"cmd": "deep batch -h", "exit_code": 0, "duration": 0.5043130999547429}
+{"cmd": "deep commit -m commit 72", "exit_code": 0, "duration": 0.8650406999513507}
+{"cmd": "deep rm -h", "exit_code": 0, "duration": 0.49455200001830235}
+{"cmd": "deep batch -h", "exit_code": 0, "duration": 0.46983120002551004}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6137622000533156}
+{"cmd": "deep add file_73.txt", "exit_code": 0, "duration": 0.5971064000041224}
+{"cmd": "deep rm -h", "exit_code": 0, "duration": 0.44809359998907894}
+{"cmd": "deep batch -h", "exit_code": 0, "duration": 0.4725412999978289}
+{"cmd": "deep rm -h", "exit_code": 0, "duration": 0.4469725000089966}
+{"cmd": "deep commit -m commit 51", "exit_code": 0, "duration": 0.6978517000097781}
+{"cmd": "deep batch -h", "exit_code": 0, "duration": 0.45057320001069456}
+{"cmd": "deep commit -m commit 73", "exit_code": 0, "duration": 0.7742985000368208}
+{"cmd": "deep rm -h", "exit_code": 0, "duration": 0.46011929999804124}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6038382999831811}
+{"cmd": "deep batch -h", "exit_code": 0, "duration": 0.4699316999758594}
+{"cmd": "deep add file_74.txt", "exit_code": 0, "duration": 0.6496149000013247}
+{"cmd": "deep rm -h", "exit_code": 0, "duration": 0.5044390999828465}
+{"cmd": "deep batch -h", "exit_code": 0, "duration": 0.493075099948328}
+{"cmd": "deep commit -m commit 52", "exit_code": 0, "duration": 0.7711933000246063}
+{"cmd": "deep rm -h", "exit_code": 0, "duration": 0.4560756999999285}
+{"cmd": "deep batch -h", "exit_code": 0, "duration": 0.45126430003438145}
+{"cmd": "deep commit -m commit 74", "exit_code": 0, "duration": 0.7561325000133365}
+{"cmd": "deep rm -h", "exit_code": 0, "duration": 0.4361432999721728}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5790715999901295}
+{"cmd": "deep batch -h", "exit_code": 0, "duration": 0.4459601999842562}
+{"cmd": "deep rm -h", "exit_code": 0, "duration": 0.42389999999431893}
+{"cmd": "deep add file_75.txt", "exit_code": 0, "duration": 0.5930987999890931}
+{"cmd": "deep batch -h", "exit_code": 0, "duration": 0.4275754999835044}
+{"cmd": "deep commit -m commit 53", "exit_code": 0, "duration": 0.6996961999684572}
+{"cmd": "deep rm -h", "exit_code": 0, "duration": 0.42112119996454567}
+{"cmd": "deep batch -h", "exit_code": 0, "duration": 0.4243842999567278}
+{"cmd": "deep commit -m commit 75", "exit_code": 0, "duration": 0.7241464000544511}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5045512999640778}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6089763999916613}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5178793999948539}
+{"cmd": "deep add file_76.txt", "exit_code": 0, "duration": 0.643910099985078}
+{"cmd": "deep mv -h", "exit_code": 0, "duration": 0.5899016000330448}
+{"cmd": "deep search -h", "exit_code": 0, "duration": 0.5914586000144482}
+{"cmd": "deep commit -m commit 54", "exit_code": 0, "duration": 0.8713843000004999}
+{"cmd": "deep mv -h", "exit_code": 0, "duration": 0.5510688999784179}
+{"cmd": "deep search -h", "exit_code": 0, "duration": 0.49857619998510927}
+{"cmd": "deep commit -m commit 76", "exit_code": 0, "duration": 0.9027885000105016}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5589511999860406}
+{"cmd": "deep mv -h", "exit_code": 0, "duration": 0.43979410000611097}
+{"cmd": "deep search -h", "exit_code": 0, "duration": 0.4373771999962628}
+{"cmd": "deep add file_77.txt", "exit_code": 0, "duration": 0.572720099997241}
+{"cmd": "deep mv -h", "exit_code": 0, "duration": 0.4204020000179298}
+{"cmd": "deep search -h", "exit_code": 0, "duration": 0.4236129999626428}
+{"cmd": "deep commit -m commit 55", "exit_code": 0, "duration": 0.6858915999764577}
+{"cmd": "deep mv -h", "exit_code": 0, "duration": 0.4301917999982834}
+{"cmd": "deep search -h", "exit_code": 0, "duration": 0.4334931000485085}
+{"cmd": "deep commit -m commit 77", "exit_code": 0, "duration": 0.7275941999978386}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5967338999616913}
+{"cmd": "deep mv -h", "exit_code": 0, "duration": 0.492209299991373}
+{"cmd": "deep search -h", "exit_code": 0, "duration": 0.4880430000484921}
+{"cmd": "deep add file_78.txt", "exit_code": 0, "duration": 0.6439235999714583}
+{"cmd": "deep mv -h", "exit_code": 0, "duration": 0.4919747000094503}
+{"cmd": "deep commit -m commit 56", "exit_code": 0, "duration": 0.7626532000140287}
+{"cmd": "deep search -h", "exit_code": 0, "duration": 0.5429979999898933}
+{"cmd": "deep mv -h", "exit_code": 0, "duration": 0.5017008999711834}
+{"cmd": "deep search -h", "exit_code": 0, "duration": 0.5065625000279397}
+{"cmd": "deep commit -m commit 78", "exit_code": 0, "duration": 0.8297081000055186}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6564709999947809}
+{"cmd": "deep mv -h", "exit_code": 0, "duration": 0.49779200000921264}
+{"cmd": "deep search -h", "exit_code": 0, "duration": 0.479478899971582}
+{"cmd": "deep add file_79.txt", "exit_code": 0, "duration": 0.6757745000068098}
+{"cmd": "deep mv -h", "exit_code": 0, "duration": 0.49270560004515573}
+{"cmd": "deep commit -m commit 57", "exit_code": 0, "duration": 0.7222120999940671}
+{"cmd": "deep search -h", "exit_code": 0, "duration": 0.47439280000980943}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5111052999855019}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.596706299984362}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5448089999845251}
+{"cmd": "deep commit -m commit 79", "exit_code": 0, "duration": 0.8377481999923475}
+{"cmd": "deep reset -h", "exit_code": 0, "duration": 0.42895709996810183}
+{"cmd": "deep gc -h", "exit_code": 0, "duration": 0.4348151000449434}
+{"cmd": "deep commit -m commit 58", "exit_code": 0, "duration": 0.6853428999893367}
+{"cmd": "deep add file_80.txt", "exit_code": 0, "duration": 0.6104129999876022}
+{"cmd": "deep reset -h", "exit_code": 0, "duration": 0.4603145000291988}
+{"cmd": "deep gc -h", "exit_code": 0, "duration": 0.4794439999968745}
+{"cmd": "deep reset -h", "exit_code": 0, "duration": 0.4695388000109233}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.612503000011202}
+{"cmd": "deep gc -h", "exit_code": 0, "duration": 0.46302909997757524}
+{"cmd": "deep commit -m commit 80", "exit_code": 0, "duration": 0.7833561999723315}
+{"cmd": "deep reset -h", "exit_code": 0, "duration": 0.45048319996567443}
+{"cmd": "deep gc -h", "exit_code": 0, "duration": 0.4580558000016026}
+{"cmd": "deep commit -m commit 59", "exit_code": 0, "duration": 0.705638799990993}
+{"cmd": "deep add file_81.txt", "exit_code": 0, "duration": 0.6129596999962814}
+{"cmd": "deep reset -h", "exit_code": 0, "duration": 0.47735140001168475}
+{"cmd": "deep gc -h", "exit_code": 0, "duration": 0.46805820002919063}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5927101999986917}
+{"cmd": "deep reset -h", "exit_code": 0, "duration": 0.4644838999956846}
+{"cmd": "deep gc -h", "exit_code": 0, "duration": 0.44669379998231307}
+{"cmd": "deep commit -m commit 81", "exit_code": 0, "duration": 0.7623057999880984}
+{"cmd": "deep reset -h", "exit_code": 0, "duration": 0.41879049997078255}
+{"cmd": "deep gc -h", "exit_code": 0, "duration": 0.41666970000369474}
+{"cmd": "deep commit -m commit 60", "exit_code": 0, "duration": 0.6833693999797106}
+{"cmd": "deep add file_82.txt", "exit_code": 0, "duration": 0.5594328999868594}
+{"cmd": "deep reset -h", "exit_code": 0, "duration": 0.42852670000866055}
+{"cmd": "deep gc -h", "exit_code": 0, "duration": 0.4339009000104852}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5825830999528989}
+{"cmd": "deep reset -h", "exit_code": 0, "duration": 0.4391364000039175}
+{"cmd": "deep gc -h", "exit_code": 0, "duration": 0.4675135999568738}
+{"cmd": "deep commit -m commit 82", "exit_code": 0, "duration": 0.7694886000244878}
+{"cmd": "deep reset -h", "exit_code": 0, "duration": 0.4666912999819033}
+{"cmd": "deep commit -m commit 61", "exit_code": 0, "duration": 0.718264100025408}
+{"cmd": "deep gc -h", "exit_code": 0, "duration": 0.4617848999914713}
+{"cmd": "deep add file_83.txt", "exit_code": 0, "duration": 0.6305342999985442}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5232362999813631}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6583013000199571}
+{"cmd": "deep rebase -h", "exit_code": 0, "duration": 0.47349050000775605}
+{"cmd": "deep commit -m commit 83", "exit_code": 0, "duration": 0.8143517000135034}
+{"cmd": "deep rebase -h", "exit_code": 0, "duration": 0.43772079999325797}
+{"cmd": "deep commit -m commit 62", "exit_code": 0, "duration": 0.7405826000031084}
+{"cmd": "deep add file_84.txt", "exit_code": 0, "duration": 0.6222400999977253}
+{"cmd": "deep rebase -h", "exit_code": 0, "duration": 0.46070930000860244}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5867965999641456}
+{"cmd": "deep rebase -h", "exit_code": 0, "duration": 0.4464051999966614}
+{"cmd": "deep commit -m commit 84", "exit_code": 0, "duration": 0.7687804999877699}
+{"cmd": "deep rebase -h", "exit_code": 0, "duration": 0.45296879997476935}
+{"cmd": "deep commit -m commit 63", "exit_code": 0, "duration": 0.7296952999895439}
+{"cmd": "deep add file_85.txt", "exit_code": 0, "duration": 0.6264472000184469}
+{"cmd": "deep rebase -h", "exit_code": 0, "duration": 0.455925100017339}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6033865999779664}
+{"cmd": "deep rebase -h", "exit_code": 0, "duration": 0.43747459998121485}
+{"cmd": "deep commit -m commit 85", "exit_code": 0, "duration": 0.7653189999982715}
+{"cmd": "deep rebase -h", "exit_code": 0, "duration": 0.44652839994523674}
+{"cmd": "deep commit -m commit 64", "exit_code": 0, "duration": 0.7194204000406899}
+{"cmd": "deep rebase -h", "exit_code": 0, "duration": 0.43929840001510456}
+{"cmd": "deep add file_86.txt", "exit_code": 0, "duration": 0.5890282999607734}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5952791999443434}
+{"cmd": "deep rebase -h", "exit_code": 0, "duration": 0.5115862999809906}
+{"cmd": "deep commit -m commit 86", "exit_code": 0, "duration": 0.8173267000238411}
+{"cmd": "deep commit -m commit 65", "exit_code": 0, "duration": 0.8085884000174701}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5481917999568395}
+{"cmd": "deep add file_87.txt", "exit_code": 0, "duration": 0.7115073000313714}
+{"cmd": "deep inspect-tree -h", "exit_code": 0, "duration": 0.4981907000183128}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6251244000159204}
+{"cmd": "deep inspect-tree -h", "exit_code": 0, "duration": 0.4821016000350937}
+{"cmd": "deep commit -m commit 87", "exit_code": 0, "duration": 0.8376005000318401}
+{"cmd": "deep commit -m commit 66", "exit_code": 0, "duration": 0.7914895999711007}
+{"cmd": "deep inspect-tree -h", "exit_code": 0, "duration": 0.5391680000466295}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7187161999754608}
+{"cmd": "deep inspect-tree -h", "exit_code": 0, "duration": 0.5429622000083327}
+{"cmd": "deep add file_88.txt", "exit_code": 0, "duration": 0.7813176999916323}
+{"cmd": "deep inspect-tree -h", "exit_code": 0, "duration": 0.4998957000207156}
+{"cmd": "deep commit -m commit 67", "exit_code": 0, "duration": 0.8032868000445887}
+{"cmd": "deep commit -m commit 88", "exit_code": 0, "duration": 0.8881456999806687}
+{"cmd": "deep inspect-tree -h", "exit_code": 0, "duration": 0.4805988000007346}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6314961000462063}
+{"cmd": "deep inspect-tree -h", "exit_code": 0, "duration": 0.45973860000958666}
+{"cmd": "deep add file_89.txt", "exit_code": 0, "duration": 0.6534419000381604}
+{"cmd": "deep inspect-tree -h", "exit_code": 0, "duration": 0.4855841000098735}
+{"cmd": "deep commit -m commit 68", "exit_code": 0, "duration": 0.7485852999961935}
+{"cmd": "deep commit -m commit 89", "exit_code": 0, "duration": 0.8483470000210218}
+{"cmd": "deep inspect-tree -h", "exit_code": 0, "duration": 0.533022899995558}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6905426000012085}
+{"cmd": "deep inspect-tree -h", "exit_code": 0, "duration": 0.5186001999536529}
+{"cmd": "deep add file_90.txt", "exit_code": 0, "duration": 0.6940768000204116}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5516163999564014}
+{"cmd": "deep commit -m commit 69", "exit_code": 0, "duration": 0.7990503999753855}
+{"cmd": "deep commit -m commit 90", "exit_code": 0, "duration": 0.8474903999594972}
+{"cmd": "deep tag -h", "exit_code": 0, "duration": 0.552339700050652}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6503469999879599}
+{"cmd": "deep tag -h", "exit_code": 0, "duration": 0.5127462000236847}
+{"cmd": "deep add file_91.txt", "exit_code": 0, "duration": 0.7123043000465259}
+{"cmd": "deep commit -m commit 70", "exit_code": 0, "duration": 0.7723606000072323}
+{"cmd": "deep tag -h", "exit_code": 0, "duration": 0.5134343000245281}
+{"cmd": "deep commit -m commit 91", "exit_code": 0, "duration": 0.9061386000248604}
+{"cmd": "deep tag -h", "exit_code": 0, "duration": 0.639175400021486}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.8161586999776773}
+{"cmd": "deep tag -h", "exit_code": 0, "duration": 0.5600982999894768}
+{"cmd": "deep add file_92.txt", "exit_code": 0, "duration": 0.7896164000267163}
+{"cmd": "deep commit -m commit 71", "exit_code": 0, "duration": 0.9117005000007339}
+{"cmd": "deep tag -h", "exit_code": 0, "duration": 1.000889000017196}
+{"cmd": "deep commit -m commit 92", "exit_code": 0, "duration": 1.5064690000144765}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 1.2711751000024378}
+{"cmd": "deep tag -h", "exit_code": 0, "duration": 1.0562009999994189}
+{"cmd": "deep add file_93.txt", "exit_code": 0, "duration": 1.418500799976755}
+{"cmd": "deep tag -h", "exit_code": 0, "duration": 1.0142541999812238}
+{"cmd": "deep commit -m commit 72", "exit_code": 0, "duration": 1.4277262999676168}
+{"cmd": "deep tag -h", "exit_code": 0, "duration": 1.1475633999798447}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 1.3470644000335597}
+{"cmd": "deep commit -m commit 93", "exit_code": 0, "duration": 1.6925628999597393}
+{"cmd": "deep tag -h", "exit_code": 0, "duration": 0.8074985999846831}
+{"cmd": "deep add file_94.txt", "exit_code": 0, "duration": 0.7267681000521407}
+{"cmd": "deep commit -m commit 73", "exit_code": 0, "duration": 0.9766601999872364}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7085178999695927}
+{"cmd": "deep commit -m commit 94", "exit_code": 0, "duration": 0.8718084000283852}
+{"cmd": "deep add file_95.txt", "exit_code": 0, "duration": 0.7117909999797121}
+{"cmd": "deep commit -m commit 74", "exit_code": 0, "duration": 0.8450870999949984}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7060324999620207}
+{"cmd": "deep commit -m commit 95", "exit_code": 0, "duration": 0.8302216999582015}
+{"cmd": "deep add file_96.txt", "exit_code": 0, "duration": 0.6650882000103593}
+{"cmd": "deep commit -m commit 75", "exit_code": 0, "duration": 0.7646899000392295}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6681382000097074}
+{"cmd": "deep commit -m commit 96", "exit_code": 0, "duration": 0.8709819999639876}
+{"cmd": "deep commit -m commit 76", "exit_code": 0, "duration": 0.7629120000055991}
+{"cmd": "deep add file_97.txt", "exit_code": 0, "duration": 0.664392200007569}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6133261999930255}
+{"cmd": "deep commit -m commit 97", "exit_code": 0, "duration": 0.8145614999812096}
+{"cmd": "deep commit -m commit 77", "exit_code": 0, "duration": 0.7731615999946371}
+{"cmd": "deep add file_98.txt", "exit_code": 0, "duration": 0.66818899998907}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6493439000332728}
+{"cmd": "deep commit -m commit 98", "exit_code": 0, "duration": 0.8344458999927156}
+{"cmd": "deep commit -m commit 78", "exit_code": 0, "duration": 0.7514540999545716}
+{"cmd": "deep add file_99.txt", "exit_code": 0, "duration": 0.6443355000228621}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.615395900036674}
+{"cmd": "deep commit -m commit 99", "exit_code": 0, "duration": 0.8221627000020817}
+{"cmd": "deep commit -m commit 79", "exit_code": 0, "duration": 0.8027236000052653}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6455929999938235}
+{"cmd": "deep commit -m commit 80", "exit_code": 0, "duration": 0.7530233000288717}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6320364999701269}
+{"cmd": "deep fsck", "exit_code": 0, "duration": 2.6004389000008814}
+{"cmd": "deep commit -m commit 81", "exit_code": 0, "duration": 0.75235760002397}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5438038999564014}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6485344000393525}
+{"cmd": "deep add staged.txt", "exit_code": 0, "duration": 0.7753313999855891}
+{"cmd": "deep commit -m commit 82", "exit_code": 0, "duration": 0.7877376999822445}
+{"cmd": "deep fsck", "exit_code": 0, "duration": 0.7055047000176273}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6203308000112884}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.5823793999734335}
+{"cmd": "deep commit -m commit 83", "exit_code": 0, "duration": 0.7437151999911293}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5477896999800578}
+{"cmd": "deep ai generate --prompt python hello world", "exit_code": 2, "duration": 0.5009351000189781}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6568830999894999}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 0.7828044000198133}
+{"cmd": "deep commit -m commit 84", "exit_code": 0, "duration": 0.7584722000174224}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 0.5331451999954879}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6223755999817513}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.5209139999933541}
+{"cmd": "deep commit -m commit 85", "exit_code": 0, "duration": 0.7248573999968357}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 0.6203172000241466}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6502569000003859}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 0.6256853999802843}
+{"cmd": "deep commit -m commit 86", "exit_code": 0, "duration": 0.7795813999837264}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.5386905999621376}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5985798999899998}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 0.6033052999991924}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 0.5117078999755904}
+{"cmd": "deep commit -m commit 87", "exit_code": 0, "duration": 0.7294074000092223}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.5513714000117034}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.681615499954205}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 0.6566656000213698}
+{"cmd": "deep commit -m commit 88", "exit_code": 0, "duration": 0.7880773000069894}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 0.5580485999817029}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6616053000325337}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.6068225000053644}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 0.6537820000085048}
+{"cmd": "deep commit -m commit 89", "exit_code": 0, "duration": 0.8007943999837153}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 0.611183000029996}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.8016684000031091}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.8664085999480449}
+{"cmd": "deep commit -m commit 90", "exit_code": 0, "duration": 1.0544548999750987}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 0.8473516999511048}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7602020999765955}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 0.5924462999682873}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.6126577000250109}
+{"cmd": "deep commit -m commit 91", "exit_code": 0, "duration": 0.9957410999923013}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 0.6161314000491984}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6623373999609612}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 0.6037646000040695}
+{"cmd": "deep commit -m commit 92", "exit_code": 0, "duration": 0.7559754000394605}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.6754300999455154}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6798151999828406}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 0.6977577999932691}
+{"cmd": "deep commit -m commit 93", "exit_code": 0, "duration": 0.812423299998045}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 0.6135374000295997}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.655211600009352}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.6139159000013024}
+{"cmd": "deep commit -m commit 94", "exit_code": 0, "duration": 0.7392632000264712}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 0.6588323999894783}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 0.5620390999829397}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6844355000066571}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.5957818999886513}
+{"cmd": "deep commit -m commit 95", "exit_code": 0, "duration": 0.7325570000102744}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 0.6561890000011772}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6956316999858245}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 0.6434755999944173}
+{"cmd": "deep commit -m commit 96", "exit_code": 0, "duration": 0.8016380000044592}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.6491640000022016}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6533248000196181}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5299572999938391}
+{"cmd": "deep commit -m commit 97", "exit_code": 0, "duration": 0.7287555999937467}
+{"cmd": "deep add file_0.txt", "exit_code": 0, "duration": 0.7216149999876507}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6053256000159308}
+{"cmd": "deep commit -m commit 0", "exit_code": 0, "duration": 0.6779037999804132}
+{"cmd": "deep commit -m commit 98", "exit_code": 0, "duration": 0.7707100000116043}
+{"cmd": "deep search content 0", "exit_code": 0, "duration": 0.6120717999874614}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6730678000021726}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.809043199988082}
+{"cmd": "deep commit -m commit 99", "exit_code": 0, "duration": 0.7724746000021696}
+{"cmd": "deep add file_1.txt", "exit_code": 0, "duration": 0.6771411999943666}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6743397999671288}
+{"cmd": "deep commit -m commit 1", "exit_code": 0, "duration": 0.7708769000018947}
+{"cmd": "deep search content 1", "exit_code": 0, "duration": 0.6467093999963254}
+{"cmd": "deep commit -m commit 100", "exit_code": 0, "duration": 0.8271412000176497}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6722039000014775}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.8521532000158913}
+{"cmd": "deep commit -m commit 101", "exit_code": 0, "duration": 0.8197573000215925}
+{"cmd": "deep add file_2.txt", "exit_code": 0, "duration": 0.7258546000230126}
+{"cmd": "deep commit -m commit 2", "exit_code": 0, "duration": 0.9919624999747612}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 1.1869078999734484}
+{"cmd": "deep search content 2", "exit_code": 0, "duration": 0.8385508000501432}
+{"cmd": "deep commit -m commit 102", "exit_code": 0, "duration": 0.9107226000051014}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.722307899966836}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.9206353000481613}
+{"cmd": "deep add file_3.txt", "exit_code": 0, "duration": 0.7627902999520302}
+{"cmd": "deep commit -m commit 103", "exit_code": 0, "duration": 0.8971986999968067}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6839228000026196}
+{"cmd": "deep commit -m commit 3", "exit_code": 0, "duration": 0.8110759999835864}
+{"cmd": "deep search content 3", "exit_code": 0, "duration": 0.6297599000390619}
+{"cmd": "deep commit -m commit 104", "exit_code": 0, "duration": 0.8162270999746397}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.8463169000460766}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7066568000009283}
+{"cmd": "deep add file_4.txt", "exit_code": 0, "duration": 0.6418515000259504}
+{"cmd": "deep commit -m commit 105", "exit_code": 0, "duration": 0.842912600026466}
+{"cmd": "deep commit -m commit 4", "exit_code": 0, "duration": 0.7877223000396043}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6767783000250347}
+{"cmd": "deep search content 4", "exit_code": 0, "duration": 0.6096680999617092}
+{"cmd": "deep commit -m commit 106", "exit_code": 0, "duration": 0.7968397999648005}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.8500277999555692}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6608952999813482}
+{"cmd": "deep add file_5.txt", "exit_code": 0, "duration": 0.6587550999829546}
+{"cmd": "deep commit -m commit 107", "exit_code": 0, "duration": 0.7877250000019558}
+{"cmd": "deep commit -m commit 5", "exit_code": 0, "duration": 0.824503600015305}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6928466999670491}
+{"cmd": "deep search content 5", "exit_code": 0, "duration": 0.5635594000341371}
+{"cmd": "deep commit -m commit 108", "exit_code": 0, "duration": 0.746681000047829}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.7809723999816924}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.664247400010936}
+{"cmd": "deep add file_6.txt", "exit_code": 0, "duration": 0.6971946999547072}
+{"cmd": "deep commit -m commit 109", "exit_code": 0, "duration": 0.9306038999930024}
+{"cmd": "deep commit -m commit 6", "exit_code": 0, "duration": 0.739972300012596}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7697331000235863}
+{"cmd": "deep search content 6", "exit_code": 0, "duration": 0.5828701999853365}
+{"cmd": "deep commit -m commit 110", "exit_code": 0, "duration": 0.731677400006447}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.7663627000292763}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6400488999788649}
+{"cmd": "deep add file_7.txt", "exit_code": 0, "duration": 0.6612814000109211}
+{"cmd": "deep commit -m commit 111", "exit_code": 0, "duration": 0.7071633000159636}
+{"cmd": "deep commit -m commit 7", "exit_code": 0, "duration": 0.6937658999813721}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6414779999759048}
+{"cmd": "deep search content 7", "exit_code": 0, "duration": 0.5958279999904335}
+{"cmd": "deep commit -m commit 112", "exit_code": 0, "duration": 0.7863243999890983}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.8418788000126369}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6827496000332758}
+{"cmd": "deep add file_8.txt", "exit_code": 0, "duration": 0.6860247000004165}
+{"cmd": "deep commit -m commit 113", "exit_code": 0, "duration": 0.7755583999678493}
+{"cmd": "deep commit -m commit 8", "exit_code": 0, "duration": 0.7640028999885544}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6447282999870367}
+{"cmd": "deep search content 8", "exit_code": 0, "duration": 0.6033708999748342}
+{"cmd": "deep commit -m commit 114", "exit_code": 0, "duration": 0.7069084999966435}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.8897830999922007}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6496134999906644}
+{"cmd": "deep add file_9.txt", "exit_code": 0, "duration": 0.6924288999871351}
+{"cmd": "deep commit -m commit 115", "exit_code": 0, "duration": 0.8322056999895722}
+{"cmd": "deep commit -m commit 9", "exit_code": 0, "duration": 0.854949000000488}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6863947999663651}
+{"cmd": "deep search content 9", "exit_code": 0, "duration": 0.5558246999862604}
+{"cmd": "deep commit -m commit 116", "exit_code": 0, "duration": 0.7313383999862708}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.757245899992995}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6170186999952421}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.5180835999781266}
+{"cmd": "deep commit -m commit 117", "exit_code": 0, "duration": 0.7322179999900982}
+{"cmd": "deep add file_840.txt", "exit_code": 0, "duration": 0.7098669999977574}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6489969000103883}
+{"cmd": "deep add file_391.txt", "exit_code": 0, "duration": 0.6413230000180192}
+{"cmd": "deep commit -m commit 118", "exit_code": 0, "duration": 0.7906937000225298}
+{"cmd": "deep commit -m chaos commit 3", "exit_code": 0, "duration": 0.7034747000434436}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6435077000060119}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.6005989999976009}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.5450359000242315}
+{"cmd": "deep commit -m commit 119", "exit_code": 0, "duration": 0.7837079999735579}
+{"cmd": "deep rm file_391.txt", "exit_code": 0, "duration": 0.656833499961067}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7222018999746069}
+{"cmd": "deep commit -m chaos commit 7", "exit_code": 0, "duration": 0.7759337000316009}
+{"cmd": "deep commit -m commit 120", "exit_code": 0, "duration": 0.7532749000238255}
+{"cmd": "deep add file_840.txt", "exit_code": 0, "duration": 0.6868250999832526}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7136838000151329}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.6180190000450239}
+{"cmd": "deep commit -m commit 121", "exit_code": 0, "duration": 0.7927193000214174}
+{"cmd": "deep add file_64.txt", "exit_code": 0, "duration": 0.684772000007797}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7026880000485107}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.592001800017897}
+{"cmd": "deep commit -m commit 122", "exit_code": 0, "duration": 0.7718926999950781}
+{"cmd": "deep add file_193.txt", "exit_code": 0, "duration": 0.6540548999910243}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6348138999892399}
+{"cmd": "deep rm file_64.txt", "exit_code": 0, "duration": 0.6252508000470698}
+{"cmd": "deep add file_193.txt", "exit_code": 0, "duration": 0.6068878000369295}
+{"cmd": "deep commit -m commit 123", "exit_code": 0, "duration": 0.7023610000032932}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.5089840000146069}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5763431999948807}
+{"cmd": "deep commit -m chaos commit 16", "exit_code": 0, "duration": 0.6901552000199445}
+{"cmd": "deep commit -m commit 124", "exit_code": 0, "duration": 0.7337113000103272}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.775083199958317}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 1.062672800035216}
+{"cmd": "deep rm file_840.txt", "exit_code": 0, "duration": 0.7876355000189506}
+{"cmd": "deep commit -m commit 125", "exit_code": 0, "duration": 0.7974379000370391}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.6002089999965392}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.638910899986513}
+{"cmd": "deep add file_193.txt", "exit_code": 0, "duration": 0.6148309999844059}
+{"cmd": "deep mv file_193.txt moved_file_193.txt", "exit_code": 0, "duration": 0.753206700028386}
+{"cmd": "deep commit -m commit 126", "exit_code": 0, "duration": 0.86147850000998}
+{"cmd": "deep add moved_file_193.txt", "exit_code": 0, "duration": 0.7296908000134863}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7157709000166506}
+{"cmd": "deep mv moved_file_193.txt moved_moved_file_193.txt", "exit_code": 0, "duration": 0.6307685999781825}
+{"cmd": "deep commit -m commit 127", "exit_code": 0, "duration": 0.8370151999988593}
+{"cmd": "deep mv moved_moved_file_193.txt moved_moved_moved_file_193.txt", "exit_code": 0, "duration": 0.6106993000139482}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7340630000107922}
+{"cmd": "deep commit -m chaos commit 25", "exit_code": 0, "duration": 0.7663611000170931}
+{"cmd": "deep commit -m commit 128", "exit_code": 0, "duration": 0.7860868999850936}
+{"cmd": "deep rm moved_moved_moved_file_193.txt", "exit_code": 0, "duration": 0.6043142999988049}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7578498999937437}
+{"cmd": "deep add file_848.txt", "exit_code": 0, "duration": 0.7725345999933779}
+{"cmd": "deep commit -m commit 129", "exit_code": 0, "duration": 0.7708880999707617}
+{"cmd": "deep commit -m chaos commit 28", "exit_code": 0, "duration": 0.8194117000093684}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.651535100012552}
+{"cmd": "deep add file_543.txt", "exit_code": 0, "duration": 0.6627753999782726}
+{"cmd": "deep commit -m commit 130", "exit_code": 0, "duration": 0.8331624999991618}
+{"cmd": "deep rm file_848.txt", "exit_code": 0, "duration": 0.8522526000160724}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7231791999656707}
+{"cmd": "deep rm file_543.txt", "exit_code": 0, "duration": 0.6125530999852344}
+{"cmd": "deep commit -m commit 131", "exit_code": 0, "duration": 0.6976396000245586}
+{"cmd": "deep commit -m chaos commit 35", "exit_code": 1, "duration": 0.47752769995713606}
+{"cmd": "deep commit -m chaos commit 36", "exit_code": 1, "duration": 0.5067435000091791}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6765552000142634}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.7352283000363968}
+{"cmd": "deep commit -m commit 132", "exit_code": 0, "duration": 0.7985162999830209}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.5319948999676853}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6283927999902517}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.5189776999759488}
+{"cmd": "deep commit -m commit 133", "exit_code": 0, "duration": 0.7757979999878444}
+{"cmd": "deep add file_901.txt", "exit_code": 0, "duration": 0.5688257999718189}
+{"cmd": "deep rm file_901.txt", "exit_code": 0, "duration": 0.48274220002349466}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.517496399988886}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.41246540000429377}
+{"cmd": "deep commit -m commit 134", "exit_code": 0, "duration": 0.6309024000074714}
+{"cmd": "deep add file_436.txt", "exit_code": 0, "duration": 0.5043600000208244}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6251790999667719}
+{"cmd": "deep add file_432.txt", "exit_code": 0, "duration": 0.5989066999754868}
+{"cmd": "deep commit -m commit 135", "exit_code": 0, "duration": 0.6533963999827392}
+{"cmd": "deep rm file_432.txt", "exit_code": 0, "duration": 0.4595872000209056}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5268689999938942}
+{"cmd": "deep fsck", "exit_code": 0, "duration": 0.5831911000423133}
+{"cmd": "deep doctor", "exit_code": 0, "duration": 0.4736607999657281}
+{"cmd": "deep commit -m commit 136", "exit_code": 0, "duration": 0.6514887000084855}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.42942519998177886}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5324204000062309}
+{"cmd": "deep add conflict.txt", "exit_code": 0, "duration": 0.872824500023853}
+{"cmd": "deep commit -m commit 137", "exit_code": 0, "duration": 0.9477559999795631}
+{"cmd": "deep commit -m initial", "exit_code": 0, "duration": 0.5638370999949984}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5052717999788001}
+{"cmd": "deep commit -m commit 138", "exit_code": 0, "duration": 0.8171463000471704}
+{"cmd": "deep checkout -b branch_0", "exit_code": 0, "duration": 1.0333845999557525}
+{"cmd": "deep checkout -b branch_1", "exit_code": 0, "duration": 1.2319579999893904}
+{"cmd": "deep checkout -b branch_4", "exit_code": 0, "duration": 1.397620800009463}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5802052000071853}
+{"cmd": "deep checkout -b branch_2", "exit_code": 0, "duration": 1.6061588000156917}
+{"cmd": "deep add conflict.txt", "exit_code": 0, "duration": 0.6602091999957338}
+{"cmd": "deep checkout -b branch_3", "exit_code": 0, "duration": 1.9498007000074722}
+{"cmd": "deep add conflict.txt", "exit_code": 0, "duration": 0.6358935000025667}
+{"cmd": "deep add conflict.txt", "exit_code": 0, "duration": 1.011633799993433}
+{"cmd": "deep commit -m commit 139", "exit_code": 0, "duration": 0.809249899990391}
+{"cmd": "deep commit -m edit from branch_0", "exit_code": 0, "duration": 0.7681001999881119}
+{"cmd": "deep add conflict.txt", "exit_code": 0, "duration": 0.9499042999814264}
+{"cmd": "deep add conflict.txt", "exit_code": 0, "duration": 0.7169906999915838}
+{"cmd": "deep commit -m edit from branch_4", "exit_code": 1, "duration": 0.696646599972155}
+{"cmd": "deep commit -m edit from branch_1", "exit_code": 1, "duration": 0.7804909000406042}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.6899889000342228}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.9801761999842711}
+{"cmd": "deep commit -m edit from branch_3", "exit_code": 1, "duration": 0.8070027999929152}
+{"cmd": "deep commit -m edit from branch_2", "exit_code": 1, "duration": 0.9595380999962799}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.9988882000325248}
+{"cmd": "deep commit -m commit 140", "exit_code": 0, "duration": 0.8559322000364773}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.9296238000388257}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.6964046999928541}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.9490694999694824}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5620846999809146}
+{"cmd": "deep merge branch_0", "exit_code": 0, "duration": 0.4654084999929182}
+{"cmd": "deep commit -m commit 141", "exit_code": 0, "duration": 0.6705062999972142}
+{"cmd": "deep merge branch_1", "exit_code": 0, "duration": 0.4230061999987811}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4911797000095248}
+{"cmd": "deep merge branch_2", "exit_code": 0, "duration": 0.42310079996241257}
+{"cmd": "deep commit -m commit 142", "exit_code": 0, "duration": 0.5963103999965824}
+{"cmd": "deep merge branch_3", "exit_code": 0, "duration": 0.5861488999798894}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5019019999890588}
+{"cmd": "deep merge branch_4", "exit_code": 0, "duration": 0.44598239997867495}
+{"cmd": "deep verify", "exit_code": 0, "duration": 0.5129802000010386}
+{"cmd": "deep commit -m commit 143", "exit_code": 0, "duration": 0.7497960000182502}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.4083699000184424}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5082601000322029}
+{"cmd": "deep add base.txt", "exit_code": 0, "duration": 0.5845004000002518}
+{"cmd": "deep commit -m commit 144", "exit_code": 0, "duration": 0.6294361999607645}
+{"cmd": "deep commit -m root", "exit_code": 0, "duration": 0.5819007999962196}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5658142999745905}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_commits_isolatio0\\test_repo_0 C:\\Users\\galh2\\AppData\\Local\\Temp\\worker_3_1774890722_og44mdv_", "exit_code": 0, "duration": 1.1269818000146188}
+{"cmd": "deep commit -m commit 145", "exit_code": 0, "duration": 0.8712504000286572}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_commits_isolatio0\\test_repo_0 C:\\Users\\galh2\\AppData\\Local\\Temp\\worker_0_1774890722__3a06lj8", "exit_code": 0, "duration": 1.134568399982527}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_commits_isolatio0\\test_repo_0 C:\\Users\\galh2\\AppData\\Local\\Temp\\worker_4_1774890722_padfnyce", "exit_code": 0, "duration": 1.1324016000144184}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_commits_isolatio0\\test_repo_0 C:\\Users\\galh2\\AppData\\Local\\Temp\\worker_2_1774890722_qxu0e1ug", "exit_code": 0, "duration": 1.1367468999815173}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_commits_isolatio0\\test_repo_0 C:\\Users\\galh2\\AppData\\Local\\Temp\\worker_1_1774890722_9hdmduw4", "exit_code": 0, "duration": 1.1427165000350215}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.46376539999619126}
+{"cmd": "deep commit -m commit 146", "exit_code": 0, "duration": 0.5400305999792181}
+{"cmd": "deep checkout -b branch_3", "exit_code": 0, "duration": 0.7938845000462607}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.8105349999968894}
+{"cmd": "deep checkout -b branch_2", "exit_code": 0, "duration": 0.8155241999775171}
+{"cmd": "deep checkout -b branch_4", "exit_code": 0, "duration": 0.8494797000312246}
+{"cmd": "deep checkout -b branch_1", "exit_code": 0, "duration": 0.8474063000176102}
+{"cmd": "deep checkout -b branch_0", "exit_code": 0, "duration": 0.8835786999552511}
+{"cmd": "deep commit -m commit 147", "exit_code": 0, "duration": 0.9283628999837674}
+{"cmd": "deep add file_3.txt", "exit_code": 0, "duration": 0.9614280000096187}
+{"cmd": "deep add file_1.txt", "exit_code": 0, "duration": 0.8969286999781616}
+{"cmd": "deep add file_2.txt", "exit_code": 0, "duration": 0.9378106000367552}
+{"cmd": "deep add file_0.txt", "exit_code": 0, "duration": 0.898627300048247}
+{"cmd": "deep add file_4.txt", "exit_code": 0, "duration": 0.9528845999739133}
+{"cmd": "deep commit -m commit 3", "exit_code": 0, "duration": 0.832673099997919}
+{"cmd": "deep commit -m commit 2", "exit_code": 0, "duration": 0.9549785999697633}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 1.0025776999536902}
+{"cmd": "deep commit -m commit 1", "exit_code": 0, "duration": 0.9942731999908574}
+{"cmd": "deep commit -m commit 0", "exit_code": 0, "duration": 0.9783656000508927}
+{"cmd": "deep commit -m commit 4", "exit_code": 0, "duration": 1.0421292999526486}
+{"cmd": "deep commit -m commit 148", "exit_code": 0, "duration": 1.3532773000188172}
+{"cmd": "deep push origin branch_2", "exit_code": 0, "duration": 1.3379314999911003}
+{"cmd": "deep push origin branch_3", "exit_code": 0, "duration": 1.4217610000050627}
+{"cmd": "deep push origin branch_0", "exit_code": 0, "duration": 1.5696325000026263}
+{"cmd": "deep push origin branch_1", "exit_code": 0, "duration": 1.4894224000163376}
+{"cmd": "deep push origin branch_4", "exit_code": 0, "duration": 1.5617227000184357}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.8149814000353217}
+{"cmd": "deep branch", "exit_code": 0, "duration": 0.38987319997977465}
+{"cmd": "deep commit -m commit 149", "exit_code": 0, "duration": 0.6046978000085801}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.38925049995305017}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.48150759999407455}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.571119699976407}
+{"cmd": "deep commit -m commit 150", "exit_code": 0, "duration": 0.5979748999816366}
+{"cmd": "deep commit -m init", "exit_code": 0, "duration": 0.5503653999767266}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.8827627999708056}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_clones_stress0\\concurrency_source C:\\Users\\galh2\\AppData\\Local\\Temp\\clone_4_1774890731_qsyybtpn", "exit_code": 0, "duration": 1.5176247999770567}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_clones_stress0\\concurrency_source C:\\Users\\galh2\\AppData\\Local\\Temp\\clone_3_1774890731_6au_dlk6", "exit_code": 0, "duration": 1.5268416999606416}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_clones_stress0\\concurrency_source C:\\Users\\galh2\\AppData\\Local\\Temp\\clone_9_1774890731_1_4ruxyl", "exit_code": 0, "duration": 1.516646399977617}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_clones_stress0\\concurrency_source C:\\Users\\galh2\\AppData\\Local\\Temp\\clone_0_1774890731_b3oj_nbx", "exit_code": 0, "duration": 1.5382528000045568}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_clones_stress0\\concurrency_source C:\\Users\\galh2\\AppData\\Local\\Temp\\clone_8_1774890731_k9qcx_xu", "exit_code": 0, "duration": 1.635021099995356}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_clones_stress0\\concurrency_source C:\\Users\\galh2\\AppData\\Local\\Temp\\clone_2_1774890731_of3lr09r", "exit_code": 0, "duration": 1.658413799945265}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_clones_stress0\\concurrency_source C:\\Users\\galh2\\AppData\\Local\\Temp\\clone_1_1774890731___h8bzxe", "exit_code": 0, "duration": 1.6635945999878459}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_clones_stress0\\concurrency_source C:\\Users\\galh2\\AppData\\Local\\Temp\\clone_6_1774890731_67qtgfmu", "exit_code": 0, "duration": 1.662752999982331}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_clones_stress0\\concurrency_source C:\\Users\\galh2\\AppData\\Local\\Temp\\clone_5_1774890731_bmhi0rgd", "exit_code": 0, "duration": 1.6699319000472315}
+{"cmd": "deep clone C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2387\\popen-gw2\\test_parallel_clones_stress0\\concurrency_source C:\\Users\\galh2\\AppData\\Local\\Temp\\clone_7_1774890731_xqa_luau", "exit_code": 0, "duration": 1.7194659999804571}
+{"cmd": "deep commit -m commit 151", "exit_code": 0, "duration": 1.0621716000023298}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.3952495999983512}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5113488000351936}
+{"cmd": "deep config --global user.name User_0", "exit_code": 0, "duration": 0.6495206999825314}
+{"cmd": "deep config --global user.name User_3", "exit_code": 0, "duration": 0.8101742999861017}
+{"cmd": "deep config --global user.name User_5", "exit_code": 0, "duration": 0.878930400009267}
+{"cmd": "deep config --global user.name User_2", "exit_code": 0, "duration": 0.9244143000105396}
+{"cmd": "deep config --global user.name User_9", "exit_code": 0, "duration": 0.8793404000462033}
+{"cmd": "deep config --global user.name User_8", "exit_code": 0, "duration": 0.9034962999867275}
+{"cmd": "deep config --global user.name User_1", "exit_code": 0, "duration": 0.9761861999868415}
+{"cmd": "deep config --global user.name User_7", "exit_code": 0, "duration": 0.9903176000225358}
+{"cmd": "deep config --global user.name User_4", "exit_code": 0, "duration": 1.0290259000030346}
+{"cmd": "deep config --global user.name User_6", "exit_code": 0, "duration": 1.0476809000247158}
+{"cmd": "deep commit -m commit 152", "exit_code": 0, "duration": 1.1179466000176035}
+{"cmd": "deep config --global user.name", "exit_code": 0, "duration": 0.35446379997301847}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4801583999651484}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.394543899979908}
+{"cmd": "deep commit -m commit 153", "exit_code": 0, "duration": 0.652923199988436}
+{"cmd": "deep add conf.txt", "exit_code": 0, "duration": 0.5768708999967203}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4675735999480821}
+{"cmd": "deep commit -m base", "exit_code": 0, "duration": 0.5416433000355028}
+{"cmd": "deep commit -m commit 154", "exit_code": 0, "duration": 0.6119040999910794}
+{"cmd": "deep checkout -b b1", "exit_code": 0, "duration": 0.5768782999948598}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5148098999634385}
+{"cmd": "deep add conf.txt", "exit_code": 0, "duration": 0.5243573000188917}
+{"cmd": "deep commit -m commit 155", "exit_code": 0, "duration": 0.6491489000036381}
+{"cmd": "deep commit -m b1 edit", "exit_code": 0, "duration": 0.6195671999594197}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.46780260000377893}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.588400200009346}
+{"cmd": "deep commit -m commit 156", "exit_code": 0, "duration": 0.6070607000146993}
+{"cmd": "deep add conf.txt", "exit_code": 0, "duration": 0.48082080000313}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.48066399997333065}
+{"cmd": "deep commit -m main edit", "exit_code": 0, "duration": 0.6106945999781601}
+{"cmd": "deep commit -m commit 157", "exit_code": 0, "duration": 0.740794800047297}
+{"cmd": "deep merge b1", "exit_code": 1, "duration": 0.6468964000232518}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5010569000151008}
+{"cmd": "deep merge --abort", "exit_code": 0, "duration": 0.5039211000548676}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.39241309999488294}
+{"cmd": "deep commit -m commit 158", "exit_code": 0, "duration": 0.6262888999772258}
+{"cmd": "deep add conf.txt", "exit_code": 0, "duration": 0.5868031999561936}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5261695999652147}
+{"cmd": "deep commit -m base", "exit_code": 0, "duration": 0.5542426999891177}
+{"cmd": "deep commit -m commit 159", "exit_code": 0, "duration": 0.6258287999662571}
+{"cmd": "deep branch feat", "exit_code": 0, "duration": 0.4866249999613501}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.484605300007388}
+{"cmd": "deep add conf.txt", "exit_code": 0, "duration": 0.4711325000389479}
+{"cmd": "deep commit -m commit 160", "exit_code": 0, "duration": 0.6219866000465117}
+{"cmd": "deep commit -m main edit", "exit_code": 0, "duration": 0.6121354000060819}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.49838399997679517}
+{"cmd": "deep checkout feat", "exit_code": 0, "duration": 0.6049831999698654}
+{"cmd": "deep commit -m commit 161", "exit_code": 0, "duration": 0.6420186000177637}
+{"cmd": "deep add conf.txt", "exit_code": 0, "duration": 0.46219570003449917}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5000651000300422}
+{"cmd": "deep commit -m feat edit", "exit_code": 0, "duration": 0.550604599993676}
+{"cmd": "deep commit -m commit 162", "exit_code": 0, "duration": 0.6199628000031225}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.6159913999726996}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5893037000205368}
+{"cmd": "deep merge feat", "exit_code": 1, "duration": 0.45951650000642985}
+{"cmd": "deep commit -m commit 163", "exit_code": 0, "duration": 0.6219047000049613}
+{"cmd": "deep add conf.txt", "exit_code": 0, "duration": 0.5004387999651954}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.49312899995129555}
+{"cmd": "deep commit -m resolved merge", "exit_code": 0, "duration": 0.5672288000350818}
+{"cmd": "deep commit -m commit 164", "exit_code": 0, "duration": 0.5893384999944828}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.43959339999128133}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.39305509999394417}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4861003000405617}
+{"cmd": "deep init --bare", "exit_code": 0, "duration": 0.39230169996153563}
+{"cmd": "deep commit -m commit 165", "exit_code": 0, "duration": 0.5993566000252031}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.39706220000516623}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.49175169999944046}
+{"cmd": "deep add .", "exit_code": 0, "duration": 0.5907926999498159}
+{"cmd": "deep commit -m commit 166", "exit_code": 0, "duration": 0.6230515000061132}
+{"cmd": "deep commit -m initial --sign --all", "exit_code": 0, "duration": 0.5661961000296287}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4923352000187151}
+{"cmd": "deep add file1.txt", "exit_code": 0, "duration": 0.47623099997872487}
+{"cmd": "deep commit -m commit 167", "exit_code": 0, "duration": 0.6201349000330083}
+{"cmd": "deep commit --amend -m amended commit", "exit_code": 0, "duration": 0.6319443000247702}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5140110999927856}
+{"cmd": "deep log -n 1", "exit_code": 0, "duration": 0.36808370001381263}
+{"cmd": "deep commit --allow-empty -m empty commit", "exit_code": 0, "duration": 0.5828920999774709}
+{"cmd": "deep commit -m commit 168", "exit_code": 0, "duration": 0.6403516000136733}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.4674242000328377}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5525286999763921}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.6189594999887049}
+{"cmd": "deep commit -m commit 169", "exit_code": 0, "duration": 0.6260348999639973}
+{"cmd": "deep commit -m commit 0", "exit_code": 0, "duration": 0.6437688000150956}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5552345999749377}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.455690799979493}
+{"cmd": "deep commit -m commit 170", "exit_code": 0, "duration": 0.6154531000065617}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.3978711999952793}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5199675000039861}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.4376561000244692}
+{"cmd": "deep commit -m commit 171", "exit_code": 0, "duration": 0.6052074000472203}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.5974786999868229}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4790585999726318}
+{"cmd": "deep commit -m commit 1", "exit_code": 0, "duration": 0.5693828000221401}
+{"cmd": "deep commit -m commit 172", "exit_code": 0, "duration": 0.7872550000320189}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.6578523999778554}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.3975362000055611}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.597969299997203}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.3846402000053786}
+{"cmd": "deep commit -m commit 173", "exit_code": 0, "duration": 0.6195983999641612}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.5787608999526128}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.46648699999786913}
+{"cmd": "deep commit -m commit 2", "exit_code": 0, "duration": 0.5405971999862231}
+{"cmd": "deep commit -m commit 174", "exit_code": 0, "duration": 0.5987670000176877}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.40988729998935014}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.3420270999777131}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.47436980000929907}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.40257009997731075}
+{"cmd": "deep commit -m commit 175", "exit_code": 0, "duration": 0.6321699999971315}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.5961164000327699}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4272488999995403}
+{"cmd": "deep commit -m commit 3", "exit_code": 0, "duration": 0.5383639999781735}
+{"cmd": "deep commit -m commit 176", "exit_code": 0, "duration": 0.5498799000051804}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.39846410002792254}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.43043230002513155}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.3141362000023946}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.33379350003087893}
+{"cmd": "deep commit -m commit 177", "exit_code": 0, "duration": 0.5619077999726869}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.44563089997973293}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.545763700036332}
+{"cmd": "deep commit -m commit 4", "exit_code": 0, "duration": 0.516445399960503}
+{"cmd": "deep commit -m commit 178", "exit_code": 0, "duration": 0.5858502999763004}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.390283000015188}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4457813000190072}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.3146314999903552}
+{"cmd": "deep commit -m commit 179", "exit_code": 0, "duration": 0.5749186999746598}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.34046040003886446}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4548417999758385}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.5474528999766335}
+{"cmd": "deep commit -m commit 180", "exit_code": 0, "duration": 0.5761679999995977}
+{"cmd": "deep commit -m commit 5", "exit_code": 0, "duration": 0.5015717999776825}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.3959195999777876}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.45545720000518486}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.32323550002183765}
+{"cmd": "deep commit -m commit 181", "exit_code": 0, "duration": 0.579142700007651}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.3426947999978438}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.44840309995925054}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.5577897999901325}
+{"cmd": "deep commit -m commit 182", "exit_code": 0, "duration": 0.5631189999985509}
+{"cmd": "deep commit -m commit 6", "exit_code": 0, "duration": 0.49663589999545366}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.42900689999805763}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.3772989999852143}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.30916289996821433}
+{"cmd": "deep commit -m commit 183", "exit_code": 0, "duration": 0.565306700009387}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.36120099999243394}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4449888999806717}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.5540289000491612}
+{"cmd": "deep commit -m commit 184", "exit_code": 0, "duration": 0.5777685000211932}
+{"cmd": "deep commit -m commit 7", "exit_code": 0, "duration": 0.4946743000182323}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4432429999578744}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.4364986000000499}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.3671193000045605}
+{"cmd": "deep commit -m commit 185", "exit_code": 0, "duration": 0.6342144000227563}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.39736569998785853}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4563482999801636}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.5725058000534773}
+{"cmd": "deep commit -m commit 186", "exit_code": 0, "duration": 0.5909995000110939}
+{"cmd": "deep commit -m commit 8", "exit_code": 0, "duration": 0.5265701999887824}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.419450199988205}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.39720439998200163}
+{"cmd": "deep commit -m commit 187", "exit_code": 0, "duration": 0.5804103999980725}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.309550300007686}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.34915610001189634}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.45009749999735504}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 0.5633510000188835}
+{"cmd": "deep commit -m commit 188", "exit_code": 0, "duration": 0.5875697000301443}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.43921029998455197}
+{"cmd": "deep commit -m commit 9", "exit_code": 0, "duration": 0.5294189999694936}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.3834583999705501}
+{"cmd": "deep commit -m commit 189", "exit_code": 0, "duration": 0.57851090002805}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.3109351999592036}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4421546999947168}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.3331098999478854}
+{"cmd": "deep commit -m commit 190", "exit_code": 0, "duration": 0.5984055000008084}
+{"cmd": "deep add master.txt", "exit_code": 0, "duration": 0.5488794999546371}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4968617000267841}
+{"cmd": "deep commit -m initial", "exit_code": 0, "duration": 0.5541236000135541}
+{"cmd": "deep branch feat", "exit_code": 0, "duration": 0.4284326999913901}
+{"cmd": "deep commit -m commit 191", "exit_code": 0, "duration": 0.5774862000253052}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.44551079999655485}
+{"cmd": "deep checkout feat", "exit_code": 0, "duration": 0.5393548000138253}
+{"cmd": "deep add feat.txt", "exit_code": 0, "duration": 0.44378640002105385}
+{"cmd": "deep commit -m commit 192", "exit_code": 0, "duration": 0.5697601000429131}
+{"cmd": "deep commit -m feature commit", "exit_code": 0, "duration": 0.5187174000311643}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.44272089999867603}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.5592144999536686}
+{"cmd": "deep commit -m commit 193", "exit_code": 0, "duration": 0.5554614000138827}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.4358719000010751}
+{"cmd": "deep merge feat", "exit_code": 0, "duration": 0.5182626000023447}
+{"cmd": "deep commit -m commit 194", "exit_code": 0, "duration": 0.6173477999982424}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5852482000482269}
+{"cmd": "deep commit -m commit 195", "exit_code": 0, "duration": 0.49377699999604374}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.3973298000055365}
+{"cmd": "deep commit -m commit 196", "exit_code": 0, "duration": 0.4861354000167921}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.37514989997725934}
+{"cmd": "deep commit -m commit 197", "exit_code": 0, "duration": 0.4848832999705337}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.39090009999927133}
+{"cmd": "deep commit -m commit 198", "exit_code": 0, "duration": 0.48224599997047335}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.3900451000081375}
+{"cmd": "deep commit -m commit 199", "exit_code": 0, "duration": 0.4860132000176236}
+{"cmd": "deep log -n 10", "exit_code": 0, "duration": 0.3282623999984935}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.29458760004490614}
+{"cmd": "deep add large.bin", "exit_code": 0, "duration": 5.949042599997483}
+{"cmd": "deep commit -m large file", "exit_code": 0, "duration": 0.4217579000396654}
+{"cmd": "deep add .", "exit_code": 0, "duration": 0.38998029998037964}
+{"cmd": "deep commit -m deep nesting", "exit_code": 0, "duration": 0.7166937000001781}
+{"cmd": "deep status", "exit_code": 0, "duration": 0.3108238999848254}
+{"cmd": "deep fsck", "exit_code": 0, "duration": 0.4999396000057459}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.2722556000226177}
+{"cmd": "deep add base.txt", "exit_code": 0, "duration": 0.44403670000610873}
+{"cmd": "deep commit -m root", "exit_code": 0, "duration": 0.43823100003646687}
+{"cmd": "deep checkout -b branch_0", "exit_code": 0, "duration": 0.44991560000926256}
+{"cmd": "deep add file_0.txt", "exit_code": 0, "duration": 0.36561300000175834}
+{"cmd": "deep commit -m commit 0", "exit_code": 0, "duration": 0.4596864999621175}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.43209980003302917}
+{"cmd": "deep checkout -b branch_1", "exit_code": 0, "duration": 0.40539650002028793}
+{"cmd": "deep add file_1.txt", "exit_code": 0, "duration": 0.3567392000113614}
+{"cmd": "deep commit -m commit 1", "exit_code": 0, "duration": 0.44984409998869523}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.44539499998791143}
+{"cmd": "deep checkout -b branch_2", "exit_code": 0, "duration": 0.4940047999843955}
+{"cmd": "deep add file_2.txt", "exit_code": 0, "duration": 0.39382759999716654}
+{"cmd": "deep commit -m commit 2", "exit_code": 0, "duration": 0.468479799979832}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.45921619998989627}
+{"cmd": "deep checkout -b branch_3", "exit_code": 0, "duration": 0.44758980005281046}
+{"cmd": "deep add file_3.txt", "exit_code": 0, "duration": 0.39251440000953153}
+{"cmd": "deep commit -m commit 3", "exit_code": 0, "duration": 0.46870169998146594}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.47628400003304705}
+{"cmd": "deep checkout -b branch_4", "exit_code": 0, "duration": 0.47524599998723716}
+{"cmd": "deep add file_4.txt", "exit_code": 0, "duration": 0.3972405000240542}
+{"cmd": "deep commit -m commit 4", "exit_code": 0, "duration": 0.471235400007572}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.4923648000112735}
+{"cmd": "deep checkout -b branch_5", "exit_code": 0, "duration": 0.4801115000154823}
+{"cmd": "deep add file_5.txt", "exit_code": 0, "duration": 0.4077413000050001}
+{"cmd": "deep commit -m commit 5", "exit_code": 0, "duration": 0.47544839995680377}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.4794060999993235}
+{"cmd": "deep checkout -b branch_6", "exit_code": 0, "duration": 0.4564365000114776}
+{"cmd": "deep add file_6.txt", "exit_code": 0, "duration": 0.36733879998791963}
+{"cmd": "deep commit -m commit 6", "exit_code": 0, "duration": 0.4765662999707274}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.47693489998346195}
+{"cmd": "deep checkout -b branch_7", "exit_code": 0, "duration": 0.4713781999889761}
+{"cmd": "deep add file_7.txt", "exit_code": 0, "duration": 0.37214160000439733}
+{"cmd": "deep commit -m commit 7", "exit_code": 0, "duration": 0.46771480003371835}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.46388629998546094}
+{"cmd": "deep checkout -b branch_8", "exit_code": 0, "duration": 0.4523988000000827}
+{"cmd": "deep add file_8.txt", "exit_code": 0, "duration": 0.3958897999837063}
+{"cmd": "deep commit -m commit 8", "exit_code": 0, "duration": 0.4606643000151962}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.45478430000366643}
+{"cmd": "deep checkout -b branch_9", "exit_code": 0, "duration": 0.45757119997870177}
+{"cmd": "deep add file_9.txt", "exit_code": 0, "duration": 0.39721510000526905}
+{"cmd": "deep commit -m commit 9", "exit_code": 0, "duration": 0.46274239994818345}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.46842270001070574}
+{"cmd": "deep checkout -b branch_10", "exit_code": 0, "duration": 0.4504554999875836}
+{"cmd": "deep add file_10.txt", "exit_code": 0, "duration": 0.37457340001128614}
+{"cmd": "deep commit -m commit 10", "exit_code": 0, "duration": 0.4644914999953471}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.49191340000834316}
+{"cmd": "deep checkout -b branch_11", "exit_code": 0, "duration": 0.47436589997960255}
+{"cmd": "deep add file_11.txt", "exit_code": 0, "duration": 0.530618000018876}
+{"cmd": "deep commit -m commit 11", "exit_code": 0, "duration": 0.5211961999884807}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.5085369999869727}
+{"cmd": "deep checkout -b branch_12", "exit_code": 0, "duration": 0.48048289999132976}
+{"cmd": "deep add file_12.txt", "exit_code": 0, "duration": 0.3924933000234887}
+{"cmd": "deep commit -m commit 12", "exit_code": 0, "duration": 0.49244840000756085}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.4963855000096373}
+{"cmd": "deep checkout -b branch_13", "exit_code": 0, "duration": 0.47405680001247674}
+{"cmd": "deep add file_13.txt", "exit_code": 0, "duration": 0.37788399995770305}
+{"cmd": "deep commit -m commit 13", "exit_code": 0, "duration": 0.49617450003279373}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.4903648999752477}
+{"cmd": "deep checkout -b branch_14", "exit_code": 0, "duration": 0.5106672999681905}
+{"cmd": "deep add file_14.txt", "exit_code": 0, "duration": 0.3971318999538198}
+{"cmd": "deep commit -m commit 14", "exit_code": 0, "duration": 0.46518669999204576}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.5051791000296362}
+{"cmd": "deep checkout -b branch_15", "exit_code": 0, "duration": 0.4583174999570474}
+{"cmd": "deep add file_15.txt", "exit_code": 0, "duration": 0.3907338000135496}
+{"cmd": "deep commit -m commit 15", "exit_code": 0, "duration": 0.4539439000072889}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.4739685000386089}
+{"cmd": "deep checkout -b branch_16", "exit_code": 0, "duration": 0.4697023000335321}
+{"cmd": "deep add file_16.txt", "exit_code": 0, "duration": 0.3785793999559246}
+{"cmd": "deep commit -m commit 16", "exit_code": 0, "duration": 0.4720602000015788}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.648585400020238}
+{"cmd": "deep checkout -b branch_17", "exit_code": 0, "duration": 0.4932187999947928}
+{"cmd": "deep add file_17.txt", "exit_code": 0, "duration": 0.3652177000185475}
+{"cmd": "deep commit -m commit 17", "exit_code": 0, "duration": 0.5118391999858432}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.5201660000020638}
+{"cmd": "deep checkout -b branch_18", "exit_code": 0, "duration": 0.5217982999747619}
+{"cmd": "deep add file_18.txt", "exit_code": 0, "duration": 0.38505539996549487}
+{"cmd": "deep commit -m commit 18", "exit_code": 0, "duration": 0.5098250000155531}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.45072660001460463}
+{"cmd": "deep checkout -b branch_19", "exit_code": 0, "duration": 0.4191294999909587}
+{"cmd": "deep add file_19.txt", "exit_code": 0, "duration": 0.35661409999011084}
+{"cmd": "deep commit -m commit 19", "exit_code": 0, "duration": 0.4290576000348665}
+{"cmd": "deep checkout main", "exit_code": 0, "duration": 0.4893257999792695}
+{"cmd": "deep merge branch_0", "exit_code": 0, "duration": 0.435788800008595}
+{"cmd": "deep merge branch_1", "exit_code": 0, "duration": 0.4724438999546692}
+{"cmd": "deep merge branch_2", "exit_code": 0, "duration": 0.48003849998349324}
+{"cmd": "deep merge branch_3", "exit_code": 0, "duration": 0.49425709998467937}
+{"cmd": "deep merge branch_4", "exit_code": 0, "duration": 0.479277300008107}
+{"cmd": "deep verify", "exit_code": 0, "duration": 0.33413809997728094}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.32048589998157695}
