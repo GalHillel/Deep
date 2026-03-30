@@ -1,7 +1,7 @@
 """
-deep.commands.web_cmd
+deep.commands.studio_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-``deep web`` command — launches the Web Dashboard.
+``deep studio`` command — launches the Deep Studio dashboard.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from deep.core.repository import find_repo
 
 
 def run(args) -> None:
-    """Execute the ``web`` command."""
+    """Execute the ``studio`` command."""
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:

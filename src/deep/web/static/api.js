@@ -59,7 +59,7 @@ const API = {
             method: 'POST',
             body: JSON.stringify({
                 ...body,
-                author: localStorage.getItem('deep_username') || 'WebIDE'
+                author: localStorage.getItem('deep_username') || 'StudioIDE'
             }),
         });
     },

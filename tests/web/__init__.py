@@ -1,1 +1,1 @@
-# Deep Web Tests package
+# Deep Studio Tests package

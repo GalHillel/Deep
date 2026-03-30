@@ -643,19 +643,19 @@ Examples:
     p_pipeline.add_argument("--commit", help="Target a specific commit SHA for the pipeline run")
     p_pipeline.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
 
-    # ── web ──────────────────────────────────────────────────────────
-    p_web = sub.add_parser(
-        "web",
-        help="Open the visual dashboard",
-        description="Launch an interactive, browser-based dashboard for visual repository management and history browsing.",
+    # ── studio ──────────────────────────────────────────────────────────
+    p_studio = sub.add_parser(
+        "studio",
+        help="Open the visual Deep Studio dashboard",
+        description="Launch an interactive, browser-based platform for visual repository management and history browsing.",
         epilog="""
 Examples:
-  deep web                   # Open the Deep dashboard on the default port (9000)
-  deep web --port 8080       # Start the dashboard on port 8080
+  deep studio                   # Open the Deep Studio dashboard on the default port (9000)
+  deep studio --port 8080       # Start the dashboard on port 8080
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_web.add_argument("--port", type=int, default=9000, help="The network port to listen on (default: 9000)")
+    p_studio.add_argument("--port", type=int, default=9000, help="The network port to listen on (default: 9000)")
 
     # ── commit-graph ──────────────────────────────────────────────────
     p_cg = sub.add_parser(
@@ -1012,8 +1012,8 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.benchmark_cmd import run # type: ignore[import]
     elif args.command == "daemon":
         from deep.commands.daemon_cmd import run # type: ignore[import]
-    elif args.command == "web":
-        from deep.commands.web_cmd import run # type: ignore[import]
+    elif args.command == "studio":
+        from deep.commands.studio_cmd import run # type: ignore[import]
     elif args.command == "issue":
         from deep.commands.issue_cmd import run
     elif args.command == "pr":

@@ -656,7 +656,7 @@ const LanguageEngine = {
 
 /**
  * ⚓ Deep Studio — app.js (Final Overhaul)
- * The Definitive State Machine for Deep Web IDE.
+ * The Definitive State Machine for Deep Studio IDE.
  */
 
 const App = {

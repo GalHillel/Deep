@@ -1,7 +1,7 @@
 """
 deep.web.services
 ~~~~~~~~~~~~~~~~~~~~~
-Enterprise-grade Service layer for the Deep Web Dashboard (Final Overhaul).
+Enterprise-grade Service layer for the Deep Studio dashboard (Final Overhaul).
 """
 
 from __future__ import annotations

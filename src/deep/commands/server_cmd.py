@@ -30,7 +30,7 @@ def run_web_server(repo_root: Path, host: str, port: int):
     DashboardHandler.repo_root = repo_root
     
     httpd = HTTPServer((host, port), DashboardHandler)
-    print(Color.wrap(Color.CYAN, f"Deep Web UI running at http://{host}:{port}"))
+    print(Color.wrap(Color.CYAN, f"Deep Studio UI running at http://{host}:{port}"))
     httpd.serve_forever()
 
 def run_mirror_sync(repo_root: Path):

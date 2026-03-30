@@ -1,7 +1,7 @@
 """
 deep.web.dashboard
 ~~~~~~~~~~~~~~~~~~~~~~
-HTTP server for the Deep Web Dashboard (Final Overhaul).
+HTTP server for the Deep Studio dashboard (Final Overhaul).
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from deep.web.services import DashboardService
 STATIC_DIR = Path(__file__).parent / "static"
 
 class DashboardHandler(SimpleHTTPRequestHandler):
-    """Serve the Web Dashboard SPA and REST API."""
+    """Serve the Deep Studio dashboard SPA and REST API."""
 
     repo_root: ClassVar[Path]
 
@@ -70,7 +70,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 try:
                     return v2_fn(*args, **kwargs)
                 except Exception as e:
-                    print(f"[web] V2 backend failed, falling back to V1: {e}")
+                    print(f"[studio] V2 backend failed, falling back to V1: {e}")
                     return v1_fn(*args, **kwargs)
 
             if path == "" or path == "/" or path == "/index.html":
@@ -266,7 +266,7 @@ def start_dashboard(repo_root: Path, host: str = "127.0.0.1", port: int = 9000):
 
     server = ThreadingHTTPServer((host, port), DashboardHandler)
     print(f"Deep Studio (Final) running at http://{host}:{port}")
-    print("[web] using snapshot backend (v2 default with v1 fallback)")
+    print("[studio] using snapshot backend (v2 default with v1 fallback)")
     try: server.serve_forever()
     except KeyboardInterrupt: pass
     finally: server.server_close()
