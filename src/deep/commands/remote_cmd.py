@@ -16,17 +16,24 @@ from deep.utils.ux import DeepHelpFormatter, format_example
 from typing import Any
 
 
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
+from typing import Any
+
+
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'remote' command parser."""
     p_remote = subparsers.add_parser(
         "remote",
         help="Manage set of tracked repositories",
-        description="Manage the set of repositories ('remotes') whose branches you track.",
+        description=format_description("Manage the set of repositories ('remotes') whose branches you track. Remotes are identified by a name (like 'origin') and a URL/path."),
         epilog=f"""
-Examples:
-{format_example("deep remote", "List all configured remotes")}
+{format_header("Examples")}
+{format_example("deep remote", "List all configured remotes and their URLs")}
 {format_example("deep remote add origin <url>", "Add a new remote named 'origin'")}
-{format_example("deep remote remove origin", "Remove 'origin' from configuration")}
+{format_example("deep remote remove dev", "Remove the 'dev' remote from configuration")}
+{format_example("deep remote set-url origin <new-url>", "Update the URL for 'origin'")}
 """,
         formatter_class=DeepHelpFormatter,
     )
