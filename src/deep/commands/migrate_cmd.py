@@ -16,19 +16,23 @@ from deep.storage.objects import walk_loose_shas, read_object, Blob, Tree, Commi
 from deep.storage.vault import DeepVaultWriter
 from deep.storage.commit_graph import build_history_graph
 from deep.storage.index import read_index, write_index, DeepIndex, DeepIndexEntry
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'migrate' command parser."""
-    subparsers.add_parser(
+    p_migrate = subparsers.add_parser(
         "migrate",
         help="Upgrade a Deep repository to the latest format",
-        description="Upgrades a Deep repository from legacy (v1) to native (v2) storage format.",
+        description=format_description("Upgrade your Deep repository to the latest storage and metadata formats. Migration ensures compatibility with the newest features, including DeepVault object packing and accelerated history graphs."),
         epilog=f"""
-Examples:
-{format_example("deep migrate", "Upgrade current repository to v2 format")}
+{format_header("Examples")}
+{format_example("deep migrate", "Upgrade the current repository to the latest native format")}
+{format_example("deep migrate --path /path/to/repo", "Migrate a specific repository path")}
+{format_example("deep migrate --dry-run", "Identify required migration steps without applying changes")}
 """,
         formatter_class=DeepHelpFormatter,
     )
