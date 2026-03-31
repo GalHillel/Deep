@@ -13,6 +13,24 @@ from pathlib import Path
 from deep.core.refs import get_current_branch, resolve_head
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'status' command parser."""
+    p_status = subparsers.add_parser(
+        "status",
+        help="Show the working tree and index status",
+        description="Displays the current state of the working directory and the staging area (index).",
+        epilog=f"""
+Examples:
+{format_example("deep status", "Display a human-friendly status overview")}
+{format_example("deep status --porcelain", "Generate machine-readable output")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_status.add_argument("--porcelain", action="store_true", help="Produce machine-readable output format")
 from deep.core.status import compute_status
 from deep.utils.ux import Color
 
