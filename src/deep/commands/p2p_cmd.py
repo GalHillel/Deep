@@ -10,28 +10,25 @@ from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.network.p2p import P2PEngine
 from deep.network.daemon import DeepDaemon
-from deep.utils.ux import Color, print_error, print_info, print_success
+from deep.utils.ux import (
+    Color, print_error, print_info, print_success,
+    format_header, format_example
+)
+
 
 def get_description() -> str:
     """Return a description for the p2p command."""
-    return "Experimental P2P sync and discovery (P2P Mesh Network)."
+    return "Experimental P2P sync and discovery (Decentralized Mesh Network)."
+
 
 def get_epilog() -> str:
     """Return an epilog with usage examples."""
-    examples_title = Color.wrap(Color.CYAN, "Examples:")
-    warn_title = Color.wrap(Color.RED, "WARNING:")
-    
-    start_ex = f"  {Color.wrap(Color.YELLOW, 'deep p2p start')}     {Color.wrap(Color.GREEN, '# Start P2P node and daemon')}"
-    list_ex  = f"  {Color.wrap(Color.YELLOW, 'deep p2p list')}      {Color.wrap(Color.GREEN, '# Discover and list active peers')}"
-    sync_ex  = f"  {Color.wrap(Color.YELLOW, 'deep p2p sync')}      {Color.wrap(Color.GREEN, '# Sync objects with discovered peers')}"
-    
-    token_ex  = f"\n{Color.wrap(Color.CYAN, 'Setup Token (Windows):')}\n" \
-                f"  {Color.wrap(Color.YELLOW, '$env:GH_TOKEN=\"...\"')}  {Color.wrap(Color.GREEN, '# PowerShell')}\n" \
-                f"  {Color.wrap(Color.YELLOW, 'set GH_TOKEN=...')}      {Color.wrap(Color.GREEN, '# CMD')}"
-
-    p2p_warn = f"\n{warn_title} P2P is an experimental feature and may be unstable."
-    
-    return f"\n{examples_title}\n{start_ex}\n{list_ex}\n{sync_ex}\n{token_ex}\n{p2p_warn}\n"
+    return f"""
+{format_header("Examples")}
+{format_example("deep p2p start", "Start P2P node and daemon")}
+{format_example("deep p2p discover", "Scan the local network for peers")}
+{format_example("deep p2p sync", "Initiate direct sync with discovered peers")}
+"""
 
 def run(args) -> None:
     """Execute the ``p2p`` command."""
