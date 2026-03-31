@@ -17,16 +17,24 @@ from deep.utils.ux import DeepHelpFormatter, format_example
 from typing import Any
 
 
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
+from typing import Any
+
+
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'mirror' command parser."""
     p_mirror = subparsers.add_parser(
         "mirror",
         help="Manage repository mirrors",
-        description="Mirror your repository to multiple remote locations simultaneously.",
+        description=format_description("Mirror your repository to multiple remote locations simultaneously. Mirrors are updated in parallel to ensure your project exists across redundant endpoints."),
         epilog=f"""
-Examples:
-{format_example("deep mirror add <url>", "Add a new mirror destination")}
-{format_example("deep mirror sync", "Synchronize all configured mirrors")}
+{format_header("Examples")}
+{format_example("deep mirror add https://backup-server.com/repo.deep", "Add a new mirror destination")}
+{format_example("deep mirror list", "List all configured mirror endpoints")}
+{format_example("deep mirror sync", "Synchronize all mirrors with the current local state")}
+{format_example("deep mirror remove 2", "Remove a mirror by its index")}
 """,
         formatter_class=DeepHelpFormatter,
     )

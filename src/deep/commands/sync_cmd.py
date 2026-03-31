@@ -9,7 +9,9 @@ from __future__ import annotations
 from deep.core.errors import DeepCLIException
 
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -17,16 +19,20 @@ def setup_parser(subparsers: Any) -> None:
     """Set up the 'sync' command parser."""
     p_sync = subparsers.add_parser(
         "sync",
-        help="Synchronize with all configured remotes and mirrors",
-        description="High-level orchestration to pull from sources and push to mirrors in one atomic operation.",
+        help="Synchronize with remotes, mirrors and peers",
+        description=format_description("Perform a high-level synchronization of your repository state. This command orchestrates fetching changes from upstream sources and optionally pushing to configured mirrors, ensuring your project is fully up-to-date across all endpoints."),
         epilog=f"""
-Examples:
-{format_example("deep sync", "Sync with 'origin' and all mirrors")}
-{format_example("deep sync --peer <url>", "Sync with a specific peer")}
+{format_header("Examples")}
+{format_example("deep sync", "Synchronize with the default 'origin' remote")}
+{format_example("deep sync origin", "Explicitly sync with the 'origin' remote")}
+{format_example("deep sync --all", "Synchronize with all configured remotes and mirrors")}
+{format_example("deep sync --peer <url>", "Synchronize directly with a specific P2P peer")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_sync.add_argument("peer", nargs="?", help="The peer or remote to sync with (defaults to origin)")
+    p_sync.add_argument("peer", nargs="?", help="The remote name, URL, or peer address to sync with (default: origin)")
+    p_sync.add_argument("--all", action="store_true", help="Synchronize with all configured remotes and mirrors")
+    p_sync.add_argument("--prune", action="store_true", help="Prune tracking branches that no longer exist on the remote")
 
 
 def ns(**kwargs):

@@ -13,7 +13,9 @@ from pathlib import Path
 
 from deep.core.repository import find_repo
 from deep.network.daemon import DeepDaemon
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -22,11 +24,15 @@ def setup_parser(subparsers: Any) -> None:
     p_daemon = subparsers.add_parser(
         "daemon",
         help="Start a background Deep service",
-        description="Runs a background process to handle periodic tasks like GC, sync, and indexing.",
+        description=format_description("Run a background process to handle periodic maintenance, synchronization, and object serving. The daemon allows other peers to discover and pull from your repository over the network."),
         epilog=f"""
-Examples:
-{format_example("deep daemon", "Start the Deep background service on default port")}
-{format_example("deep daemon --port 9999", "Start daemon on a custom port")}
+{format_header("Examples")}
+{format_header("  Local Service")}
+{format_example("deep daemon", "Start the service on the default local port (8888)")}
+{format_example("deep daemon --port 9000", "Start the service on a custom port")}
+
+{format_header("  Network Discovery")}
+{format_example("deep daemon --host 0.0.0.0", "Allow connections from any network interface")}
 """,
         formatter_class=DeepHelpFormatter,
     )

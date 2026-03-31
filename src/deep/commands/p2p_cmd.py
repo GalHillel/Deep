@@ -5,30 +5,43 @@ import threading
 import sys
 import time
 from pathlib import Path
+from typing import Any
+
 from deep.core.errors import DeepCLIException
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.network.p2p import P2PEngine
 from deep.network.daemon import DeepDaemon
 from deep.utils.ux import (
-    Color, print_error, print_info, print_success,
-    format_header, format_example
+    Color, DeepHelpFormatter, format_header, format_example, format_description,
+    print_error, print_info, print_success
 )
 
-
-def get_description() -> str:
-    """Return a description for the p2p command."""
-    return "Experimental P2P sync and discovery (Decentralized Mesh Network)."
-
-
-def get_epilog() -> str:
-    """Return an epilog with usage examples."""
-    return f"""
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'p2p' command parser."""
+    p_p2p = subparsers.add_parser(
+        "p2p",
+        help="Experimental P2P sync and discovery",
+        description=format_description("Deep P2P mesh networking allows for decentralized repository synchronization and peer discovery without a central server. Highly efficient for local networks and air-gapped environments."),
+        epilog=f"""
 {format_header("Examples")}
-{format_example("deep p2p start", "Start P2P node and daemon")}
-{format_example("deep p2p discover", "Scan the local network for peers")}
-{format_example("deep p2p sync", "Initiate direct sync with discovered peers")}
-"""
+{format_example("deep p2p start", "Start a P2P node and begin background discovery")}
+{format_example("deep p2p list", "Scan the local network and list available peers")}
+{format_example("deep p2p sync", "Initiate object and ref synchronization with found peers")}
+{format_example("deep p2p sync --peer 192.168.1.5:9001", "Connect directly to a specific peer")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    rs = p_p2p.add_subparsers(dest="p2p_command", metavar="ACTION")
+    
+    ps = rs.add_parser("start", help="Start the P2P node and background daemon")
+    ps.add_argument("--port", type=int, default=9001, help="Port to listen for incoming P2P connections")
+    
+    rs.add_parser("list", help="Scan local network and list available peer nodes")
+    
+    sy = rs.add_parser("sync", help="Synchronize branches and objects with peers")
+    sy.add_argument("--peer", help="Manually connect to a specific peer address (host:port)")
+    sy.add_argument("--branch", help="Specific branch to sync (default: all)")
 
 def run(args) -> None:
     """Execute the ``p2p`` command."""
@@ -91,7 +104,7 @@ def run(args) -> None:
                 print(f"  - {b}: {sha[:7]}")
 
     elif p2p_cmd == "sync":
-        from deep.storage.transaction import TransactionManager # type: ignore[import]
+        from deep.storage.transaction import TransactionManager
         
         # real-world TCP object exchange sync
         engine = P2PEngine(dg_dir)
@@ -162,7 +175,7 @@ def run(args) -> None:
                         count = client.fetch(objects_dir, remote_sha)
                         print(f"  Fetched {count} objects.")
                         
-                        # CHAOS TRIGGER for testing rollback
+                        # CHAOS TRIGGER
                         if os.environ.get("DEEP_P2P_CHAOS"):
                             print("🔥 CHAOS MODE: Simulating failure mid-sync...")
                             raise RuntimeError("P2P CHAOS: Simulated failure")
@@ -179,12 +192,8 @@ def run(args) -> None:
                 tm.commit()
             except Exception as e:
                 print(f"  ❌ Sync failed: {e}")
-                # TransactionManager handles rollback
                 raise DeepCLIException(1)
             finally:
                 engine.stop()
                 
         print("\nSync complete.")
-
-import socket
-import threading

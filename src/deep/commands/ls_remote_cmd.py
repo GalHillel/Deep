@@ -15,7 +15,9 @@ from pathlib import Path
 
 from deep.core.refs import list_branches, list_tags, get_branch, get_tag
 from deep.core.constants import DEEP_DIR
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -24,14 +26,20 @@ def setup_parser(subparsers: Any) -> None:
     p_ls_remote = subparsers.add_parser(
         "ls-remote",
         help="List references in a remote repository",
-        description="Displays the references (branches, tags) available at a remote URL.",
+        description=format_description("Displays the references (branches, tags, and HEAD) available at a remote URL or named remote. Useful for inspecting a remote's state without fetching objects."),
         epilog=f"""
-Examples:
-{format_example("deep ls-remote origin", "List refs from 'origin'")}
+{format_header("Examples")}
+{format_example("deep ls-remote origin", "List all references from the 'origin' remote")}
+{format_example("deep ls-remote https://github.com/user/repo", "List refs from a specific URL")}
+{format_example("deep ls-remote --heads origin", "List only branches (heads) from 'origin'")}
+{format_example("deep ls-remote --tags origin", "List only tags from 'origin'")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_ls_remote.add_argument("url", help="The remote URL or name to query")
+    p_ls_remote.add_argument("url", nargs="?", default="origin", help="The remote repository name or URL to query (default: origin)")
+    p_ls_remote.add_argument("--heads", action="store_true", help="Limit to remote branches (refs/heads/*)")
+    p_ls_remote.add_argument("--tags", action="store_true", help="Limit to remote tags (refs/tags/*)")
+    p_ls_remote.add_argument("--symref", action="store_true", help="Show the underlying reference for symbolic refs like HEAD")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
