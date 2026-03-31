@@ -15,7 +15,9 @@ from deep.storage.objects import Tree, read_object, Commit
 from deep.core.refs import resolve_revision
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -24,11 +26,13 @@ def setup_parser(subparsers: Any) -> None:
     p_ls_tree = subparsers.add_parser(
         "ls-tree",
         help="List the contents of a tree object",
-        description="Displays the contents of a tree object, similar to `ls -l` for the Deep database.",
+        description=format_description("Display the contents of a specific tree object or the tree associated with a commit. This command provides a detailed view of the repository's file structure at a given point in time, including file modes, object types, and SHA-1 hashes."),
         epilog=f"""
-Examples:
-{format_example("deep ls-tree HEAD", "List files in the current commit")}
-{format_example("deep ls-tree abc1234", "List contents of a specific tree")}
+{format_header("Examples")}
+{format_example("deep ls-tree HEAD", "List all files and directories in the current commit")}
+{format_example("deep ls-tree main:src/", "List the contents of the 'src/' directory in the 'main' branch")}
+{format_example("deep ls-tree -r abc1234", "Recursively list all files in a specific commit")}
+{format_example("deep ls-tree --name-only HEAD", "Show only the filenames without modes or hashes")}
 """,
         formatter_class=DeepHelpFormatter,
     )
