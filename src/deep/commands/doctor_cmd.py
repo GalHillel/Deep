@@ -20,7 +20,9 @@ from deep.storage.objects import Blob, Commit, Tag, Tree, read_object, DeepObjec
 from deep.core.refs import list_branches, resolve_head, list_tags, get_tag, get_branch
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -29,11 +31,12 @@ def setup_parser(subparsers: Any) -> None:
     p_doctor = subparsers.add_parser(
         "doctor",
         help="Check the repository for consistency and health",
-        description="Check the repository for consistency and integrity of objects, refs, and the index.",
+        description=format_description("Deep Doctor performs a deep diagnostic scan of the repository. It verifies the structural integrity of objects, ensures references (refs) point to valid commits, checks the index for corruption, and validates the consistency of branching and PR metadata."),
         epilog=f"""
-Examples:
-{format_example("deep doctor", "Run a diagnostic check on the repository")}
-{format_example("deep doctor --fix", "Attempt to repair minor inconsistencies")}
+{format_header("Examples")}
+{format_example("deep doctor", "Run a comprehensive health check on the current repository")}
+{format_example("deep doctor --fix", "Identify and attempt to automatically repair non-critical issues")}
+{format_example("deep doctor --verbose", "Show detailed diagnostic output for every verified component")}
 """,
         formatter_class=DeepHelpFormatter,
     )
