@@ -20,7 +20,9 @@ from deep.storage.index import DeepIndex, DeepIndexEntry, read_index, write_inde
 from deep.storage.objects import Blob
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -29,10 +31,12 @@ def setup_parser(subparsers: Any) -> None:
     p_mv = subparsers.add_parser(
         "mv",
         help="Move or rename a file or directory",
-        description="Move or rename a file, directory, or symlink and update the index.",
+        description=format_description("Move or rename a file, directory, or symlink and update the staging index accordingly. This command ensures the repository history tracks the rename efficiently."),
         epilog=f"""
-Examples:
-{format_example("deep mv old.txt new.txt", "Rename file and stage change")}
+{format_header("Examples")}
+{format_example("deep mv old.txt new.txt", "Rename a file in the same directory")}
+{format_example("deep mv file.txt docs/", "Move a file to a different directory")}
+{format_example("deep mv src/ old_src/", "Rename an entire directory")}
 """,
         formatter_class=DeepHelpFormatter,
     )
