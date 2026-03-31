@@ -34,7 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
 \033[1;32m🌱 STARTING A WORKING AREA\033[0m
-    \033[1;36minit, clone\033[0m
+    \033[1;36minit, clone, config\033[0m
 
 \033[1;33m📦 WORK ON THE CURRENT CHANGE\033[0m
     \033[1;36madd, rm, mv, reset, stash\033[0m
@@ -387,6 +387,7 @@ def build_parser() -> argparse.ArgumentParser:
         "inspect-tree",
         help=argparse.SUPPRESS,
         description="Forensic tool to verify raw tree entry modes and object types in the database.",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_inspect_tree.add_argument("sha", help="The SHA-1 hash of the tree object to inspect")
 

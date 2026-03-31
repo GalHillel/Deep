@@ -22,6 +22,37 @@ from deep.core.repository import find_repo
 from deep.utils.ux import ProgressBar
 
 
+def get_description() -> str:
+    return "Add file contents to the staging area (index) to be included in the next commit.\n\nThis prepares changes for recording."
+
+def get_epilog() -> str:
+    return """\033[1mEXAMPLES:\033[0m
+
+  \033[1;34m⚓️ deep add file.txt\033[0m
+     Add a specific file to the index.
+
+  \033[1;34m⚓️ deep add .\033[0m
+     Add all changed and new files in the current directory.
+
+  \033[1;34m⚓️ deep add src/*.py\033[0m
+     Add specific files using glob patterns.
+
+  \033[1;34m⚓️ deep add -u\033[0m
+     Add only updated files (not new ones).
+"""
+
+def setup_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    p = subparsers.add_parser(
+        "add",
+        help="Add file contents to the staging index",
+        description=get_description(),
+        epilog=get_epilog(),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p.add_argument("files", nargs="+", help="One or more files or directory paths to stage for commit")
+    return p
+
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sha: Optional[str] = None, previous_size: Optional[int] = None, previous_mtime_ns: Optional[int] = None) -> tuple[str, Optional[str], int, int]:
