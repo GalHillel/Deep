@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     \033[1;36madd, rm, mv, reset, stash\033[0m
 
 \033[1;32m🌿 EXAMINE THE HISTORY AND STATE\033[0m
-    \033[1;36mstatus, log, diff, show, ls-tree, graph\033[0m
+    \033[1;36mstatus, log, diff, show, ls-tree, graph, search\033[0m
 
 \033[1;35m🔄 GROW, MARK AND TWEAK YOUR COMMON HISTORY\033[0m
     \033[1;36mcommit, branch, checkout, merge, rebase, tag\033[0m
@@ -52,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     \033[1;36mai, pr, issue, pipeline, studio, repo, user, auth, server\033[0m
 
 \033[1;31m🛠️ MAINTENANCE & DIAGNOSTICS\033[0m
-    \033[1;36mdoctor, fsck, gc, verify, repack, benchmark, audit, ultra, batch, sandbox, rollback\033[0m
+    \033[1;36mdoctor, fsck, gc, verify, repack, benchmark, audit, ultra, batch, sandbox, rollback, migrate, maintenance\033[0m
 
 \033[1;33m💡 UNIVERSAL SHORTCUTS\033[0m
     \033[1;36mdeep <command> --help\033[0m    # Detailed help for any command
@@ -385,7 +385,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ── inspect-tree ──────────────────────────────────────────────
     p_inspect_tree = sub.add_parser(
         "inspect-tree",
-        help="Internal: Inspect raw tree entries (debug)",
+        help=argparse.SUPPRESS,
         description="Forensic tool to verify raw tree entry modes and object types in the database.",
     )
     p_inspect_tree.add_argument("sha", help="The SHA-1 hash of the tree object to inspect")
@@ -856,7 +856,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ── commit-graph ──────────────────────────────────────────────────
     p_cg = sub.add_parser(
         "commit-graph",
-        help="Manage the commit graph index",
+        help=argparse.SUPPRESS,
         description="Manage the binary commit graph index for accelerated history traversal.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -1150,7 +1150,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ── debug-tree (Diagnostics) ────────────────────────────────────
     p_debug = sub.add_parser(
         "debug-tree",
-        help="Inspect tree contents with hidden character visibility",
+        help=argparse.SUPPRESS,
         description="Forensic tool to inspect Deep tree objects.\n\nUses repr() to reveal hidden characters for debugging purposes.",
         epilog="""
 \033[1mEXAMPLES:\033[0m
@@ -1325,15 +1325,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"Deep version {ver_str}")
         return
     elif args.command == "maintenance":
-        from deep.core.maintenance import run_maintenance # type: ignore[import]
-        from deep.core.repository import find_repo # type: ignore[import]
-        try:
-            repo_root = find_repo()
-            run_maintenance(repo_root, force=getattr(args, "force", False))
-        except FileNotFoundError:
-            print("Deep: error: not a repository", file=sys.stderr)
-            raise DeepCLIException(1)
-        return
+        from deep.commands.maintenance_cmd import run # type: ignore[import]
     elif args.command == "help":
         if args.subcommand:
             # We must find the subparser for this command
