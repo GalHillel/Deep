@@ -13,7 +13,22 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'verify' command parser."""
+    subparsers.add_parser(
+        "verify",
+        help="Verify commit signatures and DAG integrity",
+        description="Check that all commit signatures, DAG connectivity, and audit chains are valid.",
+        epilog=f"""
+Examples:
+{format_example("deep verify", "Run a complete security and integrity audit")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
 
 
 def run(args) -> None:
