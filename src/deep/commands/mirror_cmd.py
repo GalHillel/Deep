@@ -13,7 +13,27 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.mirror import MirrorManager
 from deep.core.config import Config
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'mirror' command parser."""
+    p_mirror = subparsers.add_parser(
+        "mirror",
+        help="Manage repository mirrors",
+        description="Mirror your repository to multiple remote locations simultaneously.",
+        epilog=f"""
+Examples:
+{format_example("deep mirror add <url>", "Add a new mirror destination")}
+{format_example("deep mirror sync", "Synchronize all configured mirrors")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    ms = p_mirror.add_subparsers(dest="mirror_command", metavar="ACTION")
+    ms.add_parser("add", help="Add a new mirror").add_argument("url", help="The URL to mirror to")
+    ms.add_parser("sync", help="Synchronize all mirrors")
+    ms.add_parser("list", help="List all configured mirrors")
 
 def run(args) -> None:
     """Execute the ``mirror`` command."""

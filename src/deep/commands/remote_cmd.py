@@ -12,7 +12,32 @@ from pathlib import Path
 
 from deep.core.config import Config
 from deep.core.repository import find_repo
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'remote' command parser."""
+    p_remote = subparsers.add_parser(
+        "remote",
+        help="Manage set of tracked repositories",
+        description="Manage the set of repositories ('remotes') whose branches you track.",
+        epilog=f"""
+Examples:
+{format_example("deep remote", "List all configured remotes")}
+{format_example("deep remote add origin <url>", "Add a new remote named 'origin'")}
+{format_example("deep remote remove origin", "Remove 'origin' from configuration")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    rs = p_remote.add_subparsers(dest="remote_command", metavar="ACTION")
+    
+    p_add = rs.add_parser("add", help="Add a new remote")
+    p_add.add_argument("name", help="The name for the new remote")
+    p_add.add_argument("url", help="The URL or path for the new remote")
+    
+    p_rm = rs.add_parser("remove", help="Remove an existing remote")
+    p_rm.add_argument("name", help="The name of the remote to remove")
 
 def run(args) -> None:
     """Execute the ``remote`` command."""
