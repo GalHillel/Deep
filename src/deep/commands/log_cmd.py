@@ -18,24 +18,32 @@ from deep.utils.ux import DeepHelpFormatter, format_example
 from typing import Any
 
 
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
+from typing import Any
+
+
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'log' command parser."""
     p_log = subparsers.add_parser(
         "log",
         help="Display commit history logs",
-        description="Browse through the commit history of the current branch or a specified commit range.",
+        description=format_description("Browse through the commit history of the current branch or a specified commit range. Displays commit SHAs, authors, dates, and messages with support for visualizations and concise formatting."),
         epilog=f"""
-Examples:
-{format_example("deep log", "Show full detailed logs")}
-{format_example("deep log --oneline", "Show concise summary")}
-{format_example("deep log -n 10", "Limit to 10 commits")}
-{format_example("deep log --graph", "Visualize with ASCII graph")}
+{format_header("Examples")}
+{format_example("deep log", "Show full detailed logs with authors and dates")}
+{format_example("deep log --oneline", "Show a concise summary (one line per commit)")}
+{format_example("deep log -n 10", "Limit the output to the last 10 commits")}
+{format_example("deep log --graph", "Visualize history with an ASCII-based commit graph")}
+{format_example("deep log --oneline --graph", "Visualize history in a compact graph format")}
 """,
         formatter_class=DeepHelpFormatter,
     )
     p_log.add_argument("--oneline", action="store_true", help="Display each commit entry on a single concise line")
     p_log.add_argument("-n", "--max-count", type=int, help="Limit the number of commits to display")
     p_log.add_argument("--graph", action="store_true", help="Visualize history with an ASCII-based commit graph")
+    p_log.add_argument("--all", action="store_true", help="Show history for all branches and refs")
 from deep.utils.ux import Color
 from deep.utils.utils import format_date
 

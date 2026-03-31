@@ -20,7 +20,9 @@ from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import get_current_branch, resolve_head, update_branch
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -29,19 +31,23 @@ def setup_parser(subparsers: Any) -> None:
     p_commit = subparsers.add_parser(
         "commit",
         help="Record changes to the repository history",
-        description="Create a new commit containing the current contents of the index.",
+        description=format_description("Create a new commit containing the current contents of the staging index. This records a snapshot of the project state with metadata and an optional cryptographic signature."),
         epilog=f"""
 {format_header("Examples")}
 {format_example("deep commit -m 'Fix bug'", "Create a commit with a manual message")}
 {format_example("deep commit -a -m 'Rel'", "Auto-stage tracked changes and commit")}
 {format_example("deep commit --ai -a", "AI-generated message with auto-stage")}
+{format_example("deep commit -S -m 'Sig'", "Create a cryptographically signed commit")}
+{format_example("deep commit --amend", "Amend the last commit with new changes or message")}
 """,
         formatter_class=DeepHelpFormatter,
     )
     p_commit.add_argument("-m", "--message", help="The commit message describing the changes")
-    p_commit.add_argument("-a", "--all", action="store_true", help="Automatically stage modified and deleted tracked files")
-    p_commit.add_argument("--ai", action="store_true", help="Use AI to generate a commit message based on staged changes")
-    p_commit.add_argument("-S", "--sign", action="store_true", help="Create a cryptographically signed commit")
+    p_commit.add_argument("-a", "--all", action="store_true", help="Automatically stage modified and deleted tracked files before committing")
+    p_commit.add_argument("--ai", action="store_true", help="Automatically generate a commit message using Deep AI")
+    p_commit.add_argument("-S", "--sign", action="store_true", help="Digitally sign the commit using your identity key")
+    p_commit.add_argument("--amend", action="store_true", help="Amend the last commit (changes message and/or content)")
+    p_commit.add_argument("--allow-empty", action="store_true", help="Create a commit even if no changes are staged")
 from deep.core.hooks import run_hook
 
 
