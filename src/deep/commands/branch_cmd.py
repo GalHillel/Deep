@@ -18,6 +18,28 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'branch' command parser."""
+    p_branch = subparsers.add_parser(
+        "branch",
+        help="List, create, or delete branches",
+        description="Manage the set of branches in your repository.",
+        epilog=f"""
+Examples:
+{format_example("deep branch", "List local branches")}
+{format_example("deep branch new-feature", "Create a new branch")}
+{format_example("deep branch -d old-feature", "Delete a branch")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_branch.add_argument("name", nargs="?", help="The name of the branch to create")
+    p_branch.add_argument("-d", "--delete", action="store_true", help="Delete the specified branch")
+    p_branch.add_argument("-a", "--all", action="store_true", help="List both local and tracked remote branches")
+    p_branch.add_argument("-v", "--verbose", action="count", default=0, help="Show more detail (SHA and tracking info)")
 from deep.utils.ux import Color
 from deep.storage.transaction import TransactionManager
 

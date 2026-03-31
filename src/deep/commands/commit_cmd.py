@@ -20,6 +20,28 @@ from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import get_current_branch, resolve_head, update_branch
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'commit' command parser."""
+    p_commit = subparsers.add_parser(
+        "commit",
+        help="Record changes to the repository history",
+        description="Create a new commit containing the current contents of the index.",
+        epilog=f"""
+{format_header("Examples")}
+{format_example("deep commit -m 'Fix bug'", "Create a commit with a manual message")}
+{format_example("deep commit -a -m 'Rel'", "Auto-stage tracked changes and commit")}
+{format_example("deep commit --ai -a", "AI-generated message with auto-stage")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_commit.add_argument("-m", "--message", help="The commit message describing the changes")
+    p_commit.add_argument("-a", "--all", action="store_true", help="Automatically stage modified and deleted tracked files")
+    p_commit.add_argument("--ai", action="store_true", help="Use AI to generate a commit message based on staged changes")
+    p_commit.add_argument("-S", "--sign", action="store_true", help="Create a cryptographically signed commit")
 from deep.core.hooks import run_hook
 
 
