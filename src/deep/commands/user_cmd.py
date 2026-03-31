@@ -13,7 +13,32 @@ from pathlib import Path
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.core.user import UserManager
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'user' command parser."""
+    p_user = subparsers.add_parser(
+        "user",
+        help="Local user management and identity control",
+        description="Manage local user accounts, public keys, and identities in a Deep server environment.",
+        epilog=f"""
+Examples:
+{format_example("deep user list", "List all users in the current repository")}
+{format_example("deep user add alice alice@dev.io --public-key ...", "Add a new user")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    usub = p_user.add_subparsers(dest="user_command", metavar="ACTION")
+    
+    p_add = usub.add_parser("add", help="Add a new user")
+    p_add.add_argument("username", help="The username for the new account")
+    p_add.add_argument("email", help="The user's email address")
+    p_add.add_argument("--public-key", required=True, help="The user's public key for signature verification")
+    
+    usub.add_parser("list", help="List all users")
+    usub.add_parser("remove", help="Remove a user").add_argument("username", help="The username to remove")
 
 def run(args) -> None:
     """Execute the ``user`` command."""
