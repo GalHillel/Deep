@@ -12,7 +12,9 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -21,15 +23,18 @@ def setup_parser(subparsers: Any) -> None:
     p_stash = subparsers.add_parser(
         "stash",
         help="Stash temporary changes",
-        description="Save local changes in a temporary stack to clean your working tree.",
+        description=format_description("Save your local modifications to a temporary stack and reset the working directory to match the HEAD commit. This allows you to quickly switch contexts without committing unfinished work."),
         epilog=f"""
-Examples:
-{format_example("deep stash save 'Work'", "Save changes to the stash")}
-{format_example("deep stash pop", "Apply and remove latest stash")}
+{format_header("Examples")}
+{format_example("deep stash", "Save current changes to a new stash entry")}
+{format_example("deep stash list", "View all current stashed changes")}
+{format_example("deep stash pop", "Apply the most recent stash and remove it from the stack")}
+{format_example("deep stash apply", "Apply the most recent stash but keep it in the stack")}
+{format_example("deep stash drop", "Discard the most recent stash entry")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_stash.add_argument("action", choices=["push", "save", "pop", "list", "drop", "clear", "apply"], nargs="?", default="save", help="The stash operation to perform")
+    p_stash.add_argument("action", choices=["push", "save", "pop", "list", "drop", "clear", "apply"], nargs="?", default="save", help="The stash operation to perform (default: save)")
 from deep.core.stash import get_stash_list, pop_stash, save_stash
 
 
