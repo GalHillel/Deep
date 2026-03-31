@@ -9,8 +9,11 @@ from deep.core.errors import DeepCLIException
 
 import sys
 from deep.core.repository import init_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description, format_option
+)
 from typing import Any
+from pathlib import Path
 
 
 def setup_parser(subparsers: Any) -> None:
@@ -18,16 +21,17 @@ def setup_parser(subparsers: Any) -> None:
     p_init = subparsers.add_parser(
         "init",
         help="Initialize a new empty Deep repository",
-        description="Create an empty Deep repository or reinitialize an existing one.",
+        description=format_description("Create an empty Deep repository or reinitialize an existing one. This sets up the internal .deep structures and configuration."),
         epilog=f"""
-Examples:
+{format_header("Examples")}
 {format_example("deep init", "Initialize in the current directory")}
-{format_example("deep init my-project", "Create 'my-project' and initialize there")}
+{format_example("deep init my-project", "Create 'my-project' directory and initialize there")}
+{format_example("deep init --bare", "Create a bare repository for server use")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_init.add_argument("path", nargs="?", help="The target directory for the repository")
-    p_init.add_argument("--bare", action="store_true", help="Create a bare repository")
+    p_init.add_argument("path", nargs="?", default=None, help="The target directory for the repository (default: current directory)")
+    p_init.add_argument("--bare", action="store_true", help="Create a bare repository (without a working tree)")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]

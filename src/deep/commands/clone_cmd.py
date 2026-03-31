@@ -13,14 +13,11 @@ Full native smart protocol clone pipeline:
 No external VCS CLI dependency.
 """
 
-from __future__ import annotations
-from deep.core.errors import DeepCLIException
-
-import sys
-import os
-from pathlib import Path
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description, format_option
+)
 from typing import Any
-from deep.utils.ux import DeepHelpFormatter, format_example
+from pathlib import Path
 
 
 def setup_parser(subparsers: Any) -> None:
@@ -28,17 +25,21 @@ def setup_parser(subparsers: Any) -> None:
     p_clone = subparsers.add_parser(
         "clone",
         help="Clone a repository into a new directory",
-        description="Create a local copy of a remote Deep repository, including all history and metadata.",
+        description=format_description("Create a local copy of a remote Deep repository, including all history, branches, and metadata. This effectively initializes a new repository linked to the remote source."),
         epilog=f"""
-Examples:
-{format_example("deep clone <url>", "Clone from a remote URL")}
-{format_example("deep clone repo --depth 1", "Create a shallow clone")}
+{format_header("Examples")}
+{format_example("deep clone <url>", "Clone from a remote URL into a new directory")}
+{format_example("deep clone <url> my-repo", "Clone into a specific directory name")}
+{format_example("deep clone <url> --depth 1", "Create a shallow clone with only the latest commit")}
+{format_example("deep clone <url> --mirror", "Create a full bare mirror of the repository")}
 """,
         formatter_class=DeepHelpFormatter,
     )
     p_clone.add_argument("url", help="The repository URL or local path to clone from")
-    p_clone.add_argument("dir", nargs="?", help="The name of the new directory to clone into")
-    p_clone.add_argument("--depth", type=int, help="Create a shallow clone with truncated history")
+    p_clone.add_argument("dir", nargs="?", default=None, help="The name of the new directory to clone into (default: derived from URL)")
+    p_clone.add_argument("--depth", type=int, help="Create a shallow clone with truncated history (number of commits)")
+    p_clone.add_argument("--mirror", action="store_true", help="Clone as a bare repository with 1:1 ref mapping")
+    p_clone.add_argument("--filter", help="Specify object filtering for a partial clone (e.g. blob:none)")
 
 from deep.core.constants import DEEP_DIR
 from deep.core.refs import update_head, update_branch, resolve_head

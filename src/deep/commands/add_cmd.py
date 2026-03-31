@@ -12,8 +12,10 @@ import sys
 import hashlib
 from pathlib import Path
 from deep.core.repository import find_repo
-from deep.utils.ux import ProgressBar, DeepHelpFormatter, format_example
-from typing import Any, Optional, Tuple, List
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
+from typing import Any
 
 
 def setup_parser(subparsers: Any) -> None:
@@ -21,17 +23,18 @@ def setup_parser(subparsers: Any) -> None:
     p_add = subparsers.add_parser(
         "add",
         help="Add file contents to the staging index",
-        description="Add file contents to the staging area (index) to be included in the next commit.",
+        description=format_description("Stage file changes to the index to be included in the next commit. This command prepares modified, deleted, and new files for recording in the repository history."),
         epilog=f"""
-Examples:
+{format_header("Examples")}
 {format_example("deep add file.txt", "Add a specific file to the index")}
 {format_example("deep add .", "Add all changed and new files in current directory")}
 {format_example("deep add src/*.py", "Add specific files using glob patterns")}
+{format_example("deep add -u", "Stage only modified and deleted files (no new files)")}
 """,
         formatter_class=DeepHelpFormatter,
     )
     p_add.add_argument("files", nargs="+", help="One or more files or directory paths to stage for commit")
-    p_add.add_argument("-u", "--update", action="store_true", help="Add only updated files (not new ones)")
+    p_add.add_argument("-u", "--update", action="store_true", help="Only match tracked files that have changed (no new files)")
 
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
