@@ -21,7 +21,9 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import update_branch, resolve_head, get_branch, update_remote_ref, get_remote_ref
 from deep.core.config import Config
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -29,18 +31,20 @@ def setup_parser(subparsers: Any) -> None:
     """Set up the 'pull' command parser."""
     p_pull = subparsers.add_parser(
         "pull",
-        help="Fetch from and integrate with another repository or a local branch",
-        description="Fetch changes from a remote repository and merge them into the current branch.",
+        help="Fetch from and integrate with another repository",
+        description=format_description("Fetch changes from a remote repository and merge them into the current branch. This command is a combination of 'deep fetch' and 'deep merge'."),
         epilog=f"""
-Examples:
-{format_example("deep pull origin main", "Fetch and merge 'main' from 'origin'")}
-{format_example("deep pull", "Pull from the default upstream branch")}
+{format_header("Examples")}
+{format_example("deep pull origin main", "Fetch and merge 'main' from 'origin' remote")}
+{format_example("deep pull", "Pull changes from the default upstream branch")}
+{format_example("deep pull --rebase", "Fetch and rebase your local commits onto remote changes")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_pull.add_argument("url", nargs="?", help="The remote repository URL or name to pull from")
-    p_pull.add_argument("branch", nargs="?", help="The branch name to pull")
-    p_pull.add_argument("--rebase", action="store_true", help="Rebase current branch onto the tip of the remote branch")
+    p_pull.add_argument("url", nargs="?", help="The remote repository name or URL (default: origin)")
+    p_pull.add_argument("branch", nargs="?", help="The remote branch name to pull from")
+    p_pull.add_argument("--rebase", action="store_true", help="Rebase current branch onto the tip of the remote branch instead of merging")
+    p_pull.add_argument("--no-commit", action="store_true", help="Perform the pull but do not automatically create a merge commit")
 
 def run(args) -> None:
     """Execute the ``pull`` command."""
