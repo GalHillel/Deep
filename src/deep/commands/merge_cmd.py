@@ -30,7 +30,9 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -39,17 +41,20 @@ def setup_parser(subparsers: Any) -> None:
     p_merge = subparsers.add_parser(
         "merge",
         help="Join two or more development histories",
-        description="Merge changes from the specified branch or commit into the current branch.",
+        description=format_description("Merge changes from the specified branch or commit into the current branch. Supports fast-forward and 3-way merges with automatic conflict detection."),
         epilog=f"""
-Examples:
-{format_example("deep merge feature", "Merge 'feature' into current branch")}
-{format_example("deep merge --abort", "Cancel the current conflicted merge")}
+{format_header("Examples")}
+{format_example("deep merge feature", "Merge the 'feature' branch into current branch")}
+{format_example("deep merge main", "Bring 'main' branch changes into current branch")}
+{format_example("deep merge --no-commit dev", "Merge 'dev' but don't automatically commit")}
+{format_example("deep merge --abort", "Cancel a conflicted merge and restore previous state")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_merge.add_argument("branch", nargs="?", help="The branch or commit to merge into the current branch")
-    p_merge.add_argument("--abort", action="store_true", help="Abort the current merge process and restore state")
-    p_merge.add_argument("--no-commit", action="store_true", help="Perform the merge but do not create a commit")
+    p_merge.add_argument("branch", nargs="?", help="The branch name or commit SHA to merge into current branch")
+    p_merge.add_argument("--abort", action="store_true", help="Abort the current conflicted merge and restore to pre-merge state")
+    p_merge.add_argument("--no-commit", action="store_true", help="Perform the merge but do not automatically create a commit")
+    p_merge.add_argument("--ff-only", action="store_true", help="Refuse to merge and exit with a non-zero status unless the merge is a fast-forward")
 from deep.storage.transaction import TransactionManager
 from deep.core.config import Config
 from deep.core.telemetry import TelemetryCollector, Timer
