@@ -14,6 +14,28 @@ from deep.storage.objects import Commit, read_object
 from deep.core.refs import get_commit_decorations, log_history, resolve_head
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'log' command parser."""
+    p_log = subparsers.add_parser(
+        "log",
+        help="Display commit history logs",
+        description="Browse through the commit history of the current branch or a specified commit range.",
+        epilog=f"""
+Examples:
+{format_example("deep log", "Show full detailed logs")}
+{format_example("deep log --oneline", "Show concise summary")}
+{format_example("deep log -n 10", "Limit to 10 commits")}
+{format_example("deep log --graph", "Visualize with ASCII graph")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_log.add_argument("--oneline", action="store_true", help="Display each commit entry on a single concise line")
+    p_log.add_argument("-n", "--max-count", type=int, help="Limit the number of commits to display")
+    p_log.add_argument("--graph", action="store_true", help="Visualize history with an ASCII-based commit graph")
 from deep.utils.ux import Color
 from deep.utils.utils import format_date
 
