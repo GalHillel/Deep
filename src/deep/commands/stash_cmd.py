@@ -12,12 +12,9 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'stash' command parser."""
@@ -45,7 +42,6 @@ This allows you to quickly switch contexts without committing unfinished work.""
     )
     p_stash.add_argument("action", choices=["push", "save", "pop", "list", "drop", "clear", "apply"], nargs="?", default="save", help="The stash operation to perform (default: save)")
 from deep.core.stash import get_stash_list, pop_stash, save_stash
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``stash`` command."""

@@ -6,6 +6,7 @@ deep.commands.rollback_cmd
 Hard-reset rollback: moves HEAD, resets INDEX, and resets WORKING DIRECTORY
 to match the target commit. Default target is HEAD~1 (parent of current HEAD).
 """
+from deep.utils.ux import Color
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -17,12 +18,9 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'rollback' command parser."""
@@ -50,7 +48,6 @@ This command is a powerful safety net for undoing accidental merges, deletions, 
     p_rollback.add_argument("commit", nargs="?", default="HEAD~1", help="The commit identifier to rollback to (default: HEAD~1)")
     p_rollback.add_argument("--force", action="store_true", help="Force rollback even if the working tree is dirty")
 
-
 def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
     """Recursively collect {rel_path: blob_sha} from a tree object."""
     from deep.storage.objects import read_object, Tree
@@ -65,7 +62,6 @@ def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[
         else:
             files[rel] = entry.sha
     return files
-
 
 def run(args) -> None:
     """Execute the rollback command (hard reset to target commit)."""

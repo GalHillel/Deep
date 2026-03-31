@@ -3,18 +3,17 @@ deep.commands.config_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep config [--global] <key> [<value>]`` command implementation.
 """
+from typing import List
+import sys
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 
 from deep.core.config import Config
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'config' command parser."""
@@ -43,7 +42,6 @@ Use this to configure identities, editors, network settings, and AI preferences.
     p_config.add_argument("key", help="The configuration key to set or query")
     p_config.add_argument("value", nargs="?", help="The value to set for the given key")
     p_config.add_argument("--global", dest="global_", action="store_true", help="Use the global configuration file")
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``config`` command."""

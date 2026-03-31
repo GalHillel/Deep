@@ -3,6 +3,8 @@ deep.commands.add_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Deep ``add`` command implementation.
 """
+from deep.core.constants import DEEP_DIR
+from typing import Optional
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -12,12 +14,9 @@ import sys
 import hashlib
 from pathlib import Path
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'add' command parser."""
@@ -43,7 +42,6 @@ This command prepares modified, deleted, and new files for recording in the repo
     )
     p_add.add_argument("files", nargs="+", help="One or more files or directory paths to stage for commit")
     p_add.add_argument("-u", "--update", action="store_true", help="Only match tracked files that have changed (no new files)")
-
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -87,7 +85,6 @@ def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sh
         sha = write_object(objects_dir, Blob(data))
         
     return rel_path, sha, stat.st_size, stat.st_mtime_ns
-
 
 def run(args) -> None:
     """Execute the ``add`` command."""

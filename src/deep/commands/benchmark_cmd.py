@@ -3,6 +3,9 @@ deep.commands.benchmark_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep benchmark`` command implementation.
 """
+from deep.storage.objects import Blob
+from deep.storage.objects import Commit
+from deep.utils.ux import Color
 
 from __future__ import annotations
 
@@ -10,11 +13,10 @@ import sys
 from pathlib import Path
 from deep.core.benchmark import run_benchmarks
 from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description, Color
+    Color
 )
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'benchmark' command parser."""
@@ -41,7 +43,6 @@ It measures the throughput of object hashing, commit creation speed, the efficie
     p_bench.add_argument("--verbose", action="store_true", help="Show detailed metrics during benchmarking")
     p_bench.add_argument("--report", action="store_true", help="Save results to benchmark_report.json")
     p_bench.add_argument("--compare-git", action="store_true", help="Compare performance against native Deep implementation")
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``benchmark`` command."""

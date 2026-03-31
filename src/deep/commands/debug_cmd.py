@@ -3,6 +3,8 @@ deep.commands.debug_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Debug tooling for inspecting internal Deep state.
 """
+from deep.core.constants import DEEP_DIR
+from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -12,12 +14,9 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.storage.objects import read_object, Tree, Commit
 from deep.core.refs import resolve_head
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'debug' command parser."""
@@ -43,7 +42,6 @@ These commands are intended for developers and power users to inspect the raw st
     
     p_tree = rs.add_parser("tree", help="Inspect a tree object recursively")
     p_tree.add_argument("sha", nargs="?", help="The SHA-1 hash of the tree object to inspect (default: HEAD)")
-
 
 def run(args) -> None:
     """Implement 'deep debug' commands."""

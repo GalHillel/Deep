@@ -3,18 +3,16 @@ deep.commands.graph_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep graph`` command — visualises commit history.
 """
+from deep.core.constants import DEEP_DIR
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 import sys
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.graph import get_history_graph, render_graph
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'graph' command parser."""
@@ -40,7 +38,6 @@ The graph displays the relationship between commits, branches, and tags, making 
     )
     p_graph.add_argument("--all", action="store_true", help="Include all references (branches and tags) in the graph")
     p_graph.add_argument("-n", "--max-count", type=int, default=100, help="Maximum number of commits to display (default: 100)")
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``graph`` command."""

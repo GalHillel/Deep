@@ -6,6 +6,7 @@ deep.commands.ls_remote_cmd
 Uses native smart protocol (SSH/HTTPS) for remote ref discovery.
 No external VCS CLI dependency.
 """
+from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -15,12 +16,9 @@ from pathlib import Path
 
 from deep.core.refs import list_branches, list_tags, get_branch, get_tag
 from deep.core.constants import DEEP_DIR
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'ls-remote' command parser."""
@@ -48,7 +46,6 @@ Useful for inspecting a remote's state without fetching objects.""",
     p_ls_remote.add_argument("--heads", action="store_true", help="Limit to remote branches (refs/heads/*)")
     p_ls_remote.add_argument("--tags", action="store_true", help="Limit to remote tags (refs/tags/*)")
     p_ls_remote.add_argument("--symref", action="store_true", help="Show the underlying reference for symbolic refs like HEAD")
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``ls-remote`` command."""
@@ -92,7 +89,6 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     except Exception as e:
         print(f"Deep: error: ls-remote failed: {e}", file=sys.stderr)
         raise DeepCLIException(1)
-
 
 def _ls_remote_local(dg_dir: Path) -> None:
     """List refs from a local repository."""

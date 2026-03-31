@@ -15,12 +15,9 @@ from pathlib import Path
 from deep.storage.index import remove_multiple_from_index
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'rm' command parser."""
@@ -46,7 +43,6 @@ This stops tracking the specified files and deletes them from the disk unless --
     p_rm.add_argument("--cached", action="store_true", help="Remove from the index only, keeping the file in the working tree")
     p_rm.add_argument("-r", "--recursive", action="store_true", help="Allow recursive removal when a directory name is given")
 from deep.storage.transaction import TransactionManager
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``rm`` command."""

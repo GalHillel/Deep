@@ -87,36 +87,41 @@ def build_parser() -> argparse.ArgumentParser:
 
     return parser
 
-def main():
+def main(argv: Optional[List[str]] = None) -> int:
+    """The main entry point for the DeepGit CLI."""
     parser = build_parser()
     
-    # Handle 'help' alias and no-args
-    if len(sys.argv) == 1:
-        parser.print_help()
-        return
+    # Standardize argv
+    if argv is None:
+        argv = sys.argv[1:]
 
-    if sys.argv[1] == "help":
-        if len(sys.argv) > 2:
+    # Handle 'help' alias and no-args
+    if not argv:
+        parser.print_help()
+        return 0
+
+    if argv[0] == "help":
+        if len(argv) > 1:
             # deep help commit -> deep commit --help
-            cmd = sys.argv[2]
-            sys.argv = [sys.argv[0], cmd, "--help"]
+            cmd = argv[1]
+            argv = [cmd, "--help"]
         else:
             parser.print_help()
-            return
+            return 0
 
     try:
-        args, unknown = parser.parse_known_args()
+        args, unknown = parser.parse_known_args(argv)
     except SystemExit:
-        return # Argparse handles it
+        return 0 # Argparse handles it
 
     if args.version or getattr(args, "command", None) == "version":
         from deep.utils.ux import DEEP_LOGO
         print(DEEP_LOGO)
-        return
+        return 0
 
     if not getattr(args, "command", None) or getattr(args, "help", False):
         parser.print_help()
-        return
+        return 0
 
     # Dispatch Command
     cmd_name = args.command

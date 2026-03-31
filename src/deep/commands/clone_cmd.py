@@ -12,13 +12,14 @@ Full native smart protocol clone pipeline:
 
 No external VCS CLI dependency.
 """
+import os
+import sys
 
 from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description, format_option
+    format_option
 )
 from typing import Any
 from pathlib import Path
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'clone' command parser."""
@@ -55,9 +56,8 @@ from deep.commands import init_cmd, checkout_cmd
 import argparse
 
 def ns(**kwargs):
-    import argparse
+    
     return argparse.Namespace(**kwargs)
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``clone`` command."""

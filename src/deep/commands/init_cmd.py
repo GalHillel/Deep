@@ -10,12 +10,11 @@ from deep.core.errors import DeepCLIException
 import sys
 from deep.core.repository import init_repo
 from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description, format_option
+    format_option
 )
 import argparse
 from typing import Any
 from pathlib import Path
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'init' command parser."""
@@ -39,7 +38,6 @@ This sets up the internal .deep structures and configuration.""",
     )
     p_init.add_argument("path", nargs="?", default=None, help="The target directory for the repository (default: current directory)")
     p_init.add_argument("--bare", action="store_true", help="Create a bare repository (without a working tree)")
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``init`` command."""

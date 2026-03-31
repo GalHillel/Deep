@@ -6,6 +6,7 @@ deep.commands.audit_cmd
 Supports 'report' subcommand for Merkle-chained audit report
 and 'scan' subcommand for zero-tolerance forbidden word detection.
 """
+from deep.utils.ux import Color
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -17,11 +18,10 @@ from deep.core.audit import AuditLog
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description, Color
+    Color
 )
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'audit' command parser."""
@@ -45,7 +45,6 @@ Deep maintains a Merkle-chain of all significant events, allowing for zero-toler
     )
     # Define sub-commands as destinations
     p_audit.add_argument("audit_command", choices=["show", "report", "scan"], nargs="?", default="show", help="The audit action to perform (default: show)")
-
 
 def _run_scan() -> None:
     """Scan source code for forbidden patterns. Exits with error if any found."""
@@ -73,7 +72,6 @@ def _run_scan() -> None:
     
     print(f"\n{Color.wrap(Color.ERROR, f'Total: {len(violations)} violation(s). AUDIT FAILED.')}")
     raise DeepCLIException(1)
-
 
 def run(args) -> None:
     audit_command = getattr(args, "audit_command", "show") or "show"

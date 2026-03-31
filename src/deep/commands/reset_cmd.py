@@ -16,12 +16,9 @@ import sys
 import hashlib
 import struct
 from pathlib import Path
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'reset' command parser."""
@@ -64,7 +61,6 @@ from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.storage.transaction import TransactionManager
 
-
 def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
     """Recursively collect all {rel_path: sha} from a tree."""
     files = {}
@@ -78,7 +74,6 @@ def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[
         else:
             files[rel_path] = entry.sha
     return files
-
 
 def run(args) -> None:  # type: ignore[no-untyped_def]
     """Execute the ``reset`` command."""

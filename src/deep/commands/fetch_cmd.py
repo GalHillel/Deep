@@ -11,6 +11,7 @@ Native smart protocol fetch:
 
 No external VCS CLI dependency.
 """
+from deep.core.constants import DEEP_DIR
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -21,12 +22,9 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import update_branch, update_head, update_remote_ref, get_remote_ref
 from deep.core.config import Config
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'fetch' command parser."""
@@ -55,7 +53,6 @@ This updates your remote-tracking branches but does not modify your local work u
     p_fetch.add_argument("--all", action="store_true", help="Fetch from all configured remotes")
     p_fetch.add_argument("-p", "--prune", action="store_true", help="Remove any remote-tracking references that no longer exist on the remote")
     p_fetch.add_argument("--tags", action="store_true", help="Fetch all tags from the remote")
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``fetch`` command."""

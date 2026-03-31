@@ -14,8 +14,7 @@ from deep.core.repository import find_repo
 from deep.network.p2p import P2PEngine
 from deep.network.daemon import DeepDaemon
 from deep.utils.ux import (
-    Color, DeepHelpFormatter, format_header, format_example, format_description,
-    print_error, print_info, print_success
+    Color, print_error, print_info, print_success
 )
 
 def setup_parser(subparsers: Any) -> None:
@@ -38,6 +37,10 @@ Highly efficient for local networks and air-gapped environments.""",
   \033[1;34m⚓️ deep p2p sync --peer 192.168.1.5:9001\033[0m
      Connect directly to a specific peer
 """,
+from deep.utils.ux import Color
+from deep.utils.ux import print_error
+from deep.utils.ux import print_info
+from deep.utils.ux import print_success
         formatter_class=argparse.RawTextHelpFormatter,
     )
     rs = p_p2p.add_subparsers(dest="p2p_command", metavar="ACTION")

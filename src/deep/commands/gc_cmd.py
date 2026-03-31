@@ -3,6 +3,7 @@ deep.commands.gc_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep gc`` command implementation.
 """
+import time
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -12,12 +13,9 @@ from pathlib import Path
 
 from deep.core.gc import collect_garbage
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'gc' command parser."""
@@ -44,7 +42,6 @@ This command removes unreachable objects, compresses history, and performs gener
     p_gc.add_argument("--auto", action="store_true", help="Only run if the repository needs optimization")
     p_gc.add_argument("--prune", action="store_true", help="Prune unreachable objects (older than 2 weeks by default)")
 from deep.utils.ux import Color
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``gc`` command."""

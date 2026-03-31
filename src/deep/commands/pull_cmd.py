@@ -10,6 +10,8 @@ Native fetch + merge:
 
 No external VCS CLI dependency.
 """
+from deep.core.constants import DEEP_DIR
+from deep.utils.ux import Color
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -21,12 +23,9 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import update_branch, resolve_head, get_branch, update_remote_ref, get_remote_ref
 from deep.core.config import Config
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'pull' command parser."""

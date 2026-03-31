@@ -8,6 +8,8 @@ ULTRA Mode: Executes real system optimization in 3 stages:
   2. Object Repacking — consolidate loose objects into packfiles
   3. Commit Graph Optimization — rebuild commit-graph index
 """
+from deep.storage.objects import Commit
+from deep.utils.ux import Color
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -19,11 +21,10 @@ from pathlib import Path
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description, Color
+    Color
 )
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'ultra' command parser."""
@@ -48,7 +49,6 @@ It combines Garbage Collection, Object Repacking, and Commit Graph Rebuilding in
 """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
-
 
 def run(args) -> None:
     """Execute the ultra optimization command."""

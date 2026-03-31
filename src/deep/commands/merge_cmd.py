@@ -30,12 +30,9 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'merge' command parser."""
@@ -70,7 +67,6 @@ from deep.core.audit import AuditLog
 from deep.core.hooks import run_hook
 from deep.core.state import validate_repo_state
 
-
 def _restore_tree_to_workdir(
     repo_root: Path,
     objects_dir: Path,
@@ -97,7 +93,6 @@ def _restore_tree_to_workdir(
         elif isinstance(obj, Tree):
             _restore_tree_to_workdir(repo_root, objects_dir, obj, index, prefix=rel_path)
 
-
 def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
     """Recursively collect all {rel_path: sha} from a tree."""
     files = {}
@@ -111,7 +106,6 @@ def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[
         else:
             files[rel_path] = entry.sha
     return files
-
 
 def _apply_tree_to_workdir(
     repo_root: Path,
@@ -152,7 +146,6 @@ def _apply_tree_to_workdir(
             path_hash=struct.unpack(">Q", hashlib.sha256(p.encode()).digest()[:8])[0]
         )
     return new_index
-
 
 def run(args) -> None:  # type: ignore[no-untyped_def]
     """Execute the ``merge`` command."""
@@ -307,7 +300,6 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             run_hook(dg_dir, "post-merge", args=[merge_commit_sha])
     
             print(f"Deep: merge made by 3-way merge: {merge_commit_sha[:7]}")
-
 
 def _is_binary(data: bytes) -> bool:
     return b'\x00' in data

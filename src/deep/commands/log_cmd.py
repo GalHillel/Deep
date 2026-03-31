@@ -14,17 +14,9 @@ from deep.storage.objects import Commit, read_object
 from deep.core.refs import get_commit_decorations, log_history, resolve_head
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+
 import argparse
 from typing import Any
-
-
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
-import argparse
-from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'log' command parser."""
@@ -56,7 +48,6 @@ Displays commit SHAs, authors, dates, and messages with support for visualizatio
     p_log.add_argument("--all", action="store_true", help="Show history for all branches and refs")
 from deep.utils.ux import Color
 from deep.utils.utils import format_date
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``log`` command."""

@@ -8,12 +8,7 @@ from deep.core.errors import DeepCLIException
 from deep.storage.transaction import TransactionManager
 from deep.core.constants import DEEP_DIR
 
-
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'checkout' command parser."""
@@ -37,13 +32,13 @@ This command updates your working directory to match the specified target state.
   \033[1;34m⚓️ deep checkout main -- file.txt\033[0m
      Restore 'file.txt' from the 'main' branch
 """,
+from typing import Optional
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p_checkout.add_argument("-f", "--force", action="store_true", help="Force branch switching even if there are uncommitted local changes")
     p_checkout.add_argument("-b", action="store_true", dest="branch", help="Create a new branch and switch to it")
     p_checkout.add_argument("target", help="The branch name, commit SHA, or file path to switch/restore")
     p_checkout.add_argument("paths", nargs="*", help="Optional specific paths to restore from the target")
-
 
 def run(args: argparse.Namespace) -> None:
     """Execute the ``checkout`` command."""

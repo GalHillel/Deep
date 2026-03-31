@@ -4,6 +4,7 @@ deep.commands.sandbox_cmd
 ``deep sandbox run <script>`` — Execute scripts in a secure sandbox
 with filesystem restrictions, timeout, and operation logging.
 """
+from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -13,12 +14,9 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'sandbox' command parser."""
@@ -53,7 +51,6 @@ Sandboxes enforce filesystem restrictions, memory limits, and timeouts to protec
     
     p_remove = rs.add_parser("remove", help="Remove a sandbox environment")
     p_remove.add_argument("name", help="The name of the sandbox to remove")
-
 
 def run(args) -> None:
     """Implement 'deep sandbox' commands."""

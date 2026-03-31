@@ -3,6 +3,10 @@ deep.commands.ai_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep ai`` command — interact with the AI assistant.
 """
+from deep.utils.ux import Color
+from deep.utils.ux import print_error
+from deep.utils.ux import print_info
+from deep.utils.ux import print_success
 
 from __future__ import annotations
 import sys
@@ -16,8 +20,7 @@ from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.storage.transaction import TransactionManager
 from deep.utils.ux import (
-    Color, DeepHelpFormatter, format_header, format_example, format_description,
-    print_error, print_info, print_success
+    Color, print_error, print_info, print_success
 )
 
 def setup_parser(subparsers: Any) -> None:

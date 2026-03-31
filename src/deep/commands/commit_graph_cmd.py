@@ -3,17 +3,16 @@ deep.commands.commit_graph_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Manage the commit-graph index.
 """
+from deep.storage.commit_graph import DeepHistoryGraph
+from deep.storage.objects import Commit
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'commit-graph' command parser."""

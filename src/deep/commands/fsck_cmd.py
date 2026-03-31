@@ -3,21 +3,16 @@ deep.commands.fsck_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Verify the connectivity and validity of objects in the database.
 """
+from deep.core.constants import DEEP_DIR
 
 from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
 from typing import Set, Dict, List, Tuple, Optional, Any
-from deep.utils.ux import DeepHelpFormatter, format_example
 
-
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'fsck' command parser."""

@@ -3,6 +3,12 @@ deep.commands.pipeline_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep pipeline`` command implementation.
 """
+from deep.storage.objects import Commit
+from deep.utils.ux import Color
+from deep.utils.ux import print_error
+from deep.utils.ux import print_info
+from deep.utils.ux import print_success
+from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -16,12 +22,10 @@ from deep.core.repository import find_repo
 from deep.core.pipeline import PipelineRunner
 from deep.core.refs import resolve_head
 from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description,
     Color, print_error, print_success, print_info
 )
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'pipeline' command parser."""

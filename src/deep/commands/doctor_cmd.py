@@ -5,6 +5,12 @@ deep.commands.doctor_cmd
 
 Verifies the integrity of the repository: refs, index, and objects.
 """
+from deep.core.issue import Issue
+from deep.core.issue import IssueManager
+from deep.core.pr import PR
+from deep.core.pr import PRManager
+from deep.utils.ux import Color
+import shutil
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -20,11 +26,8 @@ from deep.storage.objects import Blob, Commit, Tag, Tree, read_object, DeepObjec
 from deep.core.refs import list_branches, resolve_head, list_tags, get_tag, get_branch
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
-from typing import Any
 
+from typing import Any
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'doctor' command parser."""
@@ -47,7 +50,6 @@ It verifies the structural integrity of objects, ensures references (refs) point
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p_doctor.add_argument("--fix", action="store_true", help="Attempt to automatically repair detected issues")
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``doctor`` command."""

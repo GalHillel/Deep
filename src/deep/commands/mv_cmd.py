@@ -20,12 +20,9 @@ from deep.storage.index import DeepIndex, DeepIndexEntry, read_index, write_inde
 from deep.storage.objects import Blob
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'mv' command parser."""
@@ -50,7 +47,6 @@ This command ensures the repository history tracks the rename efficiently.""",
     p_mv.add_argument("source", help="The source file or directory path")
     p_mv.add_argument("destination", help="The destination file or directory path")
 from deep.storage.transaction import TransactionManager
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``mv`` command."""

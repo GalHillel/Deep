@@ -4,6 +4,8 @@ deep.commands.ls_tree_cmd
 Deep ``ls-tree`` command implementation.
 Lists the contents of a tree object.
 """
+from typing import List
+import time
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -15,12 +17,9 @@ from deep.storage.objects import Tree, read_object, Commit
 from deep.core.refs import resolve_revision
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'ls-tree' command parser."""
@@ -46,7 +45,6 @@ This command provides a detailed view of the repository's file structure at a gi
     )
     p_ls_tree.add_argument("treeish", help="The tree or commit identifier to list")
     p_ls_tree.add_argument("-r", "--recursive", action="store_true", help="Recurse into sub-trees")
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``ls-tree`` command."""
@@ -79,7 +77,6 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         
     recursive = getattr(args, "recursive", False)
     _list_tree(objects_dir, obj, "", recursive)
-
 
 def _list_tree(objects_dir: Path, tree: Tree, prefix: str, recursive: bool) -> None:
     """Helper to list tree entries recursively."""

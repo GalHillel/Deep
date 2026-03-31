@@ -3,23 +3,16 @@ deep.commands.inspect_tree_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Internal debug command to verify raw tree entry modes and object types.
 """
+from deep.core.constants import DEEP_DIR
 
 import sys
 from deep.core.errors import DeepCLIException
 from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.storage.objects import read_object, Tree, Blob
-from deep.utils.ux import DeepHelpFormatter, format_example
+
 import argparse
 from typing import Any
-
-
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
-import argparse
-from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'inspect-tree' command parser."""

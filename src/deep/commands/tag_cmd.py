@@ -3,6 +3,7 @@ deep.commands.tag_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep tag`` command implementation.
 """
+from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -16,17 +17,9 @@ from deep.storage.objects import Tag
 from deep.core.refs import create_tag, list_tags, resolve_head
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+
 import argparse
 from typing import Any
-
-
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
-import argparse
-from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'tag' command parser."""
@@ -58,7 +51,6 @@ Supports both lightweight and annotated tags.""",
     p_tag.add_argument("-m", "--message", help="The message for an annotated tag")
     p_tag.add_argument("-d", "--delete", action="store_true", help="Delete the specified tag")
     p_tag.add_argument("-l", "--list", action="store_true", help="List tags (default action if no name is provided)")
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``tag`` command."""

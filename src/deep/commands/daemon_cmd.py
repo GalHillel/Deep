@@ -3,6 +3,7 @@ deep.commands.daemon_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep daemon`` command implementation.
 """
+from deep.utils.ux import Color
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -13,12 +14,9 @@ from pathlib import Path
 
 from deep.core.repository import find_repo
 from deep.network.daemon import DeepDaemon
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'daemon' command parser."""
@@ -45,7 +43,6 @@ The daemon allows other peers to discover and pull from your repository over the
     )
     p_daemon.add_argument("--host", default="127.0.0.1", help="The host address to bind to (default: 127.0.0.1)")
     p_daemon.add_argument("--port", type=int, default=8888, help="The port number to listen on (default: 8888)")
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``daemon`` command."""

@@ -3,6 +3,9 @@ deep.commands.mirror_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep mirror`` command implementation.
 """
+from deep.core.constants import DEEP_DIR
+from deep.utils.ux import Color
+from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -13,17 +16,9 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.mirror import MirrorManager
 from deep.core.config import Config
-from deep.utils.ux import DeepHelpFormatter, format_example
+
 import argparse
 from typing import Any
-
-
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
-import argparse
-from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'mirror' command parser."""

@@ -9,6 +9,7 @@ Script format (.dgit):
     branch feature-x
     checkout feature-x
 """
+from deep.core.constants import DEEP_DIR
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -18,12 +19,9 @@ import sys
 from pathlib import Path
 
 from deep.core.repository import find_repo, DEEP_DIR
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'batch' command parser."""
@@ -47,7 +45,6 @@ This ensures that a sequence of operations (e.g., branching, adding, and committ
     )
     p_batch.add_argument("script", help="The file path containing Deep commands (use '-' for stdin)")
     p_batch.add_argument("--fail-fast", action="store_true", help="Stop execution on first error")
-
 
 def run(args) -> None:
     """Execute the ``batch`` command."""

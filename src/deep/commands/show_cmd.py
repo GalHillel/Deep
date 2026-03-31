@@ -15,12 +15,9 @@ from deep.storage.objects import Commit, read_object, Tree, Tag
 from deep.core.refs import resolve_revision
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'show' command parser."""
@@ -47,7 +44,6 @@ For commits, this command displays the author, date, message, and a colorized di
     p_show.add_argument("object", nargs="?", default="HEAD", help="The object identifier to show (default: HEAD)")
 from deep.utils.ux import Color
 from deep.utils.utils import format_date
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``show`` command."""
@@ -109,7 +105,6 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         # Just show raw type/content for other objects
         print(f"object {sha}")
         print(f"type: {obj.get_type()}")
-
 
 def _render_diffs(diffs: list[tuple[str, str]]) -> None:
     """Render diff output with colors."""

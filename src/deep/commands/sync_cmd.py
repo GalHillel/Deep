@@ -4,16 +4,14 @@ deep.commands.sync_cmd
 Deep ``sync`` command implementation.
 High-level orchestration for repository synchronization.
 """
+import sys
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
-from typing import Any
 
+from typing import Any
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'sync' command parser."""
@@ -41,11 +39,9 @@ This command orchestrates fetching changes from upstream sources and optionally 
     p_sync.add_argument("--all", action="store_true", help="Synchronize with all configured remotes and mirrors")
     p_sync.add_argument("--prune", action="store_true", help="Prune tracking branches that no longer exist on the remote")
 
-
 def ns(**kwargs):
     import argparse
     return argparse.Namespace(**kwargs)
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``sync`` command."""

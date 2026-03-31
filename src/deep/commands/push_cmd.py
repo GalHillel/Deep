@@ -12,6 +12,8 @@ Native smart protocol push:
 
 No external VCS CLI dependency.
 """
+from deep.core.constants import DEEP_DIR
+from deep.utils.ux import Color
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -22,12 +24,9 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import resolve_head, get_branch
 from deep.core.config import Config
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'push' command parser."""
@@ -56,7 +55,6 @@ This command ensures your collaborators can access your latest changes.""",
     p_push.add_argument("-f", "--force", action="store_true", help="Force update the remote branch (disables safety checks)")
     p_push.add_argument("-u", "--set-upstream", action="store_true", help="Set up tracking information for the pushed branch")
     p_push.add_argument("--tags", action="store_true", help="Push all local tags in addition to commits")
-
 
 def run(args: Any) -> None:
     try:

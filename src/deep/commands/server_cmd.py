@@ -4,6 +4,8 @@ deep.commands.server_cmd
 ``deep server`` command implementation.
 The Deep Platform Server - handles Deep protocol, REST API, and Web UI.
 """
+from deep.core.config import Config
+from deep.utils.ux import Color
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -16,12 +18,9 @@ import sys
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.network.daemon import DeepDaemon
 from deep.web.dashboard import DashboardHandler
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'server' command parser."""

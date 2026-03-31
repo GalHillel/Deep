@@ -3,17 +3,15 @@ deep.commands.repack_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Repack loose objects into packfiles and generate reachability bitmaps.
 """
+from deep.core.constants import DEEP_DIR
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'repack' command parser."""

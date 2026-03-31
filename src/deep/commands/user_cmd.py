@@ -3,6 +3,8 @@ deep.commands.user_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep user`` command implementation.
 """
+from deep.utils.ux import Color
+from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -13,12 +15,9 @@ from pathlib import Path
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.core.user import UserManager
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'user' command parser."""

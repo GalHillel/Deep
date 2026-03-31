@@ -3,6 +3,12 @@ deep.commands.pr_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep pr`` command implementation.
 """
+from deep.utils.ux import Color
+from deep.utils.ux import print_error
+from deep.utils.ux import print_info
+from deep.utils.ux import print_success
+from typing import List
+from typing import Optional
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -19,11 +25,9 @@ from deep.core.pr import PRManager
 from deep.core.config import Config
 from deep.core.refs import list_branches, get_current_branch, find_merge_base, resolve_revision, get_all_branches, update_head
 from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description,
     Color, print_error, print_success, print_info
 )
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'pr' command parser."""
@@ -88,7 +92,6 @@ Supports seamless synchronization with GitHub and other Deep instances.""",
     p_close.add_argument("id", help="The ID of the pull request to close")
     
     rs.add_parser("sync", help="Synchronize local PRs with remote (GitHub/Deep)")
-
 
 def get_author(repo_root: Path) -> str:
     """Get the current user name from config or environment."""

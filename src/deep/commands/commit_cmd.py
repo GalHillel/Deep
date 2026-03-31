@@ -20,12 +20,9 @@ from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import get_current_branch, resolve_head, update_branch
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'commit' command parser."""
@@ -59,7 +56,6 @@ This records a snapshot of the project state with metadata and an optional crypt
     p_commit.add_argument("--allow-empty", action="store_true", help="Create a commit even if no changes are staged")
 from deep.core.hooks import run_hook
 
-
 def _build_tree_recursive(objects_dir: Path, files: dict[str, str]) -> str:
     """Recursively build Tree objects from a flat dict of {rel_path: sha}."""
     # Group entries by top-level directory
@@ -85,7 +81,6 @@ def _build_tree_recursive(objects_dir: Path, files: dict[str, str]) -> str:
     tree = Tree(entries=tree_entries)
     return tree.write(objects_dir)
 
-
 def _build_tree_from_index(dg_dir: Path, allow_empty: bool = False) -> str:
     """Read the index and build a proper recursive Tree object.
 
@@ -100,7 +95,6 @@ def _build_tree_from_index(dg_dir: Path, allow_empty: bool = False) -> str:
     objects_dir = dg_dir / "objects"
     files = {path: entry.content_hash for path, entry in index.entries.items()}
     return _build_tree_recursive(objects_dir, files)
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``commit`` command."""

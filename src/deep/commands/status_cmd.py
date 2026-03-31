@@ -13,17 +13,9 @@ from pathlib import Path
 from deep.core.refs import get_current_branch, resolve_head
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+
 import argparse
 from typing import Any
-
-
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
-import argparse
-from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'status' command parser."""
@@ -50,7 +42,6 @@ Shows which changes have been staged, which haven't, and which files aren't bein
     p_status.add_argument("-b", "--branch", action="store_true", help="Show the branch and tracking info even in short-format")
 from deep.core.status import compute_status
 from deep.utils.ux import Color
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``status`` command."""

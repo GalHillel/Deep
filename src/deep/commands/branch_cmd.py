@@ -3,6 +3,7 @@ deep.commands.branch_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Deep ``branch`` command implementation.
 """
+from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -18,12 +19,9 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'branch' command parser."""
@@ -60,7 +58,6 @@ Use this command to list existing branches, create new ones from a specific star
     p_branch.add_argument("-m", "--move", dest="rename", help="Rename a branch")
 from deep.utils.ux import Color
 from deep.storage.transaction import TransactionManager
-
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``branch`` command."""

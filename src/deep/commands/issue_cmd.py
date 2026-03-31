@@ -3,6 +3,13 @@ deep.commands.issue_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Smart, production-grade hybrid issue management engine.
 """
+from deep.core.pr import PR
+from deep.storage.objects import Commit
+from deep.utils.ux import Color
+from deep.utils.ux import print_error
+from deep.utils.ux import print_info
+from deep.utils.ux import print_success
+from deep.utils.ux import print_warning
 
 from __future__ import annotations
 import json
@@ -15,13 +22,13 @@ from pathlib import Path
 
 from deep.core.config import Config
 from deep.core.repository import find_repo
+from deep.core.constants import DEEP_DIR
+from deep.core.issue import IssueManager, Issue
 from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description,
     Color, print_error, print_success, print_info, print_warning
 )
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'issue' command parser."""
@@ -169,7 +176,7 @@ def run(args: Any) -> None:
         print_error("Not a Deep repository.")
         raise DeepCLIException(1)
 
-    manager = IssueManager(repo_root / ".deep")
+    manager = IssueManager(repo_root / DEEP_DIR)
     cmd = getattr(args, "issue_command", "list")
 
     if cmd == "create":

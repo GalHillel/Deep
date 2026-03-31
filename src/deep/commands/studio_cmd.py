@@ -9,12 +9,9 @@ from deep.core.errors import DeepCLIException
 
 import sys
 from deep.core.repository import find_repo
-from deep.utils.ux import (
-    DeepHelpFormatter, format_header, format_example, format_description
-)
+
 import argparse
 from typing import Any
-
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'studio' command parser."""
@@ -37,7 +34,6 @@ Studio provides a premium, futuristic web interface for visual repository inspec
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p_studio.add_argument("--port", type=int, default=9000, help="The port number to host the Studio dashboard (default: 9000)")
-
 
 def run(args) -> None:
     """Execute the ``studio`` command."""
