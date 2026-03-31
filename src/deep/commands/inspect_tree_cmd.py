@@ -13,15 +13,22 @@ from deep.utils.ux import DeepHelpFormatter, format_example
 from typing import Any
 
 
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
+from typing import Any
+
+
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'inspect-tree' command parser."""
     p_inspect = subparsers.add_parser(
         "inspect-tree",
         help="Internal: Inspect raw tree entries (debug)",
-        description="Forensic tool to verify raw tree entry modes and object types in the database.",
+        description=format_description("Deep Inspect-Tree is a forensic diagnostic tool for verifying the raw entry modes, names, and child object types within a specific tree object. It is primarily used for debugging repository corruption or verifying low-level storage integrity."),
         epilog=f"""
-Examples:
-{format_example("deep inspect-tree <sha>", "Inspect a specific tree object")}
+{format_header("Examples")}
+{format_example("deep inspect-tree abc1234", "Inspect the raw entries of the tree object with SHA-1 'abc1234'")}
+{format_example("deep inspect-tree HEAD^{tree}", "Inspect the tree object associated with the current HEAD")}
 """,
         formatter_class=DeepHelpFormatter,
     )
