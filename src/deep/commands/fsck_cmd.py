@@ -8,7 +8,23 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
-from typing import Set, Dict, List, Tuple, Optional
+from typing import Set, Dict, List, Tuple, Optional, Any
+from deep.utils.ux import DeepHelpFormatter, format_example
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'fsck' command parser."""
+    subparsers.add_parser(
+        "fsck",
+        help="Verify the connectivity and validity of objects",
+        description="Verifies the connectivity and validity of the objects in the Deep database.",
+        epilog=f"""
+Examples:
+{format_example("deep fsck", "Verify database integrity")}
+{format_example("deep fsck --unreachable", "Find objects not reachable from any ref")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
 
 def verify_object_integrity(objects_dir: Path, sha: str) -> bool:
     """Verify that a physical object file's content matches its SHA name."""
