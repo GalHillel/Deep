@@ -18,7 +18,9 @@ import sys
 from pathlib import Path
 
 from deep.core.repository import find_repo, DEEP_DIR
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -27,14 +29,16 @@ def setup_parser(subparsers: Any) -> None:
     p_batch = subparsers.add_parser(
         "batch",
         help="Execute multiple Deep commands in a single transaction",
-        description="Run a sequence of Deep commands atomically to ensure repository consistency.",
+        description=format_description("Deep Batch allows for the atomic execution of multiple Deep commands from a script file or standard input. This ensures that a sequence of operations (e.g., branching, adding, and committing) is treated as a single transaction, maintaining repository consistency even if an individual command fails."),
         epilog=f"""
-Examples:
-{format_example("deep batch commands.txt", "Run commands from a file")}
+{format_header("Examples")}
+{format_example("deep batch script.dgit", "Execute Deep commands listed in 'script.dgit'")}
+{format_example("deep batch - --fail-fast", "Read commands from stdin and stop on the first error")}
+{format_example("deep batch migrate.txt --dry-run", "Identify potential batch operations without applying them")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_batch.add_argument("script", help="The file containing the list of commands to execute")
+    p_batch.add_argument("script", help="The file path containing Deep commands (use '-' for stdin)")
     p_batch.add_argument("--fail-fast", action="store_true", help="Stop execution on first error")
 
 

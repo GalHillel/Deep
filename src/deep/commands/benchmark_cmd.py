@@ -9,7 +9,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from deep.core.benchmark import run_benchmarks
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description, Color
+)
 from typing import Any
 
 
@@ -18,11 +20,13 @@ def setup_parser(subparsers: Any) -> None:
     p_bench = subparsers.add_parser(
         "benchmark",
         help="Measure performance of core operations",
-        description="Runs a suite of performance tests on common Deep operations like commit, hashing, and database access.",
+        description=format_description("Deep Benchmark runs a comprehensive performance suite against the current repository. It measures the throughput of object hashing, commit creation speed, the efficiency of the history graph traversal, and provides comparative analysis against native Deep implementations."),
         epilog=f"""
-Examples:
-{format_example("deep benchmark", "Run standard performance suite")}
-{format_example("deep benchmark --verbose", "Show detailed metrics during run")}
+{format_header("Examples")}
+{format_example("deep benchmark", "Run the standard performance suite and display summary results")}
+{format_example("deep benchmark --verbose", "Show live metrics for every operation during the benchmark")}
+{format_example("deep benchmark --compare-git", "Compare current performance against native Deep standards")}
+{format_example("deep benchmark --report", "Generate a detailed JSON report (benchmark_report.json)")}
 """,
         formatter_class=DeepHelpFormatter,
     )

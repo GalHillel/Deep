@@ -39,7 +39,7 @@ def setup_parser(subparsers: Any) -> None:
 
 
 def run(args) -> None:
-    """Implement 'deep debug-tree'."""
+    """Implement 'deep debug' commands."""
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
@@ -48,8 +48,11 @@ def run(args) -> None:
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
+    
+    cmd = getattr(args, "debug_command", "tree")
 
-    sha = args.sha
+    if cmd == "tree":
+        sha = getattr(args, "sha", None)
     if not sha:
         sha = resolve_head(dg_dir)
         if not sha:

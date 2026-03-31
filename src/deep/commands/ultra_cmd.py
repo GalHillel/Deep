@@ -18,19 +18,27 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description, Color
+)
 from typing import Any
 
 
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'ultra' command parser."""
-    subparsers.add_parser(
+    p_ultra = subparsers.add_parser(
         "ultra",
         help="Run comprehensive repository optimization",
-        description="Execute a multi-stage system optimization including garbage collection, object repacking, and commit-graph rebuilding.",
+        description=format_description("Deep Ultra Mode executes an exhaustive, multi-stage system optimization. It combines Garbage Collection, Object Repacking, and Commit Graph Rebuilding into a single high-performance operation to ensure the repository is running at maximum efficiency."),
         epilog=f"""
-Examples:
-{format_example("deep ultra", "Run all optimization stages")}
+{format_header("Optimization Stages")}
+{Color.wrap(Color.CYAN, "  1. Garbage Collection")}      — Identify and prune unreachable objects
+{Color.wrap(Color.CYAN, "  2. Object Repacking")}        — Consolidate loose objects into packfiles
+{Color.wrap(Color.CYAN, "  3. Commit Graph Rebuilding")} — Regenerate the binary history index
+
+{format_header("Examples")}
+{format_example("deep ultra", "Execute all optimization stages for the current repository")}
+{format_example("deep ultra --aggressive", "Perform a high-compression, time-intensive optimization")}
 """,
         formatter_class=DeepHelpFormatter,
     )
