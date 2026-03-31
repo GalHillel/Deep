@@ -23,6 +23,26 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'rebase' command parser."""
+    p_rebase = subparsers.add_parser(
+        "rebase",
+        help="Reapply commits on top of another base tip",
+        description="Forward-port local commits to the updated upstream head.",
+        epilog=f"""
+Examples:
+{format_example("deep rebase main", "Rebase current branch onto 'main'")}
+{format_example("deep rebase --continue", "Resume rebase after resolving conflict")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_rebase.add_argument("upstream", nargs="?", help="The upstream branch to rebase onto")
+    p_rebase.add_argument("--continue", dest="cont", action="store_true", help="Continue the rebase after resolving conflicts")
+    p_rebase.add_argument("--abort", action="store_true", help="Abort the rebase and restore previous branch state")
 from deep.core.reconcile import logical_rebase
 from deep.storage.transaction import TransactionManager
 

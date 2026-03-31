@@ -16,6 +16,29 @@ from deep.storage.objects import Tag
 from deep.core.refs import create_tag, list_tags, resolve_head
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'tag' command parser."""
+    p_tag = subparsers.add_parser(
+        "tag",
+        help="Create, list, or delete tags",
+        description="Create, list, or delete a tag object (annotated or lightweight).",
+        epilog=f"""
+Examples:
+{format_example("deep tag", "List all local tags")}
+{format_example("deep tag v1.0", "Create a lightweight tag")}
+{format_example("deep tag -a v1.0 -m 'Rel'", "Create an annotated tag")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_tag.add_argument("name", nargs="?", help="The name of the tag to create")
+    p_tag.add_argument("object", nargs="?", default="HEAD", help="The object to tag (default: HEAD)")
+    p_tag.add_argument("-a", "--annotate", action="store_true", help="Create an annotated tag object with metadata")
+    p_tag.add_argument("-m", "--message", help="Message for an annotated tag")
+    p_tag.add_argument("-d", "--delete", action="store_true", help="Delete the specified tag")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
