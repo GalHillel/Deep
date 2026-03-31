@@ -20,6 +20,24 @@ from deep.storage.index import DeepIndex, DeepIndexEntry, read_index, write_inde
 from deep.storage.objects import Blob
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'mv' command parser."""
+    p_mv = subparsers.add_parser(
+        "mv",
+        help="Move or rename a file or directory",
+        description="Move or rename a file, directory, or symlink and update the index.",
+        epilog=f"""
+Examples:
+{format_example("deep mv old.txt new.txt", "Rename file and stage change")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_mv.add_argument("source", help="The source file or directory path")
+    p_mv.add_argument("destination", help="The destination file or directory path")
 from deep.storage.transaction import TransactionManager
 
 

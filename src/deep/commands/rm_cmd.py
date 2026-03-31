@@ -15,6 +15,25 @@ from pathlib import Path
 from deep.storage.index import remove_multiple_from_index
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'rm' command parser."""
+    p_rm = subparsers.add_parser(
+        "rm",
+        help="Remove files from worktree and index",
+        description="Remove files from the working directory and staging index.",
+        epilog=f"""
+Examples:
+{format_example("deep rm file.txt", "Delete file and remove from index")}
+{format_example("deep rm --cached file", "Keep file but remove from index")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_rm.add_argument("files", nargs="+", help="One or more files or directory paths to remove")
+    p_rm.add_argument("--cached", action="store_true", help="Remove from the index only")
 from deep.storage.transaction import TransactionManager
 
 

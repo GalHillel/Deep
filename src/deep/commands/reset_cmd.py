@@ -16,6 +16,25 @@ import sys
 import hashlib
 import struct
 from pathlib import Path
+from typing import Any
+from deep.utils.ux import DeepHelpFormatter, format_example
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'reset' command parser."""
+    p_reset = subparsers.add_parser(
+        "reset",
+        help="Reset HEAD to a specific state",
+        description="Reset current HEAD to a specified commit, optionally updating index and worktree.",
+        epilog=f"""
+Examples:
+{format_example("deep reset HEAD~1", "Undo last commit, leave changes staged")}
+{format_example("deep reset --hard HEAD", "Discard all local changes")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_reset.add_argument("commit", nargs="?", default="HEAD", help="The commit identifier to reset to")
+    p_reset.add_argument("--hard", action="store_true", help="Reset index and working tree")
 
 from deep.storage.index import (
     DeepIndex,

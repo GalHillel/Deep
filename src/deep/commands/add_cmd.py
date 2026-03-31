@@ -11,15 +11,27 @@ import os
 import sys
 import hashlib
 from pathlib import Path
-from typing import Optional, Tuple, List
-
-from deep.core.ignore import IgnoreEngine
-from deep.core.reconcile import sanitize_path
-from deep.storage.index import add_multiple_to_index, remove_multiple_from_index
-from deep.storage.objects import Blob, write_object
-from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import ProgressBar
+from deep.utils.ux import ProgressBar, DeepHelpFormatter, format_example
+from typing import Any, Optional, Tuple, List
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'add' command parser."""
+    p_add = subparsers.add_parser(
+        "add",
+        help="Add file contents to the staging index",
+        description="Add file contents to the staging area (index) to be included in the next commit.",
+        epilog=f"""
+Examples:
+{format_example("deep add file.txt", "Add a specific file to the index")}
+{format_example("deep add .", "Add all changed and new files in current directory")}
+{format_example("deep add src/*.py", "Add specific files using glob patterns")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_add.add_argument("files", nargs="+", help="One or more files or directory paths to stage for commit")
+    p_add.add_argument("-u", "--update", action="store_true", help="Add only updated files (not new ones)")
 
 
 from concurrent.futures import ThreadPoolExecutor, as_completed

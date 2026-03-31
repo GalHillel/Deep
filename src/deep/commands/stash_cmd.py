@@ -12,6 +12,24 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'stash' command parser."""
+    p_stash = subparsers.add_parser(
+        "stash",
+        help="Stash temporary changes",
+        description="Save local changes in a temporary stack to clean your working tree.",
+        epilog=f"""
+Examples:
+{format_example("deep stash save 'Work'", "Save changes to the stash")}
+{format_example("deep stash pop", "Apply and remove latest stash")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_stash.add_argument("action", choices=["push", "save", "pop", "list", "drop", "clear", "apply"], nargs="?", default="save", help="The stash operation to perform")
 from deep.core.stash import get_stash_list, pop_stash, save_stash
 
 
