@@ -9,7 +9,9 @@ from deep.core.errors import DeepCLIException
 import sys
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.graph import get_history_graph, render_graph
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -18,11 +20,13 @@ def setup_parser(subparsers: Any) -> None:
     p_graph = subparsers.add_parser(
         "graph",
         help="Visualize the commit graph",
-        description="Renders a text-based ASCII visualization of the commit history graph.",
+        description=format_description("Render a high-fidelity, text-based ASCII visualization of the repository's commit history. The graph displays the relationship between commits, branches, and tags, making it easy to track merges, forks, and the overall evolution of the project."),
         epilog=f"""
-Examples:
-{format_example("deep graph", "Visualize history for current branch")}
-{format_example("deep graph --all", "Include all branches and tags")}
+{format_header("Examples")}
+{format_example("deep graph", "Visualize the history of the current branch")}
+{format_example("deep graph --all", "Include all references (branches, tags, remotes) in the graph")}
+{format_example("deep graph -n 20", "Limit the graph to the 20 most recent commits")}
+{format_example("deep graph --oneline", "Display a condensed, single-line-per-commit graph")}
 """,
         formatter_class=DeepHelpFormatter,
     )
