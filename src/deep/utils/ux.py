@@ -45,6 +45,8 @@ class Color:
             return f"{color}{text}{cls.RESET}"
         return text
 
+DEEP_LOGO = "\033[1;34m⚓️ DeepGit\033[0m v1.1.0 - Next-generation Distributed VCS"
+
 
 def print_error(message: str):
     """Print a standardized error message to stderr."""
