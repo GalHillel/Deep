@@ -21,6 +21,25 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import update_branch, update_head, update_remote_ref, get_remote_ref
 from deep.core.config import Config
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'fetch' command parser."""
+    p_fetch = subparsers.add_parser(
+        "fetch",
+        help="Download objects and refs from another repository",
+        description="Fetch branches and/or tags from one or more other repositories.",
+        epilog=f"""
+Examples:
+{format_example("deep fetch origin", "Update remote tracking branches from 'origin'")}
+{format_example("deep fetch --all", "Fetch from all configured remotes")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_fetch.add_argument("url", nargs="?", default="origin", help="The remote repository URL or name to fetch from")
+    p_fetch.add_argument("--all", action="store_true", help="Fetch from all configured remotes")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
