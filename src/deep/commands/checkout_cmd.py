@@ -9,24 +9,32 @@ from deep.storage.transaction import TransactionManager
 from deep.core.constants import DEEP_DIR
 
 
-def setup_parser(subparsers: argparse._SubParsersAction) -> None:
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
     """Set up the 'checkout' command parser."""
     p_checkout = subparsers.add_parser(
         "checkout",
         help="Switch branches or restore files",
-        description="Switch to a different branch or restore files from a specific commit to the working tree.",
-        epilog="""
-Examples:
-  deep checkout main         # Switch to the 'main' branch
-  deep checkout -b feature   # Create a new 'feature' branch and switch to it immediately
-  deep checkout abc1234      # Detach HEAD and switch to a specific commit
+        description=format_description("Switch to a different branch, restore files from a specific commit, or create and switch to a new branch. This command updates your working directory to match the specified target state."),
+        epilog=f"""
+{format_header("Examples")}
+{format_example("deep checkout main", "Switch to the 'main' branch")}
+{format_example("deep checkout -b feature", "Create and switch to a new 'feature' branch")}
+{format_example("deep checkout abc1234", "Detach HEAD and switch to a specific commit SHA")}
+{format_example("deep checkout file.txt", "Discard local changes and restore 'file.txt' from index")}
+{format_example("deep checkout main -- file.txt", "Restore 'file.txt' from the 'main' branch")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_checkout.add_argument("-f", "--force", action="store_true", help="Force branch switching even if there are uncommitted local changes")
-    p_checkout.add_argument("-b", "--branch", action="store_true", help="Create a new branch")
-    p_checkout.add_argument("target", help="The branch name or commit SHA to switch to")
-    p_checkout.add_argument("paths", nargs="*", help="Optional paths to restore from the target")
+    p_checkout.add_argument("-b", action="store_true", dest="branch", help="Create a new branch and switch to it")
+    p_checkout.add_argument("target", help="The branch name, commit SHA, or file path to switch/restore")
+    p_checkout.add_argument("paths", nargs="*", help="Optional specific paths to restore from the target")
 
 
 def run(args: argparse.Namespace) -> None:
