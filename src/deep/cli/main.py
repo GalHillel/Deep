@@ -20,6 +20,10 @@ import argparse
 import sys
 import os
 from deep.core.errors import DeepError
+from deep.utils.ux import (
+    Color, DeepHelpFormatter, print_deep_logo, 
+    format_header, format_command, format_example
+)
 
 
 VERSION = "1.0.0"
@@ -30,27 +34,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="deep",
         description="Deep — Next-generation Distributed Version Control System",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Core Commands:
-  init, add, commit, status, log, diff, branch, checkout, merge, rebase, reset, rm, mv, tag, stash, migrate, config, show, ls-tree
+        formatter_class=DeepHelpFormatter,
+        epilog=f"""
+{format_header("🌱 Starting a working area")}
+  {format_command("init")}, {format_command("clone")}
 
-Remote & Distributed:
-  clone, push, pull, fetch, remote, mirror, daemon, p2p, sync, ls-remote
+{format_header("📦 Work on the current change")}
+  {format_command("add")}, {format_command("rm")}, {format_command("mv")}, {format_command("reset")}, {format_command("stash")}
 
-Platform & Server:
-  server, repo, user, auth, pr, issue, pipeline, studio
+{format_header("🌿 Examine the history and state")}
+  {format_command("status")}, {format_command("log")}, {format_command("diff")}, {format_command("show")}, {format_command("ls-tree")}, {format_command("graph")}
 
-Diagnostics & Dev Tools:
-  doctor, benchmark, graph, audit, verify, fsck, repack, sandbox, rollback, ultra, batch, search, gc, maintenance, version
+{format_header("🔄 Grow, mark and tweak your common history")}
+  {format_command("commit")}, {format_command("branch")}, {format_command("checkout")}, {format_command("merge")}, {format_command("rebase")}, {format_command("tag")}
 
-Internal:
-  inspect-tree, debug-tree, commit-graph
+{format_header("🌐 Collaborate (P2P & Remote)")}
+  {format_command("push")}, {format_command("pull")}, {format_command("fetch")}, {format_command("remote")}, {format_command("p2p")}, {format_command("sync")}, {format_command("ls-remote")}, {format_command("mirror")}, {format_command("daemon")}
 
-Experimental:
-  ai
+{format_header("🧠 AI & Platform")}
+  {format_command("ai")}, {format_command("pr")}, {format_command("issue")}, {format_command("pipeline")}, {format_command("studio")}, {format_command("repo")}, {format_command("user")}, {format_command("auth")}, {format_command("server")}
 
-Help:
+{format_header("🛠️ Maintenance & Diagnostics")}
+  {format_command("doctor")}, {format_command("fsck")}, {format_command("gc")}, {format_command("maintenance")}, {format_command("verify")}, {format_command("repack")}, {format_command("benchmark")}, {format_command("audit")}, {format_command("ultra")}, {format_command("batch")}, {format_command("sandbox")}, {format_command("rollback")}, {format_command("version")}
+
+{format_header("Help")}
   deep <command> --help
   deep help
 """,
@@ -63,13 +70,13 @@ Help:
         "init",
         help="Initialize a new empty Deep repository",
         description="Create an empty Deep repository or reinitialize an existing one. This sets up the internal .deep structures.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep init                  # Initialize in the current directory
-  deep init my-project       # Create 'my-project' directory and initialize there
-  deep init /path/to/repo    # Initialize at a specific absolute path
+{format_example("deep init", "Initialize in the current directory")}
+{format_example("deep init my-project", "Create 'my-project' directory and initialize there")}
+{format_example("deep init /path/to/repo", "Initialize at a specific absolute path")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_init.add_argument("path", nargs="?", default=None, help="The target directory for the repository (default: current directory)")
     p_init.add_argument("--bare", action="store_true", help="Create a bare repository (without a working tree)")
@@ -79,14 +86,14 @@ Examples:
         "add",
         help="Add file contents to the staging index",
         description="Add file contents to the staging area (index) to be included in the next commit. This prepares changes for recording.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep add file.txt          # Add a specific file to the index
-  deep add .                 # Add all changed and new files in the current directory
-  deep add src/*.py          # Add specific files using glob patterns
-  deep add -u                # Add only updated files (not new ones)
+{format_example("deep add file.txt", "Add a specific file to the index")}
+{format_example("deep add .", "Add all changed and new files in current directory")}
+{format_example("deep add src/*.py", "Add specific files using glob patterns")}
+{format_example("deep add -u", "Add only updated files (not new ones)")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_add.add_argument("files", nargs="+", help="One or more files or directory paths to stage for commit")
 
@@ -95,15 +102,14 @@ Examples:
         "commit",
         help="Record changes to the repository history",
         description="Create a new commit containing the current contents of the index with a descriptive message and metadata. Using -a will automatically stage tracked file changes before committing.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep commit -m "Fix bug"          # Create a commit with a manual message
-  deep commit -a -m "Commit all"    # Auto-stage tracked changes and commit
-  deep commit --ai -a              # AI-generated message with auto-stage
-  deep commit -S -m "Signed"        # Create a cryptographically signed commit
-  deep commit --allow-empty         # Create a commit even if no changes are staged
+{format_example("deep commit -m 'Fix bug'", "Create a commit with a manual message")}
+{format_example("deep commit -a -m 'Rel'", "Auto-stage tracked changes and commit")}
+{format_example("deep commit --ai -a", "AI-generated message with auto-stage")}
+{format_example("deep commit -S -m 'Sig'", "Create a cryptographically signed commit")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_commit.add_argument("-m", "--message", help="The commit message describing the changes")
     p_commit.add_argument("-a", "--all", action="store_true", help="Automatically stage modified and deleted tracked files before committing (auto-stage). Does NOT include untracked files.")
@@ -117,30 +123,27 @@ Examples:
         "status",
         help="Show the working tree and index status",
         description="Displays the current state of the working directory and the staging area (index).",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep status                # Display a human-friendly status overview
-  deep status --porcelain    # Generate stable, machine-readable output for scripts
-  deep status --verbose      # Show more detailed information about tracked files
+{format_example("deep status", "Display a human-friendly status overview")}
+{format_example("deep status --porcelain", "Generate machine-readable output")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
-    p_status.add_argument("--porcelain", action="store_true", help="Produce machine-readable output format")
 
     # ── log ──────────────────────────────────────────────────────────
     p_log = sub.add_parser(
         "log",
         help="Display commit history logs",
         description="Browse through the commit history of the current branch or a specified commit range.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep log                   # Show full detailed logs for the current branch
-  deep log --oneline         # Show a concise summary (short SHA and first line of message)
-  deep log -n 10             # Limit output to the most recent 10 commits
-  deep log --graph           # Visualize history with an ASCII-based commit graph
-  deep log master..feature   # Show commits reachable from 'feature' but not 'master'
+{format_example("deep log", "Show full detailed logs")}
+{format_example("deep log --oneline", "Show concise summary")}
+{format_example("deep log -n 10", "Limit to 10 commits")}
+{format_example("deep log --graph", "Visualize with ASCII graph")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_log.add_argument("--oneline", action="store_true", help="Display each commit entry on a single concise line")
     p_log.add_argument("-n", "--max-count", type=int, help="Limit the number of commits to display")
@@ -149,16 +152,15 @@ Examples:
     # ── diff ─────────────────────────────────────────────────────────
     p_diff = sub.add_parser(
         "diff",
-        help="Show changes between commits or the working tree",
+        help="Show changes between commits or worktree",
         description="Show changes between the working tree and the index, or between two arbitrary commit objects.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep diff                  # Compare the working tree with the staging index
-  deep diff HEAD             # Compare the working tree with the latest commit
-  deep diff abc1234 def5678  # Compare two specific commits by their SHAs
-  deep diff --cached         # Show changes currently in the staging area
+{format_example("deep diff", "Compare worktree with index")}
+{format_example("deep diff HEAD", "Compare worktree with latest commit")}
+{format_example("deep diff --cached", "Show staged changes")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_diff.add_argument("--cached", "--staged", action="store_true", help="Show changes currently in the staging area")
     p_diff.add_argument("--stat", action="store_true", help="Show a summary of changes instead of the full diff")
@@ -169,14 +171,13 @@ Examples:
         "branch",
         help="Manage repository branches",
         description="List, create, or delete branches in the current Deep repository.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep branch                # List all local branches
-  deep branch feature        # Create a new local branch named 'feature'
-  deep branch -d feature     # Delete the local 'feature' branch
-  deep branch -a             # List both local and tracked remote branches
+{format_example("deep branch", "List all local branches")}
+{format_example("deep branch feature", "Create new branch 'feature'")}
+{format_example("deep branch -d name", "Delete the specified branch")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_branch.add_argument("name", nargs="?", default=None, help="The name of the branch to create")
     p_branch.add_argument("-d", "--delete", action="store_true", help="Delete the specified branch name")
@@ -188,15 +189,14 @@ Examples:
     p_checkout = sub.add_parser(
         "checkout",
         help="Switch branches or restore files",
-        description="Switch to a different branch or restore files from a specific commit to the working tree.",
-        epilog="""
+        description="Switch to a different branch or restore files from a specific commit.",
+        epilog=f"""
 Examples:
-  deep checkout main         # Switch to the 'main' branch
-  deep checkout -b feature   # Create a new 'feature' branch and switch to it immediately
-  deep checkout abc1234      # Detach HEAD and switch to a specific commit
-  deep checkout -- file.txt  # Restore a specific file from the index
+{format_example("deep checkout main", "Switch to 'main' branch")}
+{format_example("deep checkout -b dev", "Create and switch to 'dev'")}
+{format_example("deep checkout -- file", "Restore file from index")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_checkout.add_argument("-f", "--force", action="store_true", help="Force branch switching even if there are uncommitted local changes")
     p_checkout.add_argument("-b", "--branch", action="store_true", help="Create a new branch")
@@ -207,13 +207,12 @@ Examples:
         "merge",
         help="Merge branches or histories",
         description="Integrate changes from another branch into the current checked-out branch.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep merge feature         # Merge the 'feature' branch into the current branch
-  deep merge --no-ff dev     # Merge 'dev' and always create a merge commit (no fast-forward)
-  deep merge --abort         # Cancel a merge in progress that has conflicts
+{format_example("deep merge feature", "Merge 'feature' into current branch")}
+{format_example("deep merge --abort", "Cancel merge with conflicts")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_merge.add_argument("branch", nargs="?", default=None, help="The name of the branch to merge into the current one")
     p_merge.add_argument("--abort", action="store_true", help="Abort the current merge operation")
@@ -221,15 +220,14 @@ Examples:
     # ── rm ──────────────────────────────────────────────────────────
     p_rm = sub.add_parser(
         "rm", 
-        help="Remove files from the working tree and the index",
-        description="Remove files from the working directory and the staging area. This stops tracking the specified files.",
-        epilog="""
+        help="Remove files from worktree and index",
+        description="Remove files from the working directory and staging index. This stops tracking the files.",
+        epilog=f"""
 Examples:
-  deep rm file.txt           # Permanently delete file and remove it from the index
-  deep rm -r folder/         # Recursively remove a directory and its contents
-  deep rm --cached file.txt  # Keep the file in the working tree but remove it from the index
+{format_example("deep rm file.txt", "Delete file and remove from index")}
+{format_example("deep rm --cached file", "Keep file but remove from index")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_rm.add_argument("files", nargs="+", help="One or more files or directory paths to remove")
     p_rm.add_argument("--cached", action="store_true", help="Remove from the index only, keeping the file in the working tree")
@@ -238,13 +236,12 @@ Examples:
     p_mv = sub.add_parser(
         "mv", 
         help="Move or rename a file or directory",
-        description="Move or rename a file, directory, or symlink and update the Deep index accordingly.",
-        epilog="""
+        description="Move or rename a file, directory, or symlink and update the index.",
+        epilog=f"""
 Examples:
-  deep mv old.txt new.txt    # Rename a file and stage the change
-  deep mv file.txt docs/      # Move a file to a new directory
+{format_example("deep mv old.txt new.txt", "Rename file and stage change")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_mv.add_argument("source", help="The source file or directory path")
     p_mv.add_argument("destination", help="The destination file or directory path")
@@ -253,14 +250,13 @@ Examples:
     p_reset = sub.add_parser(
         "reset", 
         help="Reset HEAD to a specific state",
-        description="Reset the current HEAD to a specified commit, optionally updating the index and working tree to match.",
-        epilog="""
+        description="Reset current HEAD to a specified commit, optionally updating index and worktree.",
+        epilog=f"""
 Examples:
-  deep reset HEAD~1          # Undo the last commit, leaving your changes staged in the index
-  deep reset --hard HEAD     # Discard all local changes (staged and unstaged) and reset to current HEAD
-  deep reset --soft HEAD~2   # Move HEAD back two commits, keeping all changes in the index
+{format_example("deep reset HEAD~1", "Undo last commit, leave changes staged")}
+{format_example("deep reset --hard HEAD", "Discard all local changes")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_reset.add_argument("commit", nargs="?", default="HEAD", help="The commit identifier to reset to (default: HEAD)")
     p_reset.add_argument("--hard", action="store_true", help="Reset index and working tree (all local changes will be lost)")
@@ -270,15 +266,13 @@ Examples:
     p_rebase = sub.add_parser(
         "rebase", 
         help="Reapply commits on top of another base",
-        description="Forward-port local commits to the tip of another branch, maintaining a clean linear history.",
-        epilog="""
+        description="Forward-port local commits to the tip of another branch.",
+        epilog=f"""
 Examples:
-  deep rebase main           # Rebase the current branch onto 'main'
-  deep rebase --continue     # Resume the rebase process after resolving conflicts
-  deep rebase --abort        # Cancel the rebase and return to the original state
-  deep rebase -i HEAD~3      # Start an interactive rebase for the last 3 commits
+{format_example("deep rebase main", "Rebase current branch onto 'main'")}
+{format_example("deep rebase --abort", "Cancel the rebase operation")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_rebase.add_argument("branch", nargs="?", help="The branch or commit identifier to rebase onto")
     p_rebase.add_argument("--continue", action="store_true", dest="continue_rebase", help="Continue the rebase process after resolving conflicts")
@@ -296,15 +290,13 @@ Examples:
     p_tag = sub.add_parser(
         "tag", 
         help="Create or manage release tags",
-        description="Create, list, or delete tag objects for marking specific points in history as significant (e.g., releases).",
-        epilog="""
+        description="Create, list, or delete tag objects for marking specific points in history.",
+        epilog=f"""
 Examples:
-  deep tag v1.0.0            # Create a lightweight tag at current HEAD
-  deep tag -a v1.1.0 -m "Rel" # Create an annotated tag with a message
-  deep tag -d v1.0.0         # Delete the specified tag
-  deep tag                   # List all existing tags in the repository
+{format_example("deep tag v1.0.0", "Create lightweight tag at HEAD")}
+{format_example("deep tag -a v1.1 -m 'Rel'", "Create annotated tag with message")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_tag.add_argument("name", nargs="?", help="The name of the tag")
     p_tag.add_argument("-a", "--annotate", action="store_true", help="Create an annotated tag object with metadata")
@@ -315,15 +307,13 @@ Examples:
     p_stash = sub.add_parser(
         "stash", 
         help="Stash temporary changes",
-        description="Save local changes in a temporary stack (stash) to clean your working tree for other tasks.",
-        epilog="""
+        description="Save local changes in a temporary stack to clean your working tree.",
+        epilog=f"""
 Examples:
-  deep stash save "Work"     # Save currently staged/unstaged changes to the stash
-  deep stash pop             # Apply the latest stash and remove it from the stack
-  deep stash list            # View all stashed changes in the current repository
-  deep stash apply           # Apply the latest stash without removing it
+{format_example("deep stash save 'Work'", "Save changes to the stash")}
+{format_example("deep stash pop", "Apply and remove latest stash")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_stash.add_argument("action", choices=["push", "save", "pop", "list", "drop", "clear", "apply"], nargs="?", default="save", help="The stash operation to perform (default: save)")
 
@@ -338,13 +328,12 @@ Examples:
     p_maint = sub.add_parser(
         "maintenance",
         help="Run repository maintenance tasks",
-        description="Optimize the repository by repacking objects, updating indices, and pruning unreachable data.",
-        epilog="""
+        description="Optimize the repository by repacking objects and pruning data.",
+        epilog=f"""
 Examples:
-  deep maintenance           # Run scheduled maintenance tasks
-  deep maintenance --force   # Force run all maintenance tasks immediately
+{format_example("deep maintenance", "Run scheduled maintenance tasks")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_maint.add_argument("--force", action="store_true", help="Force run maintenance even if recently completed")
 
@@ -352,14 +341,13 @@ Examples:
     p_config = sub.add_parser(
         "config", 
         help="Manage repository configuration",
-        description="Get and set configuration options for the local repository or the global user environment.",
-        epilog="""
+        description="Get and set configuration options for local or global environment.",
+        epilog=f"""
 Examples:
-  deep config user.name "Alice"      # Set the local user name for this repository
-  deep config --global user.email ... # Set the global user email for all repositories
-  deep config core.editor vim       # Set the preferred text editor
+{format_example("deep config user.name 'Alice'", "Set local user name")}
+{format_example("deep config --global user.email ...", "Set global user email")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_config.add_argument("--global", action="store_true", dest="global_", help="Target the global configuration instead of local")
     p_config.add_argument("key", help="The configuration key (e.g., user.name)")
@@ -1066,13 +1054,11 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command is None:
         try:
-            from rich.console import Console # type: ignore[import]
-            from rich.panel import Panel # type: ignore[import]
-            from deep.core.repository import find_repo # type: ignore[import]
-            console = Console()
-            console.print(Panel("[bold cyan]Deep[/bold cyan] — Next-generation Distributed VCS", expand=False))
+            from deep.core.repository import find_repo
+            print_deep_logo(VERSION)
             parser.print_help()
-        except ImportError:
+        except Exception:
+            print_deep_logo(VERSION)
             parser.print_help()
         return 0
 
