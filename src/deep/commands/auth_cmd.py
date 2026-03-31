@@ -14,7 +14,9 @@ from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.core.user import UserManager
 from deep.core.config import Config
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -23,10 +25,13 @@ def setup_parser(subparsers: Any) -> None:
     p_auth = subparsers.add_parser(
         "auth",
         help="Manage authentication and user identity",
-        description="Authenticate with the Deep platform and manage local user identity.",
+        description=format_description("Authenticate with the Deep platform and manage your local user identity. Authentication ensures that your commits are correctly attributed and that you have the necessary permissions to interact with remote repositories."),
         epilog=f"""
-Examples:
-{format_example("deep auth login --token <token>", "Login with a platform token")}
+{format_header("Examples")}
+{format_example("deep auth login --token <token>", "Login to the Deep platform using an access token")}
+{format_example("deep auth logout", "Clear local authentication credentials")}
+{format_example("deep auth status", "Show current authentication status and user identity")}
+{format_example("deep auth whoami", "Quickly check the currently authenticated username")}
 """,
         formatter_class=DeepHelpFormatter,
     )

@@ -16,7 +16,9 @@ import sys
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.network.daemon import DeepDaemon
 from deep.web.dashboard import DashboardHandler
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -25,11 +27,12 @@ def setup_parser(subparsers: Any) -> None:
     p_server = subparsers.add_parser(
         "server",
         help="Start the Deep platform server instance",
-        description="Launch an integrated Deep server providing the smart protocol, REST API, and Deep Studio Web UI.",
+        description=format_description("Launch an integrated Deep platform server. This command starts a multi-threaded service providing the Deep smart protocol, a RESTful API for integration, and the Deep Studio web interface for visual project management."),
         epilog=f"""
-Examples:
-{format_example("deep server", "Start platform server on localhost:8080")}
-{format_example("deep server --host 0.0.0.0 --port 80", "Run production-ready server instance")}
+{format_header("Examples")}
+{format_example("deep server", "Start the platform server on localhost:8080 (Web) and :8090 (Deep)")}
+{format_example("deep server --host 0.0.0.0 --port 80", "Run the server in production mode on port 80")}
+{format_example("deep server --no-ui", "Start the server without the web interface")}
 """,
         formatter_class=DeepHelpFormatter,
     )
