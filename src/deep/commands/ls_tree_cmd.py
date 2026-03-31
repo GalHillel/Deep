@@ -15,6 +15,25 @@ from deep.storage.objects import Tree, read_object, Commit
 from deep.core.refs import resolve_revision
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'ls-tree' command parser."""
+    p_ls_tree = subparsers.add_parser(
+        "ls-tree",
+        help="List the contents of a tree object",
+        description="Displays the contents of a tree object, similar to `ls -l` for the Deep database.",
+        epilog=f"""
+Examples:
+{format_example("deep ls-tree HEAD", "List files in the current commit")}
+{format_example("deep ls-tree abc1234", "List contents of a specific tree")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_ls_tree.add_argument("treeish", help="The tree or commit identifier to list")
+    p_ls_tree.add_argument("-r", "--recursive", action="store_true", help="Recurse into sub-trees")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
