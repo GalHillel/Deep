@@ -18,7 +18,9 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -27,19 +29,25 @@ def setup_parser(subparsers: Any) -> None:
     p_branch = subparsers.add_parser(
         "branch",
         help="List, create, or delete branches",
-        description="Manage the set of branches in your repository.",
+        description=format_description("Manage the set of branches in your repository. Use this command to list existing branches, create new ones from a specific starting point, or delete branches that are no longer needed."),
         epilog=f"""
-Examples:
-{format_example("deep branch", "List local branches")}
-{format_example("deep branch new-feature", "Create a new branch")}
-{format_example("deep branch -d old-feature", "Delete a branch")}
+{format_header("Examples")}
+{format_example("deep branch", "List all local branches")}
+{format_example("deep branch new-feature", "Create a new branch from current HEAD")}
+{format_example("deep branch bugfix main", "Create 'bugfix' starting from 'main'")}
+{format_example("deep branch -d old-feature", "Delete a local branch")}
+{format_example("deep branch -vv", "List branches with SHAs and tracking info")}
+{format_example("deep branch -a", "List both local and remote-tracking branches")}
 """,
         formatter_class=DeepHelpFormatter,
     )
     p_branch.add_argument("name", nargs="?", help="The name of the branch to create")
+    p_branch.add_argument("start_point", nargs="?", default="HEAD", help="The commit/branch to start the new branch from (default: HEAD)")
     p_branch.add_argument("-d", "--delete", action="store_true", help="Delete the specified branch")
-    p_branch.add_argument("-a", "--all", action="store_true", help="List both local and tracked remote branches")
+    p_branch.add_argument("-D", action="store_true", help="Shortcut for --delete --force")
+    p_branch.add_argument("-a", "--all", action="store_true", help="List both local and remote-tracking branches")
     p_branch.add_argument("-v", "--verbose", action="count", default=0, help="Show more detail (SHA and tracking info)")
+    p_branch.add_argument("-m", "--move", dest="rename", help="Rename a branch")
 from deep.utils.ux import Color
 from deep.storage.transaction import TransactionManager
 

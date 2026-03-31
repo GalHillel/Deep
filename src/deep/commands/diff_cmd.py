@@ -16,23 +16,31 @@ from deep.utils.ux import DeepHelpFormatter, format_example
 from typing import Any
 
 
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
+from typing import Any
+
+
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'diff' command parser."""
     p_diff = subparsers.add_parser(
         "diff",
         help="Show changes between commits or worktree",
-        description="Show changes between the working tree and the index, or between two arbitrary commit objects.",
+        description=format_description("Show changes between the working tree and the index, or between two arbitrary commit objects. Highly useful for reviewing modifications before staging or committing."),
         epilog=f"""
-Examples:
-{format_example("deep diff", "Compare worktree with index")}
-{format_example("deep diff HEAD", "Compare worktree with latest commit")}
-{format_example("deep diff --cached", "Show staged changes")}
+{format_header("Examples")}
+{format_example("deep diff", "Compare worktree with the staging index")}
+{format_example("deep diff HEAD", "Compare worktree with the latest commit")}
+{format_example("deep diff --cached", "Show changes currently in the staging area")}
+{format_example("deep diff main dev", "Compare 'main' and 'dev' branches")}
+{format_example("deep diff --stat", "Show a summary of changes instead of full diff")}
 """,
         formatter_class=DeepHelpFormatter,
     )
     p_diff.add_argument("--cached", "--staged", action="store_true", help="Show changes currently in the staging area")
-    p_diff.add_argument("--stat", action="store_true", help="Show a summary of changes instead of the full diff")
-    p_diff.add_argument("revisions", nargs="*", help="Commit identifiers to compare")
+    p_diff.add_argument("--stat", action="store_true", help="Show a summary of changes (insertions/deletions) instead of the full diff")
+    p_diff.add_argument("revisions", nargs="*", help="Commit identifiers to compare (e.g., commit1 commit2, or just commit1)")
 
 
 def run(args) -> None:  # type: ignore[no-untyped_def]
