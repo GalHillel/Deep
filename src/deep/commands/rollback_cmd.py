@@ -17,7 +17,9 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -26,11 +28,15 @@ def setup_parser(subparsers: Any) -> None:
     p_rollback = subparsers.add_parser(
         "rollback",
         help="Undo the last repository transaction",
-        description="Roll back the repository state (HEAD, index, and working tree) to a previous commit.",
+        description=format_description("Roll back the repository state (HEAD, index, and working tree) to a previous commit or transaction. This command is a powerful safety net for undoing accidental merges, deletions, or corrupting operations."),
         epilog=f"""
-Examples:
-{format_example("deep rollback", "Undo the last command (reset to HEAD~1)")}
-{format_example("deep rollback abc1234", "Reset exactly to the specified commit")}
+{format_header("Examples")}
+{format_header("  Quick Undo")}
+{format_example("deep rollback", "Undo the most recent command (reset to HEAD~1)")}
+
+{format_header("  Targeted Restoration")}
+{format_example("deep rollback abc1234", "Reset exactly to the specified commit SHA")}
+{format_example("deep rollback --force", "Force rollback even with uncommitted changes")}
 """,
         formatter_class=DeepHelpFormatter,
     )
