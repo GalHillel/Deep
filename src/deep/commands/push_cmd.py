@@ -22,11 +22,28 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import resolve_head, get_branch
 from deep.core.config import Config
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
 from deep.core.hooks import run_hook
+from typing import Any
 
 
-def run(args) -> None:  # type: ignore[no-untyped-def]
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'push' command parser."""
+    p_push = subparsers.add_parser(
+        "push",
+        help="Update remote refs along with associated objects",
+        description="Push local branch changes to a remote repository.",
+        epilog=f"""
+Examples:
+{format_example("deep push origin main", "Push 'main' to 'origin'")}
+{format_example("deep push --force", "Force push (use with caution)")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_push.add_argument("url", nargs="?", help="The remote repository URL or name to push to")
+    p_push.add_argument("branch", nargs="?", help="The branch name to push")
+    p_push.add_argument("-f", "--force", action="store_true", help="Force update the remote branch")
+    p_push.add_argument("-u", "--set-upstream", action="store_true", help="Set up tracking information")
     """Execute the ``push`` command."""
     try:
         repo_root = find_repo()
