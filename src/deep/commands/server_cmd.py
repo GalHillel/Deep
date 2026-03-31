@@ -16,9 +16,25 @@ import sys
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.network.daemon import DeepDaemon
 from deep.web.dashboard import DashboardHandler
-from deep.utils.ux import Color
-from deep.core.mirror import MirrorManager
-from deep.core.config import Config
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'server' command parser."""
+    p_server = subparsers.add_parser(
+        "server",
+        help="Start the Deep platform server instance",
+        description="Launch an integrated Deep server providing the smart protocol, REST API, and Deep Studio Web UI.",
+        epilog=f"""
+Examples:
+{format_example("deep server", "Start platform server on localhost:8080")}
+{format_example("deep server --host 0.0.0.0 --port 80", "Run production-ready server instance")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_server.add_argument("--host", default="127.0.0.1", help="The host address to bind to (default: 127.0.0.1)")
+    p_server.add_argument("--port", type=int, default=8080, help="The base port for the platform server (default: 8080)")
 from http.server import HTTPServer
 import threading
 import time
