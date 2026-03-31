@@ -12,16 +12,23 @@ from typing import Set, Dict, List, Tuple, Optional, Any
 from deep.utils.ux import DeepHelpFormatter, format_example
 
 
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
+from typing import Any
+
+
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'fsck' command parser."""
-    subparsers.add_parser(
+    p_fsck = subparsers.add_parser(
         "fsck",
         help="Verify the connectivity and validity of objects",
-        description="Verifies the connectivity and validity of the objects in the Deep database.",
+        description=format_description("Deep File System Check (fsck) verifies the integrity of the object database. It identifies corrupt objects, missing parents, and unreachable dangling objects that are not referenced by any branch or tag."),
         epilog=f"""
-Examples:
-{format_example("deep fsck", "Verify database integrity")}
-{format_example("deep fsck --unreachable", "Find objects not reachable from any ref")}
+{format_header("Examples")}
+{format_example("deep fsck", "Perform a full integrity and connectivity check")}
+{format_example("deep fsck --unreachable", "Specifically identify objects not reachable from any ref")}
+{format_example("deep fsck --fix", "Attempt to repair minor metadata inconsistencies (experimental)")}
 """,
         formatter_class=DeepHelpFormatter,
     )
