@@ -1,13 +1,13 @@
-# DeepGit: Full-Deep Technical Analysis Report
+# Deep: Full-Deep Technical Analysis Report
 
 ## 1. Executive Summary
-DeepGit is a next-generation distributed version control system (VCS) and developer platform built in Python. It provides a Git-compatible command-line interface while introducing advanced capabilities such as decentralized Peer-to-Peer (P2P) synchronization, AI-powered developer assistance, and integrated platform features (Issues, Pull Requests, Pipelines). The system is characterized by a layered architecture, a transactional storage engine, and a strong emphasis on security and auditability.
+Deep is a next-generation distributed version control system (VCS) and developer platform built in Python. It provides a Git-compatible command-line interface while introducing advanced capabilities such as decentralized Peer-to-Peer (P2P) synchronization, AI-powered developer assistance, and integrated platform features (Issues, Pull Requests, Pipelines). The system is characterized by a layered architecture, a transactional storage engine, and a strong emphasis on security and auditability.
 
 ## 2. Project Purpose
 The project aims to provide a robust, high-performance VCS that simplifies modern developer workflows. It bridges the gap between local version control and centralized collaborative platforms by embedding platform-level features directly into the VCS engine.
 
 ## 3. Architecture Overview
-DeepGit follows a strictly layered modular architecture:
+Deep follows a strictly layered modular architecture:
 
 - **Interface Layer**: CLI (`deep.cli.main`) and Web Dashboard.
 - **Command Dispatch Layer**: Decoupled command implementations (`deep.commands`).
@@ -140,7 +140,7 @@ A comprehensive audit of the core modules reveals a highly decoupled, layered ar
 
 ## 9. Data Flow Analysis (Phase 5)
 
-Data moves through DeepGit in a clearly defined lifecycle:
+Data moves through Deep in a clearly defined lifecycle:
 
 ### 9.1 Local State Change
 1.  **Working Tree → Index (Stage)**: The `add` command calculates the SHA-1 of the file content, writes a **Blob** to the object store (if new), and updates the **DeepIndex** entry with the new hash and metadata.

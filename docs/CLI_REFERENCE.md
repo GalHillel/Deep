@@ -1,10 +1,10 @@
-# ⚓️ DeepGit CLI Reference
+# ⚓️ Deep CLI Reference
 
-DeepGit v1.1.0 - Next-generation Distributed Version Control System.
+Deep v1.1.0 - Next-generation Distributed Version Control System.
 
 ## Main Menu Categorization
 
-DeepGit organizes its commands into logical groups to facilitate discovery and workflow efficiency.
+Deep organizes its commands into logical groups to facilitate discovery and workflow efficiency.
 
 ### 🌱 STARTING A WORKING AREA
 | Command | Description |
@@ -83,4 +83,4 @@ DeepGit organizes its commands into logical groups to facilitate discovery and w
 | `rollback` | Roll back state using the Write-Ahead Log (WAL). |
 
 ---
-⚓️ **DeepGit** - Build the future of version control.
+⚓️ **Deep** - Build the future of version control.

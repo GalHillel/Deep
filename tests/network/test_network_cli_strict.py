@@ -35,7 +35,7 @@ def test_cli_clone_success(tmp_path):
     sha_a = (repo_a / ".deep" / "refs/heads/main").read_text().strip()
     
     repo_b = tmp_path / "repo_b"
-    # Note: DeepGit clone handles local paths as URLs
+    # Note: Deep clone handles local paths as URLs
     res = run_deep("clone", str(repo_a), str(repo_b), cwd=tmp_path)
     assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
     

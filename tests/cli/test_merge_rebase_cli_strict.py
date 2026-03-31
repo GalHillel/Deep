@@ -60,7 +60,7 @@ def test_cli_merge_fast_forward(tmp_path):
 def test_cli_merge_abort_dirty(tmp_path):
     """
     Verify abort if working directory is dirty.
-    Actually, DeepGit's merge command currently checks for dirty WD via 3-way merge logic or validate_repo_state.
+    Actually, Deep's merge command currently checks for dirty WD via 3-way merge logic or validate_repo_state.
     We need to ensure it fails BEFORE any mutations.
     """
     run_deep("init", cwd=tmp_path)
@@ -81,7 +81,7 @@ def test_cli_merge_abort_dirty(tmp_path):
     # Staged but not committed is one type of dirty.
     
     res = run_deep("merge", "feat", cwd=tmp_path)
-    # DeepGit might allow FF even if dirty if there's no conflict, but usually it should be safe.
+    # Deep might allow FF even if dirty if there's no conflict, but usually it should be safe.
     # Actually, current merge_cmd doesn't strictly block FF if dirty, but let's see.
     # The requirement says "assert abort".
     # I'll check if merge_cmd has a dirty check.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DeepGit Test Runner
+Deep Test Runner
 ====================
 הוסף/הסר טסטים בקלות בסקשן TEST_SUITES למטה.
 """
@@ -106,7 +106,7 @@ def main():
         sys.exit(1)
 
     print(f"\n{BOLD}{'═'*60}")
-    print(f"  DeepGit Test Runner  —  {len(suites)} suite(s)")
+    print(f"  Deep Test Runner  —  {len(suites)} suite(s)")
     print(f"{'═'*60}{RESET}")
 
     results: list[tuple[str, bool, float]] = []

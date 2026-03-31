@@ -84,7 +84,7 @@ def test_cli_push_success(tmp_path):
     """
     Setup A and B. Commit in B. Push to A.
     """
-    # Repo A is the "server" (must be bare for normal git, but DeepGit handles both)
+    # Repo A is the "server" (must be bare for normal git, but Deep handles both)
     repo_a = tmp_path / "repo_a"
     repo_a.mkdir()
     run_deep("init", cwd=repo_a)

@@ -1,16 +1,16 @@
-# ⚓️ DeepGit User Guide
+# ⚓️ Deep User Guide
 
-DeepGit v1.1.0 - Next-generation Distributed Version Control System.
+Deep v1.1.0 - Next-generation Distributed Version Control System.
 
 ## Getting Started
 
 ### 1. Initialize a Repository
-Initialize a new local DeepGit repository to start tracking your project.
+Initialize a new local Deep repository to start tracking your project.
 
 ```bash
 deep init
 ```
-⚓️ **DeepGit** will create a `.deep` internal directory to store objects, refs, and metadata.
+⚓️ **Deep** will create a `.deep` internal directory to store objects, refs, and metadata.
 
 ### 2. Staging and Committing Changes
 Add file contents to the staging area and record them in the history.
@@ -35,7 +35,7 @@ deep checkout -b feature/auth-system
 ## Advanced Workflows
 
 ### 1. Local-First Pull Requests
-DeepGit allows you to manage Pull Requests locally, facilitating offline reviews and discussions.
+Deep allows you to manage Pull Requests locally, facilitating offline reviews and discussions.
 
 ```bash
 deep pr create --title "Implement JWT" --base main
@@ -77,4 +77,4 @@ deep <command> --help
 ```
 
 ---
-⚓️ **DeepGit** - Build the future of version control.
+⚓️ **Deep** - Build the future of version control.
