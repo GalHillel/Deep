@@ -8,11 +8,25 @@ High-level orchestration for repository synchronization.
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 
-import sys
-from pathlib import Path
-
-from deep.commands import pull_cmd
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'sync' command parser."""
+    p_sync = subparsers.add_parser(
+        "sync",
+        help="Synchronize with all configured remotes and mirrors",
+        description="High-level orchestration to pull from sources and push to mirrors in one atomic operation.",
+        epilog=f"""
+Examples:
+{format_example("deep sync", "Sync with 'origin' and all mirrors")}
+{format_example("deep sync --peer <url>", "Sync with a specific peer")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_sync.add_argument("peer", nargs="?", help="The peer or remote to sync with (defaults to origin)")
 
 
 def ns(**kwargs):
