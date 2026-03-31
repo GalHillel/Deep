@@ -13,7 +13,9 @@ from pathlib import Path
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.platform.platform import PlatformManager
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -22,11 +24,13 @@ def setup_parser(subparsers: Any) -> None:
     p_repo = subparsers.add_parser(
         "repo",
         help="Manage repository metadata and platform links",
-        description="Configure repository-level settings and links to the Deep platform.",
+        description=format_description("Configure repository-level settings, access control, and platform integration. Use this command to manage your projects on the Deep platform or local Deep Server instances."),
         epilog=f"""
-Examples:
-{format_example("deep repo list", "List all repositories in the current server instance")}
-{format_example("deep repo create my-project", "Create a new repository on the server")}
+{format_header("Examples")}
+{format_example("deep repo list", "List all repositories available on the current server")}
+{format_example("deep repo create project-x", "Create a new repository named 'project-x'")}
+{format_example("deep repo permit alice developer", "Grant 'alice' developer access to the current repo")}
+{format_example("deep repo delete legacy-app", "Permanently delete the 'legacy-app' repository")}
 """,
         formatter_class=DeepHelpFormatter,
     )

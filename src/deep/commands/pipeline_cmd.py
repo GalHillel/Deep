@@ -16,25 +16,40 @@ from deep.core.repository import find_repo
 from deep.core.pipeline import PipelineRunner
 from deep.core.refs import resolve_head
 from deep.utils.ux import (
-    Color, print_error, print_success, print_info,
-    format_header, format_example
+    DeepHelpFormatter, format_header, format_example, format_description,
+    Color, print_error, print_success, print_info
 )
+from typing import Any
 
 
-def get_description() -> str:
-    """Return a description for the pipeline command."""
-    return "Local and remote CI/CD pipeline management for the Deep platform."
-
-
-def get_epilog() -> str:
-    """Return an epilog with usage examples."""
-    return f"""
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'pipeline' command parser."""
+    p_pipeline = subparsers.add_parser(
+        "pipeline",
+        help="Manage CI/CD pipelines",
+        description=format_description("Deep CI/CD pipelines automate building, testing, and deploying your code. Pipelines can run locally for fast feedback or remotely on Deep Server or GitHub Actions."),
+        epilog=f"""
 {format_header("Examples")}
-{format_example("deep pipeline list", "List all local pipeline runs")}
-{format_example("deep pipeline trigger", "Trigger a new local pipeline run")}
-{format_example("deep pipeline status 5", "Show status for Run #5")}
-{format_example("deep pipeline sync", "Sync with GitHub Actions")}
-"""
+{format_example("deep pipeline trigger", "Trigger a new local pipeline run for the current commit")}
+{format_example("deep pipeline list", "Display recent pipeline runs and their status")}
+{format_example("deep pipeline status 5", "Show detailed status and logs for Pipeline Run #5")}
+{format_example("deep pipeline sync", "Synchronize pipeline status with GitHub Actions")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    rs = p_pipeline.add_subparsers(dest="pipeline_command", metavar="ACTION")
+    
+    # Core Actions
+    p_run = rs.add_parser("trigger", help="Trigger a new pipeline run")
+    p_run.add_argument("--commit", help="The commit SHA to run the pipeline for (default: HEAD)")
+    
+    rs.add_parser("list", help="List all pipeline runs in the repository")
+    
+    p_status = rs.add_parser("status", help="Show detailed status for a pipeline run")
+    p_status.add_argument("id", nargs="?", help="The ID of the pipeline run to display (default: latest)")
+    
+    # Workflow Actions
+    rs.add_parser("sync", help="Synchronize local pipeline status with remote (GitHub/Deep)")
 
 def run(args) -> None:
     """Execute the ``pipeline`` command."""

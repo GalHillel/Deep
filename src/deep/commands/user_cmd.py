@@ -13,7 +13,9 @@ from pathlib import Path
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.core.user import UserManager
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -22,11 +24,13 @@ def setup_parser(subparsers: Any) -> None:
     p_user = subparsers.add_parser(
         "user",
         help="Local user management and identity control",
-        description="Manage local user accounts, public keys, and identities in a Deep server environment.",
+        description=format_description("Manage local user accounts, public keys, and identities. This command allows you to configure who has access to the repository and how their changes are signed and verified."),
         epilog=f"""
-Examples:
-{format_example("deep user list", "List all users in the current repository")}
-{format_example("deep user add alice alice@dev.io --public-key ...", "Add a new user")}
+{format_header("Examples")}
+{format_example("deep user list", "List all users and identities in the current repository")}
+{format_example("deep user add alice alice@dev.io --public-key ...", "Add a new user with a specific public key")}
+{format_example("deep user info alice", "Show detailed information and public key for 'alice'")}
+{format_example("deep user remove bob", "Permanently remove 'bob' from the local user list")}
 """,
         formatter_class=DeepHelpFormatter,
     )

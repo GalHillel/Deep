@@ -9,7 +9,9 @@ from deep.core.errors import DeepCLIException
 
 import sys
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -18,11 +20,12 @@ def setup_parser(subparsers: Any) -> None:
     p_studio = subparsers.add_parser(
         "studio",
         help="Launch the Deep Studio web interface",
-        description="Starts the local Deep Studio dashboard for visual inspection of the repository.",
+        description=format_description("Start the local Deep Studio dashboard. Studio provides a premium, futuristic web interface for visual repository inspection, branch graphing, AI-assisted code review, and issue management."),
         epilog=f"""
-Examples:
-{format_example("deep studio", "Launch Studio on default port 9000")}
-{format_example("deep studio --port 8000", "Launch Studio on custom port")}
+{format_header("Examples")}
+{format_example("deep studio", "Launch the Studio dashboard on the default port (9000)")}
+{format_example("deep studio --port 8080", "Launch Studio on a custom port")}
+{format_example("deep studio --no-browser", "Start the Studio server without auto-opening a browser")}
 """,
         formatter_class=DeepHelpFormatter,
     )
