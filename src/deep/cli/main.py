@@ -446,6 +446,13 @@ def build_parser() -> argparse.ArgumentParser:
         "migrate",
         help="Upgrade repository to native Deep v2 format",
         description="Repacks history and converts metadata to the high-performance Deep v2 format.",
+        epilog="""
+\033[1mEXAMPLES:\033[0m
+
+  \033[1;34m⚓️ deep migrate\033[0m
+     Convert current repository to Deep v2 format.
+""",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
 
     # ── config ──────────────────────────────────────────────────────
@@ -562,6 +569,16 @@ def build_parser() -> argparse.ArgumentParser:
         "ls-remote",
         help="List references in a remote repository",
         description="Connect to a remote repository and output its available references (branches, tags) and their target SHAs.",
+        epilog="""
+\033[1mEXAMPLES:\033[0m
+
+  \033[1;34m⚓️ deep ls-remote origin\033[0m
+     List all references from the 'origin' remote.
+
+  \033[1;34m⚓️ deep ls-remote https://deep-vcs.dev/repo\033[0m
+     List references from a direct repository URL.
+""",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_ls_remote.add_argument("url", help="The remote name or URL")
 
