@@ -9,7 +9,9 @@ from deep.core.errors import DeepCLIException
 
 from deep.core.config import Config
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -18,12 +20,13 @@ def setup_parser(subparsers: Any) -> None:
     p_config = subparsers.add_parser(
         "config",
         help="Get and set repository or global options",
-        description="Configuration management for Deep repository and user settings.",
+        description=format_description("Manage Deep configuration settings. Configuration can be stored at the repository level (local) or at the user level (global). Use this to configure identities, editors, network settings, and AI preferences."),
         epilog=f"""
-Examples:
-{format_example("deep config user.name 'John Doe'", "Set local user name")}
-{format_example("deep config --global user.email 'jd@dev.io'", "Set global email")}
-{format_example("deep config core.editor", "Get the value of a configuration key")}
+{format_header("Examples")}
+{format_example("deep config user.name 'Alice'", "Set the local user name for this repository")}
+{format_example("deep config --global user.email 'alice@dev.io'", "Set your global email address")}
+{format_example("deep config core.editor", "Get the configured editor for this repository")}
+{format_example("deep config --list", "List all effective configuration variables")}
 """,
         formatter_class=DeepHelpFormatter,
     )
