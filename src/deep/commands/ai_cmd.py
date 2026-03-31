@@ -5,31 +5,55 @@ deep.commands.ai_cmd
 """
 
 from __future__ import annotations
-from deep.core.errors import DeepCLIException
-
 import sys
+import os
 from pathlib import Path
+from typing import Any
 
+from deep.core.errors import DeepCLIException
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
+from deep.storage.transaction import TransactionManager
 from deep.utils.ux import (
-    Color, print_error, print_info, print_success,
-    format_header, format_example
+    Color, DeepHelpFormatter, format_header, format_example, format_description,
+    print_error, print_info, print_success
 )
 
-
-def get_description() -> str:
-    """Return a description for the ai command."""
-    return "Deep AI assistant for intelligent commit messages, reviews, and refactoring."
-
-
-def get_epilog() -> str:
-    """Return an epilog with usage examples."""
-    return f"""
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'ai' command parser."""
+    p_ai = subparsers.add_parser(
+        "ai",
+        help="Deep AI assistant for intelligent tasks",
+        description=format_description("Interact with the Deep AI assistant. Use AI to suggest commit messages, perform code reviews, predict merge conflicts, and automate complex refactorings."),
+        epilog=f"""
 {format_header("Examples")}
-{format_example("deep ai suggest", "Generate a suggested commit message")}
-{format_example("deep ai review", "Perform an automated AI code review")}
-{format_example("deep ai refactor", "Apply AI-suggested refactorings")}
-{format_example("deep ai interactive", "Start an interactive AI chat session")}
-"""
+{format_example("deep ai suggest", "Generate a suggested commit message based on staged changes")}
+{format_example("deep ai review", "Perform an automated AI code review of current changes")}
+{format_example("deep ai predict-merge feature", "Predict potential conflicts if merging 'feature'")}
+{format_example("deep ai refactor", "Apply AI-suggested refactorings to your code")}
+{format_example("deep ai interactive", "Start an interactive AI chat session about the repository")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    rs = p_ai.add_subparsers(dest="ai_command", metavar="ACTION")
+    
+    rs.add_parser("suggest", help="Suggest a commit message based on staged changes")
+    rs.add_parser("review", help="Perform an automated AI code review of current changes")
+    rs.add_parser("analyze", help="Analyze code quality and identify potential bottlenecks")
+    rs.add_parser("refactor", help="Apply AI-suggested refactorings to your code")
+    rs.add_parser("interactive", help="Start an interactive AI chat session")
+    
+    pm = rs.add_parser("predict-merge", help="Predict potential merge conflicts with another branch")
+    pm.add_argument("branch", help="The branch to predict merge with")
+    
+    pp = rs.add_parser("predict-push", help="Predict potential push failures or remote conflicts")
+    pp.add_argument("target", nargs="?", default="origin", help="The remote to predict push to")
+    
+    bn = rs.add_parser("branch-name", help="Suggest a branch name based on a task description")
+    bn.add_argument("description", help="Description of the task or feature")
+
+def run(args) -> None:
+    """Execute the ``ai`` command."""
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
@@ -39,7 +63,7 @@ def get_epilog() -> str:
     from deep.ai.assistant import DeepAI
 
     ai = DeepAI(repo_root)
-    sub = args.ai_command if hasattr(args, "ai_command") else "suggest"
+    sub = args.ai_command or "suggest"
 
     if sub == "suggest":
         result = ai.suggest_commit_message()
@@ -49,7 +73,6 @@ def get_epilog() -> str:
             print(f"   {d}")
     elif sub == "generate":
         prompt = getattr(args, "prompt", "")
-        # Dummy generation for E2E tests
         print(f"💡 AI Suggestion for '{prompt}':")
         print("   feature: implementation of the requested logic")
     elif sub == "analyze":
@@ -67,38 +90,28 @@ def get_epilog() -> str:
         for d in result.details:
             print(f"   {d}")
     elif sub == "predict-merge":
-        # Simulate merge if branch provided
         source = getattr(args, "source", None) or "HEAD"
-        target = getattr(args, "target", None) or getattr(args, "branch", None) or "main"
+        target = getattr(args, "branch", None) or "main"
         hint = ai.merge_hint(source, target)
         print(f"Prediction: 🔮 {hint.text}")
         for d in hint.details:
             print(f"   {d}")
     elif sub == "predict-push":
-        target = getattr(args, "target", "main")
+        target = getattr(args, "target", "origin")
         result = ai.predict_conflicts_pre_push(target)
         print(f"🔮 {result.text}")
-        for d in result.details:
-            print(f"   {d}")
-    elif sub == "cross-repo":
-        result = ai.cross_repo_analysis()
-        print(f"🌐 {result.text}")
         for d in result.details:
             print(f"   {d}")
     elif sub == "refactor":
         dg_dir = repo_root / DEEP_DIR
         with TransactionManager(dg_dir) as tm:
             tm.begin("ai_refactor")
-            
-            # The AI might discover refactorings across multiple files.
-            # We must backup original versions to ensure rollback on error.
             changes = ai.suggest_refactor_changes()
             if not changes:
                 print("✨ No refactoring suggestions found for staged changes.")
             else:
                 backups: dict[str, str] = {}
                 try:
-                    # TEST HOOK: Simulated Exception for rollback testing
                     if os.environ.get("DEEP_AI_CHAOS") == "REFACTOR_CRASH":
                         raise RuntimeError("AI Refactor Crash: Simulated failure")
 
@@ -121,24 +134,12 @@ def get_epilog() -> str:
                     tm.commit()
                     print("\n✅ AI refactoring applied successfully.")
                 except Exception as e:
-                    # REPO HARDENING: Restore original file states on any mutation failure
                     for rel_path, original_content in backups.items():
                         try:
                             (repo_root / rel_path).write_text(original_content, encoding="utf-8")
                         except OSError:
-                            pass # Logging could be added here
+                            pass
                     raise e
-
-    elif sub == "cleanup":
-        dg_dir = repo_root / DEEP_DIR
-        with TransactionManager(dg_dir) as tm:
-            tm.begin("ai_cleanup")
-            result = ai.branch_recommendations()
-            print(f"🧹 {result.text}")
-            for d in result.details:
-                print(f"   {d}")
-            tm.commit()
-
     elif sub == "interactive":
         print("🤖 Deep AI Interactive Mode")
         print("   Type 'exit' or 'quit' to leave. Ask me about your changes!")
@@ -153,9 +154,7 @@ def get_epilog() -> str:
                 print(f"🤖 {result.text}")
                 for d in result.details:
                     print(f"   {d}")
-            except EOFError:
-                break
-            except KeyboardInterrupt:
+            except (EOFError, KeyboardInterrupt):
                 break
     else:
         print(f"Unknown AI command: {sub}", file=sys.stderr)
