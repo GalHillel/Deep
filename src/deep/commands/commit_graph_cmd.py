@@ -8,7 +8,27 @@ from __future__ import annotations
 from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
-from rich.console import Console
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'commit-graph' command parser."""
+    p_cg = subparsers.add_parser(
+        "commit-graph",
+        help="Write and verify the commit-graph file",
+        description="Manage the commit-graph binary index to accelerate history walks and generation counting.",
+        epilog=f"""
+Examples:
+{format_example("deep commit-graph write", "Regenerate the commit-graph index")}
+{format_example("deep commit-graph verify", "Verify the integrity of the commit-graph index")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    csub = p_cg.add_subparsers(dest="cg_command", metavar="ACTION")
+    csub.add_parser("write", help="Regenerate the commit-graph binary index")
+    csub.add_parser("verify", help="Verify the checksum and structure of the commit-graph index")
+    csub.add_parser("clear", help="Remove the commit-graph index file")
 
 def run(args):
     from deep.core.repository import find_repo
