@@ -33,16 +33,22 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Core Commands:
-  init, add, commit, status, log, diff, branch, checkout, merge, rebase, reset, rm, mv, tag, stash, migrate
+  init, add, commit, status, log, diff, branch, checkout, merge, rebase, reset, rm, mv, tag, stash, migrate, config, show, ls-tree
 
 Remote & Distributed:
-  clone, push, pull, fetch, remote, mirror, daemon, p2p, sync
+  clone, push, pull, fetch, remote, mirror, daemon, p2p, sync, ls-remote
 
 Platform & Server:
-  server, repo, user, auth, pr, issue, pipeline
+  server, repo, user, auth, pr, issue, pipeline, studio
 
 Diagnostics & Dev Tools:
-  doctor, benchmark, graph, audit, verify, sandbox, rollback, ultra, batch, search, gc, version
+  doctor, benchmark, graph, audit, verify, fsck, repack, sandbox, rollback, ultra, batch, search, gc, maintenance, version
+
+Internal:
+  inspect-tree, debug-tree, commit-graph
+
+Experimental:
+  ai
 
 Help:
   deep <command> --help
@@ -328,6 +334,20 @@ Examples:
         description="Repacks history and converts metadata to the high-performance Deep v2 format.",
     )
 
+    # ── maintenance ──────────────────────────────────────────────────
+    p_maint = sub.add_parser(
+        "maintenance",
+        help="Run repository maintenance tasks",
+        description="Optimize the repository by repacking objects, updating indices, and pruning unreachable data.",
+        epilog="""
+Examples:
+  deep maintenance           # Run scheduled maintenance tasks
+  deep maintenance --force   # Force run all maintenance tasks immediately
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_maint.add_argument("--force", action="store_true", help="Force run maintenance even if recently completed")
+
     # ── config ──────────────────────────────────────────────────────
     p_config = sub.add_parser(
         "config", 
@@ -434,9 +454,16 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_remote.add_argument("remote_command", choices=["add", "remove", "list"], help="The remote management action to perform")
-    p_remote.add_argument("name", nargs="?", help="The short name for the remote")
-    p_remote.add_argument("url", nargs="?", help="The URL of the remote repository")
+    remote_sub = p_remote.add_subparsers(dest="remote_command", metavar="ACTION")
+    
+    p_remote_add = remote_sub.add_parser("add", help="Track a new remote repository")
+    p_remote_add.add_argument("name", help="The short name for the remote")
+    p_remote_add.add_argument("url", help="The URL of the remote repository")
+    
+    p_remote_remove = remote_sub.add_parser("remove", help="Stop tracking a remote repository")
+    p_remote_remove.add_argument("name", help="The short name for the remote")
+    
+    p_remote_list = remote_sub.add_parser("list", help="Display all currently registered remotes")
 
     # ── mirror ───────────────────────────────────────────────────────
     p_mirror = sub.add_parser(
@@ -478,10 +505,18 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_p2p.add_argument("p2p_command", choices=["discover", "list", "start", "sync", "status"], help="The P2P operation to execute")
-    p_p2p.add_argument("target", nargs="?", help="The identifier of the target peer for operations like 'sync'")
-    p_p2p.add_argument("--peer", help="Manually specify a peer address in 'host:port' format")
-    p_p2p.add_argument("--port", type=int, help="The port to use for the P2P listener")
+    p2p_sub = p_p2p.add_subparsers(dest="p2p_command", metavar="ACTION")
+    
+    p_p2p_discover = p2p_sub.add_parser("discover", help="Scan the local network for Deep peers")
+    p_p2p_list = p2p_sub.add_parser("list", help="List known peers")
+    p_p2p_start = p2p_sub.add_parser("start", help="Start the P2P listener")
+    p_p2p_start.add_argument("--port", type=int, help="The port to use for the P2P listener")
+    
+    p_p2p_sync = p2p_sub.add_parser("sync", help="Initiate a direct synchronization with a specific peer")
+    p_p2p_sync.add_argument("target", help="The identifier of the target peer")
+    p_p2p_sync.add_argument("--peer", help="Manually specify a peer address in 'host:port' format")
+    
+    p_p2p_status = p2p_sub.add_parser("status", help="Show P2P network status")
 
     # ── sync ────────────────────────────────────────────────────────
     p_sync = sub.add_parser(
@@ -538,7 +573,11 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_server.add_argument("server_command", choices=["start", "stop", "status", "restart"], help="The lifecycle command to execute")
+    server_sub = p_server.add_subparsers(dest="server_command", metavar="ACTION")
+    server_sub.add_parser("start", help="Launch the Deep background server")
+    server_sub.add_parser("stop", help="Gracefully terminate the server process")
+    server_sub.add_parser("status", help="Check server status")
+    server_sub.add_parser("restart", help="Restart the server process")
 
     # ── repo ─────────────────────────────────────────────────────────
     p_repo = sub.add_parser(
@@ -553,11 +592,24 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_repo.add_argument("repo_command", choices=["create", "delete", "list", "clone", "permit"], help="The repository operation to perform")
-    p_repo.add_argument("name", nargs="?", help="The name of the repository")
-    p_repo.add_argument("url", nargs="?", help="The platform URL for cloning (optional)")
-    p_repo.add_argument("--user", help="The platform username to target for permissions")
-    p_repo.add_argument("--role", help="The access role (admin/write/read) to assign to the user")
+    repo_sub = p_repo.add_subparsers(dest="repo_command", metavar="ACTION")
+    
+    p_repo_create = repo_sub.add_parser("create", help="Create a new repository on the platform")
+    p_repo_create.add_argument("name", help="The name of the repository")
+    
+    p_repo_delete = repo_sub.add_parser("delete", help="Delete a repository on the platform")
+    p_repo_delete.add_argument("name", help="The name of the repository")
+    
+    p_repo_list = repo_sub.add_parser("list", help="List all accessible repositories")
+    
+    p_repo_clone = repo_sub.add_parser("clone", help="Clone a repository from the platform")
+    p_repo_clone.add_argument("name", help="The name of the repository")
+    p_repo_clone.add_argument("url", nargs="?", help="The platform URL for cloning")
+    
+    p_repo_permit = repo_sub.add_parser("permit", help="Manage repository permissions")
+    p_repo_permit.add_argument("name", help="The name of the repository")
+    p_repo_permit.add_argument("--user", required=True, help="The platform username to target")
+    p_repo_permit.add_argument("--role", required=True, help="The access role (admin/write/read)")
 
     # ── user ─────────────────────────────────────────────────────────
     p_user = sub.add_parser(
@@ -571,13 +623,22 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_user.add_argument("user_command", choices=["add", "remove", "list", "info", "show"], help="The user account operation to perform")
-    p_user.add_argument("username", nargs="?", help="The username of the account")
-    p_user.add_argument("public_key", nargs="?", help="The public SSH key for authentication")
-    p_user.add_argument("email", nargs="?", help="The email address associated with the account")
-    p_user.add_argument("--username", dest="username_flag", help="The username (alternative to positional)")
-    p_user.add_argument("--public-key", dest="public_key_flag", help="The public key (alternative to positional)")
-    p_user.add_argument("--email", dest="email_flag", help="The email (alternative to positional)")
+    user_sub = p_user.add_subparsers(dest="user_command", metavar="ACTION")
+    
+    p_user_add = user_sub.add_parser("add", help="Add a new platform user")
+    p_user_add.add_argument("username", help="The username of the account")
+    p_user_add.add_argument("public_key", nargs="?", help="The public SSH key")
+    p_user_add.add_argument("email", nargs="?", help="The email address")
+    
+    p_user_remove = user_sub.add_parser("remove", help="Remove a platform user")
+    p_user_remove.add_argument("username", help="The username to remove")
+    
+    p_user_list = user_sub.add_parser("list", help="List all platform users")
+    
+    p_user_info = user_sub.add_parser("info", help="Display detailed user information")
+    p_user_info.add_argument("username", help="The username to inspect")
+    
+    p_user_show = user_sub.add_parser("show", help="Show current authenticated user info")
 
     # ── auth ─────────────────────────────────────────────────────────
     p_auth = sub.add_parser(
@@ -592,7 +653,11 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_auth.add_argument("auth_command", choices=["login", "logout", "status", "token"], help="The authentication action to perform")
+    auth_sub = p_auth.add_subparsers(dest="auth_command", metavar="ACTION")
+    auth_sub.add_parser("login", help="Interactively authenticate with the platform")
+    auth_sub.add_parser("logout", help="Clear local session tokens and logout")
+    auth_sub.add_parser("status", help="Display current authentication status")
+    auth_sub.add_parser("token", help="Manage authentication tokens")
 
     # ── pr ───────────────────────────────────────────────────────────
     from deep.commands import pr_cmd
@@ -603,14 +668,52 @@ Examples:
         epilog=pr_cmd.get_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_pr.add_argument("pr_command", choices=["create", "list", "show", "merge", "close", "reopen", "sync", "comment", "reply", "resolve", "review"], help="The Pull Request action to perform")
-    p_pr.add_argument("id", nargs="?", help="The numerical ID of the Pull Request")
-    p_pr.add_argument("thread", nargs="?", help="The numerical ID of the Thread (for reply/resolve)")
-    p_pr.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
-    p_pr.add_argument("-t", "-m", "--title", "--message", dest="title", help="PR title (for create)")
-    p_pr.add_argument("-d", "--description", help="PR description (for create)")
-    p_pr.add_argument("--head", help="Source branch (for create)")
-    p_pr.add_argument("--base", help="Target branch (for create)")
+    pr_sub = p_pr.add_subparsers(dest="pr_command", metavar="ACTION")
+    
+    # pr create
+    p_pr_create = pr_sub.add_parser("create", help="Open a new Pull Request interactively")
+    p_pr_create.add_argument("-t", "-m", "--title", "--message", dest="title", help="PR title")
+    p_pr_create.add_argument("-d", "--description", help="PR description")
+    p_pr_create.add_argument("--head", help="Source branch (head)")
+    p_pr_create.add_argument("--base", help="Target branch (base)")
+    p_pr_create.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    
+    # pr list
+    p_pr_list = pr_sub.add_parser("list", help="Display all local pull requests")
+    p_pr_list.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    
+    # pr show
+    p_pr_show = pr_sub.add_parser("show", help="Show PR summary, threads, and merge status")
+    p_pr_show.add_argument("id", help="The numerical ID of the Pull Request")
+    p_pr_show.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    
+    # pr merge
+    p_pr_merge = pr_sub.add_parser("merge", help="Verify rules and perform a local merge")
+    p_pr_merge.add_argument("id", help="The numerical ID of the Pull Request")
+    
+    # pr close / reopen
+    pr_sub.add_parser("close", help="Close a Pull Request").add_argument("id", help="PR ID")
+    pr_sub.add_parser("reopen", help="Reopen a closed Pull Request").add_argument("id", help="PR ID")
+    
+    # pr sync
+    p_pr_sync = pr_sub.add_parser("sync", help="Synchronize local PRs with platform")
+    p_pr_sync.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    
+    # pr comment / reply / resolve
+    p_pr_comment = pr_sub.add_parser("comment", help="Start a new discussion thread")
+    p_pr_comment.add_argument("id", help="PR ID")
+    
+    p_pr_reply = pr_sub.add_parser("reply", help="Reply to a discussion thread")
+    p_pr_reply.add_argument("id", help="PR ID")
+    p_pr_reply.add_argument("thread", help="Thread ID")
+    
+    p_pr_resolve = pr_sub.add_parser("resolve", help="Mark a discussion thread as resolved")
+    p_pr_resolve.add_argument("id", help="PR ID")
+    p_pr_resolve.add_argument("thread", help="Thread ID")
+    
+    # pr review
+    p_pr_review = pr_sub.add_parser("review", help="Interactive review (Approve / Request Changes)")
+    p_pr_review.add_argument("id", help="PR ID")
 
     # ── issue ────────────────────────────────~~~~~~~~~~~~~~~~~~~~~~~~
     from deep.commands import issue_cmd
@@ -621,13 +724,32 @@ Examples:
         epilog=issue_cmd.get_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_issue.add_argument("issue_command", choices=["create", "list", "show", "close", "reopen", "sync"], help="The issue tracking action to perform")
-    p_issue.add_argument("id", nargs="?", help="The numerical ID of the issue")
-    p_issue.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
-    p_issue.add_argument("-t", "-m", "--title", "--message", dest="title", help="Issue title (for create)")
-    p_issue.add_argument("-d", "--description", help="Issue description (for create)")
-    p_issue.add_argument("--type", help="Issue type (e.g. bug, feature)")
-    p_issue.add_argument("--priority", help="Issue priority (e.g. high, low)")
+    issue_sub = p_issue.add_subparsers(dest="issue_command", metavar="ACTION")
+    
+    # issue create
+    p_issue_create = issue_sub.add_parser("create", help="Open a smart, interactive issue template")
+    p_issue_create.add_argument("-t", "-m", "--title", "--message", dest="title", help="Issue title")
+    p_issue_create.add_argument("-d", "--description", help="Issue description")
+    p_issue_create.add_argument("--type", help="Issue type (e.g. bug, feature)")
+    p_issue_create.add_argument("--priority", help="Issue priority")
+    p_issue_create.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    
+    # issue list
+    p_issue_list = issue_sub.add_parser("list", help="Display all local issues")
+    p_issue_list.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    
+    # issue show
+    p_issue_show = issue_sub.add_parser("show", help="Display detailed issue report")
+    p_issue_show.add_argument("id", help="The numerical ID of the issue")
+    p_issue_show.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    
+    # issue close / reopen
+    issue_sub.add_parser("close", help="Mark an issue as resolved").add_argument("id", help="Issue ID")
+    issue_sub.add_parser("reopen", help="Resume work on a closed issue").add_argument("id", help="Issue ID")
+    
+    # issue sync
+    p_issue_sync = issue_sub.add_parser("sync", help="Synchronize local issues with platform")
+    p_issue_sync.add_argument("--verbose", action="store_true", help="Enable verbose output")
 
     # ── pipeline ────────────────────────────────────────────────────
     from deep.commands import pipeline_cmd
@@ -638,10 +760,20 @@ Examples:
         epilog=pipeline_cmd.get_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_pipeline.add_argument("pipe_command", choices=["run", "trigger", "list", "status", "sync"], help="The CI/CD pipeline action to perform")
-    p_pipeline.add_argument("id", nargs="?", help="The specific Pipeline Run ID") 
-    p_pipeline.add_argument("--commit", help="Target a specific commit SHA for the pipeline run")
-    p_pipeline.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
+    pipe_sub = p_pipeline.add_subparsers(dest="pipe_command", metavar="ACTION")
+    
+    p_pipe_run = pipe_sub.add_parser("run", help="Start a new pipeline run")
+    p_pipe_run.add_argument("--commit", help="Target a specific commit SHA")
+    
+    p_pipe_trigger = pipe_sub.add_parser("trigger", help="Manually trigger a pipeline event")
+    p_pipe_trigger.add_argument("event", help="The event name to trigger")
+    
+    p_pipe_list = pipe_sub.add_parser("list", help="List recent pipeline runs")
+    
+    p_pipe_status = pipe_sub.add_parser("status", help="Get status of a specific pipeline run")
+    p_pipe_status.add_argument("id", help="The Pipeline Run ID")
+    
+    p_pipe_sync = pipe_sub.add_parser("sync", help="Synchronize pipeline definitions")
 
     # ── studio ──────────────────────────────────────────────────────────
     p_studio = sub.add_parser(
@@ -664,7 +796,10 @@ Examples:
         description="Manage the binary commit graph index for accelerated history traversal.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_cg.add_argument("cg_command", choices=["write", "verify", "clear"], help="The commit-graph operation to perform")
+    cg_sub = p_cg.add_subparsers(dest="cg_command", metavar="ACTION")
+    cg_sub.add_parser("write", help="Generate or update the commit graph file")
+    cg_sub.add_parser("verify", help="Verify the integrity of the commit graph file")
+    cg_sub.add_parser("clear", help="Remove the commit graph file")
 
     p_doctor = sub.add_parser(
         "doctor",
@@ -723,7 +858,10 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_audit.add_argument("audit_command", choices=["show", "report", "scan"], nargs="?", default="show", help="The audit action to perform (default: show)")
+    audit_sub = p_audit.add_subparsers(dest="audit_command", metavar="ACTION")
+    audit_sub.add_parser("show", help="Display recent security events")
+    audit_sub.add_parser("report", help="Generate a comprehensive security audit report")
+    audit_sub.add_parser("scan", help="Scan for sensitive data or vulnerabilities")
 
     # ── verify ───────────────────────────────────────────────────────
     p_verify = sub.add_parser(
@@ -778,8 +916,12 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_sandbox.add_argument("sandbox_command", choices=["run", "init"], help="The sandbox action to perform")
-    p_sandbox.add_argument("cmd", nargs="?", help="The shell command string to execute within the sandbox")
+    sandbox_sub = p_sandbox.add_subparsers(dest="sandbox_command", metavar="ACTION")
+    
+    p_sandbox_run = sandbox_sub.add_parser("run", help="Execute a command inside the secure sandbox")
+    p_sandbox_run.add_argument("cmd", help="The shell command string to execute")
+    
+    p_sandbox_init = sandbox_sub.add_parser("init", help="Initialize the sandbox environment")
 
     # ── rollback ─────────────────────────────────────────────────────
     p_rollback = sub.add_parser(
@@ -809,16 +951,16 @@ Examples:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    ai_choices = [
-        "suggest", "generate", "analyze", "branch-name", "review", 
-        "predict-merge", "predict-push", "cross-repo", 
-        "refactor", "cleanup", "interactive", "assistant"
-    ]
-    p_ai.add_argument("ai_command", choices=ai_choices, nargs="?", default="suggest", help="The Deep AI tool to invoke (default: suggest)")
-    p_ai.add_argument("target", nargs="?", help="The target file, branch, or commit SHA for the AI tool")
-    p_ai.add_argument("--description", help="Provide an additional prompt or description to guide the AI")
-    p_ai.add_argument("--source", help="The source branch for predictive merge analysis")
-    p_ai.add_argument("--branch", help="The target branch for predictive merge analysis")
+    ai_sub = p_ai.add_subparsers(dest="ai_command", metavar="ACTION")
+    
+    for cmd in ["suggest", "generate", "analyze", "branch-name", "review", 
+                "predict-merge", "predict-push", "cross-repo", 
+                "refactor", "cleanup", "interactive", "assistant"]:
+        p_ai_cmd = ai_sub.add_parser(cmd, help=f"Deep AI {cmd} tool")
+        p_ai_cmd.add_argument("target", nargs="?", help="Target file, branch, or commit SHA")
+        p_ai_cmd.add_argument("--description", help="Additional prompt or description")
+        p_ai_cmd.add_argument("--source", help="Source branch for predictive analysis")
+        p_ai_cmd.add_argument("--branch", help="Target branch for predictive analysis")
 
     # ── ultra ────────────────────────────────────────────────────────
     p_ultra = sub.add_parser(
@@ -875,19 +1017,6 @@ Examples:
     p_gc.add_argument("-v", "--verbose", action="store_true", help="Display detailed information during the optimization process")
     p_gc.add_argument("--prune", type=int, default=3600, help="Only prune unreachable objects older than this (seconds). Default 1h.")
     
-    # ── maintenance ──────────────────────────────────────────────────
-    p_maint = sub.add_parser(
-        "maintenance",
-        help="Run repository maintenance tasks",
-        description="Optimize the repository by repacking objects, updating indices, and pruning unreachable data.",
-        epilog="""
-Examples:
-  deep maintenance           # Run scheduled maintenance tasks
-  deep maintenance --force   # Force run all maintenance tasks immediately
-""",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    p_maint.add_argument("--force", action="store_true", help="Force run maintenance even if recently completed")
 
     sub.add_parser("version", help="Show Deep version information")
 
@@ -1038,8 +1167,6 @@ def main(argv: list[str] | None = None) -> None:
         from deep.commands.search_cmd import run
     elif args.command == "server":
         from deep.commands.server_cmd import run
-    elif args.command == "daemon":
-        from deep.commands.daemon_cmd import run
     elif args.command == "mirror":
         from deep.commands.mirror_cmd import run
     elif args.command == "audit":
