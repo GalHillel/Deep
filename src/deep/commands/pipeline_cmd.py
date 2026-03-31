@@ -48,18 +48,6 @@ def get_epilog() -> str:
       Without these, all operations remain local-only.
 """
 
-def setup_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
-    p = subparsers.add_parser(
-        "pipeline",
-        help="Interact with CI/CD Pipelines",
-        description=get_description(),
-        epilog=get_epilog(),
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p.add_argument("pipe_command", choices=["run", "trigger", "list", "status", "sync"], help="The CI/CD pipeline action to perform")
-    p.add_argument("id", nargs="?", help="The specific Pipeline Run ID")
-    return p
-
 
 def run(args) -> None:
     """Execute the ``pipeline`` command."""

@@ -50,17 +50,6 @@ def get_epilog() -> str:
      Verify rules and perform a local merge of PR #5 into the base branch.
 """
 
-def setup_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
-    p = subparsers.add_parser(
-        "pr",
-        help="Manage platform Pull Requests",
-        description=get_description(),
-        epilog=get_epilog(),
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p.add_argument("pr_command", choices=["create", "list", "show", "merge", "close", "reopen", "sync", "comment", "reply", "resolve", "review"], help="The Pull Request action to perform")
-    return p
-
 
 
 def get_author(repo_root: Path) -> str:

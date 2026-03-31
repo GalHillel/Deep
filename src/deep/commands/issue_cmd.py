@@ -46,18 +46,6 @@ def get_epilog() -> str:
      Mark issue #12 as resolved in the local database.
 """
 
-def setup_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
-    p = subparsers.add_parser(
-        "issue",
-        help="Manage platform Issues",
-        description=get_description(),
-        epilog=get_epilog(),
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p.add_argument("issue_command", choices=["create", "list", "show", "close", "reopen", "sync"], help="The issue tracking action to perform")
-    p.add_argument("id", nargs="?", help="The numerical ID of the issue")
-    return p
-
 
 def get_author(repo_root: Path) -> str:
     """Get the current user name from config."""
