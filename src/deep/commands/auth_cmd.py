@@ -14,7 +14,25 @@ from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.core.user import UserManager
 from deep.core.config import Config
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'auth' command parser."""
+    p_auth = subparsers.add_parser(
+        "auth",
+        help="Manage authentication and user identity",
+        description="Authenticate with the Deep platform and manage local user identity.",
+        epilog=f"""
+Examples:
+{format_example("deep auth login --token <token>", "Login with a platform token")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    asub = p_auth.add_subparsers(dest="auth_command", metavar="ACTION")
+    p_login = asub.add_parser("login", help="Log in to the Deep platform")
+    p_login.add_argument("--token", required=True, help="Your personal access token")
 
 def run(args) -> None:
     """Execute the ``auth`` command."""
