@@ -17,7 +17,25 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'rollback' command parser."""
+    p_rollback = subparsers.add_parser(
+        "rollback",
+        help="Undo the last repository transaction",
+        description="Roll back the repository state (HEAD, index, and working tree) to a previous commit.",
+        epilog=f"""
+Examples:
+{format_example("deep rollback", "Undo the last command (reset to HEAD~1)")}
+{format_example("deep rollback abc1234", "Reset exactly to the specified commit")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_rollback.add_argument("commit", nargs="?", default="HEAD~1", help="The commit identifier to rollback to (default: HEAD~1)")
+    p_rollback.add_argument("--force", action="store_true", help="Force rollback even if the working tree is dirty")
 
 
 def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
