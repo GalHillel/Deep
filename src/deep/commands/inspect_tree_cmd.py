@@ -7,9 +7,25 @@ Internal debug command to verify raw tree entry modes and object types.
 import sys
 from deep.core.errors import DeepCLIException
 from pathlib import Path
-from deep.core.constants import DEEP_DIR
-from deep.core.repository import find_repo
+from deep.core.repository import find_repo, DEEP_DIR
 from deep.storage.objects import read_object, Tree, Blob
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'inspect-tree' command parser."""
+    p_inspect = subparsers.add_parser(
+        "inspect-tree",
+        help="Internal: Inspect raw tree entries (debug)",
+        description="Forensic tool to verify raw tree entry modes and object types in the database.",
+        epilog=f"""
+Examples:
+{format_example("deep inspect-tree <sha>", "Inspect a specific tree object")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_inspect.add_argument("sha", help="The SHA-1 hash of the tree object to inspect")
 
 def run(args) -> None:
     try:
