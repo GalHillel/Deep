@@ -16,8 +16,10 @@ import sys
 import hashlib
 import struct
 from pathlib import Path
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
-from deep.utils.ux import DeepHelpFormatter, format_example
 
 
 def setup_parser(subparsers: Any) -> None:
@@ -25,16 +27,20 @@ def setup_parser(subparsers: Any) -> None:
     p_reset = subparsers.add_parser(
         "reset",
         help="Reset HEAD to a specific state",
-        description="Reset current HEAD to a specified commit, optionally updating index and worktree.",
+        description=format_description("Reset the current branch HEAD to a specified commit. Optionally, reset the staging index (--mixed, default) or both the index and working tree (--hard)."),
         epilog=f"""
-Examples:
-{format_example("deep reset HEAD~1", "Undo last commit, leave changes staged")}
-{format_example("deep reset --hard HEAD", "Discard all local changes")}
+{format_header("Examples")}
+{format_example("deep reset HEAD~1", "Undo the last commit, keeping changes staged")}
+{format_example("deep reset --hard HEAD", "Discard all local changes and reset to last commit")}
+{format_example("deep reset <sha>", "Point current branch to a specific commit SHA")}
+{format_example("deep reset --soft HEAD~3", "Move HEAD back 3 commits, keep index/worktree as is")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_reset.add_argument("commit", nargs="?", default="HEAD", help="The commit identifier to reset to")
-    p_reset.add_argument("--hard", action="store_true", help="Reset index and working tree")
+    p_reset.add_argument("commit", nargs="?", default="HEAD", help="The commit identifier or reference to reset to (default: HEAD)")
+    p_reset.add_argument("--hard", action="store_true", help="Reset index and working tree (all local changes will be lost)")
+    p_reset.add_argument("--soft", action="store_true", help="Reset HEAD only; index and working tree are preserved")
+    p_reset.add_argument("--mixed", action="store_true", help="Reset HEAD and index; working tree is preserved (default)")
 
 from deep.storage.index import (
     DeepIndex,
