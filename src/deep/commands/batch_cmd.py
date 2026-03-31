@@ -23,17 +23,19 @@ from typing import Any
 
 
 def setup_parser(subparsers: Any) -> None:
-    """Set up the 'commit-graph' command parser."""
-    subparsers.add_parser(
-        "commit-graph",
-        help="Write and verify the commit-graph file",
-        description="Manage the commit-graph binary index to accelerate history walks.",
+    """Set up the 'batch' command parser."""
+    p_batch = subparsers.add_parser(
+        "batch",
+        help="Execute multiple Deep commands in a single transaction",
+        description="Run a sequence of Deep commands atomically to ensure repository consistency.",
         epilog=f"""
 Examples:
-{format_example("deep commit-graph write", "Regenerate the commit-graph index")}
+{format_example("deep batch commands.txt", "Run commands from a file")}
 """,
         formatter_class=DeepHelpFormatter,
     )
+    p_batch.add_argument("script", help="The file containing the list of commands to execute")
+    p_batch.add_argument("--fail-fast", action="store_true", help="Stop execution on first error")
 
 
 def run(args) -> None:
