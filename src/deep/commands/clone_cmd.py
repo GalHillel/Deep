@@ -19,6 +19,26 @@ from deep.core.errors import DeepCLIException
 import sys
 import os
 from pathlib import Path
+from typing import Any
+from deep.utils.ux import DeepHelpFormatter, format_example
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'clone' command parser."""
+    p_clone = subparsers.add_parser(
+        "clone",
+        help="Clone a repository into a new directory",
+        description="Create a local copy of a remote Deep repository, including all history and metadata.",
+        epilog=f"""
+Examples:
+{format_example("deep clone <url>", "Clone from a remote URL")}
+{format_example("deep clone repo --depth 1", "Create a shallow clone")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_clone.add_argument("url", help="The repository URL or local path to clone from")
+    p_clone.add_argument("dir", nargs="?", help="The name of the new directory to clone into")
+    p_clone.add_argument("--depth", type=int, help="Create a shallow clone with truncated history")
 
 from deep.core.constants import DEEP_DIR
 from deep.core.refs import update_head, update_branch, resolve_head
