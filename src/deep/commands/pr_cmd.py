@@ -19,51 +19,65 @@ from deep.core.pr import PRManager
 from deep.core.config import Config
 from deep.core.refs import list_branches, get_current_branch, find_merge_base, resolve_revision, get_all_branches, update_head
 from deep.utils.ux import (
-    Color, print_error, print_success, print_info,
-    format_header, format_example
+    DeepHelpFormatter, format_header, format_example, format_description,
+    Color, print_error, print_success, print_info
 )
+from typing import Any
 
 
-def get_description() -> str:
-    """Return a description for the pr command."""
-    return "Comprehensive Pull Request lifecycle management for the Deep platform."
-
-
-def get_epilog() -> str:
-    """Return an epilog with usage examples."""
-    return f"""
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'pr' command parser."""
+    p_pr = subparsers.add_parser(
+        "pr",
+        help="Manage Pull Requests",
+        description=format_description("Comprehensive Pull Request lifecycle management. Create, list, review, and merge pull requests directly from your terminal. Supports seamless synchronization with GitHub and other Deep instances."),
+        epilog=f"""
 {format_header("Examples")}
-{format_example("deep pr create", "Open an interactive PR template")}
-{format_example("deep pr list", "Browse open pull requests")}
-{format_example("deep pr show 42", "View thread and status for PR #42")}
-{format_example("deep pr merge 42", "Finalize and merge PR #42")}
-{format_example("deep pr review 42", "Start interactive code review")}
-"""
+{format_example("deep pr create", "Open an interactive template to create a new PR")}
+{format_example("deep pr list", "Browse all open pull requests in the current repository")}
+{format_example("deep pr show 42", "View detailed status, threads, and reviews for PR #42")}
+{format_example("deep pr review 42", "Start an interactive code review session for PR #42")}
+{format_example("deep pr merge 42", "Finalize and merge PR #42 into its target branch")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    rs = p_pr.add_subparsers(dest="pr_command", metavar="ACTION")
     
-    res = []
-    res.append(header("CORE COMMANDS"))
-    res.append(cmd("create", "Open a new Pull Request interactively"))
-    res.append(cmd("list", "Display all local pull requests"))
-    res.append(cmd("show <id>", "Show PR summary, threads, and merge status"))
+    # Core Actions
+    p_create = rs.add_parser("create", help="Create a new Pull Request")
+    p_create.add_argument("--title", help="Title of the pull request")
+    p_create.add_argument("--body", "--description", help="Detailed description of the changes")
+    p_create.add_argument("--head", "--source", help="Source branch containing changes")
+    p_create.add_argument("--base", "--target", help="Target branch to merge into (default: main)")
     
-    res.append(header("COLLABORATION"))
-    res.append(cmd("comment <id>", "Start a new discussion thread"))
-    res.append(cmd("reply <id> <tid>", "Reply to thread <tid> in PR <id>"))
-    res.append(cmd("resolve <id> <tid>", "Mark a discussion thread as resolved"))
-    res.append(cmd("review <id>", "Interactive review (Approve / Request Changes)"))
+    rs.add_parser("list", help="List all pull requests in the repository")
     
-    res.append(header("WORKFLOW"))
-    res.append(cmd("merge <id>", "Verify rules and perform a local merge"))
-    res.append(cmd("sync", "Synchronize local PRs with GitHub remote"))
+    p_show = rs.add_parser("show", help="Show detailed information for a PR")
+    p_show.add_argument("id", help="The ID of the pull request to display")
     
-    res.append(header("REVIEW WORKFLOW GUIDE"))
-    res.append(f"  {Color.wrap(Color.WHITE, '1. Create PR')}      {Color.wrap(Color.YELLOW, 'deep pr create')}")
-    res.append(f"  {Color.wrap(Color.WHITE, '2. Review')}         {Color.wrap(Color.YELLOW, 'deep pr review <id>')}")
-    res.append(f"  {Color.wrap(Color.WHITE, '3. Discuss')}        {Color.wrap(Color.YELLOW, 'deep pr comment/reply')}")
-    res.append(f"  {Color.wrap(Color.WHITE, '4. Resolve')}        {Color.wrap(Color.YELLOW, 'deep pr resolve <id> <tid>')}")
-    res.append(f"  {Color.wrap(Color.WHITE, '5. Merge')}          {Color.wrap(Color.YELLOW, 'deep pr merge <id>')}")
+    # Review & Collaboration Actions
+    p_review = rs.add_parser("review", help="Review a pull request (Approve/Request Changes)")
+    p_review.add_argument("id", help="The ID of the pull request to review")
     
-    return "\n".join(res) + "\n"
+    p_comment = rs.add_parser("comment", help="Add a new discussion thread to a PR")
+    p_comment.add_argument("id", help="The ID of the pull request")
+    
+    p_reply = rs.add_parser("reply", help="Reply to an existing discussion thread")
+    p_reply.add_argument("id", help="The ID of the pull request")
+    p_reply.add_argument("thread", help="The ID of the thread to reply to")
+    
+    p_resolve = rs.add_parser("resolve", help="Mark a discussion thread as resolved")
+    p_resolve.add_argument("id", help="The ID of the pull request")
+    p_resolve.add_argument("thread", help="The ID of the thread to resolve")
+    
+    # Workflow Actions
+    p_merge = rs.add_parser("merge", help="Merge a pull request into its base branch")
+    p_merge.add_argument("id", help="The ID of the pull request to merge")
+    
+    p_close = rs.add_parser("close", help="Close a pull request without merging")
+    p_close.add_argument("id", help="The ID of the pull request to close")
+    
+    rs.add_parser("sync", help="Synchronize local PRs with remote (GitHub/Deep)")
 
 
 def get_author(repo_root: Path) -> str:
