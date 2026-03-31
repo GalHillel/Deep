@@ -12,8 +12,27 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.storage.objects import read_object, Tree, Commit
 from deep.core.refs import resolve_head
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
 
-def run_debug_tree(args) -> None:
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'debug-tree' command parser."""
+    p_debug = subparsers.add_parser(
+        "debug-tree",
+        help="Internal: Deep-inspect tree objects recursively",
+        description="Forensic tool to verify raw tree entry modes and object types, including hidden characters.",
+        epilog=f"""
+Examples:
+{format_example("deep debug-tree", "Inspect the current head tree including mode details")}
+{format_example("deep debug-tree <sha>", "Inspect a specific tree object")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_debug.add_argument("sha", nargs="?", help="The SHA-1 hash of the tree object to inspect (default: HEAD)")
+
+
+def run(args) -> None:
     """Implement 'deep debug-tree'."""
     try:
         repo_root = find_repo()
