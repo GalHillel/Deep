@@ -48,6 +48,7 @@ def setup_parser(subparsers: Any) -> None:
 
 
 def run(args) -> None:
+    """Implement 'deep sandbox' commands."""
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
@@ -55,6 +56,21 @@ def run(args) -> None:
         raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
+    cmd = args.sandbox_command
+
+    if cmd == "list":
+        # Placeholder for listing
+        print("No active sandboxes found.")
+        return
+    elif cmd == "remove":
+        # Placeholder for removal
+        print(f"Sandbox '{args.name}' not found.")
+        return
+    elif cmd != "run":
+        # Default or unknown
+        return
+
+    # 'run' logic
     script_path = Path(args.script).resolve()
 
     if not script_path.exists():
