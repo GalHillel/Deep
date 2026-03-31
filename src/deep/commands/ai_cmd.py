@@ -10,13 +10,26 @@ from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
 
-from deep.core.repository import find_repo
-from deep.storage.transaction import TransactionManager
-from deep.core.constants import DEEP_DIR
-import os
+from deep.utils.ux import (
+    Color, print_error, print_info, print_success,
+    format_header, format_example
+)
 
 
-def run(args) -> None:
+def get_description() -> str:
+    """Return a description for the ai command."""
+    return "Deep AI assistant for intelligent commit messages, reviews, and refactoring."
+
+
+def get_epilog() -> str:
+    """Return an epilog with usage examples."""
+    return f"""
+{format_header("Examples")}
+{format_example("deep ai suggest", "Generate a suggested commit message")}
+{format_example("deep ai review", "Perform an automated AI code review")}
+{format_example("deep ai refactor", "Apply AI-suggested refactorings")}
+{format_example("deep ai interactive", "Start an interactive AI chat session")}
+"""
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:

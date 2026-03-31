@@ -15,30 +15,26 @@ from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.core.pipeline import PipelineRunner
 from deep.core.refs import resolve_head
-from deep.utils.ux import Color, print_error, print_success, print_info
-import deep.utils.network as net
+from deep.utils.ux import (
+    Color, print_error, print_success, print_info,
+    format_header, format_example
+)
+
 
 def get_description() -> str:
-    """Return a color-coded description for the pipeline command."""
-    return "Manage CI/CD pipelines locally and optionally sync with GitHub Actions."
+    """Return a description for the pipeline command."""
+    return "Local and remote CI/CD pipeline management for the Deep platform."
+
 
 def get_epilog() -> str:
-    """Return a color-coded epilog with usage examples."""
-    examples_title = Color.wrap(Color.CYAN, "Examples:")
-    note_title = Color.wrap(Color.RED, "Note:")
-    
-    list_ex    = f"  {Color.wrap(Color.YELLOW, 'deep pipeline list')}      {Color.wrap(Color.GREEN, '# List all local pipeline runs')}"
-    trigger_ex = f"  {Color.wrap(Color.YELLOW, 'deep pipeline trigger')}   {Color.wrap(Color.GREEN, '# Trigger a new local pipeline run')}"
-    status_ex  = f"  {Color.wrap(Color.YELLOW, 'deep pipeline status 5')}  {Color.wrap(Color.GREEN, '# Show status for run #5')}"
-    sync_ex    = f"  {Color.wrap(Color.YELLOW, 'deep pipeline sync')}      {Color.wrap(Color.GREEN, '# Sync local runs with GitHub Actions')}"
-    
-    token_ex  = f"\n{Color.wrap(Color.CYAN, 'Setup Token (Windows):')}\n" \
-                f"  {Color.wrap(Color.YELLOW, '$env:GH_TOKEN=\"...\"')}  {Color.wrap(Color.GREEN, '# PowerShell')}\n" \
-                f"  {Color.wrap(Color.YELLOW, 'set GH_TOKEN=...')}      {Color.wrap(Color.GREEN, '# CMD')}"
-
-    sync_note = f"\n{note_title} 'sync' requires a GitHub remote and GH_TOKEN/DEEP_TOKEN. \n      Without these, all operations remain local-only."
-    
-    return f"\n{examples_title}\n{list_ex}\n{trigger_ex}\n{status_ex}\n{sync_ex}\n{token_ex}\n{sync_note}\n"
+    """Return an epilog with usage examples."""
+    return f"""
+{format_header("Examples")}
+{format_example("deep pipeline list", "List all local pipeline runs")}
+{format_example("deep pipeline trigger", "Trigger a new local pipeline run")}
+{format_example("deep pipeline status 5", "Show status for Run #5")}
+{format_example("deep pipeline sync", "Sync with GitHub Actions")}
+"""
 
 def run(args) -> None:
     """Execute the ``pipeline`` command."""
