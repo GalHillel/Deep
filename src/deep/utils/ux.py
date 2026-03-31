@@ -55,27 +55,11 @@ class Color:
         return text
 
 
-def print_deep_logo(version: str = "1.0.0"):
-    """Print the professional Deep blue circle logo."""
-    blue = Color.BRIGHT_BLUE if Color.USE_COLOR else ""
-    reset = Color.RESET if Color.USE_COLOR else ""
-    bold = Color.BOLD if Color.USE_COLOR else ""
-    cyan = Color.CYAN if Color.USE_COLOR else ""
-    dim = Color.DIM if Color.USE_COLOR else ""
+DEEP_LOGO = "\033[1;34m⚓️ DeepGit\033[0m v1.1.0 - Next-generation Distributed VCS"
 
-    # Using high-quality Unicode blocks for a smooth, premium "Blue Circle"
-    logo = f"""
-{blue}           ▄▄██████▄▄
-         ██████████████
-        ████████████████
-        ████████████████
-         ██████████████
-           ▀▀██████▀▀{reset}
-
-{bold}{blue}DeepGit{reset} {cyan}v{version}{reset}
-{dim}Next-generation Distributed VCS & AI-Powered Development Platform{reset}
-"""
-    print(logo)
+def print_deep_logo(version: str = "1.1.0") -> None:
+    """Print the professional Deep logo."""
+    print(DEEP_LOGO)
 
 
 def format_header(text: str) -> str:
