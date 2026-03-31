@@ -18,7 +18,22 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'ultra' command parser."""
+    subparsers.add_parser(
+        "ultra",
+        help="Run comprehensive repository optimization",
+        description="Execute a multi-stage system optimization including garbage collection, object repacking, and commit-graph rebuilding.",
+        epilog=f"""
+Examples:
+{format_example("deep ultra", "Run all optimization stages")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
 
 
 def run(args) -> None:
