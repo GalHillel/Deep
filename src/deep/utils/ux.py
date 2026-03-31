@@ -40,7 +40,12 @@ class Color:
     SUCCESS = GREEN
     WARNING = YELLOW
     INFO = CYAN
-    HEADER = MAGENTA
+    HEADER = BOLD + BRIGHT_BLUE
+    OPTION = CYAN
+    COMMAND = BRIGHT_BLUE
+    EXAMPLE = YELLOW
+    COMMENT = GREEN
+    DESCRIPTION = WHITE
 
     @classmethod
     def wrap(cls, color: str, text: str) -> str:
@@ -56,37 +61,57 @@ def print_deep_logo(version: str = "1.0.0"):
     reset = Color.RESET if Color.USE_COLOR else ""
     bold = Color.BOLD if Color.USE_COLOR else ""
     cyan = Color.CYAN if Color.USE_COLOR else ""
+    dim = Color.DIM if Color.USE_COLOR else ""
 
+    # Using high-quality Unicode blocks for a smooth, premium "Blue Circle"
     logo = f"""
-{blue}     ▄▄██████▄▄
-   ██████████████
-  ████████████████
-  ████████████████
-   ██████████████
-     ▀▀██████▀▀{reset}
+{blue}           ▄▄██████▄▄
+         ██████████████
+        ████████████████
+        ████████████████
+         ██████████████
+           ▀▀██████▀▀{reset}
 
 {bold}{blue}DeepGit{reset} {cyan}v{version}{reset}
-{Color.wrap(Color.DIM, "Distributed VCS & AI-Powered Development Platform")}
+{dim}Next-generation Distributed VCS & AI-Powered Development Platform{reset}
 """
     print(logo)
 
 
 def format_header(text: str) -> str:
-    return Color.wrap(Color.BOLD + Color.BRIGHT_BLUE, text.upper())
+    """Format a section header for help output."""
+    return Color.wrap(Color.HEADER, text.upper())
 
 
 def format_command(text: str) -> str:
-    return Color.wrap(Color.CYAN, text)
+    """Format a command name."""
+    return Color.wrap(Color.COMMAND, text)
+
+
+def format_option(text: str) -> str:
+    """Format an option or flag."""
+    return Color.wrap(Color.OPTION, text)
 
 
 def format_example(cmd: str, desc: str) -> str:
-    return f"  {Color.wrap(Color.YELLOW, cmd):<30} {Color.wrap(Color.GREEN, '# ' + desc)}"
+    """Format a CLI usage example with a comment."""
+    return f"  {Color.wrap(Color.EXAMPLE, cmd):<40} {Color.wrap(Color.COMMENT, '# ' + desc)}"
+
+
+def format_description(text: str) -> str:
+    """Format a description string."""
+    return Color.wrap(Color.DESCRIPTION, text)
+
+
+def format_warning(text: str) -> str:
+    """Format a warning message."""
+    return Color.wrap(Color.WARNING, text)
 
 
 class DeepHelpFormatter(argparse.RawDescriptionHelpFormatter):
     """Custom argparse help formatter for a premium DeepGit experience."""
 
-    def __init__(self, prog: str, indent_increment: int = 2, max_help_position: int = 24, width: Optional[int] = None):
+    def __init__(self, prog: str, indent_increment: int = 2, max_help_position: int = 30, width: Optional[int] = None):
         if width is None:
             try:
                 width = os.get_terminal_size().columns - 2
@@ -98,25 +123,26 @@ class DeepHelpFormatter(argparse.RawDescriptionHelpFormatter):
 
     def _format_action_invocation(self, action: argparse.Action) -> str:
         if not action.option_strings or action.nargs == 0:
-            return super()._format_action_invocation(action)
+            invocation = super()._format_action_invocation(action)
+            return Color.wrap(Color.OPTION, invocation)
         
         default = self._get_default_metavar_for_optional(action)
         args_string = self._format_args(action, default)
-        return ', '.join(Color.wrap(Color.CYAN, s) for s in action.option_strings) + ' ' + args_string
+        return ', '.join(Color.wrap(Color.OPTION, s) for s in action.option_strings) + ' ' + Color.wrap(Color.DIM, args_string)
 
     def add_usage(self, usage: str, actions: List[argparse.Action], groups: List[Any], prefix: Optional[str] = None):
         if prefix is None:
-            prefix = Color.wrap(Color.BOLD + Color.BRIGHT_BLUE, "Usage: ")
+            prefix = Color.wrap(Color.HEADER, "Usage: ")
         return super().add_usage(usage, actions, groups, prefix)
-
-    def _format_usage(self, usage: str, actions: List[argparse.Action], groups: List[Any], prefix: Optional[str]) -> str:
-        usage_text = super()._format_usage(usage, actions, groups, prefix)
-        return usage_text
 
     def start_section(self, heading: Optional[str]):
         if heading:
-            heading = Color.wrap(Color.BOLD + Color.BRIGHT_BLUE, heading.upper())
+            heading = Color.wrap(Color.HEADER, heading.upper())
         return super().start_section(heading)
+
+    def _fill_text(self, text: str, width: int, indent: str) -> str:
+        # Better wrapping for descriptions
+        return "".join(indent + line for line in textwrap.wrap(text, width))
 
 
 def print_error(message: str):
