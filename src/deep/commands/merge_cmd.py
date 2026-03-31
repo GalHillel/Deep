@@ -30,6 +30,26 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'merge' command parser."""
+    p_merge = subparsers.add_parser(
+        "merge",
+        help="Join two or more development histories",
+        description="Merge changes from the specified branch or commit into the current branch.",
+        epilog=f"""
+Examples:
+{format_example("deep merge feature", "Merge 'feature' into current branch")}
+{format_example("deep merge --abort", "Cancel the current conflicted merge")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_merge.add_argument("branch", nargs="?", help="The branch or commit to merge into the current branch")
+    p_merge.add_argument("--abort", action="store_true", help="Abort the current merge process and restore state")
+    p_merge.add_argument("--no-commit", action="store_true", help="Perform the merge but do not create a commit")
 from deep.storage.transaction import TransactionManager
 from deep.core.config import Config
 from deep.core.telemetry import TelemetryCollector, Timer
