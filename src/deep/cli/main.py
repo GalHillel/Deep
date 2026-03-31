@@ -32,53 +32,59 @@ def build_parser() -> argparse.ArgumentParser:
     """Build and return the top-level argument parser with categorized subcommands."""
     parser = argparse.ArgumentParser(
         prog="deep",
-        description="Deep — Next-generation Distributed Version Control System",
-        formatter_class=DeepHelpFormatter,
-        add_help=False, 
+        description="\033[1;34m⚓️ DeepGit\033[0m v1.1.0 - Next-generation Distributed VCS",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""
+\033[1;32m🌱 STARTING A WORKING AREA\033[0m
+    \033[1;36minit, clone\033[0m
+
+\033[1;33m📦 WORK ON THE CURRENT CHANGE\033[0m
+    \033[1;36madd, rm, mv, reset, stash\033[0m
+
+\033[1;32m🌿 EXAMINE THE HISTORY AND STATE\033[0m
+    \033[1;36mstatus, log, diff, show, ls-tree, graph\033[0m
+
+\033[1;35m🔄 GROW, MARK AND TWEAK YOUR COMMON HISTORY\033[0m
+    \033[1;36mcommit, branch, checkout, merge, rebase, tag\033[0m
+
+\033[1;34m🌐 COLLABORATE (P2P & REMOTE)\033[0m
+    \033[1;36mpush, pull, fetch, remote, p2p, sync, ls-remote, mirror, daemon\033[0m
+
+\033[1;35m🧠 AI & PLATFORM\033[0m
+    \033[1;36mai, pr, issue, pipeline, studio, repo, user, auth, server\033[0m
+
+\033[1;31m🛠️ MAINTENANCE & DIAGNOSTICS\033[0m
+    \033[1;36mdoctor, fsck, gc, verify, repack, benchmark, audit, ultra, batch, sandbox, rollback\033[0m
+
+\033[1;33m💡 UNIVERSAL SHORTCUTS\033[0m
+    \033[1;36mdeep <command> --help\033[0m    # Detailed help for any command
+    \033[1;36mdeep version\033[0m             # Show version and logo
+"""
     )
     
-    parser.add_argument("-h", "--help", action="store_true", help="Show this help message and exit")
-    parser.add_argument("-v", "--version", action="store_true", help="Show version information and exit")
+    parser.add_argument("-v", "--version", action="store_true", help=argparse.SUPPRESS)
     
-    sub_parser_container = parser.add_subparsers(dest="command", metavar="COMMAND")
+    sub_parser_container = parser.add_subparsers(dest="command", metavar="")
 
     # Dynamically load and register all commands from deep.commands
     commands_dir = Path(__file__).parent.parent / "commands"
-    # Map command names to modules. Hyphens in command names map to underscores in filenames
     cmd_map = {}
     for file in commands_dir.glob("*_cmd.py"):
-        base_name = file.name[:-7] # remove _cmd.py
+        base_name = file.name[:-7]
         cmd_name = base_name.replace("_", "-")
         cmd_map[cmd_name] = f"deep.commands.{file.name[:-3]}"
 
-    # Sort items for consistent registration
     for cmd_name, module_path in sorted(cmd_map.items()):
         try:
             module = importlib.import_module(module_path)
             if hasattr(module, "setup_parser"):
                 module.setup_parser(sub_parser_container)
             else:
-                # If no parser setup yet, add a placeholder
                 sub_parser_container.add_parser(cmd_name, help=f"Run {cmd_name} command")
         except Exception as e:
             if os.environ.get("DEEP_DEBUG"):
                 print(f"Deep: warning: failed to load command {cmd_name}: {e}", file=sys.stderr)
 
-    # Categorize commands in the epilog
-    epilog_parts = ["\n"]
-    for group_header, group_cmds in COMMAND_GROUPS.items():
-        epilog_parts.append(format_header(group_header))
-        # Only include commands that were actually found/registered
-        available_in_group = [c for c in group_cmds if c in cmd_map]
-        if available_in_group:
-            cmd_line = ", ".join(format_command(c) for c in available_in_group)
-            epilog_parts.append(f"  {cmd_line}\n")
-    
-    epilog_parts.append(format_header("Universal Shortcuts"))
-    epilog_parts.append(f"  deep <command> --help    {Color.wrap(Color.DIM, '# Detailed help for any command')}")
-    epilog_parts.append(f"  deep version             {Color.wrap(Color.DIM, '# Show version and logo')}\n")
-    
-    parser.epilog = "\n".join(epilog_parts)
     return parser
 
 def main():
@@ -86,7 +92,6 @@ def main():
     
     # Handle 'help' alias and no-args
     if len(sys.argv) == 1:
-        print_deep_logo(VERSION)
         parser.print_help()
         return
 
@@ -96,29 +101,20 @@ def main():
             cmd = sys.argv[2]
             sys.argv = [sys.argv[0], cmd, "--help"]
         else:
-            print_deep_logo(VERSION)
             parser.print_help()
             return
-
-    # Special handling for -h / --help to show logo first
-    if "-h" in sys.argv or "--help" in sys.argv:
-        # If it's just 'deep -h', show logo. 
-        # If it's 'deep status -h', logo is shown by sub-parser? No, argparse doesn't do that.
-        # We only show logo for the main help.
-        if len(sys.argv) == 2:
-            print_deep_logo(VERSION)
 
     try:
         args, unknown = parser.parse_known_args()
     except SystemExit:
         return # Argparse handles it
 
-    if args.version or (args.command == "version"):
-        print_deep_logo(VERSION)
+    if args.version or getattr(args, "command", None) == "version":
+        from deep.utils.ux import DEEP_LOGO
+        print(DEEP_LOGO)
         return
 
-    if not args.command or args.help:
-        print_deep_logo(VERSION)
+    if not getattr(args, "command", None) or getattr(args, "help", False):
         parser.print_help()
         return
 
