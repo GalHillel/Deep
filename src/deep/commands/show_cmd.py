@@ -15,6 +15,24 @@ from deep.storage.objects import Commit, read_object, Tree, Tag
 from deep.core.refs import resolve_revision
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'show' command parser."""
+    p_show = subparsers.add_parser(
+        "show",
+        help="Show various types of objects",
+        description="Show one or more objects (commits, tags, trees) with their content and metadata.",
+        epilog=f"""
+Examples:
+{format_example("deep show HEAD", "Show the last commit and its diff")}
+{format_example("deep show abc1234", "Show a specific commit or object")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_show.add_argument("object", nargs="?", default="HEAD", help="The object identifier to show (default: HEAD)")
 from deep.utils.ux import Color
 from deep.utils.utils import format_date
 
