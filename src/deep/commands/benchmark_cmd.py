@@ -9,7 +9,26 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from deep.core.benchmark import run_benchmarks
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'benchmark' command parser."""
+    p_bench = subparsers.add_parser(
+        "benchmark",
+        help="Measure performance of core operations",
+        description="Runs a suite of performance tests on common Deep operations like commit, hashing, and database access.",
+        epilog=f"""
+Examples:
+{format_example("deep benchmark", "Run standard performance suite")}
+{format_example("deep benchmark --verbose", "Show detailed metrics during run")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_bench.add_argument("--verbose", action="store_true", help="Show detailed metrics during benchmarking")
+    p_bench.add_argument("--report", action="store_true", help="Save results to benchmark_report.json")
+    p_bench.add_argument("--compare-git", action="store_true", help="Compare performance against native Deep implementation")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
