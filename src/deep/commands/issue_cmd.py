@@ -16,26 +16,48 @@ from pathlib import Path
 from deep.core.config import Config
 from deep.core.repository import find_repo
 from deep.utils.ux import (
-    Color, print_error, print_success, print_info, print_warning,
-    format_header, format_example
+    DeepHelpFormatter, format_header, format_example, format_description,
+    Color, print_error, print_success, print_info, print_warning
 )
+from typing import Any
 
 
-def get_description() -> str:
-    """Return a description for the issue command."""
-    return "Global Issue tracking and lifecycle management for the Deep platform."
-
-
-def get_epilog() -> str:
-    """Return an epilog with usage examples."""
-    return f"""
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'issue' command parser."""
+    p_issue = subparsers.add_parser(
+        "issue",
+        help="Manage repository issues",
+        description=format_description("Deep Issue tracking allows for local-first, decentralized task management. Issues are stored as objects in your repository and can be synchronized with GitHub or other Deep instances."),
+        epilog=f"""
 {format_header("Examples")}
-{format_example("deep issue create", "Open an interactive issue template")}
-{format_example("deep issue list", "Display all local issues")}
-{format_example("deep issue show 12", "Show details for Issue #12")}
-{format_example("deep issue close 12", "Mark an issue as resolved")}
-{format_example("deep issue sync", "Sync local issues with remote")}
-"""
+{format_example("deep issue create", "Open an interactive template to create a new issue")}
+{format_example("deep issue list", "Display all open issues in the current repository")}
+{format_example("deep issue show 12", "Show full details and timeline for Issue #12")}
+{format_example("deep issue close 12", "Mark Issue #12 as resolved/closed")}
+{format_example("deep issue sync", "Synchronize local issues with the remote platform")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    rs = p_issue.add_subparsers(dest="issue_command", metavar="ACTION")
+    
+    # Core Actions
+    p_create = rs.add_parser("create", help="Create a new issue")
+    p_create.add_argument("--title", help="Short summary of the issue")
+    p_create.add_argument("--type", choices=["bug", "feature", "task"], default="bug", help="The type of issue (bug, feature, task)")
+    
+    rs.add_parser("list", help="List all issues in the repository")
+    
+    p_show = rs.add_parser("show", help="Show detailed information for an issue")
+    p_show.add_argument("id", help="The ID of the issue to display")
+    
+    # Workflow Actions
+    p_close = rs.add_parser("close", help="Mark an issue as closed")
+    p_close.add_argument("id", help="The ID of the issue to close")
+    
+    p_reopen = rs.add_parser("reopen", help="Reopen a closed issue")
+    p_reopen.add_argument("id", help="The ID of the issue to reopen")
+    
+    rs.add_parser("sync", help="Synchronize local issues with remote (GitHub/Deep)")
 
 def get_author(repo_root: Path) -> str:
     """Get the current user name from config."""
