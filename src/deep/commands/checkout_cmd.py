@@ -16,12 +16,18 @@ def setup_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Switch branches or restore files",
         description="Switch to a different branch or restore files from a specific commit to the working tree.",
         epilog="""
-Examples:
-  deep checkout main         # Switch to the 'main' branch
-  deep checkout -b feature   # Create a new 'feature' branch and switch to it immediately
-  deep checkout abc1234      # Detach HEAD and switch to a specific commit
+\033[1mEXAMPLES:\033[0m
+
+  \033[1;34m⚓️ deep checkout main\033[0m
+     Switch to the 'main' branch.
+
+  \033[1;34m⚓️ deep checkout -b feature\033[0m
+     Create a new 'feature' branch and switch to it immediately.
+
+  \033[1;34m⚓️ deep checkout abc1234\033[0m
+     Detach HEAD and switch to a specific commit.
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_checkout.add_argument("-f", "--force", action="store_true", help="Force branch switching even if there are uncommitted local changes")
     p_checkout.add_argument("-b", "--branch", action="store_true", help="Create a new branch")

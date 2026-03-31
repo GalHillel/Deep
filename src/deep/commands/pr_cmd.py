@@ -26,37 +26,30 @@ def ns(**kwargs):
     return argparse.Namespace(**kwargs)
 
 def get_description() -> str:
-    return f"{Color.wrap(Color.CYAN, 'Elite Pull Request & Code Review Platform')}\n" \
-           f"Manage local-first discussions, threads, formal reviews, and merge intelligence."
+    return """Elite Pull Request & Code Review Platform.
+
+Manage local-first discussions, threads, formal reviews, and merge intelligence with full offline support.
+"""
 
 def get_epilog() -> str:
-    header = lambda s: Color.wrap(Color.BOLD + Color.CYAN, f"\n[{s}]")
-    cmd = lambda c, d: f"  {Color.wrap(Color.YELLOW, f'deep pr {c:<12}')} {Color.wrap(Color.GREEN, f'# {d}')}"
-    
-    res = []
-    res.append(header("CORE COMMANDS"))
-    res.append(cmd("create", "Open a new Pull Request interactively"))
-    res.append(cmd("list", "Display all local pull requests"))
-    res.append(cmd("show <id>", "Show PR summary, threads, and merge status"))
-    
-    res.append(header("COLLABORATION"))
-    res.append(cmd("comment <id>", "Start a new discussion thread"))
-    res.append(cmd("reply <id> <tid>", "Reply to thread <tid> in PR <id>"))
-    res.append(cmd("resolve <id> <tid>", "Mark a discussion thread as resolved"))
-    res.append(cmd("review <id>", "Interactive review (Approve / Request Changes)"))
-    
-    res.append(header("WORKFLOW"))
-    res.append(cmd("merge <id>", "Verify rules and perform a local merge"))
-    res.append(cmd("sync", "Synchronize local PRs with GitHub remote"))
-    
-    res.append(header("REVIEW WORKFLOW GUIDE"))
-    res.append(f"  {Color.wrap(Color.WHITE, '1. Create PR')}      {Color.wrap(Color.YELLOW, 'deep pr create')}")
-    res.append(f"  {Color.wrap(Color.WHITE, '2. Review')}         {Color.wrap(Color.YELLOW, 'deep pr review <id>')}")
-    res.append(f"  {Color.wrap(Color.WHITE, '3. Discuss')}        {Color.wrap(Color.YELLOW, 'deep pr comment/reply')}")
-    res.append(f"  {Color.wrap(Color.WHITE, '4. Resolve')}        {Color.wrap(Color.YELLOW, 'deep pr resolve <id> <tid>')}")
-    res.append(f"  {Color.wrap(Color.WHITE, '5. Merge')}          {Color.wrap(Color.YELLOW, 'deep pr merge <id>')}")
-    
-    return "\n".join(res) + "\n"
+    return """\033[1mEXAMPLES:\033[0m
+
+  \033[1;34m⚓️ deep pr create\033[0m
+     Open a new Pull Request interactively in the current repository.
+
+  \033[1;34m⚓️ deep pr list\033[0m
+     Display all local pull requests with status and details.
+
+  \033[1;34m⚓️ deep pr show 5\033[0m
+     Show PR #5 summary, discussion threads, and merge readiness.
+
+  \033[1;34m⚓️ deep pr review 5\033[0m
+     Enter interactive review mode for PR #5 to approve or request changes.
+
+  \033[1;34m⚓️ deep pr merge 5\033[0m
+     Verify rules and perform a local merge of PR #5 into the base branch.
+"""
+
 
 
 def get_author(repo_root: Path) -> str:

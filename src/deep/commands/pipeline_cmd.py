@@ -19,26 +19,35 @@ from deep.utils.ux import Color, print_error, print_success, print_info
 import deep.utils.network as net
 
 def get_description() -> str:
-    """Return a color-coded description for the pipeline command."""
-    return "Manage CI/CD pipelines locally and optionally sync with GitHub Actions."
+    return """Local-First CI/CD Pipeline Engine.
+
+Manage, trigger, and monitor build/test pipelines locally.
+Optionally synchronize with GitHub Actions for cloud-based verification.
+"""
 
 def get_epilog() -> str:
-    """Return a color-coded epilog with usage examples."""
-    examples_title = Color.wrap(Color.CYAN, "Examples:")
-    note_title = Color.wrap(Color.RED, "Note:")
-    
-    list_ex    = f"  {Color.wrap(Color.YELLOW, 'deep pipeline list')}      {Color.wrap(Color.GREEN, '# List all local pipeline runs')}"
-    trigger_ex = f"  {Color.wrap(Color.YELLOW, 'deep pipeline trigger')}   {Color.wrap(Color.GREEN, '# Trigger a new local pipeline run')}"
-    status_ex  = f"  {Color.wrap(Color.YELLOW, 'deep pipeline status 5')}  {Color.wrap(Color.GREEN, '# Show status for run #5')}"
-    sync_ex    = f"  {Color.wrap(Color.YELLOW, 'deep pipeline sync')}      {Color.wrap(Color.GREEN, '# Sync local runs with GitHub Actions')}"
-    
-    token_ex  = f"\n{Color.wrap(Color.CYAN, 'Setup Token (Windows):')}\n" \
-                f"  {Color.wrap(Color.YELLOW, '$env:GH_TOKEN=\"...\"')}  {Color.wrap(Color.GREEN, '# PowerShell')}\n" \
-                f"  {Color.wrap(Color.YELLOW, 'set GH_TOKEN=...')}      {Color.wrap(Color.GREEN, '# CMD')}"
+    return """\033[1mEXAMPLES:\033[0m
 
-    sync_note = f"\n{note_title} 'sync' requires a GitHub remote and GH_TOKEN/DEEP_TOKEN. \n      Without these, all operations remain local-only."
-    
-    return f"\n{examples_title}\n{list_ex}\n{trigger_ex}\n{status_ex}\n{sync_ex}\n{token_ex}\n{sync_note}\n"
+  \033[1;34m⚓️ deep pipeline list\033[0m
+     Display all localized pipeline runs, their status, and durations.
+
+  \033[1;34m⚓️ deep pipeline trigger\033[0m
+     Initiate a new local pipeline execution for the current HEAD commit.
+
+  \033[1;34m⚓️ deep pipeline status 5\033[0m
+     Show a detailed report for pipeline run #5, including job-level outputs.
+
+  \033[1;34m⚓️ deep pipeline sync\033[0m
+     Fetch and synchronize remote workflow statuses from GitHub Actions.
+
+\033[1;33m💡 SETUP TOKEN (Windows):\033[0m
+  $env:GH_TOKEN="..."  # PowerShell
+  set GH_TOKEN=...      # CMD
+
+\033[1;31m⚠️  NOTE:\033[0m 'sync' requires a GitHub remote and GH_TOKEN/DEEP_TOKEN.
+      Without these, all operations remain local-only.
+"""
+
 
 def run(args) -> None:
     """Execute the ``pipeline`` command."""
