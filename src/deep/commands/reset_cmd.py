@@ -17,36 +17,6 @@ import hashlib
 import struct
 from pathlib import Path
 
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'reset' command parser."""
-    p_reset = subparsers.add_parser(
-        "reset",
-        help="Reset HEAD to a specific state",
-        description="""Reset the current branch HEAD to a specified commit.
-
-Optionally, reset the staging index (--mixed, default) or both the index and working tree (--hard).""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep reset HEAD~1\033[0m
-     Undo the last commit, keeping changes staged
-  \033[1;34m⚓️ deep reset --hard HEAD\033[0m
-     Discard all local changes and reset to last commit
-  \033[1;34m⚓️ deep reset <sha>\033[0m
-     Point current branch to a specific commit SHA
-  \033[1;34m⚓️ deep reset --soft HEAD~3\033[0m
-     Move HEAD back 3 commits, keep index/worktree as is
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_reset.add_argument("commit", nargs="?", default="HEAD", help="The commit identifier or reference to reset to (default: HEAD)")
-    p_reset.add_argument("--hard", action="store_true", help="Reset index and working tree (all local changes will be lost)")
-    p_reset.add_argument("--soft", action="store_true", help="Reset HEAD only; index and working tree are preserved")
-    p_reset.add_argument("--mixed", action="store_true", help="Reset HEAD and index; working tree is preserved (default)")
-
 from deep.storage.index import (
     DeepIndex,
     DeepIndexEntry,
@@ -61,6 +31,7 @@ from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.storage.transaction import TransactionManager
 
+
 def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
     """Recursively collect all {rel_path: sha} from a tree."""
     files = {}
@@ -74,6 +45,7 @@ def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[
         else:
             files[rel_path] = entry.sha
     return files
+
 
 def run(args) -> None:  # type: ignore[no-untyped_def]
     """Execute the ``reset`` command."""

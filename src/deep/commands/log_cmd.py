@@ -14,40 +14,9 @@ from deep.storage.objects import Commit, read_object
 from deep.core.refs import get_commit_decorations, log_history, resolve_head
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'log' command parser."""
-    p_log = subparsers.add_parser(
-        "log",
-        help="Display commit history logs",
-        description="""Browse through the commit history of the current branch or a specified commit range.
-
-Displays commit SHAs, authors, dates, and messages with support for visualizations and concise formatting.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep log\033[0m
-     Show full detailed logs with authors and dates
-  \033[1;34m⚓️ deep log --oneline\033[0m
-     Show a concise summary (one line per commit)
-  \033[1;34m⚓️ deep log -n 10\033[0m
-     Limit the output to the last 10 commits
-  \033[1;34m⚓️ deep log --graph\033[0m
-     Visualize history with an ASCII-based commit graph
-  \033[1;34m⚓️ deep log --oneline --graph\033[0m
-     Visualize history in a compact graph format
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_log.add_argument("--oneline", action="store_true", help="Display each commit entry on a single concise line")
-    p_log.add_argument("-n", "--max-count", type=int, help="Limit the number of commits to display")
-    p_log.add_argument("--graph", action="store_true", help="Visualize history with an ASCII-based commit graph")
-    p_log.add_argument("--all", action="store_true", help="Show history for all branches and refs")
 from deep.utils.ux import Color
 from deep.utils.utils import format_date
+
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``log`` command."""

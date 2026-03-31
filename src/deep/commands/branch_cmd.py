@@ -3,7 +3,6 @@ deep.commands.branch_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Deep ``branch`` command implementation.
 """
-from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -19,45 +18,9 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'branch' command parser."""
-    p_branch = subparsers.add_parser(
-        "branch",
-        help="List, create, or delete branches",
-        description="""Manage the set of branches in your repository.
-
-Use this command to list existing branches, create new ones from a specific starting point, or delete branches that are no longer needed.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep branch\033[0m
-     List all local branches
-  \033[1;34m⚓️ deep branch new-feature\033[0m
-     Create a new branch from current HEAD
-  \033[1;34m⚓️ deep branch bugfix main\033[0m
-     Create 'bugfix' starting from 'main'
-  \033[1;34m⚓️ deep branch -d old-feature\033[0m
-     Delete a local branch
-  \033[1;34m⚓️ deep branch -vv\033[0m
-     List branches with SHAs and tracking info
-  \033[1;34m⚓️ deep branch -a\033[0m
-     List both local and remote-tracking branches
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_branch.add_argument("name", nargs="?", help="The name of the branch to create")
-    p_branch.add_argument("start_point", nargs="?", default="HEAD", help="The commit/branch to start the new branch from (default: HEAD)")
-    p_branch.add_argument("-d", "--delete", action="store_true", help="Delete the specified branch")
-    p_branch.add_argument("-D", action="store_true", help="Shortcut for --delete --force")
-    p_branch.add_argument("-a", "--all", action="store_true", help="List both local and remote-tracking branches")
-    p_branch.add_argument("-v", "--verbose", action="count", default=0, help="Show more detail (SHA and tracking info)")
-    p_branch.add_argument("-m", "--move", dest="rename", help="Rename a branch")
 from deep.utils.ux import Color
 from deep.storage.transaction import TransactionManager
+
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``branch`` command."""

@@ -6,7 +6,6 @@ deep.commands.rollback_cmd
 Hard-reset rollback: moves HEAD, resets INDEX, and resets WORKING DIRECTORY
 to match the target commit. Default target is HEAD~1 (parent of current HEAD).
 """
-from deep.utils.ux import Color
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -18,35 +17,8 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import Color
 
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'rollback' command parser."""
-    p_rollback = subparsers.add_parser(
-        "rollback",
-        help="Undo the last repository transaction",
-        description="""Roll back the repository state (HEAD, index, and working tree) to a previous commit or transaction.
-
-This command is a powerful safety net for undoing accidental merges, deletions, or corrupting operations.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-\033[1m  QUICK UNDO:\033[0m
-  \033[1;34m⚓️ deep rollback\033[0m
-     Undo the most recent command (reset to HEAD~1)
-
-\033[1m  TARGETED RESTORATION:\033[0m
-  \033[1;34m⚓️ deep rollback abc1234\033[0m
-     Reset exactly to the specified commit SHA
-  \033[1;34m⚓️ deep rollback --force\033[0m
-     Force rollback even with uncommitted changes
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_rollback.add_argument("commit", nargs="?", default="HEAD~1", help="The commit identifier to rollback to (default: HEAD~1)")
-    p_rollback.add_argument("--force", action="store_true", help="Force rollback even if the working tree is dirty")
 
 def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
     """Recursively collect {rel_path: blob_sha} from a tree object."""
@@ -62,6 +34,7 @@ def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[
         else:
             files[rel] = entry.sha
     return files
+
 
 def run(args) -> None:
     """Execute the rollback command (hard reset to target commit)."""

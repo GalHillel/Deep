@@ -12,8 +12,6 @@ Native smart protocol push:
 
 No external VCS CLI dependency.
 """
-from deep.core.constants import DEEP_DIR
-from deep.utils.ux import Color
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -24,39 +22,12 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import resolve_head, get_branch
 from deep.core.config import Config
+from deep.utils.ux import Color
+from deep.core.hooks import run_hook
 
-import argparse
-from typing import Any
 
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'push' command parser."""
-    p_push = subparsers.add_parser(
-        "push",
-        help="Update remote refs and associated objects",
-        description="""Upload local branch commits to a remote repository and update remote references.
-
-This command ensures your collaborators can access your latest changes.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep push origin main\033[0m
-     Push the 'main' branch to the 'origin' remote
-  \033[1;34m⚓️ deep push\033[0m
-     Push current branch to its configured upstream
-  \033[1;34m⚓️ deep push --force\033[0m
-     Force update the remote branch (overwrites history!)
-  \033[1;34m⚓️ deep push -u origin feature\033[0m
-     Push and set 'origin' as the upstream for 'feature'
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_push.add_argument("url", nargs="?", help="The remote repository name or URL (default: origin)")
-    p_push.add_argument("branch", nargs="?", help="The local branch name to push")
-    p_push.add_argument("-f", "--force", action="store_true", help="Force update the remote branch (disables safety checks)")
-    p_push.add_argument("-u", "--set-upstream", action="store_true", help="Set up tracking information for the pushed branch")
-    p_push.add_argument("--tags", action="store_true", help="Push all local tags in addition to commits")
-
-def run(args: Any) -> None:
+def run(args) -> None:  # type: ignore[no-untyped-def]
+    """Execute the ``push`` command."""
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:

@@ -10,8 +10,6 @@ Native fetch + merge:
 
 No external VCS CLI dependency.
 """
-from deep.core.constants import DEEP_DIR
-from deep.utils.ux import Color
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -23,34 +21,7 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import update_branch, resolve_head, get_branch, update_remote_ref, get_remote_ref
 from deep.core.config import Config
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'pull' command parser."""
-    p_pull = subparsers.add_parser(
-        "pull",
-        help="Fetch from and integrate with another repository",
-        description="""Fetch changes from a remote repository and merge them into the current branch.
-
-This command is a combination of 'deep fetch' and 'deep merge'.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep pull origin main\033[0m
-     Fetch and merge 'main' from 'origin' remote
-  \033[1;34m⚓️ deep pull\033[0m
-     Pull changes from the default upstream branch
-  \033[1;34m⚓️ deep pull --rebase\033[0m
-     Fetch and rebase your local commits onto remote changes
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_pull.add_argument("url", nargs="?", help="The remote repository name or URL (default: origin)")
-    p_pull.add_argument("branch", nargs="?", help="The remote branch name to pull from")
-    p_pull.add_argument("--rebase", action="store_true", help="Rebase current branch onto the tip of the remote branch instead of merging")
-    p_pull.add_argument("--no-commit", action="store_true", help="Perform the pull but do not automatically create a merge commit")
+from deep.utils.ux import Color
 
 def run(args) -> None:
     """Execute the ``pull`` command."""

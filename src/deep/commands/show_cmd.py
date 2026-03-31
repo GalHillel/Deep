@@ -15,35 +15,9 @@ from deep.storage.objects import Commit, read_object, Tree, Tag
 from deep.core.refs import resolve_revision
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'show' command parser."""
-    p_show = subparsers.add_parser(
-        "show",
-        help="Display various types of objects",
-        description="""Show detailed information, content, and metadata for Deep objects (commits, tags, trees, and blobs).
-
-For commits, this command displays the author, date, message, and a colorized diff of the changes relative to its parent.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep show HEAD\033[0m
-     Show the most recent commit and its colorized diff
-  \033[1;34m⚓️ deep show v1.0.2\033[0m
-     Display metadata and target object for a specific tag
-  \033[1;34m⚓️ deep show abc1234:src/main.py\033[0m
-     Show the contents of a specific file in a commit
-  \033[1;34m⚓️ deep show --stat\033[0m
-     Show only the modification statistics for the object
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_show.add_argument("object", nargs="?", default="HEAD", help="The object identifier to show (default: HEAD)")
 from deep.utils.ux import Color
 from deep.utils.utils import format_date
+
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``show`` command."""
@@ -105,6 +79,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         # Just show raw type/content for other objects
         print(f"object {sha}")
         print(f"type: {obj.get_type()}")
+
 
 def _render_diffs(diffs: list[tuple[str, str]]) -> None:
     """Render diff output with colors."""

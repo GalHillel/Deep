@@ -10,9 +10,7 @@ Consolidates color management and terminal UI components.
 import sys
 import os
 import difflib
-import textwrap
-import argparse
-from typing import List, Optional, Any
+from typing import List, Optional
 
 
 class Color:
@@ -32,20 +30,13 @@ class Color:
     PURPLE = MAGENTA
     GRAY = DIM
     UL = "\033[4m"
-    DEEP_BLUE = "\033[34;1m" # Bold standard blue
-    BRIGHT_BLUE = "\033[94;1m"
 
     # Semantic names for better readability
     ERROR = RED
     SUCCESS = GREEN
     WARNING = YELLOW
     INFO = CYAN
-    HEADER = BOLD + BRIGHT_BLUE
-    OPTION = CYAN
-    COMMAND = BRIGHT_BLUE
-    EXAMPLE = YELLOW
-    COMMENT = GREEN
-    DESCRIPTION = WHITE
+    HEADER = MAGENTA
 
     @classmethod
     def wrap(cls, color: str, text: str) -> str:
@@ -53,80 +44,6 @@ class Color:
         if cls.USE_COLOR:
             return f"{color}{text}{cls.RESET}"
         return text
-
-
-DEEP_LOGO = "\033[1;34m⚓️ DeepGit\033[0m v1.1.0 - Next-generation Distributed VCS"
-
-def print_deep_logo(version: str = "1.1.0") -> None:
-    """Print the professional Deep logo."""
-    print(DEEP_LOGO)
-
-
-def format_header(text: str) -> str:
-    """Format a section header for help output."""
-    return Color.wrap(Color.HEADER, text.upper())
-
-
-def format_command(text: str) -> str:
-    """Format a command name."""
-    return Color.wrap(Color.COMMAND, text)
-
-
-def format_option(text: str) -> str:
-    """Format an option or flag."""
-    return Color.wrap(Color.OPTION, text)
-
-
-def format_example(cmd: str, desc: str) -> str:
-    """Format a CLI usage example with a comment."""
-    return f"  {Color.wrap(Color.EXAMPLE, cmd):<40} {Color.wrap(Color.COMMENT, '# ' + desc)}"
-
-
-def format_description(text: str) -> str:
-    """Format a description string."""
-    return Color.wrap(Color.DESCRIPTION, text)
-
-
-def format_warning(text: str) -> str:
-    """Format a warning message."""
-    return Color.wrap(Color.WARNING, text)
-
-
-class DeepHelpFormatter(argparse.RawDescriptionHelpFormatter):
-    """Custom argparse help formatter for a premium DeepGit experience."""
-
-    def __init__(self, prog: str, indent_increment: int = 2, max_help_position: int = 30, width: Optional[int] = None):
-        if width is None:
-            try:
-                width = os.get_terminal_size().columns - 2
-                if width > 100: width = 100
-                if width < 40: width = 40
-            except (AttributeError, OSError):
-                width = 80
-        super().__init__(prog, indent_increment, max_help_position, width)
-
-    def _format_action_invocation(self, action: argparse.Action) -> str:
-        if not action.option_strings or action.nargs == 0:
-            invocation = super()._format_action_invocation(action)
-            return Color.wrap(Color.OPTION, invocation)
-        
-        default = self._get_default_metavar_for_optional(action)
-        args_string = self._format_args(action, default)
-        return ', '.join(Color.wrap(Color.OPTION, s) for s in action.option_strings) + ' ' + Color.wrap(Color.DIM, args_string)
-
-    def add_usage(self, usage: str, actions: List[argparse.Action], groups: List[Any], prefix: Optional[str] = None):
-        if prefix is None:
-            prefix = Color.wrap(Color.HEADER, "Usage: ")
-        return super().add_usage(usage, actions, groups, prefix)
-
-    def start_section(self, heading: Optional[str]):
-        if heading:
-            heading = Color.wrap(Color.HEADER, heading.upper())
-        return super().start_section(heading)
-
-    def _fill_text(self, text: str, width: int, indent: str) -> str:
-        # Better wrapping for descriptions
-        return "".join(indent + line for line in textwrap.wrap(text, width))
 
 
 def print_error(message: str):

@@ -5,12 +5,6 @@ deep.commands.doctor_cmd
 
 Verifies the integrity of the repository: refs, index, and objects.
 """
-from deep.core.issue import Issue
-from deep.core.issue import IssueManager
-from deep.core.pr import PR
-from deep.core.pr import PRManager
-from deep.utils.ux import Color
-import shutil
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -26,30 +20,11 @@ from deep.storage.objects import Blob, Commit, Tag, Tree, read_object, DeepObjec
 from deep.core.refs import list_branches, resolve_head, list_tags, get_tag, get_branch
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import Color
+from deep.core.gc import mark_reachable
+from deep.core.pr import PRManager
+from deep.core.issue import IssueManager
 
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'doctor' command parser."""
-    p_doctor = subparsers.add_parser(
-        "doctor",
-        help="Check the repository for consistency and health",
-        description="""Deep Doctor performs a deep diagnostic scan of the repository.
-
-It verifies the structural integrity of objects, ensures references (refs) point to valid commits, checks the index for corruption, and validates the consistency of branching and PR metadata.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep doctor\033[0m
-     Run a comprehensive health check on the current repository
-  \033[1;34m⚓️ deep doctor --fix\033[0m
-     Identify and attempt to automatically repair non-critical issues
-  \033[1;34m⚓️ deep doctor --verbose\033[0m
-     Show detailed diagnostic output for every verified component
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_doctor.add_argument("--fix", action="store_true", help="Attempt to automatically repair detected issues")
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``doctor`` command."""

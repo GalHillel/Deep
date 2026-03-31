@@ -3,41 +3,12 @@ deep.commands.commit_graph_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Manage the commit-graph index.
 """
-from deep.storage.commit_graph import DeepHistoryGraph
-from deep.storage.objects import Commit
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'commit-graph' command parser."""
-    p_cg = subparsers.add_parser(
-        "commit-graph",
-        help="Manage the commit-graph binary index",
-        description="""Deep Commit-Graph manages the binary history index used to ultra-accelerate graph traversal and generation counting.
-
-Regenerating the graph index can significantly improve performance for large repositories during log and merge operations.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep commit-graph write\033[0m
-     Regenerate the binary index for all reachable commits
-  \033[1;34m⚓️ deep commit-graph verify\033[0m
-     Verify the structure and checksum integrity of the index
-  \033[1;34m⚓️ deep commit-graph clear\033[0m
-     Remove the commit-graph index file from the repository
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    csub = p_cg.add_subparsers(dest="cg_command", metavar="ACTION")
-    csub.add_parser("write", help="Regenerate the commit-graph binary index")
-    csub.add_parser("verify", help="Verify the checksum and structure of the commit-graph index")
-    csub.add_parser("clear", help="Remove the commit-graph index file")
+from rich.console import Console
 
 def run(args):
     from deep.core.repository import find_repo

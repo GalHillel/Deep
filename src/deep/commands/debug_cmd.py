@@ -3,8 +3,6 @@ deep.commands.debug_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Debug tooling for inspecting internal Deep state.
 """
-from deep.core.constants import DEEP_DIR
-from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -15,36 +13,8 @@ from deep.core.repository import find_repo, DEEP_DIR
 from deep.storage.objects import read_object, Tree, Commit
 from deep.core.refs import resolve_head
 
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'debug' command parser."""
-    p_debug = subparsers.add_parser(
-        "debug",
-        help="Internal diagnostics and forensic tools",
-        description="""Access internal Deep diagnostic tools.
-
-These commands are intended for developers and power users to inspect the raw state of the repository database and verify internal consistency at the lowest level.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep debug tree\033[0m
-     Inspect the current HEAD tree object recursively
-  \033[1;34m⚓️ deep debug tree <sha>\033[0m
-     Inspect a specific tree object by its SHA-1 hash
-  \033[1;34m⚓️ deep debug objects\033[0m
-     List all objects in the database with their raw types
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    rs = p_debug.add_subparsers(dest="debug_command", metavar="ACTION")
-    
-    p_tree = rs.add_parser("tree", help="Inspect a tree object recursively")
-    p_tree.add_argument("sha", nargs="?", help="The SHA-1 hash of the tree object to inspect (default: HEAD)")
-
-def run(args) -> None:
-    """Implement 'deep debug' commands."""
+def run_debug_tree(args) -> None:
+    """Implement 'deep debug-tree'."""
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
@@ -53,11 +23,8 @@ def run(args) -> None:
 
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
-    
-    cmd = getattr(args, "debug_command", "tree")
 
-    if cmd == "tree":
-        sha = getattr(args, "sha", None)
+    sha = args.sha
     if not sha:
         sha = resolve_head(dg_dir)
         if not sha:

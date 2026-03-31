@@ -3,36 +3,13 @@ deep.commands.inspect_tree_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Internal debug command to verify raw tree entry modes and object types.
 """
-from deep.core.constants import DEEP_DIR
 
 import sys
 from deep.core.errors import DeepCLIException
 from pathlib import Path
-from deep.core.repository import find_repo, DEEP_DIR
+from deep.core.constants import DEEP_DIR
+from deep.core.repository import find_repo
 from deep.storage.objects import read_object, Tree, Blob
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'inspect-tree' command parser."""
-    p_inspect = subparsers.add_parser(
-        "inspect-tree",
-        help="Internal: Inspect raw tree entries (debug)",
-        description="""Deep Inspect-Tree is a forensic diagnostic tool for verifying the raw entry modes, names, and child object types within a specific tree object.
-
-It is primarily used for debugging repository corruption or verifying low-level storage integrity.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep inspect-tree abc1234\033[0m
-     Inspect the raw entries of the tree object with SHA-1 'abc1234'
-  \033[1;34m⚓️ deep inspect-tree HEAD^{tree}\033[0m
-     Inspect the tree object associated with the current HEAD
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_inspect.add_argument("sha", help="The SHA-1 hash of the tree object to inspect")
 
 def run(args) -> None:
     try:

@@ -15,34 +15,8 @@ from pathlib import Path
 from deep.storage.index import remove_multiple_from_index
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'rm' command parser."""
-    p_rm = subparsers.add_parser(
-        "rm",
-        help="Remove files from worktree and index",
-        description="""Remove files from the working directory and the staging index.
-
-This stops tracking the specified files and deletes them from the disk unless --cached is specified.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep rm file.txt\033[0m
-     Delete file and remove from index
-  \033[1;34m⚓️ deep rm path/to/dir -r\033[0m
-     Recursively remove a directory
-  \033[1;34m⚓️ deep rm --cached file.log\033[0m
-     Remove from index but keep the local file
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_rm.add_argument("files", nargs="+", help="One or more files or directory paths to remove")
-    p_rm.add_argument("--cached", action="store_true", help="Remove from the index only, keeping the file in the working tree")
-    p_rm.add_argument("-r", "--recursive", action="store_true", help="Allow recursive removal when a directory name is given")
 from deep.storage.transaction import TransactionManager
+
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``rm`` command."""

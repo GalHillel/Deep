@@ -3,12 +3,6 @@ deep.commands.pr_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep pr`` command implementation.
 """
-from deep.utils.ux import Color
-from deep.utils.ux import print_error
-from deep.utils.ux import print_info
-from deep.utils.ux import print_success
-from typing import List
-from typing import Optional
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -24,74 +18,46 @@ from deep.core.repository import find_repo
 from deep.core.pr import PRManager
 from deep.core.config import Config
 from deep.core.refs import list_branches, get_current_branch, find_merge_base, resolve_revision, get_all_branches, update_head
-from deep.utils.ux import (
-    Color, print_error, print_success, print_info
-)
-from typing import Any
+from deep.utils.ux import Color, print_error, print_success, print_info
+import deep.utils.network as net
 
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'pr' command parser."""
-    p_pr = subparsers.add_parser(
-        "pr",
-        help="Manage Pull Requests",
-        description="""Comprehensive Pull Request lifecycle management.
+def ns(**kwargs):
+    import argparse
+    return argparse.Namespace(**kwargs)
 
-Create, list, review, and merge pull requests directly from your terminal.
+def get_description() -> str:
+    return f"{Color.wrap(Color.CYAN, 'Elite Pull Request & Code Review Platform')}\n" \
+           f"Manage local-first discussions, threads, formal reviews, and merge intelligence."
 
-Supports seamless synchronization with GitHub and other Deep instances.""",
-        epilog="""
+def get_epilog() -> str:
+    header = lambda s: Color.wrap(Color.BOLD + Color.CYAN, f"\n[{s}]")
+    cmd = lambda c, d: f"  {Color.wrap(Color.YELLOW, f'deep pr {c:<12}')} {Color.wrap(Color.GREEN, f'# {d}')}"
+    
+    res = []
+    res.append(header("CORE COMMANDS"))
+    res.append(cmd("create", "Open a new Pull Request interactively"))
+    res.append(cmd("list", "Display all local pull requests"))
+    res.append(cmd("show <id>", "Show PR summary, threads, and merge status"))
+    
+    res.append(header("COLLABORATION"))
+    res.append(cmd("comment <id>", "Start a new discussion thread"))
+    res.append(cmd("reply <id> <tid>", "Reply to thread <tid> in PR <id>"))
+    res.append(cmd("resolve <id> <tid>", "Mark a discussion thread as resolved"))
+    res.append(cmd("review <id>", "Interactive review (Approve / Request Changes)"))
+    
+    res.append(header("WORKFLOW"))
+    res.append(cmd("merge <id>", "Verify rules and perform a local merge"))
+    res.append(cmd("sync", "Synchronize local PRs with GitHub remote"))
+    
+    res.append(header("REVIEW WORKFLOW GUIDE"))
+    res.append(f"  {Color.wrap(Color.WHITE, '1. Create PR')}      {Color.wrap(Color.YELLOW, 'deep pr create')}")
+    res.append(f"  {Color.wrap(Color.WHITE, '2. Review')}         {Color.wrap(Color.YELLOW, 'deep pr review <id>')}")
+    res.append(f"  {Color.wrap(Color.WHITE, '3. Discuss')}        {Color.wrap(Color.YELLOW, 'deep pr comment/reply')}")
+    res.append(f"  {Color.wrap(Color.WHITE, '4. Resolve')}        {Color.wrap(Color.YELLOW, 'deep pr resolve <id> <tid>')}")
+    res.append(f"  {Color.wrap(Color.WHITE, '5. Merge')}          {Color.wrap(Color.YELLOW, 'deep pr merge <id>')}")
+    
+    return "\n".join(res) + "\n"
 
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep pr create\033[0m
-     Open an interactive template to create a new PR
-  \033[1;34m⚓️ deep pr list\033[0m
-     Browse all open pull requests in the current repository
-  \033[1;34m⚓️ deep pr show 42\033[0m
-     View detailed status, threads, and reviews for PR #42
-  \033[1;34m⚓️ deep pr review 42\033[0m
-     Start an interactive code review session for PR #42
-  \033[1;34m⚓️ deep pr merge 42\033[0m
-     Finalize and merge PR #42 into its target branch
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    rs = p_pr.add_subparsers(dest="pr_command", metavar="ACTION")
-    
-    # Core Actions
-    p_create = rs.add_parser("create", help="Create a new Pull Request")
-    p_create.add_argument("--title", help="Title of the pull request")
-    p_create.add_argument("--body", "--description", help="Detailed description of the changes")
-    p_create.add_argument("--head", "--source", help="Source branch containing changes")
-    p_create.add_argument("--base", "--target", help="Target branch to merge into (default: main)")
-    
-    rs.add_parser("list", help="List all pull requests in the repository")
-    
-    p_show = rs.add_parser("show", help="Show detailed information for a PR")
-    p_show.add_argument("id", help="The ID of the pull request to display")
-    
-    # Review & Collaboration Actions
-    p_review = rs.add_parser("review", help="Review a pull request (Approve/Request Changes)")
-    p_review.add_argument("id", help="The ID of the pull request to review")
-    
-    p_comment = rs.add_parser("comment", help="Add a new discussion thread to a PR")
-    p_comment.add_argument("id", help="The ID of the pull request")
-    
-    p_reply = rs.add_parser("reply", help="Reply to an existing discussion thread")
-    p_reply.add_argument("id", help="The ID of the pull request")
-    p_reply.add_argument("thread", help="The ID of the thread to reply to")
-    
-    p_resolve = rs.add_parser("resolve", help="Mark a discussion thread as resolved")
-    p_resolve.add_argument("id", help="The ID of the pull request")
-    p_resolve.add_argument("thread", help="The ID of the thread to resolve")
-    
-    # Workflow Actions
-    p_merge = rs.add_parser("merge", help="Merge a pull request into its base branch")
-    p_merge.add_argument("id", help="The ID of the pull request to merge")
-    
-    p_close = rs.add_parser("close", help="Close a pull request without merging")
-    p_close.add_argument("id", help="The ID of the pull request to close")
-    
-    rs.add_parser("sync", help="Synchronize local PRs with remote (GitHub/Deep)")
 
 def get_author(repo_root: Path) -> str:
     """Get the current user name from config or environment."""

@@ -3,37 +3,12 @@ deep.commands.repack_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Repack loose objects into packfiles and generate reachability bitmaps.
 """
-from deep.core.constants import DEEP_DIR
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'repack' command parser."""
-    p_repack = subparsers.add_parser(
-        "repack",
-        help="Pack detached objects into a packfile",
-        description="""Deep Repack optimizes the object database by aggregating loose objects into highly compressed packfiles.
-
-It also generates reachability bitmaps to ultra-accelerate network transfers and revision traversal.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep repack\033[0m
-     Repack all loose objects and generate optimized bitmaps
-  \033[1;34m⚓️ deep repack --no-bitmaps\033[0m
-     Perform repacking without bitmap generation
-  \033[1;34m⚓️ deep repack --aggressive\033[0m
-     Perform a resource-intensive, high-compression repack
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_repack.add_argument("--no-bitmaps", dest="bitmaps", action="store_false", help="Disable reachability bitmap generation")
+from rich.console import Console
 
 def run(args):
     from deep.core.repository import find_repo, DEEP_DIR

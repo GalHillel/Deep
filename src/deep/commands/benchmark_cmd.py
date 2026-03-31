@@ -3,46 +3,14 @@ deep.commands.benchmark_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep benchmark`` command implementation.
 """
-from deep.storage.objects import Blob
-from deep.storage.objects import Commit
-from deep.utils.ux import Color
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 from deep.core.benchmark import run_benchmarks
-from deep.utils.ux import (
-    Color
-)
-import argparse
-from typing import Any
+from deep.utils.ux import Color
 
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'benchmark' command parser."""
-    p_bench = subparsers.add_parser(
-        "benchmark",
-        help="Measure performance of core operations",
-        description="""Deep Benchmark runs a comprehensive performance suite against the current repository.
-
-It measures the throughput of object hashing, commit creation speed, the efficiency of the history graph traversal, and provides comparative analysis against native Deep implementations.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep benchmark\033[0m
-     Run the standard performance suite and display summary results
-  \033[1;34m⚓️ deep benchmark --verbose\033[0m
-     Show live metrics for every operation during the benchmark
-  \033[1;34m⚓️ deep benchmark --compare-git\033[0m
-     Compare current performance against native Deep standards
-  \033[1;34m⚓️ deep benchmark --report\033[0m
-     Generate a detailed JSON report (benchmark_report.json)
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_bench.add_argument("--verbose", action="store_true", help="Show detailed metrics during benchmarking")
-    p_bench.add_argument("--report", action="store_true", help="Save results to benchmark_report.json")
-    p_bench.add_argument("--compare-git", action="store_true", help="Compare performance against native Deep implementation")
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``benchmark`` command."""

@@ -3,8 +3,6 @@ deep.commands.user_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep user`` command implementation.
 """
-from deep.utils.ux import Color
-from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -15,41 +13,7 @@ from pathlib import Path
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.core.user import UserManager
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'user' command parser."""
-    p_user = subparsers.add_parser(
-        "user",
-        help="Local user management and identity control",
-        description="""Manage local user accounts, public keys, and identities.
-
-This command allows you to configure who has access to the repository and how their changes are signed and verified.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep user list\033[0m
-     List all users and identities in the current repository
-  \033[1;34m⚓️ deep user add alice alice@dev.io --public-key ...\033[0m
-     Add a new user with a specific public key
-  \033[1;34m⚓️ deep user info alice\033[0m
-     Show detailed information and public key for 'alice'
-  \033[1;34m⚓️ deep user remove bob\033[0m
-     Permanently remove 'bob' from the local user list
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    usub = p_user.add_subparsers(dest="user_command", metavar="ACTION")
-    
-    p_add = usub.add_parser("add", help="Add a new user")
-    p_add.add_argument("username", help="The username for the new account")
-    p_add.add_argument("email", help="The user's email address")
-    p_add.add_argument("--public-key", required=True, help="The user's public key for signature verification")
-    
-    usub.add_parser("list", help="List all users")
-    usub.add_parser("remove", help="Remove a user").add_argument("username", help="The username to remove")
+from deep.utils.ux import Color
 
 def run(args) -> None:
     """Execute the ``user`` command."""

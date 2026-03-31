@@ -3,12 +3,6 @@ deep.commands.pipeline_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep pipeline`` command implementation.
 """
-from deep.storage.objects import Commit
-from deep.utils.ux import Color
-from deep.utils.ux import print_error
-from deep.utils.ux import print_info
-from deep.utils.ux import print_success
-from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -21,47 +15,30 @@ from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.core.pipeline import PipelineRunner
 from deep.core.refs import resolve_head
-from deep.utils.ux import (
-    Color, print_error, print_success, print_info
-)
-import argparse
-from typing import Any
+from deep.utils.ux import Color, print_error, print_success, print_info
+import deep.utils.network as net
 
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'pipeline' command parser."""
-    p_pipeline = subparsers.add_parser(
-        "pipeline",
-        help="Manage CI/CD pipelines",
-        description="""Deep CI/CD pipelines automate building, testing, and deploying your code.
+def get_description() -> str:
+    """Return a color-coded description for the pipeline command."""
+    return "Manage CI/CD pipelines locally and optionally sync with GitHub Actions."
 
-Pipelines can run locally for fast feedback or remotely on Deep Server or GitHub Actions.""",
-        epilog="""
+def get_epilog() -> str:
+    """Return a color-coded epilog with usage examples."""
+    examples_title = Color.wrap(Color.CYAN, "Examples:")
+    note_title = Color.wrap(Color.RED, "Note:")
+    
+    list_ex    = f"  {Color.wrap(Color.YELLOW, 'deep pipeline list')}      {Color.wrap(Color.GREEN, '# List all local pipeline runs')}"
+    trigger_ex = f"  {Color.wrap(Color.YELLOW, 'deep pipeline trigger')}   {Color.wrap(Color.GREEN, '# Trigger a new local pipeline run')}"
+    status_ex  = f"  {Color.wrap(Color.YELLOW, 'deep pipeline status 5')}  {Color.wrap(Color.GREEN, '# Show status for run #5')}"
+    sync_ex    = f"  {Color.wrap(Color.YELLOW, 'deep pipeline sync')}      {Color.wrap(Color.GREEN, '# Sync local runs with GitHub Actions')}"
+    
+    token_ex  = f"\n{Color.wrap(Color.CYAN, 'Setup Token (Windows):')}\n" \
+                f"  {Color.wrap(Color.YELLOW, '$env:GH_TOKEN=\"...\"')}  {Color.wrap(Color.GREEN, '# PowerShell')}\n" \
+                f"  {Color.wrap(Color.YELLOW, 'set GH_TOKEN=...')}      {Color.wrap(Color.GREEN, '# CMD')}"
 
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep pipeline trigger\033[0m
-     Trigger a new local pipeline run for the current commit
-  \033[1;34m⚓️ deep pipeline list\033[0m
-     Display recent pipeline runs and their status
-  \033[1;34m⚓️ deep pipeline status 5\033[0m
-     Show detailed status and logs for Pipeline Run #5
-  \033[1;34m⚓️ deep pipeline sync\033[0m
-     Synchronize pipeline status with GitHub Actions
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    rs = p_pipeline.add_subparsers(dest="pipeline_command", metavar="ACTION")
+    sync_note = f"\n{note_title} 'sync' requires a GitHub remote and GH_TOKEN/DEEP_TOKEN. \n      Without these, all operations remain local-only."
     
-    # Core Actions
-    p_run = rs.add_parser("trigger", help="Trigger a new pipeline run")
-    p_run.add_argument("--commit", help="The commit SHA to run the pipeline for (default: HEAD)")
-    
-    rs.add_parser("list", help="List all pipeline runs in the repository")
-    
-    p_status = rs.add_parser("status", help="Show detailed status for a pipeline run")
-    p_status.add_argument("id", nargs="?", help="The ID of the pipeline run to display (default: latest)")
-    
-    # Workflow Actions
-    rs.add_parser("sync", help="Synchronize local pipeline status with remote (GitHub/Deep)")
+    return f"\n{examples_title}\n{list_ex}\n{trigger_ex}\n{status_ex}\n{sync_ex}\n{token_ex}\n{sync_note}\n"
 
 def run(args) -> None:
     """Execute the ``pipeline`` command."""

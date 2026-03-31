@@ -30,42 +30,13 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'merge' command parser."""
-    p_merge = subparsers.add_parser(
-        "merge",
-        help="Join two or more development histories",
-        description="""Merge changes from the specified branch or commit into the current branch.
-
-Supports fast-forward and 3-way merges with automatic conflict detection.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep merge feature\033[0m
-     Merge the 'feature' branch into current branch
-  \033[1;34m⚓️ deep merge main\033[0m
-     Bring 'main' branch changes into current branch
-  \033[1;34m⚓️ deep merge --no-commit dev\033[0m
-     Merge 'dev' but don't automatically commit
-  \033[1;34m⚓️ deep merge --abort\033[0m
-     Cancel a conflicted merge and restore previous state
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_merge.add_argument("branch", nargs="?", help="The branch name or commit SHA to merge into current branch")
-    p_merge.add_argument("--abort", action="store_true", help="Abort the current conflicted merge and restore to pre-merge state")
-    p_merge.add_argument("--no-commit", action="store_true", help="Perform the merge but do not automatically create a commit")
-    p_merge.add_argument("--ff-only", action="store_true", help="Refuse to merge and exit with a non-zero status unless the merge is a fast-forward")
 from deep.storage.transaction import TransactionManager
 from deep.core.config import Config
 from deep.core.telemetry import TelemetryCollector, Timer
 from deep.core.audit import AuditLog
 from deep.core.hooks import run_hook
 from deep.core.state import validate_repo_state
+
 
 def _restore_tree_to_workdir(
     repo_root: Path,
@@ -93,6 +64,7 @@ def _restore_tree_to_workdir(
         elif isinstance(obj, Tree):
             _restore_tree_to_workdir(repo_root, objects_dir, obj, index, prefix=rel_path)
 
+
 def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[str, str]:
     """Recursively collect all {rel_path: sha} from a tree."""
     files = {}
@@ -106,6 +78,7 @@ def _get_tree_files(objects_dir: Path, tree_sha: str, prefix: str = "") -> dict[
         else:
             files[rel_path] = entry.sha
     return files
+
 
 def _apply_tree_to_workdir(
     repo_root: Path,
@@ -146,6 +119,7 @@ def _apply_tree_to_workdir(
             path_hash=struct.unpack(">Q", hashlib.sha256(p.encode()).digest()[:8])[0]
         )
     return new_index
+
 
 def run(args) -> None:  # type: ignore[no-untyped_def]
     """Execute the ``merge`` command."""
@@ -300,6 +274,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             run_hook(dg_dir, "post-merge", args=[merge_commit_sha])
     
             print(f"Deep: merge made by 3-way merge: {merge_commit_sha[:7]}")
+
 
 def _is_binary(data: bytes) -> bool:
     return b'\x00' in data

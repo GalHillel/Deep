@@ -3,8 +3,6 @@ deep.commands.diff_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``deep diff`` command implementation.
 """
-from deep.core.constants import DEEP_DIR
-from deep.storage.objects import Commit
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -15,36 +13,6 @@ from pathlib import Path
 from deep.core.diff import diff_working_tree
 from deep.core.repository import find_repo, DEEP_DIR
 
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'diff' command parser."""
-    p_diff = subparsers.add_parser(
-        "diff",
-        help="Show changes between commits or worktree",
-        description="""Show changes between the working tree and the index, or between two arbitrary commit objects.
-
-Highly useful for reviewing modifications before staging or committing.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep diff\033[0m
-     Compare worktree with the staging index
-  \033[1;34m⚓️ deep diff HEAD\033[0m
-     Compare worktree with the latest commit
-  \033[1;34m⚓️ deep diff --cached\033[0m
-     Show changes currently in the staging area
-  \033[1;34m⚓️ deep diff main dev\033[0m
-     Compare 'main' and 'dev' branches
-  \033[1;34m⚓️ deep diff --stat\033[0m
-     Show a summary of changes instead of full diff
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_diff.add_argument("--cached", "--staged", action="store_true", help="Show changes currently in the staging area")
-    p_diff.add_argument("--stat", action="store_true", help="Show a summary of changes (insertions/deletions) instead of the full diff")
-    p_diff.add_argument("revisions", nargs="*", help="Commit identifiers to compare (e.g., commit1 commit2, or just commit1)")
 
 def run(args) -> None:  # type: ignore[no-untyped_def]
     """Execute the ``diff`` command."""
@@ -101,6 +69,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
                 print(f"\033[33m{line}\033[0m") # yellow
             else:
                 print(line)
+
 
 def _print_diff_stat(diffs: list[tuple[str, str]]) -> None:
     """Print a summary of changes per file and a total summary."""

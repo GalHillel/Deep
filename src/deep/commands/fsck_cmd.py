@@ -3,37 +3,12 @@ deep.commands.fsck_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Verify the connectivity and validity of objects in the database.
 """
-from deep.core.constants import DEEP_DIR
 
 from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
-from typing import Set, Dict, List, Tuple, Optional, Any
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'fsck' command parser."""
-    p_fsck = subparsers.add_parser(
-        "fsck",
-        help="Verify the connectivity and validity of objects",
-        description="""Deep File System Check (fsck) verifies the integrity of the object database.
-
-It identifies corrupt objects, missing parents, and unreachable dangling objects that are not referenced by any branch or tag.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep fsck\033[0m
-     Perform a full integrity and connectivity check
-  \033[1;34m⚓️ deep fsck --unreachable\033[0m
-     Specifically identify objects not reachable from any ref
-  \033[1;34m⚓️ deep fsck --fix\033[0m
-     Attempt to repair minor metadata inconsistencies (experimental)
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
+from typing import Set, Dict, List, Tuple, Optional
 
 def verify_object_integrity(objects_dir: Path, sha: str) -> bool:
     """Verify that a physical object file's content matches its SHA name."""

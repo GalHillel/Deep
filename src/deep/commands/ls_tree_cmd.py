@@ -4,8 +4,6 @@ deep.commands.ls_tree_cmd
 Deep ``ls-tree`` command implementation.
 Lists the contents of a tree object.
 """
-from typing import List
-import time
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -18,33 +16,6 @@ from deep.core.refs import resolve_revision
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'ls-tree' command parser."""
-    p_ls_tree = subparsers.add_parser(
-        "ls-tree",
-        help="List the contents of a tree object",
-        description="""Display the contents of a specific tree object or the tree associated with a commit.
-
-This command provides a detailed view of the repository's file structure at a given point in time, including file modes, object types, and SHA-1 hashes.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep ls-tree HEAD\033[0m
-     List all files and directories in the current commit
-  \033[1;34m⚓️ deep ls-tree main:src/\033[0m
-     List the contents of the 'src/' directory in the 'main' branch
-  \033[1;34m⚓️ deep ls-tree -r abc1234\033[0m
-     Recursively list all files in a specific commit
-  \033[1;34m⚓️ deep ls-tree --name-only HEAD\033[0m
-     Show only the filenames without modes or hashes
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_ls_tree.add_argument("treeish", help="The tree or commit identifier to list")
-    p_ls_tree.add_argument("-r", "--recursive", action="store_true", help="Recurse into sub-trees")
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``ls-tree`` command."""
@@ -77,6 +48,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         
     recursive = getattr(args, "recursive", False)
     _list_tree(objects_dir, obj, "", recursive)
+
 
 def _list_tree(objects_dir: Path, tree: Tree, prefix: str, recursive: bool) -> None:
     """Helper to list tree entries recursively."""

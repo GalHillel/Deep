@@ -23,36 +23,6 @@ from deep.core.refs import (
 )
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'rebase' command parser."""
-    p_rebase = subparsers.add_parser(
-        "rebase",
-        help="Reapply commits on top of another base tip",
-        description="""Forward-port local commits to the updated upstream head.
-
-Rebase reapplies commits from your current branch onto the tip of another branch, creating a linear history.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep rebase main\033[0m
-     Rebase current branch onto the 'main' branch
-  \033[1;34m⚓️ deep rebase origin/main\033[0m
-     Rebase onto the remote tracking branch
-  \033[1;34m⚓️ deep rebase --continue\033[0m
-     Resume rebase after resolving merge conflicts
-  \033[1;34m⚓️ deep rebase --abort\033[0m
-     Cancel the rebase and return to the original state
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_rebase.add_argument("upstream", nargs="?", help="The upstream branch or commit to rebase onto")
-    p_rebase.add_argument("--continue", dest="cont", action="store_true", help="Continue the rebase process after resolving conflicts")
-    p_rebase.add_argument("--abort", action="store_true", help="Abort the rebase and restore the branch to its previous state")
-    p_rebase.add_argument("--onto", help="Specify a new base for the rebase")
 from deep.core.reconcile import logical_rebase
 from deep.storage.transaction import TransactionManager
 

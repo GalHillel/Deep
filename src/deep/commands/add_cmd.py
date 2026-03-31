@@ -3,8 +3,6 @@ deep.commands.add_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Deep ``add`` command implementation.
 """
-from deep.core.constants import DEEP_DIR
-from typing import Optional
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -13,35 +11,16 @@ import os
 import sys
 import hashlib
 from pathlib import Path
+from typing import Optional, Tuple, List
+
+from deep.core.ignore import IgnoreEngine
+from deep.core.reconcile import sanitize_path
+from deep.storage.index import add_multiple_to_index, remove_multiple_from_index
+from deep.storage.objects import Blob, write_object
+from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import ProgressBar
 
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'add' command parser."""
-    p_add = subparsers.add_parser(
-        "add",
-        help="Add file contents to the staging index",
-        description="""Stage file changes to the index to be included in the next commit.
-
-This command prepares modified, deleted, and new files for recording in the repository history.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep add file.txt\033[0m
-     Add a specific file to the index
-  \033[1;34m⚓️ deep add .\033[0m
-     Add all changed and new files in current directory
-  \033[1;34m⚓️ deep add src/*.py\033[0m
-     Add specific files using glob patterns
-  \033[1;34m⚓️ deep add -u\033[0m
-     Stage only modified and deleted files (no new files)
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_add.add_argument("files", nargs="+", help="One or more files or directory paths to stage for commit")
-    p_add.add_argument("-u", "--update", action="store_true", help="Only match tracked files that have changed (no new files)")
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -85,6 +64,7 @@ def _add_file_worker(repo_root: Path, dg_dir: Path, file_path: Path, previous_sh
         sha = write_object(objects_dir, Blob(data))
         
     return rel_path, sha, stat.st_size, stat.st_mtime_ns
+
 
 def run(args) -> None:
     """Execute the ``add`` command."""

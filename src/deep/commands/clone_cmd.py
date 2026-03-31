@@ -12,42 +12,13 @@ Full native smart protocol clone pipeline:
 
 No external VCS CLI dependency.
 """
-import os
+
+from __future__ import annotations
+from deep.core.errors import DeepCLIException
+
 import sys
-
-from deep.utils.ux import (
-    format_option
-)
-from typing import Any
+import os
 from pathlib import Path
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'clone' command parser."""
-    p_clone = subparsers.add_parser(
-        "clone",
-        help="Clone a repository into a new directory",
-        description="""Create a local copy of a remote Deep repository, including all history, branches, and metadata.
-
-This effectively initializes a new repository linked to the remote source.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep clone <url>\033[0m
-     Clone from a remote URL into a new directory
-  \033[1;34m⚓️ deep clone <url> my-repo\033[0m
-     Clone into a specific directory name
-  \033[1;34m⚓️ deep clone <url> --depth 1\033[0m
-     Create a shallow clone with only the latest commit
-  \033[1;34m⚓️ deep clone <url> --mirror\033[0m
-     Create a full bare mirror of the repository
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_clone.add_argument("url", help="The repository URL or local path to clone from")
-    p_clone.add_argument("dir", nargs="?", default=None, help="The name of the new directory to clone into (default: derived from URL)")
-    p_clone.add_argument("--depth", type=int, help="Create a shallow clone with truncated history (number of commits)")
-    p_clone.add_argument("--mirror", action="store_true", help="Clone as a bare repository with 1:1 ref mapping")
-    p_clone.add_argument("--filter", help="Specify object filtering for a partial clone (e.g. blob:none)")
 
 from deep.core.constants import DEEP_DIR
 from deep.core.refs import update_head, update_branch, resolve_head
@@ -56,8 +27,9 @@ from deep.commands import init_cmd, checkout_cmd
 import argparse
 
 def ns(**kwargs):
-    
+    import argparse
     return argparse.Namespace(**kwargs)
+
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``clone`` command."""

@@ -3,13 +3,6 @@ deep.commands.issue_cmd
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Smart, production-grade hybrid issue management engine.
 """
-from deep.core.pr import PR
-from deep.storage.objects import Commit
-from deep.utils.ux import Color
-from deep.utils.ux import print_error
-from deep.utils.ux import print_info
-from deep.utils.ux import print_success
-from deep.utils.ux import print_warning
 
 from __future__ import annotations
 import json
@@ -22,58 +15,36 @@ from pathlib import Path
 
 from deep.core.config import Config
 from deep.core.repository import find_repo
-from deep.core.constants import DEEP_DIR
+from deep.utils.ux import Color, print_error, print_success, print_info, print_warning
+from deep.core.errors import DeepCLIException
 from deep.core.issue import IssueManager, Issue
-from deep.utils.ux import (
-    Color, print_error, print_success, print_info, print_warning
-)
-import argparse
-from typing import Any
+import deep.utils.network as net
 
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'issue' command parser."""
-    p_issue = subparsers.add_parser(
-        "issue",
-        help="Manage repository issues",
-        description="""Deep Issue tracking allows for local-first, decentralized task management.
+def get_description() -> str:
+    return f"{Color.wrap(Color.CYAN, 'Hybrid Local-First Issue Tracking Engine')}\n" \
+           f"Seamlessly manage tasks and bugs locally with optional GitHub synchronization."
 
-Issues are stored as objects in your repository and can be synchronized with GitHub or other Deep instances.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep issue create\033[0m
-     Open an interactive template to create a new issue
-  \033[1;34m⚓️ deep issue list\033[0m
-     Display all open issues in the current repository
-  \033[1;34m⚓️ deep issue show 12\033[0m
-     Show full details and timeline for Issue #12
-  \033[1;34m⚓️ deep issue close 12\033[0m
-     Mark Issue #12 as resolved/closed
-  \033[1;34m⚓️ deep issue sync\033[0m
-     Synchronize local issues with the remote platform
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    rs = p_issue.add_subparsers(dest="issue_command", metavar="ACTION")
+def get_epilog() -> str:
+    header = lambda s: Color.wrap(Color.BOLD + Color.CYAN, f"\n[{s}]")
+    cmd = lambda c, d: f"  {Color.wrap(Color.YELLOW, f'deep issue {c:<10}')} {Color.wrap(Color.GREEN, f'# {d}')}"
     
-    # Core Actions
-    p_create = rs.add_parser("create", help="Create a new issue")
-    p_create.add_argument("--title", help="Short summary of the issue")
-    p_create.add_argument("--type", choices=["bug", "feature", "task"], default="bug", help="The type of issue (bug, feature, task)")
+    res = []
+    res.append(header("CORE COMMANDS"))
+    res.append(cmd("create", "Open a smart, interactive issue template"))
+    res.append(cmd("list", "Display all local issues with status colors"))
+    res.append(cmd("show <id>", "Display detailed report, description, and timeline"))
     
-    rs.add_parser("list", help="List all issues in the repository")
+    res.append(header("WORKFLOW"))
+    res.append(cmd("close <id>", "Mark an issue as resolved (locally)"))
+    res.append(cmd("reopen <id>", "Resume work on a closed issue"))
+    res.append(cmd("sync", "Synchronize local issues with GitHub remote"))
     
-    p_show = rs.add_parser("show", help="Show detailed information for an issue")
-    p_show.add_argument("id", help="The ID of the issue to display")
+    res.append(header("WHY LOCAL-FIRST?"))
+    res.append(f"  - {Color.wrap(Color.WHITE, 'Instant responsiveness')} (no network lag)")
+    res.append(f"  - {Color.wrap(Color.WHITE, 'Full offline support')} for deep work")
+    res.append(f"  - {Color.wrap(Color.WHITE, 'Native integration')} with Deep PRs and commits")
     
-    # Workflow Actions
-    p_close = rs.add_parser("close", help="Mark an issue as closed")
-    p_close.add_argument("id", help="The ID of the issue to close")
-    
-    p_reopen = rs.add_parser("reopen", help="Reopen a closed issue")
-    p_reopen.add_argument("id", help="The ID of the issue to reopen")
-    
-    rs.add_parser("sync", help="Synchronize local issues with remote (GitHub/Deep)")
+    return "\n".join(res) + "\n"
 
 def get_author(repo_root: Path) -> str:
     """Get the current user name from config."""
@@ -176,7 +147,7 @@ def run(args: Any) -> None:
         print_error("Not a Deep repository.")
         raise DeepCLIException(1)
 
-    manager = IssueManager(repo_root / DEEP_DIR)
+    manager = IssueManager(repo_root / ".deep")
     cmd = getattr(args, "issue_command", "list")
 
     if cmd == "create":

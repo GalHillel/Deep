@@ -20,41 +20,8 @@ from deep.storage.objects import Blob, Commit, Tree, TreeEntry, read_object
 from deep.core.refs import get_current_branch, resolve_head, update_branch
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'commit' command parser."""
-    p_commit = subparsers.add_parser(
-        "commit",
-        help="Record changes to the repository history",
-        description="""Create a new commit containing the current contents of the staging index.
-
-This records a snapshot of the project state with metadata and an optional cryptographic signature.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep commit -m 'Fix bug'\033[0m
-     Create a commit with a manual message
-  \033[1;34m⚓️ deep commit -a -m 'Rel'\033[0m
-     Auto-stage tracked changes and commit
-  \033[1;34m⚓️ deep commit --ai -a\033[0m
-     AI-generated message with auto-stage
-  \033[1;34m⚓️ deep commit -S -m 'Sig'\033[0m
-     Create a cryptographically signed commit
-  \033[1;34m⚓️ deep commit --amend\033[0m
-     Amend the last commit with new changes or message
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_commit.add_argument("-m", "--message", help="The commit message describing the changes")
-    p_commit.add_argument("-a", "--all", action="store_true", help="Automatically stage modified and deleted tracked files before committing")
-    p_commit.add_argument("--ai", action="store_true", help="Automatically generate a commit message using Deep AI")
-    p_commit.add_argument("-S", "--sign", action="store_true", help="Digitally sign the commit using your identity key")
-    p_commit.add_argument("--amend", action="store_true", help="Amend the last commit (changes message and/or content)")
-    p_commit.add_argument("--allow-empty", action="store_true", help="Create a commit even if no changes are staged")
 from deep.core.hooks import run_hook
+
 
 def _build_tree_recursive(objects_dir: Path, files: dict[str, str]) -> str:
     """Recursively build Tree objects from a flat dict of {rel_path: sha}."""
@@ -81,6 +48,7 @@ def _build_tree_recursive(objects_dir: Path, files: dict[str, str]) -> str:
     tree = Tree(entries=tree_entries)
     return tree.write(objects_dir)
 
+
 def _build_tree_from_index(dg_dir: Path, allow_empty: bool = False) -> str:
     """Read the index and build a proper recursive Tree object.
 
@@ -95,6 +63,7 @@ def _build_tree_from_index(dg_dir: Path, allow_empty: bool = False) -> str:
     objects_dir = dg_dir / "objects"
     files = {path: entry.content_hash for path, entry in index.entries.items()}
     return _build_tree_recursive(objects_dir, files)
+
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``commit`` command."""

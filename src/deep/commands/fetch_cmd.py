@@ -11,7 +11,6 @@ Native smart protocol fetch:
 
 No external VCS CLI dependency.
 """
-from deep.core.constants import DEEP_DIR
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -23,36 +22,6 @@ from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import update_branch, update_head, update_remote_ref, get_remote_ref
 from deep.core.config import Config
 
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'fetch' command parser."""
-    p_fetch = subparsers.add_parser(
-        "fetch",
-        help="Download objects and refs from another repository",
-        description="""Download branches, tags, and associated objects from another repository.
-
-This updates your remote-tracking branches but does not modify your local work until you merge or rebase.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep fetch origin\033[0m
-     Update remote-tracking branches from 'origin'
-  \033[1;34m⚓️ deep fetch --all\033[0m
-     Fetch from all configured remotes
-  \033[1;34m⚓️ deep fetch origin main\033[0m
-     Fetch only the 'main' branch from 'origin'
-  \033[1;34m⚓️ deep fetch --prune\033[0m
-     Remove remote-tracking refs that no longer exist on remote
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_fetch.add_argument("url", nargs="?", default="origin", help="The remote repository name or URL to fetch from (default: origin)")
-    p_fetch.add_argument("branch", nargs="?", help="Specific branch to fetch")
-    p_fetch.add_argument("--all", action="store_true", help="Fetch from all configured remotes")
-    p_fetch.add_argument("-p", "--prune", action="store_true", help="Remove any remote-tracking references that no longer exist on the remote")
-    p_fetch.add_argument("--tags", action="store_true", help="Fetch all tags from the remote")
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``fetch`` command."""

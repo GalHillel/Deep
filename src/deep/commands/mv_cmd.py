@@ -20,33 +20,8 @@ from deep.storage.index import DeepIndex, DeepIndexEntry, read_index, write_inde
 from deep.storage.objects import Blob
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'mv' command parser."""
-    p_mv = subparsers.add_parser(
-        "mv",
-        help="Move or rename a file or directory",
-        description="""Move or rename a file, directory, or symlink and update the staging index accordingly.
-
-This command ensures the repository history tracks the rename efficiently.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep mv old.txt new.txt\033[0m
-     Rename a file in the same directory
-  \033[1;34m⚓️ deep mv file.txt docs/\033[0m
-     Move a file to a different directory
-  \033[1;34m⚓️ deep mv src/ old_src/\033[0m
-     Rename an entire directory
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_mv.add_argument("source", help="The source file or directory path")
-    p_mv.add_argument("destination", help="The destination file or directory path")
 from deep.storage.transaction import TransactionManager
+
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``mv`` command."""

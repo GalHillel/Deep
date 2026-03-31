@@ -4,10 +4,6 @@ deep.commands.migrate_cmd
 Upgrades a Deep repository from legacy (v1) to native (v2) storage format.
 This involves repacking objects into DeepVault and regenerating the DHGX.
 """
-from deep.core.config import Config
-from deep.core.constants import DEEP_DIR
-from deep.storage.commit_graph import DeepHistoryGraph
-from typing import Optional
 
 from __future__ import annotations
 from pathlib import Path
@@ -20,34 +16,7 @@ from deep.storage.objects import walk_loose_shas, read_object, Blob, Tree, Commi
 from deep.storage.vault import DeepVaultWriter
 from deep.storage.commit_graph import build_history_graph
 from deep.storage.index import read_index, write_index, DeepIndex, DeepIndexEntry
-
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'migrate' command parser."""
-    p_migrate = subparsers.add_parser(
-        "migrate",
-        help="Upgrade a Deep repository to the latest format",
-        description="""Upgrade your Deep repository to the latest storage and metadata formats.
-
-Migration ensures compatibility with the newest features, including DeepVault object packing and accelerated history graphs.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep migrate\033[0m
-     Upgrade the current repository to the latest native format
-  \033[1;34m⚓️ deep migrate --path /path/to/repo\033[0m
-     Migrate a specific repository path
-  \033[1;34m⚓️ deep migrate --dry-run\033[0m
-     Identify required migration steps without applying changes
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-
-def run(args: Any) -> None:
-    """Execute the ``migrate`` command."""
-    migrate_cmd(getattr(args, "path", None))
+import hashlib
 
 def migrate_cmd(path: str | None = None) -> None:
     try:

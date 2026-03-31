@@ -6,7 +6,6 @@ deep.commands.ls_remote_cmd
 Uses native smart protocol (SSH/HTTPS) for remote ref discovery.
 No external VCS CLI dependency.
 """
-from typing import List
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
@@ -17,35 +16,6 @@ from pathlib import Path
 from deep.core.refs import list_branches, list_tags, get_branch, get_tag
 from deep.core.constants import DEEP_DIR
 
-import argparse
-from typing import Any
-
-def setup_parser(subparsers: Any) -> None:
-    """Set up the 'ls-remote' command parser."""
-    p_ls_remote = subparsers.add_parser(
-        "ls-remote",
-        help="List references in a remote repository",
-        description="""Displays the references (branches, tags, and HEAD) available at a remote URL or named remote.
-
-Useful for inspecting a remote's state without fetching objects.""",
-        epilog="""
-
-\033[1mEXAMPLES:\033[0m
-  \033[1;34m⚓️ deep ls-remote origin\033[0m
-     List all references from the 'origin' remote
-  \033[1;34m⚓️ deep ls-remote https://github.com/user/repo\033[0m
-     List refs from a specific URL
-  \033[1;34m⚓️ deep ls-remote --heads origin\033[0m
-     List only branches (heads) from 'origin'
-  \033[1;34m⚓️ deep ls-remote --tags origin\033[0m
-     List only tags from 'origin'
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_ls_remote.add_argument("url", nargs="?", default="origin", help="The remote repository name or URL to query (default: origin)")
-    p_ls_remote.add_argument("--heads", action="store_true", help="Limit to remote branches (refs/heads/*)")
-    p_ls_remote.add_argument("--tags", action="store_true", help="Limit to remote tags (refs/tags/*)")
-    p_ls_remote.add_argument("--symref", action="store_true", help="Show the underlying reference for symbolic refs like HEAD")
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
     """Execute the ``ls-remote`` command."""
@@ -89,6 +59,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     except Exception as e:
         print(f"Deep: error: ls-remote failed: {e}", file=sys.stderr)
         raise DeepCLIException(1)
+
 
 def _ls_remote_local(dg_dir: Path) -> None:
     """List refs from a local repository."""
