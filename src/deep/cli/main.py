@@ -22,6 +22,13 @@ import os
 from deep.core.errors import DeepError
 from deep.utils.ux import DEEP_LOGO
 
+# Command Module Imports (Standard Registry)
+from deep.commands import add_cmd
+from deep.commands import maintenance_cmd
+from deep.commands import pr_cmd
+from deep.commands import issue_cmd
+from deep.commands import pipeline_cmd
+
 
 VERSION = "1.0.0"
 
@@ -85,28 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--bare", action="store_true", help="Create a bare repository (without a working tree)")
 
     # ── add ──────────────────────────────────────────────────────────
-    p_add = sub.add_parser(
-        "add",
-        help="Add file contents to the staging index",
-        description="Add file contents to the staging area (index) to be included in the next commit.\n\nThis prepares changes for recording.",
-        epilog="""
-\033[1mEXAMPLES:\033[0m
-
-  \033[1;34m⚓️ deep add file.txt\033[0m
-     Add a specific file to the index.
-
-  \033[1;34m⚓️ deep add .\033[0m
-     Add all changed and new files in the current directory.
-
-  \033[1;34m⚓️ deep add src/*.py\033[0m
-     Add specific files using glob patterns.
-
-  \033[1;34m⚓️ deep add -u\033[0m
-     Add only updated files (not new ones).
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_add.add_argument("files", nargs="+", help="One or more files or directory paths to stage for commit")
+    add_cmd.setup_parser(sub)
 
     # ── commit ───────────────────────────────────────────────────────
     p_commit = sub.add_parser(
@@ -735,29 +721,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_server.add_argument("server_command", choices=["start", "stop", "status", "restart"], help="The lifecycle command to execute")
 
     # ── repo ─────────────────────────────────────────────────────────
-    p_repo = sub.add_parser(
-        "repo",
-        help="Manage platform-hosted repositories",
-        description="Interface with and manage repositories hosted on the Deep platform.",
-        epilog="""
-\033[1mEXAMPLES:\033[0m
-
-  \033[1;34m⚓️ deep repo create my-app\033[0m
-     Create a new repository on the Deep platform.
-
-  \033[1;34m⚓️ deep repo list\033[0m
-     List all repositories you have access to on the platform.
-
-  \033[1;34m⚓️ deep repo permit --user bob --role write\033[0m
-     Grant 'write' access to user 'bob'.
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_repo.add_argument("repo_command", choices=["create", "delete", "list", "clone", "permit"], help="The repository operation to perform")
-    p_repo.add_argument("name", nargs="?", help="The name of the repository")
-    p_repo.add_argument("url", nargs="?", help="The platform URL for cloning (optional)")
-    p_repo.add_argument("--user", help="The platform username to target for permissions")
-    p_repo.add_argument("--role", help="The access role (admin/write/read) to assign to the user")
+    repo_cmd.setup_parser(sub)
 
     # ── user ─────────────────────────────────────────────────────────
     p_user = sub.add_parser(
@@ -805,15 +769,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_auth.add_argument("auth_command", choices=["login", "logout", "status", "token"], help="The authentication action to perform")
 
     # ── pr ───────────────────────────────────────────────────────────
-    from deep.commands import pr_cmd
-    p_pr = sub.add_parser(
-        "pr",
-        help="Manage platform Pull Requests",
-        description=pr_cmd.get_description(),
-        epilog=pr_cmd.get_epilog(),
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_pr.add_argument("pr_command", choices=["create", "list", "show", "merge", "close", "reopen", "sync", "comment", "reply", "resolve", "review"], help="The Pull Request action to perform")
+    pr_cmd.setup_parser(sub)
     p_pr.add_argument("id", nargs="?", help="The numerical ID of the Pull Request")
     p_pr.add_argument("thread", nargs="?", help="The numerical ID of the Thread (for reply/resolve)")
     p_pr.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
@@ -840,16 +796,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_issue.add_argument("--priority", help="Issue priority (e.g. high, low)")
 
     # ── pipeline ────────────────────────────────────────────────────
-    from deep.commands import pipeline_cmd
-    p_pipeline = sub.add_parser(
-        "pipeline",
-        help="Interact with CI/CD Pipelines",
-        description=pipeline_cmd.get_description(),
-        epilog=pipeline_cmd.get_epilog(),
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_pipeline.add_argument("pipe_command", choices=["run", "trigger", "list", "status", "sync"], help="The CI/CD pipeline action to perform")
-    p_pipeline.add_argument("id", nargs="?", help="The specific Pipeline Run ID") 
+    pipeline_cmd.setup_parser(sub)
     p_pipeline.add_argument("--commit", help="Target a specific commit SHA for the pipeline run")
     p_pipeline.add_argument("--verbose", action="store_true", help="Enable verbose output for API requests")
 
@@ -1146,22 +1093,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_gc.add_argument("--prune", type=int, default=3600, help="Only prune unreachable objects older than this (seconds). Default 1h.")
     
     # ── maintenance ──────────────────────────────────────────────────
-    p_maint = sub.add_parser(
-        "maintenance",
-        help="Run repository maintenance tasks",
-        description="Optimize the repository by repacking objects, updating indices, and pruning unreachable data.",
-        epilog="""
-\033[1mEXAMPLES:\033[0m
-
-  \033[1;34m⚓️ deep maintenance\033[0m
-     Run scheduled maintenance tasks.
-
-  \033[1;34m⚓️ deep maintenance --force\033[0m
-     Force run all maintenance tasks immediately.
-""",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    p_maint.add_argument("--force", action="store_true", help="Force run maintenance even if recently completed")
+    maintenance_cmd.setup_parser(sub)
 
     sub.add_parser("version", help="Show Deep version information")
 
