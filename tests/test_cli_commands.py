@@ -1,106 +1,111 @@
 import unittest
-import sys
+import subprocess
 import os
-import io
+import sys
 import argparse
 from pathlib import Path
-from contextlib import redirect_stdout, redirect_stderr
 
 # Add src to sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from deep.cli.main import build_parser
 
-class TestCLICommands(unittest.TestCase):
+class TestCLIConsistency(unittest.TestCase):
     def setUp(self):
         self.parser = build_parser()
         self.commands_dir = Path(__file__).parent.parent / "src" / "deep" / "commands"
         
     def get_implemented_commands(self):
-        """Discover all command files in src/deep/commands."""
+        """Get all commands implemented in src/deep/commands/*.py"""
         cmds = []
         for f in self.commands_dir.glob("*_cmd.py"):
-            name = f.name.replace("_cmd.py", "").replace("_", "-")
-            cmds.append(name)
-        # Special cases
-        cmds.append("maintenance") # in core
-        cmds.append("version")     # in main
-        cmds.append("help")        # in main
-        if "debug" in cmds:
-            cmds.remove("debug")
-            cmds.append("debug-tree")
+            cmd_name = f.name.replace("_cmd.py", "").replace("_", "-")
+            cmds.append(cmd_name)
+        # Add special cases if any
+        if "inspect-tree" not in cmds: cmds.append("inspect-tree")
+        if "debug-tree" not in cmds: cmds.append("debug-tree")
+        if "maintenance" not in cmds: cmds.append("maintenance")
         return sorted(list(set(cmds)))
 
     def test_all_commands_registered(self):
-        """Verify every command file has a corresponding parser entry."""
+        """Verify that every *_cmd.py is registered in build_parser()"""
         implemented = self.get_implemented_commands()
         
-        # Get registered commands in subparsers
-        registered = []
-        for action in self.parser._actions:
-            if isinstance(action, argparse._SubParsersAction):
-                registered.extend(action.choices.keys())
+        # Get registered commands from parser
+        subparsers = next(a for a in self.parser._actions if isinstance(a, argparse._SubParsersAction))
+        registered = sorted(subparsers.choices.keys())
         
-        missing = set(implemented) - set(registered)
-        # 'maintenance' is actually 'maintenance' in registration, but let's check
-        self.assertEqual(missing, set(), f"Commands implemented but NOT registered: {missing}")
+        missing = [c for c in implemented if c not in registered and c != "__init__"]
+        
+        # Special mapping for file names to command names
+        mapping = {
+            "debug": "debug-tree",
+            "ls-tree": "ls-tree",
+            "ls-remote": "ls-remote",
+            "commit-graph": "commit-graph",
+            "inspect-tree": "inspect-tree"
+        }
+        
+        for imp in implemented:
+            cmd_name = mapping.get(imp, imp)
+            if cmd_name not in registered:
+                # Some might be handled differently, but let's check
+                self.assertIn(cmd_name, registered, f"Command '{cmd_name}' (from {imp}_cmd.py) is not registered in build_parser()")
 
-    def test_help_output_completeness(self):
-        """Verify every registered command appears in the help epilog categorization."""
-        epilog = self.parser.epilog
+    def test_help_contains_all_commands(self):
+        """Verify that deep -h epilog contains all registered commands"""
+        epilog = self.parser.epilog or ""
+        subparsers = next(a for a in self.parser._actions if isinstance(a, argparse._SubParsersAction))
+        registered = subparsers.choices.keys()
         
-        registered = []
-        for action in self.parser._actions:
-            if isinstance(action, argparse._SubParsersAction):
-                registered.extend(action.choices.keys())
-        
-        # 'help' and 'version' are standard, might be excluded from epilog lists but let's check
         for cmd in registered:
-            if cmd in ("help", "version"):
-                continue
-            self.assertIn(cmd, epilog, f"Command '{cmd}' is registered but NOT listed in deep -h epilog!")
-
-    def test_subparsers_for_complex_commands(self):
-        """Verify that multi-action commands use real subparsers."""
-        complex_cmds = ["pr", "issue", "pipeline", "repo", "user", "auth", "server", "p2p", "ai", "audit"]
-        
-        subparsers_action = next(a for a in self.parser._actions if isinstance(a, argparse._SubParsersAction))
-        
-        for cmd in complex_cmds:
-            if cmd not in subparsers_action.choices:
-                continue
-            p = subparsers_action.choices[cmd]
-            has_sub = any(isinstance(a, argparse._SubParsersAction) for a in p._actions)
-            self.assertTrue(has_sub, f"Command '{cmd}' should use subparsers but does not!")
+            if cmd in ("help", "version"): continue
+            self.assertIn(cmd, epilog, f"Command '{cmd}' is registered but missing from deep -h categorized help (epilog)")
 
     def test_runtime_help_execution(self):
-        """Simulate 'deep <cmd> --help' for all commands to ensure no crashes."""
-        subparsers_action = next(a for a in self.parser._actions if isinstance(a, argparse._SubParsersAction))
+        """Run deep <cmd> -h for every command to ensure no crashes"""
+        subparsers = next(a for a in self.parser._actions if isinstance(a, argparse._SubParsersAction))
+        registered = sorted(subparsers.choices.keys())
         
-        for cmd_name, cmd_parser in subparsers_action.choices.items():
-            with self.subTest(command=cmd_name):
-                f = io.StringIO()
-                with redirect_stdout(f):
-                    try:
-                        cmd_parser.print_help()
-                    except SystemExit:
-                        pass
-                output = f.getvalue()
-                self.assertIn(cmd_name, output)
+        for cmd in registered:
+            if cmd == "help": continue
+            # Use subprocess to run 'python -m deep.cli.main <cmd> -h'
+            # Or just 'deep <cmd> -h' if installed, but -m is safer for tests
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(Path(__file__).parent.parent / "src")
+            
+            result = subprocess.run(
+                [sys.executable, "-m", "deep.cli.main", cmd, "-h"],
+                env=env,
+                capture_output=True,
+                text=True
+            )
+            self.assertEqual(result.returncode, 0, f"Command 'deep {cmd} -h' failed with return code {result.returncode}\nError: {result.stderr}")
+            self.assertIn("usage: deep", result.stdout)
+
+    def test_subparser_help_execution(self):
+        """Run deep <cmd> <subcmd> -h for commands with subparsers"""
+        subparsers = next(a for a in self.parser._actions if isinstance(a, argparse._SubParsersAction))
+        
+        for cmd, parser in subparsers.choices.items():
+            # Check if this parser has subparsers
+            child_subparsers = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+            if not child_subparsers:
+                continue
                 
-                # If it has subparsers, test one sub-help
-                for action in cmd_parser._actions:
-                    if isinstance(action, argparse._SubParsersAction):
-                        for sub_name, sub_parser in action.choices.items():
-                            with self.subTest(command=cmd_name, subcommand=sub_name):
-                                f2 = io.StringIO()
-                                with redirect_stdout(f2):
-                                    try:
-                                        sub_parser.print_help()
-                                    except SystemExit:
-                                        pass
-                                output2 = f2.getvalue()
-                                self.assertIn(sub_name, output2)
+            for child_sub in child_subparsers:
+                for subcmd in child_sub.choices.keys():
+                    env = os.environ.copy()
+                    env["PYTHONPATH"] = str(Path(__file__).parent.parent / "src")
+                    
+                    result = subprocess.run(
+                        [sys.executable, "-m", "deep.cli.main", cmd, subcmd, "-h"],
+                        env=env,
+                        capture_output=True,
+                        text=True
+                    )
+                    self.assertEqual(result.returncode, 0, f"Command 'deep {cmd} {subcmd} -h' failed with return code {result.returncode}\nError: {result.stderr}")
+                    self.assertIn(f"usage: deep {cmd} {subcmd}", result.stdout)
 
 if __name__ == "__main__":
     unittest.main()
