@@ -21,7 +21,9 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import update_branch, update_head, update_remote_ref, get_remote_ref
 from deep.core.config import Config
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -30,16 +32,21 @@ def setup_parser(subparsers: Any) -> None:
     p_fetch = subparsers.add_parser(
         "fetch",
         help="Download objects and refs from another repository",
-        description="Fetch branches and/or tags from one or more other repositories.",
+        description=format_description("Download branches, tags, and associated objects from another repository. This updates your remote-tracking branches but does not modify your local work until you merge or rebase."),
         epilog=f"""
-Examples:
-{format_example("deep fetch origin", "Update remote tracking branches from 'origin'")}
+{format_header("Examples")}
+{format_example("deep fetch origin", "Update remote-tracking branches from 'origin'")}
 {format_example("deep fetch --all", "Fetch from all configured remotes")}
+{format_example("deep fetch origin main", "Fetch only the 'main' branch from 'origin'")}
+{format_example("deep fetch --prune", "Remove remote-tracking refs that no longer exist on remote")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_fetch.add_argument("url", nargs="?", default="origin", help="The remote repository URL or name to fetch from")
+    p_fetch.add_argument("url", nargs="?", default="origin", help="The remote repository name or URL to fetch from (default: origin)")
+    p_fetch.add_argument("branch", nargs="?", help="Specific branch to fetch")
     p_fetch.add_argument("--all", action="store_true", help="Fetch from all configured remotes")
+    p_fetch.add_argument("-p", "--prune", action="store_true", help="Remove any remote-tracking references that no longer exist on the remote")
+    p_fetch.add_argument("--tags", action="store_true", help="Fetch all tags from the remote")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
