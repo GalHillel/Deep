@@ -13,6 +13,24 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'sandbox' command parser."""
+    p_sandbox = subparsers.add_parser(
+        "sandbox",
+        help="Manage isolated execution environments",
+        description="Creates or manages secure, isolated sandboxes for running untrusted code or isolated builds.",
+        epilog=f"""
+Examples:
+{format_example("deep sandbox run --image ubuntu python app.py", "Run code in an ubuntu sandbox")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_sandbox.add_argument("sandbox_command", choices=["run", "list", "remove"], help="The sandbox action to perform")
+    p_sandbox.add_argument("--image", help="The container image to use for the sandbox")
 
 
 def run(args) -> None:
