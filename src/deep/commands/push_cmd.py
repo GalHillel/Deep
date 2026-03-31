@@ -22,8 +22,9 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import resolve_head, get_branch
 from deep.core.config import Config
-from deep.utils.ux import DeepHelpFormatter, format_example
-from deep.core.hooks import run_hook
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -31,20 +32,25 @@ def setup_parser(subparsers: Any) -> None:
     """Set up the 'push' command parser."""
     p_push = subparsers.add_parser(
         "push",
-        help="Update remote refs along with associated objects",
-        description="Push local branch changes to a remote repository.",
+        help="Update remote refs and associated objects",
+        description=format_description("Upload local branch commits to a remote repository and update remote references. This command ensures your collaborators can access your latest changes."),
         epilog=f"""
-Examples:
-{format_example("deep push origin main", "Push 'main' to 'origin'")}
-{format_example("deep push --force", "Force push (use with caution)")}
+{format_header("Examples")}
+{format_example("deep push origin main", "Push the 'main' branch to the 'origin' remote")}
+{format_example("deep push", "Push current branch to its configured upstream")}
+{format_example("deep push --force", "Force update the remote branch (overwrites history!)")}
+{format_example("deep push -u origin feature", "Push and set 'origin' as the upstream for 'feature'")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_push.add_argument("url", nargs="?", help="The remote repository URL or name to push to")
-    p_push.add_argument("branch", nargs="?", help="The branch name to push")
-    p_push.add_argument("-f", "--force", action="store_true", help="Force update the remote branch")
-    p_push.add_argument("-u", "--set-upstream", action="store_true", help="Set up tracking information")
-    """Execute the ``push`` command."""
+    p_push.add_argument("url", nargs="?", help="The remote repository name or URL (default: origin)")
+    p_push.add_argument("branch", nargs="?", help="The local branch name to push")
+    p_push.add_argument("-f", "--force", action="store_true", help="Force update the remote branch (disables safety checks)")
+    p_push.add_argument("-u", "--set-upstream", action="store_true", help="Set up tracking information for the pushed branch")
+    p_push.add_argument("--tags", action="store_true", help="Push all local tags in addition to commits")
+
+
+def run(args: Any) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
