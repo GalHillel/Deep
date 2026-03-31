@@ -20,25 +20,33 @@ from deep.utils.ux import DeepHelpFormatter, format_example
 from typing import Any
 
 
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
+from typing import Any
+
+
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'tag' command parser."""
     p_tag = subparsers.add_parser(
         "tag",
         help="Create, list, or delete tags",
-        description="Create, list, or delete a tag object (annotated or lightweight).",
+        description=format_description("Manage tag objects in your repository. Tags are used to mark specific points in history as important, such as release versions (e.g., v1.0.0). Supports both lightweight and annotated tags."),
         epilog=f"""
-Examples:
-{format_example("deep tag", "List all local tags")}
-{format_example("deep tag v1.0", "Create a lightweight tag")}
-{format_example("deep tag -a v1.0 -m 'Rel'", "Create an annotated tag")}
+{format_header("Examples")}
+{format_example("deep tag", "List all tags in the repository")}
+{format_example("deep tag v1.0", "Create a lightweight tag at current HEAD")}
+{format_example("deep tag -a v1.1 -m 'Release'", "Create an annotated tag with a message")}
+{format_example("deep tag -d v0.9", "Delete an existing tag")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_tag.add_argument("name", nargs="?", help="The name of the tag to create")
-    p_tag.add_argument("object", nargs="?", default="HEAD", help="The object to tag (default: HEAD)")
-    p_tag.add_argument("-a", "--annotate", action="store_true", help="Create an annotated tag object with metadata")
-    p_tag.add_argument("-m", "--message", help="Message for an annotated tag")
+    p_tag.add_argument("name", nargs="?", help="The name of the tag to create, list, or delete")
+    p_tag.add_argument("object", nargs="?", default="HEAD", help="The commit SHA or reference to tag (default: HEAD)")
+    p_tag.add_argument("-a", "--annotate", action="store_true", help="Create an annotated tag object containing metadata")
+    p_tag.add_argument("-m", "--message", help="The message for an annotated tag")
     p_tag.add_argument("-d", "--delete", action="store_true", help="Delete the specified tag")
+    p_tag.add_argument("-l", "--list", action="store_true", help="List tags (default action if no name is provided)")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
