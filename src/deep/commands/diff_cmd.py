@@ -19,7 +19,7 @@ from typing import Any
 def setup_parser(subparsers: Any) -> None:
     """Set up the 'diff' command parser."""
     p_diff = subparsers.add_parser(
-        "author",
+        "diff",
         help="Show changes between commits or worktree",
         description="Show changes between the working tree and the index, or between two arbitrary commit objects.",
         epilog=f"""
