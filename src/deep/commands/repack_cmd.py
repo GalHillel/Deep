@@ -8,7 +8,9 @@ from __future__ import annotations
 from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -17,11 +19,12 @@ def setup_parser(subparsers: Any) -> None:
     p_repack = subparsers.add_parser(
         "repack",
         help="Pack detached objects into a packfile",
-        description="Optimize the repository by packing loose objects and generating reachability bitmaps.",
+        description=format_description("Deep Repack optimizes the object database by aggregating loose objects into highly compressed packfiles. It also generates reachability bitmaps to ultra-accelerate network transfers and revision traversal."),
         epilog=f"""
-Examples:
-{format_example("deep repack", "Repack loose objects and generate bitmaps")}
-{format_example("deep repack --no-bitmaps", "Repack without generating bitmaps")}
+{format_header("Examples")}
+{format_example("deep repack", "Repack all loose objects and generate optimized bitmaps")}
+{format_example("deep repack --no-bitmaps", "Perform repacking without bitmap generation")}
+{format_example("deep repack --aggressive", "Perform a resource-intensive, high-compression repack")}
 """,
         formatter_class=DeepHelpFormatter,
     )
