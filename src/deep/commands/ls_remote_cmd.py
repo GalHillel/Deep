@@ -15,6 +15,23 @@ from pathlib import Path
 
 from deep.core.refs import list_branches, list_tags, get_branch, get_tag
 from deep.core.constants import DEEP_DIR
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'ls-remote' command parser."""
+    p_ls_remote = subparsers.add_parser(
+        "ls-remote",
+        help="List references in a remote repository",
+        description="Displays the references (branches, tags) available at a remote URL.",
+        epilog=f"""
+Examples:
+{format_example("deep ls-remote origin", "List refs from 'origin'")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_ls_remote.add_argument("url", help="The remote URL or name to query")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
