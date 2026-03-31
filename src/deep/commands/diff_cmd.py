@@ -12,6 +12,27 @@ from pathlib import Path
 
 from deep.core.diff import diff_working_tree
 from deep.core.repository import find_repo, DEEP_DIR
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'diff' command parser."""
+    p_diff = subparsers.add_parser(
+        "author",
+        help="Show changes between commits or worktree",
+        description="Show changes between the working tree and the index, or between two arbitrary commit objects.",
+        epilog=f"""
+Examples:
+{format_example("deep diff", "Compare worktree with index")}
+{format_example("deep diff HEAD", "Compare worktree with latest commit")}
+{format_example("deep diff --cached", "Show staged changes")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_diff.add_argument("--cached", "--staged", action="store_true", help="Show changes currently in the staging area")
+    p_diff.add_argument("--stat", action="store_true", help="Show a summary of changes instead of the full diff")
+    p_diff.add_argument("revisions", nargs="*", help="Commit identifiers to compare")
 
 
 def run(args) -> None:  # type: ignore[no-untyped_def]
