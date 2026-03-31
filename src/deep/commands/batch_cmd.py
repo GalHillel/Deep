@@ -21,6 +21,7 @@ from deep.core.repository import find_repo, DEEP_DIR
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -29,14 +30,20 @@ def setup_parser(subparsers: Any) -> None:
     p_batch = subparsers.add_parser(
         "batch",
         help="Execute multiple Deep commands in a single transaction",
-        description=format_description("Deep Batch allows for the atomic execution of multiple Deep commands from a script file or standard input. This ensures that a sequence of operations (e.g., branching, adding, and committing) is treated as a single transaction, maintaining repository consistency even if an individual command fails."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep batch script.dgit", "Execute Deep commands listed in 'script.dgit'")}
-{format_example("deep batch - --fail-fast", "Read commands from stdin and stop on the first error")}
-{format_example("deep batch migrate.txt --dry-run", "Identify potential batch operations without applying them")}
+        description="""Deep Batch allows for the atomic execution of multiple Deep commands from a script file or standard input.
+
+This ensures that a sequence of operations (e.g., branching, adding, and committing) is treated as a single transaction, maintaining repository consistency even if an individual command fails.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep batch script.dgit\033[0m
+     Execute Deep commands listed in 'script.dgit'
+  \033[1;34m⚓️ deep batch - --fail-fast\033[0m
+     Read commands from stdin and stop on the first error
+  \033[1;34m⚓️ deep batch migrate.txt --dry-run\033[0m
+     Identify potential batch operations without applying them
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_batch.add_argument("script", help="The file path containing Deep commands (use '-' for stdin)")
     p_batch.add_argument("--fail-fast", action="store_true", help="Stop execution on first error")

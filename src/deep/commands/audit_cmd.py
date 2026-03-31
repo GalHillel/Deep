@@ -19,6 +19,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description, Color
 )
+import argparse
 from typing import Any
 
 
@@ -27,14 +28,20 @@ def setup_parser(subparsers: Any) -> None:
     p_audit = subparsers.add_parser(
         "audit",
         help="Display the repository audit log",
-        description=format_description("Browse through the cryptographically-signed audit logs of repository actions. Deep maintains a Merkle-chain of all significant events, allowing for zero-tolerance security auditing and verification of the repository's history."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep audit", "Display the 50 most recent audit log entries")}
-{format_example("deep audit report", "Generate a cryptographically-verified Merkle-chain report")}
-{format_example("deep audit scan", "Perform a high-security source code scan for forbidden patterns")}
+        description="""Browse through the cryptographically-signed audit logs of repository actions.
+
+Deep maintains a Merkle-chain of all significant events, allowing for zero-tolerance security auditing and verification of the repository's history.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep audit\033[0m
+     Display the 50 most recent audit log entries
+  \033[1;34m⚓️ deep audit report\033[0m
+     Generate a cryptographically-verified Merkle-chain report
+  \033[1;34m⚓️ deep audit scan\033[0m
+     Perform a high-security source code scan for forbidden patterns
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     # Define sub-commands as destinations
     p_audit.add_argument("audit_command", choices=["show", "report", "scan"], nargs="?", default="show", help="The audit action to perform (default: show)")

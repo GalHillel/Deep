@@ -11,6 +11,7 @@ from pathlib import Path
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -19,14 +20,20 @@ def setup_parser(subparsers: Any) -> None:
     p_cg = subparsers.add_parser(
         "commit-graph",
         help="Manage the commit-graph binary index",
-        description=format_description("Deep Commit-Graph manages the binary history index used to ultra-accelerate graph traversal and generation counting. Regenerating the graph index can significantly improve performance for large repositories during log and merge operations."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep commit-graph write", "Regenerate the binary index for all reachable commits")}
-{format_example("deep commit-graph verify", "Verify the structure and checksum integrity of the index")}
-{format_example("deep commit-graph clear", "Remove the commit-graph index file from the repository")}
+        description="""Deep Commit-Graph manages the binary history index used to ultra-accelerate graph traversal and generation counting.
+
+Regenerating the graph index can significantly improve performance for large repositories during log and merge operations.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep commit-graph write\033[0m
+     Regenerate the binary index for all reachable commits
+  \033[1;34m⚓️ deep commit-graph verify\033[0m
+     Verify the structure and checksum integrity of the index
+  \033[1;34m⚓️ deep commit-graph clear\033[0m
+     Remove the commit-graph index file from the repository
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     csub = p_cg.add_subparsers(dest="cg_command", metavar="ACTION")
     csub.add_parser("write", help="Regenerate the commit-graph binary index")

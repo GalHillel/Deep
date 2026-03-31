@@ -15,6 +15,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -23,15 +24,22 @@ def setup_parser(subparsers: Any) -> None:
     p_add = subparsers.add_parser(
         "add",
         help="Add file contents to the staging index",
-        description=format_description("Stage file changes to the index to be included in the next commit. This command prepares modified, deleted, and new files for recording in the repository history."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep add file.txt", "Add a specific file to the index")}
-{format_example("deep add .", "Add all changed and new files in current directory")}
-{format_example("deep add src/*.py", "Add specific files using glob patterns")}
-{format_example("deep add -u", "Stage only modified and deleted files (no new files)")}
+        description="""Stage file changes to the index to be included in the next commit.
+
+This command prepares modified, deleted, and new files for recording in the repository history.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep add file.txt\033[0m
+     Add a specific file to the index
+  \033[1;34m⚓️ deep add .\033[0m
+     Add all changed and new files in current directory
+  \033[1;34m⚓️ deep add src/*.py\033[0m
+     Add specific files using glob patterns
+  \033[1;34m⚓️ deep add -u\033[0m
+     Stage only modified and deleted files (no new files)
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_add.add_argument("files", nargs="+", help="One or more files or directory paths to stage for commit")
     p_add.add_argument("-u", "--update", action="store_true", help="Only match tracked files that have changed (no new files)")

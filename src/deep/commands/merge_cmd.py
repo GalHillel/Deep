@@ -33,6 +33,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -41,15 +42,22 @@ def setup_parser(subparsers: Any) -> None:
     p_merge = subparsers.add_parser(
         "merge",
         help="Join two or more development histories",
-        description=format_description("Merge changes from the specified branch or commit into the current branch. Supports fast-forward and 3-way merges with automatic conflict detection."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep merge feature", "Merge the 'feature' branch into current branch")}
-{format_example("deep merge main", "Bring 'main' branch changes into current branch")}
-{format_example("deep merge --no-commit dev", "Merge 'dev' but don't automatically commit")}
-{format_example("deep merge --abort", "Cancel a conflicted merge and restore previous state")}
+        description="""Merge changes from the specified branch or commit into the current branch.
+
+Supports fast-forward and 3-way merges with automatic conflict detection.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep merge feature\033[0m
+     Merge the 'feature' branch into current branch
+  \033[1;34m⚓️ deep merge main\033[0m
+     Bring 'main' branch changes into current branch
+  \033[1;34m⚓️ deep merge --no-commit dev\033[0m
+     Merge 'dev' but don't automatically commit
+  \033[1;34m⚓️ deep merge --abort\033[0m
+     Cancel a conflicted merge and restore previous state
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_merge.add_argument("branch", nargs="?", help="The branch name or commit SHA to merge into current branch")
     p_merge.add_argument("--abort", action="store_true", help="Abort the current conflicted merge and restore to pre-merge state")

@@ -16,6 +16,7 @@ from deep.core.search import search_history
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -24,14 +25,20 @@ def setup_parser(subparsers: Any) -> None:
     p_search = subparsers.add_parser(
         "search",
         help="Search history and object database for patterns",
-        description=format_description("Deep Search provides a high-performance engine for finding strings and regular expressions across your entire repository history. It scans commit messages, file contents, and object metadata to help you locate changes and identify patterns."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep search 'TODO'", "Search repository history and current state for 'TODO'")}
-{format_example("deep search --regex 'FIXME.*[0-9]+'", "Perform a regular expression search across all objects")}
-{format_example("deep search 'main' --path src/", "Limit search to the 'src/' directory")}
+        description="""Deep Search provides a high-performance engine for finding strings and regular expressions across your entire repository history.
+
+It scans commit messages, file contents, and object metadata to help you locate changes and identify patterns.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep search 'TODO'\033[0m
+     Search repository history and current state for 'TODO'
+  \033[1;34m⚓️ deep search --regex 'FIXME.*[0-9]+'\033[0m
+     Perform a regular expression search across all objects
+  \033[1;34m⚓️ deep search 'main' --path src/\033[0m
+     Limit search to the 'src/' directory
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_search.add_argument("query", help="The string or pattern to search for")
     p_search.add_argument("--regex", action="store_true", help="Interpret query as a regular expression")

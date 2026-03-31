@@ -10,12 +10,14 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.storage.objects import read_object, Tree, Blob
 from deep.utils.ux import DeepHelpFormatter, format_example
+import argparse
 from typing import Any
 
 
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -24,13 +26,18 @@ def setup_parser(subparsers: Any) -> None:
     p_inspect = subparsers.add_parser(
         "inspect-tree",
         help="Internal: Inspect raw tree entries (debug)",
-        description=format_description("Deep Inspect-Tree is a forensic diagnostic tool for verifying the raw entry modes, names, and child object types within a specific tree object. It is primarily used for debugging repository corruption or verifying low-level storage integrity."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep inspect-tree abc1234", "Inspect the raw entries of the tree object with SHA-1 'abc1234'")}
-{format_example("deep inspect-tree HEAD^{tree}", "Inspect the tree object associated with the current HEAD")}
+        description="""Deep Inspect-Tree is a forensic diagnostic tool for verifying the raw entry modes, names, and child object types within a specific tree object.
+
+It is primarily used for debugging repository corruption or verifying low-level storage integrity.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep inspect-tree abc1234\033[0m
+     Inspect the raw entries of the tree object with SHA-1 'abc1234'
+  \033[1;34m⚓️ deep inspect-tree HEAD^{tree}\033[0m
+     Inspect the tree object associated with the current HEAD
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_inspect.add_argument("sha", help="The SHA-1 hash of the tree object to inspect")
 

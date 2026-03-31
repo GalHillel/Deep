@@ -15,6 +15,7 @@ from deep.utils.ux import DeepHelpFormatter, format_example
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -23,14 +24,20 @@ def setup_parser(subparsers: Any) -> None:
     p_fsck = subparsers.add_parser(
         "fsck",
         help="Verify the connectivity and validity of objects",
-        description=format_description("Deep File System Check (fsck) verifies the integrity of the object database. It identifies corrupt objects, missing parents, and unreachable dangling objects that are not referenced by any branch or tag."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep fsck", "Perform a full integrity and connectivity check")}
-{format_example("deep fsck --unreachable", "Specifically identify objects not reachable from any ref")}
-{format_example("deep fsck --fix", "Attempt to repair minor metadata inconsistencies (experimental)")}
+        description="""Deep File System Check (fsck) verifies the integrity of the object database.
+
+It identifies corrupt objects, missing parents, and unreachable dangling objects that are not referenced by any branch or tag.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep fsck\033[0m
+     Perform a full integrity and connectivity check
+  \033[1;34m⚓️ deep fsck --unreachable\033[0m
+     Specifically identify objects not reachable from any ref
+  \033[1;34m⚓️ deep fsck --fix\033[0m
+     Attempt to repair minor metadata inconsistencies (experimental)
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
 
 def verify_object_integrity(objects_dir: Path, sha: str) -> bool:

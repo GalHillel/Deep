@@ -20,16 +20,24 @@ def setup_parser(subparsers: Any) -> None:
     p_checkout = subparsers.add_parser(
         "checkout",
         help="Switch branches or restore files",
-        description=format_description("Switch to a different branch, restore files from a specific commit, or create and switch to a new branch. This command updates your working directory to match the specified target state."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep checkout main", "Switch to the 'main' branch")}
-{format_example("deep checkout -b feature", "Create and switch to a new 'feature' branch")}
-{format_example("deep checkout abc1234", "Detach HEAD and switch to a specific commit SHA")}
-{format_example("deep checkout file.txt", "Discard local changes and restore 'file.txt' from index")}
-{format_example("deep checkout main -- file.txt", "Restore 'file.txt' from the 'main' branch")}
+        description="""Switch to a different branch, restore files from a specific commit, or create and switch to a new branch.
+
+This command updates your working directory to match the specified target state.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep checkout main\033[0m
+     Switch to the 'main' branch
+  \033[1;34m⚓️ deep checkout -b feature\033[0m
+     Create and switch to a new 'feature' branch
+  \033[1;34m⚓️ deep checkout abc1234\033[0m
+     Detach HEAD and switch to a specific commit SHA
+  \033[1;34m⚓️ deep checkout file.txt\033[0m
+     Discard local changes and restore 'file.txt' from index
+  \033[1;34m⚓️ deep checkout main -- file.txt\033[0m
+     Restore 'file.txt' from the 'main' branch
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_checkout.add_argument("-f", "--force", action="store_true", help="Force branch switching even if there are uncommitted local changes")
     p_checkout.add_argument("-b", action="store_true", dest="branch", help="Create a new branch and switch to it")

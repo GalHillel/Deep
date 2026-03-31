@@ -17,6 +17,7 @@ from deep.core.config import Config
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -25,15 +26,22 @@ def setup_parser(subparsers: Any) -> None:
     p_auth = subparsers.add_parser(
         "auth",
         help="Manage authentication and user identity",
-        description=format_description("Authenticate with the Deep platform and manage your local user identity. Authentication ensures that your commits are correctly attributed and that you have the necessary permissions to interact with remote repositories."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep auth login --token <token>", "Login to the Deep platform using an access token")}
-{format_example("deep auth logout", "Clear local authentication credentials")}
-{format_example("deep auth status", "Show current authentication status and user identity")}
-{format_example("deep auth whoami", "Quickly check the currently authenticated username")}
+        description="""Authenticate with the Deep platform and manage your local user identity.
+
+Authentication ensures that your commits are correctly attributed and that you have the necessary permissions to interact with remote repositories.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep auth login --token <token>\033[0m
+     Login to the Deep platform using an access token
+  \033[1;34m⚓️ deep auth logout\033[0m
+     Clear local authentication credentials
+  \033[1;34m⚓️ deep auth status\033[0m
+     Show current authentication status and user identity
+  \033[1;34m⚓️ deep auth whoami\033[0m
+     Quickly check the currently authenticated username
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     asub = p_auth.add_subparsers(dest="auth_command", metavar="ACTION")
     p_login = asub.add_parser("login", help="Log in to the Deep platform")

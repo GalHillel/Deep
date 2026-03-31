@@ -16,6 +16,7 @@ from deep.core.user import UserManager
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -24,15 +25,22 @@ def setup_parser(subparsers: Any) -> None:
     p_user = subparsers.add_parser(
         "user",
         help="Local user management and identity control",
-        description=format_description("Manage local user accounts, public keys, and identities. This command allows you to configure who has access to the repository and how their changes are signed and verified."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep user list", "List all users and identities in the current repository")}
-{format_example("deep user add alice alice@dev.io --public-key ...", "Add a new user with a specific public key")}
-{format_example("deep user info alice", "Show detailed information and public key for 'alice'")}
-{format_example("deep user remove bob", "Permanently remove 'bob' from the local user list")}
+        description="""Manage local user accounts, public keys, and identities.
+
+This command allows you to configure who has access to the repository and how their changes are signed and verified.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep user list\033[0m
+     List all users and identities in the current repository
+  \033[1;34m⚓️ deep user add alice alice@dev.io --public-key ...\033[0m
+     Add a new user with a specific public key
+  \033[1;34m⚓️ deep user info alice\033[0m
+     Show detailed information and public key for 'alice'
+  \033[1;34m⚓️ deep user remove bob\033[0m
+     Permanently remove 'bob' from the local user list
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     usub = p_user.add_subparsers(dest="user_command", metavar="ACTION")
     

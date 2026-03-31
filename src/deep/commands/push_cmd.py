@@ -25,6 +25,7 @@ from deep.core.config import Config
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -33,15 +34,22 @@ def setup_parser(subparsers: Any) -> None:
     p_push = subparsers.add_parser(
         "push",
         help="Update remote refs and associated objects",
-        description=format_description("Upload local branch commits to a remote repository and update remote references. This command ensures your collaborators can access your latest changes."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep push origin main", "Push the 'main' branch to the 'origin' remote")}
-{format_example("deep push", "Push current branch to its configured upstream")}
-{format_example("deep push --force", "Force update the remote branch (overwrites history!)")}
-{format_example("deep push -u origin feature", "Push and set 'origin' as the upstream for 'feature'")}
+        description="""Upload local branch commits to a remote repository and update remote references.
+
+This command ensures your collaborators can access your latest changes.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep push origin main\033[0m
+     Push the 'main' branch to the 'origin' remote
+  \033[1;34m⚓️ deep push\033[0m
+     Push current branch to its configured upstream
+  \033[1;34m⚓️ deep push --force\033[0m
+     Force update the remote branch (overwrites history!)
+  \033[1;34m⚓️ deep push -u origin feature\033[0m
+     Push and set 'origin' as the upstream for 'feature'
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_push.add_argument("url", nargs="?", help="The remote repository name or URL (default: origin)")
     p_push.add_argument("branch", nargs="?", help="The local branch name to push")

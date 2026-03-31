@@ -17,12 +17,14 @@ from deep.core.refs import create_tag, list_tags, resolve_head
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.utils.ux import DeepHelpFormatter, format_example
+import argparse
 from typing import Any
 
 
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -31,15 +33,24 @@ def setup_parser(subparsers: Any) -> None:
     p_tag = subparsers.add_parser(
         "tag",
         help="Create, list, or delete tags",
-        description=format_description("Manage tag objects in your repository. Tags are used to mark specific points in history as important, such as release versions (e.g., v1.0.0). Supports both lightweight and annotated tags."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep tag", "List all tags in the repository")}
-{format_example("deep tag v1.0", "Create a lightweight tag at current HEAD")}
-{format_example("deep tag -a v1.1 -m 'Release'", "Create an annotated tag with a message")}
-{format_example("deep tag -d v0.9", "Delete an existing tag")}
+        description="""Manage tag objects in your repository.
+
+Tags are used to mark specific points in history as important, such as release versions (e.g., v1.0.0).
+
+Supports both lightweight and annotated tags.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep tag\033[0m
+     List all tags in the repository
+  \033[1;34m⚓️ deep tag v1.0\033[0m
+     Create a lightweight tag at current HEAD
+  \033[1;34m⚓️ deep tag -a v1.1 -m 'Release'\033[0m
+     Create an annotated tag with a message
+  \033[1;34m⚓️ deep tag -d v0.9\033[0m
+     Delete an existing tag
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_tag.add_argument("name", nargs="?", help="The name of the tag to create, list, or delete")
     p_tag.add_argument("object", nargs="?", default="HEAD", help="The commit SHA or reference to tag (default: HEAD)")

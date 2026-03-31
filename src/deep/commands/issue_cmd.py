@@ -19,6 +19,7 @@ from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description,
     Color, print_error, print_success, print_info, print_warning
 )
+import argparse
 from typing import Any
 
 
@@ -27,16 +28,24 @@ def setup_parser(subparsers: Any) -> None:
     p_issue = subparsers.add_parser(
         "issue",
         help="Manage repository issues",
-        description=format_description("Deep Issue tracking allows for local-first, decentralized task management. Issues are stored as objects in your repository and can be synchronized with GitHub or other Deep instances."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep issue create", "Open an interactive template to create a new issue")}
-{format_example("deep issue list", "Display all open issues in the current repository")}
-{format_example("deep issue show 12", "Show full details and timeline for Issue #12")}
-{format_example("deep issue close 12", "Mark Issue #12 as resolved/closed")}
-{format_example("deep issue sync", "Synchronize local issues with the remote platform")}
+        description="""Deep Issue tracking allows for local-first, decentralized task management.
+
+Issues are stored as objects in your repository and can be synchronized with GitHub or other Deep instances.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep issue create\033[0m
+     Open an interactive template to create a new issue
+  \033[1;34m⚓️ deep issue list\033[0m
+     Display all open issues in the current repository
+  \033[1;34m⚓️ deep issue show 12\033[0m
+     Show full details and timeline for Issue #12
+  \033[1;34m⚓️ deep issue close 12\033[0m
+     Mark Issue #12 as resolved/closed
+  \033[1;34m⚓️ deep issue sync\033[0m
+     Synchronize local issues with the remote platform
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     rs = p_issue.add_subparsers(dest="issue_command", metavar="ACTION")
     

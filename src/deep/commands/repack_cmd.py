@@ -11,6 +11,7 @@ from pathlib import Path
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -19,14 +20,20 @@ def setup_parser(subparsers: Any) -> None:
     p_repack = subparsers.add_parser(
         "repack",
         help="Pack detached objects into a packfile",
-        description=format_description("Deep Repack optimizes the object database by aggregating loose objects into highly compressed packfiles. It also generates reachability bitmaps to ultra-accelerate network transfers and revision traversal."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep repack", "Repack all loose objects and generate optimized bitmaps")}
-{format_example("deep repack --no-bitmaps", "Perform repacking without bitmap generation")}
-{format_example("deep repack --aggressive", "Perform a resource-intensive, high-compression repack")}
+        description="""Deep Repack optimizes the object database by aggregating loose objects into highly compressed packfiles.
+
+It also generates reachability bitmaps to ultra-accelerate network transfers and revision traversal.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep repack\033[0m
+     Repack all loose objects and generate optimized bitmaps
+  \033[1;34m⚓️ deep repack --no-bitmaps\033[0m
+     Perform repacking without bitmap generation
+  \033[1;34m⚓️ deep repack --aggressive\033[0m
+     Perform a resource-intensive, high-compression repack
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_repack.add_argument("--no-bitmaps", dest="bitmaps", action="store_false", help="Disable reachability bitmap generation")
 

@@ -24,6 +24,7 @@ from deep.core.config import Config
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -32,14 +33,20 @@ def setup_parser(subparsers: Any) -> None:
     p_pull = subparsers.add_parser(
         "pull",
         help="Fetch from and integrate with another repository",
-        description=format_description("Fetch changes from a remote repository and merge them into the current branch. This command is a combination of 'deep fetch' and 'deep merge'."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep pull origin main", "Fetch and merge 'main' from 'origin' remote")}
-{format_example("deep pull", "Pull changes from the default upstream branch")}
-{format_example("deep pull --rebase", "Fetch and rebase your local commits onto remote changes")}
+        description="""Fetch changes from a remote repository and merge them into the current branch.
+
+This command is a combination of 'deep fetch' and 'deep merge'.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep pull origin main\033[0m
+     Fetch and merge 'main' from 'origin' remote
+  \033[1;34m⚓️ deep pull\033[0m
+     Pull changes from the default upstream branch
+  \033[1;34m⚓️ deep pull --rebase\033[0m
+     Fetch and rebase your local commits onto remote changes
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_pull.add_argument("url", nargs="?", help="The remote repository name or URL (default: origin)")
     p_pull.add_argument("branch", nargs="?", help="The remote branch name to pull from")

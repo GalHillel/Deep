@@ -23,6 +23,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -31,16 +32,24 @@ def setup_parser(subparsers: Any) -> None:
     p_commit = subparsers.add_parser(
         "commit",
         help="Record changes to the repository history",
-        description=format_description("Create a new commit containing the current contents of the staging index. This records a snapshot of the project state with metadata and an optional cryptographic signature."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep commit -m 'Fix bug'", "Create a commit with a manual message")}
-{format_example("deep commit -a -m 'Rel'", "Auto-stage tracked changes and commit")}
-{format_example("deep commit --ai -a", "AI-generated message with auto-stage")}
-{format_example("deep commit -S -m 'Sig'", "Create a cryptographically signed commit")}
-{format_example("deep commit --amend", "Amend the last commit with new changes or message")}
+        description="""Create a new commit containing the current contents of the staging index.
+
+This records a snapshot of the project state with metadata and an optional cryptographic signature.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep commit -m 'Fix bug'\033[0m
+     Create a commit with a manual message
+  \033[1;34m⚓️ deep commit -a -m 'Rel'\033[0m
+     Auto-stage tracked changes and commit
+  \033[1;34m⚓️ deep commit --ai -a\033[0m
+     AI-generated message with auto-stage
+  \033[1;34m⚓️ deep commit -S -m 'Sig'\033[0m
+     Create a cryptographically signed commit
+  \033[1;34m⚓️ deep commit --amend\033[0m
+     Amend the last commit with new changes or message
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_commit.add_argument("-m", "--message", help="The commit message describing the changes")
     p_commit.add_argument("-a", "--all", action="store_true", help="Automatically stage modified and deleted tracked files before committing")

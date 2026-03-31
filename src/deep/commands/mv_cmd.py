@@ -23,6 +23,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -31,14 +32,20 @@ def setup_parser(subparsers: Any) -> None:
     p_mv = subparsers.add_parser(
         "mv",
         help="Move or rename a file or directory",
-        description=format_description("Move or rename a file, directory, or symlink and update the staging index accordingly. This command ensures the repository history tracks the rename efficiently."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep mv old.txt new.txt", "Rename a file in the same directory")}
-{format_example("deep mv file.txt docs/", "Move a file to a different directory")}
-{format_example("deep mv src/ old_src/", "Rename an entire directory")}
+        description="""Move or rename a file, directory, or symlink and update the staging index accordingly.
+
+This command ensures the repository history tracks the rename efficiently.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep mv old.txt new.txt\033[0m
+     Rename a file in the same directory
+  \033[1;34m⚓️ deep mv file.txt docs/\033[0m
+     Move a file to a different directory
+  \033[1;34m⚓️ deep mv src/ old_src/\033[0m
+     Rename an entire directory
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_mv.add_argument("source", help="The source file or directory path")
     p_mv.add_argument("destination", help="The destination file or directory path")

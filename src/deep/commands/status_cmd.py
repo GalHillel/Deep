@@ -14,12 +14,14 @@ from deep.core.refs import get_current_branch, resolve_head
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.utils.ux import DeepHelpFormatter, format_example
+import argparse
 from typing import Any
 
 
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -28,14 +30,20 @@ def setup_parser(subparsers: Any) -> None:
     p_status = subparsers.add_parser(
         "status",
         help="Show the working tree and index status",
-        description=format_description("Displays the current state of the working directory and the staging area (index). Shows which changes have been staged, which haven't, and which files aren't being tracked by Deep."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep status", "Display a human-friendly status overview")}
-{format_example("deep status --short", "Generate a concise summary of changes")}
-{format_example("deep status --porcelain", "Generate machine-readable output for scripts")}
+        description="""Displays the current state of the working directory and the staging area (index).
+
+Shows which changes have been staged, which haven't, and which files aren't being tracked by Deep.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep status\033[0m
+     Display a human-friendly status overview
+  \033[1;34m⚓️ deep status --short\033[0m
+     Generate a concise summary of changes
+  \033[1;34m⚓️ deep status --porcelain\033[0m
+     Generate machine-readable output for scripts
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_status.add_argument("-s", "--short", action="store_true", help="Give the output in short-format")
     p_status.add_argument("--porcelain", action="store_true", help="Give the output in an easy-to-parse format for scripts")

@@ -16,6 +16,7 @@ from deep.network.daemon import DeepDaemon
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -24,17 +25,23 @@ def setup_parser(subparsers: Any) -> None:
     p_daemon = subparsers.add_parser(
         "daemon",
         help="Start a background Deep service",
-        description=format_description("Run a background process to handle periodic maintenance, synchronization, and object serving. The daemon allows other peers to discover and pull from your repository over the network."),
-        epilog=f"""
-{format_header("Examples")}
-{format_header("  Local Service")}
-{format_example("deep daemon", "Start the service on the default local port (8888)")}
-{format_example("deep daemon --port 9000", "Start the service on a custom port")}
+        description="""Run a background process to handle periodic maintenance, synchronization, and object serving.
 
-{format_header("  Network Discovery")}
-{format_example("deep daemon --host 0.0.0.0", "Allow connections from any network interface")}
+The daemon allows other peers to discover and pull from your repository over the network.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+\033[1m  LOCAL SERVICE:\033[0m
+  \033[1;34m⚓️ deep daemon\033[0m
+     Start the service on the default local port (8888)
+  \033[1;34m⚓️ deep daemon --port 9000\033[0m
+     Start the service on a custom port
+
+\033[1m  NETWORK DISCOVERY:\033[0m
+  \033[1;34m⚓️ deep daemon --host 0.0.0.0\033[0m
+     Allow connections from any network interface
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_daemon.add_argument("--host", default="127.0.0.1", help="The host address to bind to (default: 127.0.0.1)")
     p_daemon.add_argument("--port", type=int, default=8888, help="The port number to listen on (default: 8888)")

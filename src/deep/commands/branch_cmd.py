@@ -21,6 +21,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -29,17 +30,26 @@ def setup_parser(subparsers: Any) -> None:
     p_branch = subparsers.add_parser(
         "branch",
         help="List, create, or delete branches",
-        description=format_description("Manage the set of branches in your repository. Use this command to list existing branches, create new ones from a specific starting point, or delete branches that are no longer needed."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep branch", "List all local branches")}
-{format_example("deep branch new-feature", "Create a new branch from current HEAD")}
-{format_example("deep branch bugfix main", "Create 'bugfix' starting from 'main'")}
-{format_example("deep branch -d old-feature", "Delete a local branch")}
-{format_example("deep branch -vv", "List branches with SHAs and tracking info")}
-{format_example("deep branch -a", "List both local and remote-tracking branches")}
+        description="""Manage the set of branches in your repository.
+
+Use this command to list existing branches, create new ones from a specific starting point, or delete branches that are no longer needed.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep branch\033[0m
+     List all local branches
+  \033[1;34m⚓️ deep branch new-feature\033[0m
+     Create a new branch from current HEAD
+  \033[1;34m⚓️ deep branch bugfix main\033[0m
+     Create 'bugfix' starting from 'main'
+  \033[1;34m⚓️ deep branch -d old-feature\033[0m
+     Delete a local branch
+  \033[1;34m⚓️ deep branch -vv\033[0m
+     List branches with SHAs and tracking info
+  \033[1;34m⚓️ deep branch -a\033[0m
+     List both local and remote-tracking branches
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_branch.add_argument("name", nargs="?", help="The name of the branch to create")
     p_branch.add_argument("start_point", nargs="?", default="HEAD", help="The commit/branch to start the new branch from (default: HEAD)")

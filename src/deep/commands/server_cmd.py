@@ -19,6 +19,7 @@ from deep.web.dashboard import DashboardHandler
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -27,14 +28,20 @@ def setup_parser(subparsers: Any) -> None:
     p_server = subparsers.add_parser(
         "server",
         help="Start the Deep platform server instance",
-        description=format_description("Launch an integrated Deep platform server. This command starts a multi-threaded service providing the Deep smart protocol, a RESTful API for integration, and the Deep Studio web interface for visual project management."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep server", "Start the platform server on localhost:8080 (Web) and :8090 (Deep)")}
-{format_example("deep server --host 0.0.0.0 --port 80", "Run the server in production mode on port 80")}
-{format_example("deep server --no-ui", "Start the server without the web interface")}
+        description="""Launch an integrated Deep platform server.
+
+This command starts a multi-threaded service providing the Deep smart protocol, a RESTful API for integration, and the Deep Studio web interface for visual project management.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep server\033[0m
+     Start the platform server on localhost:8080 (Web) and :8090 (Deep)
+  \033[1;34m⚓️ deep server --host 0.0.0.0 --port 80\033[0m
+     Run the server in production mode on port 80
+  \033[1;34m⚓️ deep server --no-ui\033[0m
+     Start the server without the web interface
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_server.add_argument("--host", default="127.0.0.1", help="The host address to bind to (default: 127.0.0.1)")
     p_server.add_argument("--port", type=int, default=8080, help="The base port for the platform server (default: 8080)")

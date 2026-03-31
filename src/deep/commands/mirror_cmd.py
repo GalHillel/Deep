@@ -14,12 +14,14 @@ from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.mirror import MirrorManager
 from deep.core.config import Config
 from deep.utils.ux import DeepHelpFormatter, format_example
+import argparse
 from typing import Any
 
 
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -28,15 +30,22 @@ def setup_parser(subparsers: Any) -> None:
     p_mirror = subparsers.add_parser(
         "mirror",
         help="Manage repository mirrors",
-        description=format_description("Mirror your repository to multiple remote locations simultaneously. Mirrors are updated in parallel to ensure your project exists across redundant endpoints."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep mirror add https://backup-server.com/repo.deep", "Add a new mirror destination")}
-{format_example("deep mirror list", "List all configured mirror endpoints")}
-{format_example("deep mirror sync", "Synchronize all mirrors with the current local state")}
-{format_example("deep mirror remove 2", "Remove a mirror by its index")}
+        description="""Mirror your repository to multiple remote locations simultaneously.
+
+Mirrors are updated in parallel to ensure your project exists across redundant endpoints.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep mirror add https://backup-server.com/repo.deep\033[0m
+     Add a new mirror destination
+  \033[1;34m⚓️ deep mirror list\033[0m
+     List all configured mirror endpoints
+  \033[1;34m⚓️ deep mirror sync\033[0m
+     Synchronize all mirrors with the current local state
+  \033[1;34m⚓️ deep mirror remove 2\033[0m
+     Remove a mirror by its index
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     ms = p_mirror.add_subparsers(dest="mirror_command", metavar="ACTION")
     ms.add_parser("add", help="Add a new mirror").add_argument("url", help="The URL to mirror to")

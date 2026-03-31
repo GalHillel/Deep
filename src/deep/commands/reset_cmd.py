@@ -19,6 +19,7 @@ from pathlib import Path
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -27,15 +28,22 @@ def setup_parser(subparsers: Any) -> None:
     p_reset = subparsers.add_parser(
         "reset",
         help="Reset HEAD to a specific state",
-        description=format_description("Reset the current branch HEAD to a specified commit. Optionally, reset the staging index (--mixed, default) or both the index and working tree (--hard)."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep reset HEAD~1", "Undo the last commit, keeping changes staged")}
-{format_example("deep reset --hard HEAD", "Discard all local changes and reset to last commit")}
-{format_example("deep reset <sha>", "Point current branch to a specific commit SHA")}
-{format_example("deep reset --soft HEAD~3", "Move HEAD back 3 commits, keep index/worktree as is")}
+        description="""Reset the current branch HEAD to a specified commit.
+
+Optionally, reset the staging index (--mixed, default) or both the index and working tree (--hard).""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep reset HEAD~1\033[0m
+     Undo the last commit, keeping changes staged
+  \033[1;34m⚓️ deep reset --hard HEAD\033[0m
+     Discard all local changes and reset to last commit
+  \033[1;34m⚓️ deep reset <sha>\033[0m
+     Point current branch to a specific commit SHA
+  \033[1;34m⚓️ deep reset --soft HEAD~3\033[0m
+     Move HEAD back 3 commits, keep index/worktree as is
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_reset.add_argument("commit", nargs="?", default="HEAD", help="The commit identifier or reference to reset to (default: HEAD)")
     p_reset.add_argument("--hard", action="store_true", help="Reset index and working tree (all local changes will be lost)")

@@ -12,6 +12,7 @@ from deep.core.benchmark import run_benchmarks
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description, Color
 )
+import argparse
 from typing import Any
 
 
@@ -20,15 +21,22 @@ def setup_parser(subparsers: Any) -> None:
     p_bench = subparsers.add_parser(
         "benchmark",
         help="Measure performance of core operations",
-        description=format_description("Deep Benchmark runs a comprehensive performance suite against the current repository. It measures the throughput of object hashing, commit creation speed, the efficiency of the history graph traversal, and provides comparative analysis against native Deep implementations."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep benchmark", "Run the standard performance suite and display summary results")}
-{format_example("deep benchmark --verbose", "Show live metrics for every operation during the benchmark")}
-{format_example("deep benchmark --compare-git", "Compare current performance against native Deep standards")}
-{format_example("deep benchmark --report", "Generate a detailed JSON report (benchmark_report.json)")}
+        description="""Deep Benchmark runs a comprehensive performance suite against the current repository.
+
+It measures the throughput of object hashing, commit creation speed, the efficiency of the history graph traversal, and provides comparative analysis against native Deep implementations.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep benchmark\033[0m
+     Run the standard performance suite and display summary results
+  \033[1;34m⚓️ deep benchmark --verbose\033[0m
+     Show live metrics for every operation during the benchmark
+  \033[1;34m⚓️ deep benchmark --compare-git\033[0m
+     Compare current performance against native Deep standards
+  \033[1;34m⚓️ deep benchmark --report\033[0m
+     Generate a detailed JSON report (benchmark_report.json)
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_bench.add_argument("--verbose", action="store_true", help="Show detailed metrics during benchmarking")
     p_bench.add_argument("--report", action="store_true", help="Save results to benchmark_report.json")

@@ -16,6 +16,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -24,15 +25,22 @@ def setup_parser(subparsers: Any) -> None:
     p_verify = subparsers.add_parser(
         "verify",
         help="Verify commit signatures and DAG integrity",
-        description=format_description("Perform a comprehensive security and integrity audit of the repository. This command verifies cryptographic commit signatures, DAG connectivity, audit chain consistency, and Write-Ahead Log (WAL) integrity."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep verify", "Run a full suite of integrity and security checks")}
-{format_example("deep verify --all", "Audit all branches and tags in the repository")}
-{format_example("deep verify --quick", "Perform a fast check of recent history only")}
-{format_example("deep verify --verbose", "Show detailed verification results for each commit")}
+        description="""Perform a comprehensive security and integrity audit of the repository.
+
+This command verifies cryptographic commit signatures, DAG connectivity, audit chain consistency, and Write-Ahead Log (WAL) integrity.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep verify\033[0m
+     Run a full suite of integrity and security checks
+  \033[1;34m⚓️ deep verify --all\033[0m
+     Audit all branches and tags in the repository
+  \033[1;34m⚓️ deep verify --quick\033[0m
+     Perform a fast check of recent history only
+  \033[1;34m⚓️ deep verify --verbose\033[0m
+     Show detailed verification results for each commit
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
 
 

@@ -30,16 +30,26 @@ def setup_parser(subparsers: Any) -> None:
     p_pr = subparsers.add_parser(
         "pr",
         help="Manage Pull Requests",
-        description=format_description("Comprehensive Pull Request lifecycle management. Create, list, review, and merge pull requests directly from your terminal. Supports seamless synchronization with GitHub and other Deep instances."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep pr create", "Open an interactive template to create a new PR")}
-{format_example("deep pr list", "Browse all open pull requests in the current repository")}
-{format_example("deep pr show 42", "View detailed status, threads, and reviews for PR #42")}
-{format_example("deep pr review 42", "Start an interactive code review session for PR #42")}
-{format_example("deep pr merge 42", "Finalize and merge PR #42 into its target branch")}
+        description="""Comprehensive Pull Request lifecycle management.
+
+Create, list, review, and merge pull requests directly from your terminal.
+
+Supports seamless synchronization with GitHub and other Deep instances.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep pr create\033[0m
+     Open an interactive template to create a new PR
+  \033[1;34m⚓️ deep pr list\033[0m
+     Browse all open pull requests in the current repository
+  \033[1;34m⚓️ deep pr show 42\033[0m
+     View detailed status, threads, and reviews for PR #42
+  \033[1;34m⚓️ deep pr review 42\033[0m
+     Start an interactive code review session for PR #42
+  \033[1;34m⚓️ deep pr merge 42\033[0m
+     Finalize and merge PR #42 into its target branch
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     rs = p_pr.add_subparsers(dest="pr_command", metavar="ACTION")
     

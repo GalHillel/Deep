@@ -19,6 +19,7 @@ from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description,
     Color, print_error, print_success, print_info
 )
+import argparse
 from typing import Any
 
 
@@ -27,15 +28,22 @@ def setup_parser(subparsers: Any) -> None:
     p_pipeline = subparsers.add_parser(
         "pipeline",
         help="Manage CI/CD pipelines",
-        description=format_description("Deep CI/CD pipelines automate building, testing, and deploying your code. Pipelines can run locally for fast feedback or remotely on Deep Server or GitHub Actions."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep pipeline trigger", "Trigger a new local pipeline run for the current commit")}
-{format_example("deep pipeline list", "Display recent pipeline runs and their status")}
-{format_example("deep pipeline status 5", "Show detailed status and logs for Pipeline Run #5")}
-{format_example("deep pipeline sync", "Synchronize pipeline status with GitHub Actions")}
+        description="""Deep CI/CD pipelines automate building, testing, and deploying your code.
+
+Pipelines can run locally for fast feedback or remotely on Deep Server or GitHub Actions.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep pipeline trigger\033[0m
+     Trigger a new local pipeline run for the current commit
+  \033[1;34m⚓️ deep pipeline list\033[0m
+     Display recent pipeline runs and their status
+  \033[1;34m⚓️ deep pipeline status 5\033[0m
+     Show detailed status and logs for Pipeline Run #5
+  \033[1;34m⚓️ deep pipeline sync\033[0m
+     Synchronize pipeline status with GitHub Actions
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     rs = p_pipeline.add_subparsers(dest="pipeline_command", metavar="ACTION")
     

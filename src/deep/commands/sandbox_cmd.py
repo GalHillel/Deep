@@ -16,6 +16,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -24,15 +25,22 @@ def setup_parser(subparsers: Any) -> None:
     p_sandbox = subparsers.add_parser(
         "sandbox",
         help="Manage isolated execution environments",
-        description=format_description("Deep Sandbox provides a secure, isolated execution environment for running untrusted scripts, isolated builds, or experimental code. Sandboxes enforce filesystem restrictions, memory limits, and timeouts to protect the host system."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep sandbox run app.py", "Execute 'app.py' within a secure, restricted sandbox")}
-{format_example("deep sandbox run build.sh --image ubuntu", "Run a build script in an Ubuntu container sandbox")}
-{format_example("deep sandbox list", "Display all active and recently terminated sandboxes")}
-{format_example("deep sandbox remove dev-env", "Permanently delete a specific sandbox environment")}
+        description="""Deep Sandbox provides a secure, isolated execution environment for running untrusted scripts, isolated builds, or experimental code.
+
+Sandboxes enforce filesystem restrictions, memory limits, and timeouts to protect the host system.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep sandbox run app.py\033[0m
+     Execute 'app.py' within a secure, restricted sandbox
+  \033[1;34m⚓️ deep sandbox run build.sh --image ubuntu\033[0m
+     Run a build script in an Ubuntu container sandbox
+  \033[1;34m⚓️ deep sandbox list\033[0m
+     Display all active and recently terminated sandboxes
+  \033[1;34m⚓️ deep sandbox remove dev-env\033[0m
+     Permanently delete a specific sandbox environment
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     rs = p_sandbox.add_subparsers(dest="sandbox_command", metavar="ACTION")
     

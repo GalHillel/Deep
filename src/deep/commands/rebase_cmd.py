@@ -26,6 +26,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -34,15 +35,22 @@ def setup_parser(subparsers: Any) -> None:
     p_rebase = subparsers.add_parser(
         "rebase",
         help="Reapply commits on top of another base tip",
-        description=format_description("Forward-port local commits to the updated upstream head. Rebase reapplies commits from your current branch onto the tip of another branch, creating a linear history."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep rebase main", "Rebase current branch onto the 'main' branch")}
-{format_example("deep rebase origin/main", "Rebase onto the remote tracking branch")}
-{format_example("deep rebase --continue", "Resume rebase after resolving merge conflicts")}
-{format_example("deep rebase --abort", "Cancel the rebase and return to the original state")}
+        description="""Forward-port local commits to the updated upstream head.
+
+Rebase reapplies commits from your current branch onto the tip of another branch, creating a linear history.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep rebase main\033[0m
+     Rebase current branch onto the 'main' branch
+  \033[1;34m⚓️ deep rebase origin/main\033[0m
+     Rebase onto the remote tracking branch
+  \033[1;34m⚓️ deep rebase --continue\033[0m
+     Resume rebase after resolving merge conflicts
+  \033[1;34m⚓️ deep rebase --abort\033[0m
+     Cancel the rebase and return to the original state
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_rebase.add_argument("upstream", nargs="?", help="The upstream branch or commit to rebase onto")
     p_rebase.add_argument("--continue", dest="cont", action="store_true", help="Continue the rebase process after resolving conflicts")

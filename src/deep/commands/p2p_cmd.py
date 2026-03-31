@@ -5,6 +5,7 @@ import threading
 import sys
 import time
 from pathlib import Path
+import argparse
 from typing import Any
 
 from deep.core.errors import DeepCLIException
@@ -22,15 +23,22 @@ def setup_parser(subparsers: Any) -> None:
     p_p2p = subparsers.add_parser(
         "p2p",
         help="Experimental P2P sync and discovery",
-        description=format_description("Deep P2P mesh networking allows for decentralized repository synchronization and peer discovery without a central server. Highly efficient for local networks and air-gapped environments."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep p2p start", "Start a P2P node and begin background discovery")}
-{format_example("deep p2p list", "Scan the local network and list available peers")}
-{format_example("deep p2p sync", "Initiate object and ref synchronization with found peers")}
-{format_example("deep p2p sync --peer 192.168.1.5:9001", "Connect directly to a specific peer")}
+        description="""Deep P2P mesh networking allows for decentralized repository synchronization and peer discovery without a central server.
+
+Highly efficient for local networks and air-gapped environments.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep p2p start\033[0m
+     Start a P2P node and begin background discovery
+  \033[1;34m⚓️ deep p2p list\033[0m
+     Scan the local network and list available peers
+  \033[1;34m⚓️ deep p2p sync\033[0m
+     Initiate object and ref synchronization with found peers
+  \033[1;34m⚓️ deep p2p sync --peer 192.168.1.5:9001\033[0m
+     Connect directly to a specific peer
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     rs = p_p2p.add_subparsers(dest="p2p_command", metavar="ACTION")
     

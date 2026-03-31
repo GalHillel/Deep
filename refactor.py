@@ -21,19 +21,18 @@ for file_path in cmd_files:
     content = content.replace("formatter_class=DeepHelpFormatter", "formatter_class=argparse.RawTextHelpFormatter")
 
     # 3. Handle descriptions.
-    # From format_description("...") to """..."""
-    # Some descriptions have multiple sentences. Let's convert format_description("text.") to """text.""" 
-    # and maybe split sentences into paragraphs if long, or just leave as is.
+    # From description=format_description("xyz") to description="""xyz"""
     def replace_description(m):
         desc = m.group(1)
-        # Add basic newlines instead of long single lines
         desc = re.sub(r'(\. )([A-Z])', r'.\n\n\2', desc)
         return f'description="""{desc}"""'
         
     content = re.sub(r'description=format_description\(\s*"([^"]+)"\s*\)', replace_description, content)
-
+    
+    # What if it's already description="xyz" without format_description?
+    # We leave it alone, but just to be safe, any description="""...""" is fine.
+    
     # 4. Handle epilogs
-    # Replace the {format_header("...")}
     def replace_header(m):
         title = m.group(1).upper()
         if not title.endswith(":"):
@@ -42,7 +41,6 @@ for file_path in cmd_files:
         
     content = re.sub(r'\{format_header\(\s*"([^"]+)"\s*\)\}', replace_header, content)
 
-    # Replace the {format_example("cmd", "desc")}
     def replace_example(m):
         cmd = m.group(1)
         desc = m.group(2)
@@ -50,7 +48,6 @@ for file_path in cmd_files:
 
     content = re.sub(r'\{format_example\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)\}', replace_example, content)
     
-    # Also handle standalone {Color.wrap(...)}
     def replace_color_wrap(m):
         color = m.group(1)
         text = m.group(2)
@@ -62,14 +59,9 @@ for file_path in cmd_files:
         
     content = re.sub(r'\{Color\.wrap\(Color\.(\w+),\s*"([^"]+)"\)\}', replace_color_wrap, content)
 
-    # Note: F-strings for epilog no longer need 'f' if there are no braces remaining, 
-    # but maintaining 'f' is harmless if no braces are present, or we can strip 'f'.
-    # Actually, the user's example doesn't use 'f'. Let's strip 'f' if no braces.
     content = re.sub(r'epilog=f"""', 'epilog="""\n', content)
-
-    # 5. Clean up unused imports from ux
-    content = re.sub(r'from deep\.utils\.ux import \([^\)]+\)', '', content, flags=re.MULTILINE | re.DOTALL)
-    content = re.sub(r'from deep\.utils\.ux import .*\n', '', content)
+    
+    # 5. We don't remove ux imports to avoid breaking Color usage in run() functions.
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)

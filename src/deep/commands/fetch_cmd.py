@@ -24,6 +24,7 @@ from deep.core.config import Config
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -32,15 +33,22 @@ def setup_parser(subparsers: Any) -> None:
     p_fetch = subparsers.add_parser(
         "fetch",
         help="Download objects and refs from another repository",
-        description=format_description("Download branches, tags, and associated objects from another repository. This updates your remote-tracking branches but does not modify your local work until you merge or rebase."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep fetch origin", "Update remote-tracking branches from 'origin'")}
-{format_example("deep fetch --all", "Fetch from all configured remotes")}
-{format_example("deep fetch origin main", "Fetch only the 'main' branch from 'origin'")}
-{format_example("deep fetch --prune", "Remove remote-tracking refs that no longer exist on remote")}
+        description="""Download branches, tags, and associated objects from another repository.
+
+This updates your remote-tracking branches but does not modify your local work until you merge or rebase.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep fetch origin\033[0m
+     Update remote-tracking branches from 'origin'
+  \033[1;34m⚓️ deep fetch --all\033[0m
+     Fetch from all configured remotes
+  \033[1;34m⚓️ deep fetch origin main\033[0m
+     Fetch only the 'main' branch from 'origin'
+  \033[1;34m⚓️ deep fetch --prune\033[0m
+     Remove remote-tracking refs that no longer exist on remote
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_fetch.add_argument("url", nargs="?", default="origin", help="The remote repository name or URL to fetch from (default: origin)")
     p_fetch.add_argument("branch", nargs="?", help="Specific branch to fetch")

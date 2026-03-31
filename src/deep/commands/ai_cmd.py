@@ -8,6 +8,7 @@ from __future__ import annotations
 import sys
 import os
 from pathlib import Path
+import argparse
 from typing import Any
 
 from deep.core.errors import DeepCLIException
@@ -24,16 +25,24 @@ def setup_parser(subparsers: Any) -> None:
     p_ai = subparsers.add_parser(
         "ai",
         help="Deep AI assistant for intelligent tasks",
-        description=format_description("Interact with the Deep AI assistant. Use AI to suggest commit messages, perform code reviews, predict merge conflicts, and automate complex refactorings."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep ai suggest", "Generate a suggested commit message based on staged changes")}
-{format_example("deep ai review", "Perform an automated AI code review of current changes")}
-{format_example("deep ai predict-merge feature", "Predict potential conflicts if merging 'feature'")}
-{format_example("deep ai refactor", "Apply AI-suggested refactorings to your code")}
-{format_example("deep ai interactive", "Start an interactive AI chat session about the repository")}
+        description="""Interact with the Deep AI assistant.
+
+Use AI to suggest commit messages, perform code reviews, predict merge conflicts, and automate complex refactorings.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep ai suggest\033[0m
+     Generate a suggested commit message based on staged changes
+  \033[1;34m⚓️ deep ai review\033[0m
+     Perform an automated AI code review of current changes
+  \033[1;34m⚓️ deep ai predict-merge feature\033[0m
+     Predict potential conflicts if merging 'feature'
+  \033[1;34m⚓️ deep ai refactor\033[0m
+     Apply AI-suggested refactorings to your code
+  \033[1;34m⚓️ deep ai interactive\033[0m
+     Start an interactive AI chat session about the repository
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     rs = p_ai.add_subparsers(dest="ai_command", metavar="ACTION")
     

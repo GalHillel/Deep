@@ -13,12 +13,14 @@ from pathlib import Path
 from deep.core.config import Config
 from deep.core.repository import find_repo
 from deep.utils.ux import DeepHelpFormatter, format_example
+import argparse
 from typing import Any
 
 
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -27,15 +29,22 @@ def setup_parser(subparsers: Any) -> None:
     p_remote = subparsers.add_parser(
         "remote",
         help="Manage set of tracked repositories",
-        description=format_description("Manage the set of repositories ('remotes') whose branches you track. Remotes are identified by a name (like 'origin') and a URL/path."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep remote", "List all configured remotes and their URLs")}
-{format_example("deep remote add origin <url>", "Add a new remote named 'origin'")}
-{format_example("deep remote remove dev", "Remove the 'dev' remote from configuration")}
-{format_example("deep remote set-url origin <new-url>", "Update the URL for 'origin'")}
+        description="""Manage the set of repositories ('remotes') whose branches you track.
+
+Remotes are identified by a name (like 'origin') and a URL/path.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep remote\033[0m
+     List all configured remotes and their URLs
+  \033[1;34m⚓️ deep remote add origin <url>\033[0m
+     Add a new remote named 'origin'
+  \033[1;34m⚓️ deep remote remove dev\033[0m
+     Remove the 'dev' remote from configuration
+  \033[1;34m⚓️ deep remote set-url origin <new-url>\033[0m
+     Update the URL for 'origin'
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     rs = p_remote.add_subparsers(dest="remote_command", metavar="ACTION")
     

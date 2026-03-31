@@ -21,6 +21,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description, Color
 )
+import argparse
 from typing import Any
 
 
@@ -29,18 +30,23 @@ def setup_parser(subparsers: Any) -> None:
     p_ultra = subparsers.add_parser(
         "ultra",
         help="Run comprehensive repository optimization",
-        description=format_description("Deep Ultra Mode executes an exhaustive, multi-stage system optimization. It combines Garbage Collection, Object Repacking, and Commit Graph Rebuilding into a single high-performance operation to ensure the repository is running at maximum efficiency."),
-        epilog=f"""
-{format_header("Optimization Stages")}
-{Color.wrap(Color.CYAN, "  1. Garbage Collection")}      — Identify and prune unreachable objects
-{Color.wrap(Color.CYAN, "  2. Object Repacking")}        — Consolidate loose objects into packfiles
-{Color.wrap(Color.CYAN, "  3. Commit Graph Rebuilding")} — Regenerate the binary history index
+        description="""Deep Ultra Mode executes an exhaustive, multi-stage system optimization.
 
-{format_header("Examples")}
-{format_example("deep ultra", "Execute all optimization stages for the current repository")}
-{format_example("deep ultra --aggressive", "Perform a high-compression, time-intensive optimization")}
+It combines Garbage Collection, Object Repacking, and Commit Graph Rebuilding into a single high-performance operation to ensure the repository is running at maximum efficiency.""",
+        epilog="""
+
+\033[1mOPTIMIZATION STAGES:\033[0m
+\033[1;36m  1. Garbage Collection\033[0m      — Identify and prune unreachable objects
+\033[1;36m  2. Object Repacking\033[0m        — Consolidate loose objects into packfiles
+\033[1;36m  3. Commit Graph Rebuilding\033[0m — Regenerate the binary history index
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep ultra\033[0m
+     Execute all optimization stages for the current repository
+  \033[1;34m⚓️ deep ultra --aggressive\033[0m
+     Perform a high-compression, time-intensive optimization
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
 
 

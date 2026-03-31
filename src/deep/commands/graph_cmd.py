@@ -12,6 +12,7 @@ from deep.core.graph import get_history_graph, render_graph
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -20,15 +21,22 @@ def setup_parser(subparsers: Any) -> None:
     p_graph = subparsers.add_parser(
         "graph",
         help="Visualize the commit graph",
-        description=format_description("Render a high-fidelity, text-based ASCII visualization of the repository's commit history. The graph displays the relationship between commits, branches, and tags, making it easy to track merges, forks, and the overall evolution of the project."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep graph", "Visualize the history of the current branch")}
-{format_example("deep graph --all", "Include all references (branches, tags, remotes) in the graph")}
-{format_example("deep graph -n 20", "Limit the graph to the 20 most recent commits")}
-{format_example("deep graph --oneline", "Display a condensed, single-line-per-commit graph")}
+        description="""Render a high-fidelity, text-based ASCII visualization of the repository's commit history.
+
+The graph displays the relationship between commits, branches, and tags, making it easy to track merges, forks, and the overall evolution of the project.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep graph\033[0m
+     Visualize the history of the current branch
+  \033[1;34m⚓️ deep graph --all\033[0m
+     Include all references (branches, tags, remotes) in the graph
+  \033[1;34m⚓️ deep graph -n 20\033[0m
+     Limit the graph to the 20 most recent commits
+  \033[1;34m⚓️ deep graph --oneline\033[0m
+     Display a condensed, single-line-per-commit graph
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_graph.add_argument("--all", action="store_true", help="Include all references (branches and tags) in the graph")
     p_graph.add_argument("-n", "--max-count", type=int, default=100, help="Maximum number of commits to display (default: 100)")

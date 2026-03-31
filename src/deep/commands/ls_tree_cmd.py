@@ -18,6 +18,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -26,15 +27,22 @@ def setup_parser(subparsers: Any) -> None:
     p_ls_tree = subparsers.add_parser(
         "ls-tree",
         help="List the contents of a tree object",
-        description=format_description("Display the contents of a specific tree object or the tree associated with a commit. This command provides a detailed view of the repository's file structure at a given point in time, including file modes, object types, and SHA-1 hashes."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep ls-tree HEAD", "List all files and directories in the current commit")}
-{format_example("deep ls-tree main:src/", "List the contents of the 'src/' directory in the 'main' branch")}
-{format_example("deep ls-tree -r abc1234", "Recursively list all files in a specific commit")}
-{format_example("deep ls-tree --name-only HEAD", "Show only the filenames without modes or hashes")}
+        description="""Display the contents of a specific tree object or the tree associated with a commit.
+
+This command provides a detailed view of the repository's file structure at a given point in time, including file modes, object types, and SHA-1 hashes.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep ls-tree HEAD\033[0m
+     List all files and directories in the current commit
+  \033[1;34m⚓️ deep ls-tree main:src/\033[0m
+     List the contents of the 'src/' directory in the 'main' branch
+  \033[1;34m⚓️ deep ls-tree -r abc1234\033[0m
+     Recursively list all files in a specific commit
+  \033[1;34m⚓️ deep ls-tree --name-only HEAD\033[0m
+     Show only the filenames without modes or hashes
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_ls_tree.add_argument("treeish", help="The tree or commit identifier to list")
     p_ls_tree.add_argument("-r", "--recursive", action="store_true", help="Recurse into sub-trees")

@@ -12,6 +12,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -20,15 +21,24 @@ def setup_parser(subparsers: Any) -> None:
     p_config = subparsers.add_parser(
         "config",
         help="Get and set repository or global options",
-        description=format_description("Manage Deep configuration settings. Configuration can be stored at the repository level (local) or at the user level (global). Use this to configure identities, editors, network settings, and AI preferences."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep config user.name 'Alice'", "Set the local user name for this repository")}
-{format_example("deep config --global user.email 'alice@dev.io'", "Set your global email address")}
-{format_example("deep config core.editor", "Get the configured editor for this repository")}
-{format_example("deep config --list", "List all effective configuration variables")}
+        description="""Manage Deep configuration settings.
+
+Configuration can be stored at the repository level (local) or at the user level (global).
+
+Use this to configure identities, editors, network settings, and AI preferences.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep config user.name 'Alice'\033[0m
+     Set the local user name for this repository
+  \033[1;34m⚓️ deep config --global user.email 'alice@dev.io'\033[0m
+     Set your global email address
+  \033[1;34m⚓️ deep config core.editor\033[0m
+     Get the configured editor for this repository
+  \033[1;34m⚓️ deep config --list\033[0m
+     List all effective configuration variables
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_config.add_argument("key", help="The configuration key to set or query")
     p_config.add_argument("value", nargs="?", help="The value to set for the given key")

@@ -20,6 +20,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -28,17 +29,23 @@ def setup_parser(subparsers: Any) -> None:
     p_rollback = subparsers.add_parser(
         "rollback",
         help="Undo the last repository transaction",
-        description=format_description("Roll back the repository state (HEAD, index, and working tree) to a previous commit or transaction. This command is a powerful safety net for undoing accidental merges, deletions, or corrupting operations."),
-        epilog=f"""
-{format_header("Examples")}
-{format_header("  Quick Undo")}
-{format_example("deep rollback", "Undo the most recent command (reset to HEAD~1)")}
+        description="""Roll back the repository state (HEAD, index, and working tree) to a previous commit or transaction.
 
-{format_header("  Targeted Restoration")}
-{format_example("deep rollback abc1234", "Reset exactly to the specified commit SHA")}
-{format_example("deep rollback --force", "Force rollback even with uncommitted changes")}
+This command is a powerful safety net for undoing accidental merges, deletions, or corrupting operations.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+\033[1m  QUICK UNDO:\033[0m
+  \033[1;34m⚓️ deep rollback\033[0m
+     Undo the most recent command (reset to HEAD~1)
+
+\033[1m  TARGETED RESTORATION:\033[0m
+  \033[1;34m⚓️ deep rollback abc1234\033[0m
+     Reset exactly to the specified commit SHA
+  \033[1;34m⚓️ deep rollback --force\033[0m
+     Force rollback even with uncommitted changes
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_rollback.add_argument("commit", nargs="?", default="HEAD~1", help="The commit identifier to rollback to (default: HEAD~1)")
     p_rollback.add_argument("--force", action="store_true", help="Force rollback even if the working tree is dirty")

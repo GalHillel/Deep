@@ -16,6 +16,7 @@ from deep.platform.platform import PlatformManager
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -24,15 +25,22 @@ def setup_parser(subparsers: Any) -> None:
     p_repo = subparsers.add_parser(
         "repo",
         help="Manage repository metadata and platform links",
-        description=format_description("Configure repository-level settings, access control, and platform integration. Use this command to manage your projects on the Deep platform or local Deep Server instances."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep repo list", "List all repositories available on the current server")}
-{format_example("deep repo create project-x", "Create a new repository named 'project-x'")}
-{format_example("deep repo permit alice developer", "Grant 'alice' developer access to the current repo")}
-{format_example("deep repo delete legacy-app", "Permanently delete the 'legacy-app' repository")}
+        description="""Configure repository-level settings, access control, and platform integration.
+
+Use this command to manage your projects on the Deep platform or local Deep Server instances.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep repo list\033[0m
+     List all repositories available on the current server
+  \033[1;34m⚓️ deep repo create project-x\033[0m
+     Create a new repository named 'project-x'
+  \033[1;34m⚓️ deep repo permit alice developer\033[0m
+     Grant 'alice' developer access to the current repo
+  \033[1;34m⚓️ deep repo delete legacy-app\033[0m
+     Permanently delete the 'legacy-app' repository
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     rsub = p_repo.add_subparsers(dest="repo_command", metavar="ACTION")
     

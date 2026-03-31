@@ -15,6 +15,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -23,16 +24,24 @@ def setup_parser(subparsers: Any) -> None:
     p_stash = subparsers.add_parser(
         "stash",
         help="Stash temporary changes",
-        description=format_description("Save your local modifications to a temporary stack and reset the working directory to match the HEAD commit. This allows you to quickly switch contexts without committing unfinished work."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep stash", "Save current changes to a new stash entry")}
-{format_example("deep stash list", "View all current stashed changes")}
-{format_example("deep stash pop", "Apply the most recent stash and remove it from the stack")}
-{format_example("deep stash apply", "Apply the most recent stash but keep it in the stack")}
-{format_example("deep stash drop", "Discard the most recent stash entry")}
+        description="""Save your local modifications to a temporary stack and reset the working directory to match the HEAD commit.
+
+This allows you to quickly switch contexts without committing unfinished work.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep stash\033[0m
+     Save current changes to a new stash entry
+  \033[1;34m⚓️ deep stash list\033[0m
+     View all current stashed changes
+  \033[1;34m⚓️ deep stash pop\033[0m
+     Apply the most recent stash and remove it from the stack
+  \033[1;34m⚓️ deep stash apply\033[0m
+     Apply the most recent stash but keep it in the stack
+  \033[1;34m⚓️ deep stash drop\033[0m
+     Discard the most recent stash entry
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_stash.add_argument("action", choices=["push", "save", "pop", "list", "drop", "clear", "apply"], nargs="?", default="save", help="The stash operation to perform (default: save)")
 from deep.core.stash import get_stash_list, pop_stash, save_stash

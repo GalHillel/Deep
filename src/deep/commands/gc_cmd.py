@@ -15,6 +15,7 @@ from deep.core.repository import find_repo
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -23,15 +24,22 @@ def setup_parser(subparsers: Any) -> None:
     p_gc = subparsers.add_parser(
         "gc",
         help="Cleanup and optimize the local repository",
-        description=format_description("Run Garbage Collection (gc) to optimize the object database. This command removes unreachable objects, compresses history, and performs general maintenance to keep the repository fast and lean."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep gc", "Perform standard repository maintenance and optimization")}
-{format_example("deep gc --prune=now", "Immediately remove all unreachable objects")}
-{format_example("deep gc --aggressive", "Perform a deep, time-consuming compression of history")}
-{format_example("deep gc --auto", "Only run if the repository satisfies optimization thresholds")}
+        description="""Run Garbage Collection (gc) to optimize the object database.
+
+This command removes unreachable objects, compresses history, and performs general maintenance to keep the repository fast and lean.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep gc\033[0m
+     Perform standard repository maintenance and optimization
+  \033[1;34m⚓️ deep gc --prune=now\033[0m
+     Immediately remove all unreachable objects
+  \033[1;34m⚓️ deep gc --aggressive\033[0m
+     Perform a deep, time-consuming compression of history
+  \033[1;34m⚓️ deep gc --auto\033[0m
+     Only run if the repository satisfies optimization thresholds
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_gc.add_argument("--auto", action="store_true", help="Only run if the repository needs optimization")
     p_gc.add_argument("--prune", action="store_true", help="Prune unreachable objects (older than 2 weeks by default)")

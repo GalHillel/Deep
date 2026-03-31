@@ -19,6 +19,7 @@ from deep.storage.index import read_index, write_index, DeepIndex, DeepIndexEntr
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -27,14 +28,20 @@ def setup_parser(subparsers: Any) -> None:
     p_migrate = subparsers.add_parser(
         "migrate",
         help="Upgrade a Deep repository to the latest format",
-        description=format_description("Upgrade your Deep repository to the latest storage and metadata formats. Migration ensures compatibility with the newest features, including DeepVault object packing and accelerated history graphs."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep migrate", "Upgrade the current repository to the latest native format")}
-{format_example("deep migrate --path /path/to/repo", "Migrate a specific repository path")}
-{format_example("deep migrate --dry-run", "Identify required migration steps without applying changes")}
+        description="""Upgrade your Deep repository to the latest storage and metadata formats.
+
+Migration ensures compatibility with the newest features, including DeepVault object packing and accelerated history graphs.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep migrate\033[0m
+     Upgrade the current repository to the latest native format
+  \033[1;34m⚓️ deep migrate --path /path/to/repo\033[0m
+     Migrate a specific repository path
+  \033[1;34m⚓️ deep migrate --dry-run\033[0m
+     Identify required migration steps without applying changes
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
 
 

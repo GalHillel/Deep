@@ -31,14 +31,20 @@ def setup_parser(subparsers: Any) -> None:
     p_doctor = subparsers.add_parser(
         "doctor",
         help="Check the repository for consistency and health",
-        description=format_description("Deep Doctor performs a deep diagnostic scan of the repository. It verifies the structural integrity of objects, ensures references (refs) point to valid commits, checks the index for corruption, and validates the consistency of branching and PR metadata."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep doctor", "Run a comprehensive health check on the current repository")}
-{format_example("deep doctor --fix", "Identify and attempt to automatically repair non-critical issues")}
-{format_example("deep doctor --verbose", "Show detailed diagnostic output for every verified component")}
+        description="""Deep Doctor performs a deep diagnostic scan of the repository.
+
+It verifies the structural integrity of objects, ensures references (refs) point to valid commits, checks the index for corruption, and validates the consistency of branching and PR metadata.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep doctor\033[0m
+     Run a comprehensive health check on the current repository
+  \033[1;34m⚓️ deep doctor --fix\033[0m
+     Identify and attempt to automatically repair non-critical issues
+  \033[1;34m⚓️ deep doctor --verbose\033[0m
+     Show detailed diagnostic output for every verified component
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_doctor.add_argument("--fix", action="store_true", help="Attempt to automatically repair detected issues")
 

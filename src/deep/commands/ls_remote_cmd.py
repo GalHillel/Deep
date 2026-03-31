@@ -18,6 +18,7 @@ from deep.core.constants import DEEP_DIR
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -26,15 +27,22 @@ def setup_parser(subparsers: Any) -> None:
     p_ls_remote = subparsers.add_parser(
         "ls-remote",
         help="List references in a remote repository",
-        description=format_description("Displays the references (branches, tags, and HEAD) available at a remote URL or named remote. Useful for inspecting a remote's state without fetching objects."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep ls-remote origin", "List all references from the 'origin' remote")}
-{format_example("deep ls-remote https://github.com/user/repo", "List refs from a specific URL")}
-{format_example("deep ls-remote --heads origin", "List only branches (heads) from 'origin'")}
-{format_example("deep ls-remote --tags origin", "List only tags from 'origin'")}
+        description="""Displays the references (branches, tags, and HEAD) available at a remote URL or named remote.
+
+Useful for inspecting a remote's state without fetching objects.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep ls-remote origin\033[0m
+     List all references from the 'origin' remote
+  \033[1;34m⚓️ deep ls-remote https://github.com/user/repo\033[0m
+     List refs from a specific URL
+  \033[1;34m⚓️ deep ls-remote --heads origin\033[0m
+     List only branches (heads) from 'origin'
+  \033[1;34m⚓️ deep ls-remote --tags origin\033[0m
+     List only tags from 'origin'
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_ls_remote.add_argument("url", nargs="?", default="origin", help="The remote repository name or URL to query (default: origin)")
     p_ls_remote.add_argument("--heads", action="store_true", help="Limit to remote branches (refs/heads/*)")

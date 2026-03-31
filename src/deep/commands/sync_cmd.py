@@ -20,15 +20,22 @@ def setup_parser(subparsers: Any) -> None:
     p_sync = subparsers.add_parser(
         "sync",
         help="Synchronize with remotes, mirrors and peers",
-        description=format_description("Perform a high-level synchronization of your repository state. This command orchestrates fetching changes from upstream sources and optionally pushing to configured mirrors, ensuring your project is fully up-to-date across all endpoints."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep sync", "Synchronize with the default 'origin' remote")}
-{format_example("deep sync origin", "Explicitly sync with the 'origin' remote")}
-{format_example("deep sync --all", "Synchronize with all configured remotes and mirrors")}
-{format_example("deep sync --peer <url>", "Synchronize directly with a specific P2P peer")}
+        description="""Perform a high-level synchronization of your repository state.
+
+This command orchestrates fetching changes from upstream sources and optionally pushing to configured mirrors, ensuring your project is fully up-to-date across all endpoints.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep sync\033[0m
+     Synchronize with the default 'origin' remote
+  \033[1;34m⚓️ deep sync origin\033[0m
+     Explicitly sync with the 'origin' remote
+  \033[1;34m⚓️ deep sync --all\033[0m
+     Synchronize with all configured remotes and mirrors
+  \033[1;34m⚓️ deep sync --peer <url>\033[0m
+     Synchronize directly with a specific P2P peer
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_sync.add_argument("peer", nargs="?", help="The remote name, URL, or peer address to sync with (default: origin)")
     p_sync.add_argument("--all", action="store_true", help="Synchronize with all configured remotes and mirrors")

@@ -15,6 +15,7 @@ from deep.core.refs import resolve_head
 from deep.utils.ux import (
     DeepHelpFormatter, format_header, format_example, format_description
 )
+import argparse
 from typing import Any
 
 
@@ -23,14 +24,20 @@ def setup_parser(subparsers: Any) -> None:
     p_debug = subparsers.add_parser(
         "debug",
         help="Internal diagnostics and forensic tools",
-        description=format_description("Access internal Deep diagnostic tools. These commands are intended for developers and power users to inspect the raw state of the repository database and verify internal consistency at the lowest level."),
-        epilog=f"""
-{format_header("Examples")}
-{format_example("deep debug tree", "Inspect the current HEAD tree object recursively")}
-{format_example("deep debug tree <sha>", "Inspect a specific tree object by its SHA-1 hash")}
-{format_example("deep debug objects", "List all objects in the database with their raw types")}
+        description="""Access internal Deep diagnostic tools.
+
+These commands are intended for developers and power users to inspect the raw state of the repository database and verify internal consistency at the lowest level.""",
+        epilog="""
+
+\033[1mEXAMPLES:\033[0m
+  \033[1;34m⚓️ deep debug tree\033[0m
+     Inspect the current HEAD tree object recursively
+  \033[1;34m⚓️ deep debug tree <sha>\033[0m
+     Inspect a specific tree object by its SHA-1 hash
+  \033[1;34m⚓️ deep debug objects\033[0m
+     List all objects in the database with their raw types
 """,
-        formatter_class=DeepHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     rs = p_debug.add_subparsers(dest="debug_command", metavar="ACTION")
     
