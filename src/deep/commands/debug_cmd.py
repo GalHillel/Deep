@@ -12,24 +12,30 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.storage.objects import read_object, Tree, Commit
 from deep.core.refs import resolve_head
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
 def setup_parser(subparsers: Any) -> None:
-    """Set up the 'debug-tree' command parser."""
+    """Set up the 'debug' command parser."""
     p_debug = subparsers.add_parser(
-        "debug-tree",
-        help="Internal: Deep-inspect tree objects recursively",
-        description="Forensic tool to verify raw tree entry modes and object types, including hidden characters.",
+        "debug",
+        help="Internal diagnostics and forensic tools",
+        description=format_description("Access internal Deep diagnostic tools. These commands are intended for developers and power users to inspect the raw state of the repository database and verify internal consistency at the lowest level."),
         epilog=f"""
-Examples:
-{format_example("deep debug-tree", "Inspect the current head tree including mode details")}
-{format_example("deep debug-tree <sha>", "Inspect a specific tree object")}
+{format_header("Examples")}
+{format_example("deep debug tree", "Inspect the current HEAD tree object recursively")}
+{format_example("deep debug tree <sha>", "Inspect a specific tree object by its SHA-1 hash")}
+{format_example("deep debug objects", "List all objects in the database with their raw types")}
 """,
         formatter_class=DeepHelpFormatter,
     )
-    p_debug.add_argument("sha", nargs="?", help="The SHA-1 hash of the tree object to inspect (default: HEAD)")
+    rs = p_debug.add_subparsers(dest="debug_command", metavar="ACTION")
+    
+    p_tree = rs.add_parser("tree", help="Inspect a tree object recursively")
+    p_tree.add_argument("sha", nargs="?", help="The SHA-1 hash of the tree object to inspect (default: HEAD)")
 
 
 def run(args) -> None:
