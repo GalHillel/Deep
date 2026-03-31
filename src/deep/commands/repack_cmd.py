@@ -8,7 +8,24 @@ from __future__ import annotations
 from deep.core.errors import DeepCLIException
 import sys
 from pathlib import Path
-from rich.console import Console
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'repack' command parser."""
+    p_repack = subparsers.add_parser(
+        "repack",
+        help="Pack detached objects into a packfile",
+        description="Optimize the repository by packing loose objects and generating reachability bitmaps.",
+        epilog=f"""
+Examples:
+{format_example("deep repack", "Repack loose objects and generate bitmaps")}
+{format_example("deep repack --no-bitmaps", "Repack without generating bitmaps")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_repack.add_argument("--no-bitmaps", dest="bitmaps", action="store_false", help="Disable reachability bitmap generation")
 
 def run(args):
     from deep.core.repository import find_repo, DEEP_DIR
