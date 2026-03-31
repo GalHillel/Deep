@@ -359,13 +359,12 @@ Examples:
         "clone",
         help="Clone a repository into a new directory",
         description="Create a local copy of a remote Deep repository, including all history and metadata.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep clone https://deep-vcs.dev/user/project  # Clone from a remote URL
-  deep clone /path/to/local/repo                  # Clone from a local directory path
-  deep clone repo --depth 1                       # Create a shallow clone with truncated history
+{format_example("deep clone <url>", "Clone from a remote URL")}
+{format_example("deep clone repo --depth 1", "Create a shallow clone")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_clone.add_argument("url", help="The repository URL or local path to clone from")
     p_clone.add_argument("dir", nargs="?", help="The name of the new directory to clone into")
@@ -378,13 +377,13 @@ Examples:
     p_push = sub.add_parser(
         "push",
         help="Upload local changes to a remote",
-        description="Update remote references and associated objects in the target repository from your local history.",
-        epilog="""
+        description="Update remote references and associated objects in the target repository.",
+        epilog=f"""
 Examples:
-  deep push origin main      # Push the local 'main' branch to the 'origin' remote
-  deep push --tags origin    # Push all local tags to the remote
+{format_example("deep push origin main", "Push 'main' to 'origin' remote")}
+{format_example("deep push --tags", "Push all local tags")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_push.add_argument("url", nargs="?", help="The remote name (e.g., 'origin') or a direct URL")
     p_push.add_argument("branch", nargs="?", help="The name of the branch to push")
@@ -395,13 +394,13 @@ Examples:
     p_pull = sub.add_parser(
         "pull",
         help="Fetch and merge changes from a remote",
-        description="Fetch changes from another repository or local branch and integrate them into the current branch.",
-        epilog="""
+        description="Fetch changes from another repository and integrate them into the current branch.",
+        epilog=f"""
 Examples:
-  deep pull origin main      # Pull changes from the 'main' branch of the 'origin' remote
-  deep pull --rebase origin  # Fetch and rebase local changes onto the remote branch
+{format_example("deep pull origin main", "Pull changes from 'origin/main'")}
+{format_example("deep pull --rebase", "Fetch and rebase local changes")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_pull.add_argument("url", nargs="?", help="The remote name or URL to pull from")
     p_pull.add_argument("branch", nargs="?", help="The name of the branch to integrate")
@@ -409,14 +408,13 @@ Examples:
     # ── fetch ────────────────────────────────────────────────────────
     p_fetch = sub.add_parser(
         "fetch",
-        help="Download objects and references from another repository",
-        description="Download objects, branches, and tags from a remote repository without integrating them into your current local branches.",
-        epilog="""
+        help="Download objects and refs from another repo",
+        description="Download objects, branches, and tags from a remote repository without integrating them.",
+        epilog=f"""
 Examples:
-  deep fetch origin          # Fetch all branches and objects from the 'origin' remote
-  deep fetch --all           # Fetch updates from all registered remotes
+{format_example("deep fetch origin", "Fetch all updates from 'origin'")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_fetch.add_argument("url", help="The remote name or URL to fetch from")
     p_fetch.add_argument("sha", nargs="?", help="A specific commit SHA to fetch (optional)")
@@ -425,7 +423,8 @@ Examples:
     p_ls_remote = sub.add_parser(
         "ls-remote",
         help="List references in a remote repository",
-        description="Connect to a remote repository and output its available references (branches, tags) and their target SHAs.",
+        description="Connect to a remote repository and output its available references and their target SHAs.",
+        formatter_class=DeepHelpFormatter,
     )
     p_ls_remote.add_argument("url", help="The remote name or URL")
 
@@ -433,14 +432,13 @@ Examples:
     p_remote = sub.add_parser(
         "remote",
         help="Manage tracked remote repositories",
-        description="Manage the list of remote repositories ('remotes') that you track for synchronization.",
-        epilog="""
+        description="Manage the list of remote repositories that you track for synchronization.",
+        epilog=f"""
 Examples:
-  deep remote add origin <url> # Track a new remote repository named 'origin'
-  deep remote remove origin    # Stop tracking the 'origin' remote
-  deep remote list             # Display all currently registered remotes
+{format_example("deep remote add origin <url>", "Track a new remote named 'origin'")}
+{format_example("deep remote list", "Display all registered remotes")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     remote_sub = p_remote.add_subparsers(dest="remote_command", metavar="ACTION")
     
@@ -457,12 +455,12 @@ Examples:
     p_mirror = sub.add_parser(
         "mirror",
         help="Create a full 1:1 mirror of a repository",
-        description="Create a complete mirror of a Deep repository, including all references, branches, and internal metadata.",
-        epilog="""
+        description="Create a complete mirror of a Deep repository, including all references and metadata.",
+        epilog=f"""
 Examples:
-  deep mirror https://deep-vcs.dev/repo /local/mirror # Create a mirror at the specified path
+{format_example("deep mirror <url> <path>", "Create a mirror at specified path")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_mirror.add_argument("url", help="The URL of the source repository to mirror")
     p_mirror.add_argument("path", help="The local directory path to store the mirrored repository")
@@ -471,12 +469,12 @@ Examples:
     p_daemon = sub.add_parser(
         "daemon",
         help="Start the Deep network daemon",
-        description="Launch a background daemon process to serve the current repository over the network to other Deep clients.",
-        epilog="""
+        description="Launch a background daemon process to serve the current repository over the network.",
+        epilog=f"""
 Examples:
-  deep daemon --port 9090    # Start the daemon listening on port 9090
+{format_example("deep daemon --port 9090", "Start daemon on port 9090")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_daemon.add_argument("--port", type=int, default=9090, help="The network port to listen on (default: 9090)")
 
@@ -484,14 +482,13 @@ Examples:
     p_p2p = sub.add_parser(
         "p2p",
         help="P2P discovery and direct synchronization",
-        description="Discover nearby peers and synchronize repository data over a decentralized Peer-to-Peer network.",
-        epilog="""
+        description="Discover nearby peers and synchronize repository data over a decentralized network.",
+        epilog=f"""
 Examples:
-  deep p2p discover          # Scan the local network for Deep peers
-  deep p2p sync <peer-id>    # Initiate a direct synchronization with a specific peer
-  deep p2p start             # Start the P2P listener for decentralized discovery
+{format_example("deep p2p discover", "Scan the local network for Deep peers")}
+{format_example("deep p2p sync <peer-id>", "Initiate direct sync with a peer")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p2p_sub = p_p2p.add_subparsers(dest="p2p_command", metavar="ACTION")
     
@@ -510,12 +507,12 @@ Examples:
     p_sync = sub.add_parser(
         "sync",
         help="Smart repository synchronization",
-        description="High-level orchestration command to automatically synchronize the current branch with its upstream counterpart.",
-        epilog="""
+        description="High-level command to automatically synchronize current branch with upstream.",
+        epilog=f"""
 Examples:
-  deep sync                  # Perform a smart fetch and integration of upstream changes
+{format_example("deep sync", "Perform a smart fetch and integration")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_sync.add_argument("--peer", type=str, help="Manually specify a peer address or path for synchronization")
 
@@ -524,12 +521,12 @@ Examples:
         "show",
         help="Show various types of objects",
         description="Show one or more objects (commits, tags, trees) with their content and metadata.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep show HEAD             # Show the last commit and its diff
-  deep show abc1234          # Show a specific commit or object
+{format_example("deep show HEAD", "Show the last commit and its diff")}
+{format_example("deep show abc1234", "Show a specific commit or object")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_show.add_argument("object", nargs="?", default="HEAD", help="The object identifier to show (default: HEAD)")
 
@@ -537,13 +534,13 @@ Examples:
     p_ls_tree = sub.add_parser(
         "ls-tree",
         help="List the contents of a tree object",
-        description="Displays the contents of a tree object, similar to `ls -l` but for the Deep database.",
-        epilog="""
+        description="Displays the contents of a tree object, similar to `ls -l` for the Deep database.",
+        epilog=f"""
 Examples:
-  deep ls-tree HEAD          # List files in the current commit
-  deep ls-tree abc1234       # List contents of a specific tree or commit
+{format_example("deep ls-tree HEAD", "List files in the current commit")}
+{format_example("deep ls-tree abc1234", "List contents of a specific tree")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_ls_tree.add_argument("treeish", help="The tree or commit identifier to list")
     p_ls_tree.add_argument("-r", "--recursive", action="store_true", help="Recurse into sub-trees")
@@ -552,14 +549,13 @@ Examples:
     p_server = sub.add_parser(
         "server",
         help="Manage the Deep platform server",
-        description="Control the lifecycle of the Deep platform server process (start, stop, restart, status).",
-        epilog="""
+        description="Control the lifecycle of the Deep platform server process.",
+        epilog=f"""
 Examples:
-  deep server start          # Launch the Deep background server
-  deep server stop           # Gracefully terminate the server process
-  deep server status         # Check if the server is currently running
+{format_example("deep server start", "Launch the Deep background server")}
+{format_example("deep server status", "Check if the server is running")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     server_sub = p_server.add_subparsers(dest="server_command", metavar="ACTION")
     server_sub.add_parser("start", help="Launch the Deep background server")
@@ -572,13 +568,12 @@ Examples:
         "repo",
         help="Manage platform-hosted repositories",
         description="Interface with and manage repositories hosted on the Deep platform.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep repo create my-app    # Create a new repository on the Deep platform
-  deep repo list             # List all repositories you have access to on the platform
-  deep repo permit --user bob --role write # Grant 'write' access to user 'bob'
+{format_example("deep repo create my-app", "Create a new repo on the platform")}
+{format_example("deep repo list", "List all accessible repositories")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     repo_sub = p_repo.add_subparsers(dest="repo_command", metavar="ACTION")
     
@@ -604,12 +599,12 @@ Examples:
         "user",
         help="Manage platform user accounts",
         description="Manage user profiles, settings, and accounts on the Deep platform.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep user create bob       # Create a new user profile named 'bob'
-  deep user info alice       # Display detailed information for user 'alice'
+{format_example("deep user create bob", "Create a new user profile 'bob'")}
+{format_example("deep user info alice", "Display info for user 'alice'")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     user_sub = p_user.add_subparsers(dest="user_command", metavar="ACTION")
     
@@ -633,13 +628,12 @@ Examples:
         "auth",
         help="Platform authentication management",
         description="Manage session tokens, credentials, and login status for the Deep platform.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep auth login            # Interactively authenticate with the Deep platform
-  deep auth status           # Display the current authentication status and active user
-  deep auth logout           # Clear local session tokens and logout
+{format_example("deep auth login", "Authenticate with the Deep platform")}
+{format_example("deep auth logout", "Clear local session tokens")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     auth_sub = p_auth.add_subparsers(dest="auth_command", metavar="ACTION")
     auth_sub.add_parser("login", help="Interactively authenticate with the platform")
@@ -654,7 +648,7 @@ Examples:
         help="Manage platform Pull Requests",
         description=pr_cmd.get_description(),
         epilog=pr_cmd.get_epilog(),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     pr_sub = p_pr.add_subparsers(dest="pr_command", metavar="ACTION")
     
@@ -710,7 +704,7 @@ Examples:
         help="Manage platform Issues",
         description=issue_cmd.get_description(),
         epilog=issue_cmd.get_epilog(),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     issue_sub = p_issue.add_subparsers(dest="issue_command", metavar="ACTION")
     
@@ -746,7 +740,7 @@ Examples:
         help="Interact with CI/CD Pipelines",
         description=pipeline_cmd.get_description(),
         epilog=pipeline_cmd.get_epilog(),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     pipe_sub = p_pipeline.add_subparsers(dest="pipe_command", metavar="ACTION")
     
@@ -767,13 +761,12 @@ Examples:
     p_studio = sub.add_parser(
         "studio",
         help="Open the visual Deep Studio dashboard",
-        description="Launch an interactive, browser-based platform for visual repository management and history browsing.",
-        epilog="""
+        description="Launch an interactive, browser-based dashboard for repository management.",
+        epilog=f"""
 Examples:
-  deep studio                   # Open the Deep Studio dashboard on the default port (9000)
-  deep studio --port 8080       # Start the dashboard on port 8080
+{format_example("deep studio", "Open Deep Studio on default port (9000)")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_studio.add_argument("--port", type=int, default=9000, help="The network port to listen on (default: 9000)")
 
@@ -782,7 +775,7 @@ Examples:
         "commit-graph",
         help="Manage the commit graph index",
         description="Manage the binary commit graph index for accelerated history traversal.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     cg_sub = p_cg.add_subparsers(dest="cg_command", metavar="ACTION")
     cg_sub.add_parser("write", help="Generate or update the commit graph file")
@@ -792,13 +785,13 @@ Examples:
     p_doctor = sub.add_parser(
         "doctor",
         help="Run repository health checks",
-        description="Audit the health of the local Deep repository and optionally fix common corruption or configuration issues.",
-        epilog="""
+        description="Audit the health of the local Deep repository and optionally fix corruption.",
+        epilog=f"""
 Examples:
-  deep doctor                # Run a comprehensive suite of diagnostic checks
-  deep doctor --fix          # Attempt to automatically resolve any detected issues
+{format_example("deep doctor", "Run a comprehensive diagnostic suite")}
+{format_example("deep doctor --fix", "Attempt to auto-resolve detected issues")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_doctor.add_argument("--fix", action="store_true", help="Attempt to automatically repair detected repository problems")
 
@@ -807,13 +800,11 @@ Examples:
         "benchmark",
         help="Performance benchmarking suite",
         description="Measure and analyze the performance of core Deep VCS operations.",
-        epilog="""
+        epilog=f"""
 Examples:
-  deep benchmark                 # Run the default performance benchmark suite
-  deep benchmark --compare-legacy # Compare performance with legacy VCS (Deep)
-  deep benchmark --report        # Export the benchmark results to a JSON file
+{format_example("deep benchmark", "Run the performance benchmark suite")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_benchmark.add_argument("--compare-legacy", "--compare-deep", dest="compare_git", action="store_true", help="Include legacy VCS comparison (Deep) for performance baseline")
     p_benchmark.add_argument("--report", action="store_true", help="Generate and export a detailed JSON performance report")
@@ -822,14 +813,13 @@ Examples:
     p_graph = sub.add_parser(
         "graph",
         help="Visualize the commit graph",
-        description="Renders a text-based ASCII visualization of the commit history graph, showing branch relationships and merge points.",
-        epilog="""
+        description="Renders a text-based ASCII visualization of the commit history graph.",
+        epilog=f"""
 Examples:
-  deep graph                 # Visualize history for the current branch
-  deep graph --all           # Include all branches and tags in the visualization
-  deep graph -n 20           # Limit the graph to the most recent 20 commits
+{format_example("deep graph", "Visualize history for current branch")}
+{format_example("deep graph --all", "Include all branches and tags")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_graph.add_argument("--all", action="store_true", help="Include all references (branches and tags) in the graph")
     p_graph.add_argument("-n", "--max-count", type=int, default=100, help="Maximum number of commits to display in the graph (default: 100)")
@@ -838,13 +828,12 @@ Examples:
     p_audit = sub.add_parser(
         "audit",
         help="Show security and action audit logs",
-        description="Access detailed logs recording security-sensitive actions and administrative changes within the repository.",
-        epilog="""
+        description="Access logs recording security-sensitive actions and administrative changes.",
+        epilog=f"""
 Examples:
-  deep audit show            # Display recent security events in the terminal
-  deep audit report          # Generate a comprehensive security audit report
+{format_example("deep audit show", "Display recent security events")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     audit_sub = p_audit.add_subparsers(dest="audit_command", metavar="ACTION")
     audit_sub.add_parser("show", help="Display recent security events")
@@ -855,13 +844,12 @@ Examples:
     p_verify = sub.add_parser(
         "verify",
         help="Verify repository object integrity",
-        description="Cryptographically verify the integrity of all stored objects (commits, trees, blobs) using their SHA-1 hashes.",
-        epilog="""
+        description="Verify the integrity of all stored objects using their SHA-1 hashes.",
+        epilog=f"""
 Examples:
-  deep verify                # Run a full integrity check on all reachable objects
-  deep verify --all          # Verify every object in the database, including unreachable ones
+{format_example("deep verify", "Run a full integrity check")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_verify.add_argument("--all", action="store_true", help="Verify all objects in the database, not justreachable ones")
     p_verify.add_argument("--verbose", action="store_true", help="Display detailed progress during the verification process")
@@ -870,25 +858,20 @@ Examples:
     p_fsck = sub.add_parser(
         "fsck",
         help="Verify object connectivity and validity",
-        description="Check the internal consistency and connectivity of the commit graph, tree structures, and data blobs.",
-        epilog="""
-Examples:
-  deep fsck                  # Perform a comprehensive repository consistency check
-""",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Check internal consistency and connectivity of the repository database.",
+        formatter_class=DeepHelpFormatter,
     )
 
     # ── repack ───────────────────────────────────────────────────────
     p_repack = sub.add_parser(
         "repack",
-        help="Consolidate objects into packfiles and generate bitmaps",
-        description="Optimize the object database by packing loose objects into efficient packfiles and generating reachability bitmaps.",
-        epilog="""
+        help="Consolidate objects into packfiles",
+        description="Optimize the object database by packing loose objects into efficient packfiles.",
+        epilog=f"""
 Examples:
-  deep repack                # Consolidate objects and generate bitmaps
-  deep repack --no-bitmaps   # Repack without generating bitmaps
+{format_example("deep repack", "Consolidate objects and generate bitmaps")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_repack.add_argument("--no-bitmaps", action="store_false", dest="bitmaps", default=True, help="Disable bitmap generation")
 
@@ -896,13 +879,12 @@ Examples:
     p_sandbox = sub.add_parser(
         "sandbox",
         help="Execute commands in a secure environment",
-        description="Execute potentially unsafe commands within an isolated and restricted sandbox environment for safety.",
-        epilog="""
+        description="Execute commands within an isolated and restricted sandbox environment.",
+        epilog=f"""
 Examples:
-  deep sandbox run "ls -R"   # Execute the 'ls -R' command inside the secure sandbox
-  deep sandbox init          # Initialize the sandbox environment for the first time
+{format_example("deep sandbox run 'ls'", "Execute command inside the secure sandbox")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     sandbox_sub = p_sandbox.add_subparsers(dest="sandbox_command", metavar="ACTION")
     
@@ -915,13 +897,12 @@ Examples:
     p_rollback = sub.add_parser(
         "rollback",
         help="Undo the most recent transaction",
-        description="Roll back the repository state to its condition prior to the last transaction using the Write-Ahead Log (WAL).",
-        epilog="""
+        description="Roll back the repository state to its condition prior to the last transaction.",
+        epilog=f"""
 Examples:
-  deep rollback              # Restore the repository to its state before the last successful operation
-  deep rollback --verify     # Verify the WAL integrity before performing the rollback
+{format_example("deep rollback", "Restore repo to state before last operation")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_rollback.add_argument("commit", nargs="?", default=None, help="The commit to rollback to (default: parent of current HEAD)")
     p_rollback.add_argument("--verify", action="store_true", help="Perform a verification check on the WAL state before rolling back")
@@ -930,14 +911,13 @@ Examples:
     p_ai = sub.add_parser(
         "ai", 
         help="Deep AI assistant tools",
-        description="Harness the power of AI for generating commit messages, performing code reviews, and predicting merge outcomes.",
-        epilog="""
+        description="Harness the power of AI for commit messages, code reviews, and predictions.",
+        epilog=f"""
 Examples:
-  deep ai suggest            # Generate a suggested commit message based on staged changes
-  deep ai explain            # Provide a natural language explanation of the recent changes
-  deep ai review             # Perform an automated AI code review of current changes
+{format_example("deep ai suggest", "Generate suggested commit message")}
+{format_example("deep ai review", "Perform automated AI code review")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     ai_sub = p_ai.add_subparsers(dest="ai_command", metavar="ACTION")
     
@@ -954,24 +934,24 @@ Examples:
     p_ultra = sub.add_parser(
         "ultra",
         help="Advanced system optimization tools",
-        description="Access 'Ultra' level tools to run aggressive garbage collection, object repacking, and commit graph rebuilding in a single optimized pass.",
-        epilog="""
+        description="Access 'Ultra' level tools to run aggressive optimization passes.",
+        epilog=f"""
 Examples:
-  deep ultra                 # Run the full Deep optimization suite
+{format_example("deep ultra", "Run the full Deep optimization suite")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
 
     # ── batch ────────────────────────────────────────────────────────
     p_batch = sub.add_parser(
         "batch",
         help="Execute atomic batch VCS operations",
-        description="Run a sequence of Deep operations defined in a script as a single atomic transaction.",
-        epilog="""
+        description="Run a sequence of Deep operations defined in a script as an atomic transaction.",
+        epilog=f"""
 Examples:
-  deep batch script.deep     # Execute the sequence of commands defined in 'script.deep'
+{format_example("deep batch script.deep", "Execute sequence of commands in a script")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_batch.add_argument("script", help="The filesystem path to the batch operation script file")
 
@@ -979,13 +959,12 @@ Examples:
     p_search = sub.add_parser(
         "search",
         help="Search through repository history",
-        description="Locate text patterns or regular expressions across the entire commit history and all tree objects.",
-        epilog="""
+        description="Locate text patterns or regex across entire commit history and trees.",
+        epilog=f"""
 Examples:
-  deep search "TODO"        # Search for the literal string "TODO" in all historical versions
-  deep search "^fixed:"     # Search using a regular expression
+{format_example("deep search 'TODO'", "Search for 'TODO' in all versions")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_search.add_argument("query", help="The text string or regular expression to search for")
 
@@ -993,13 +972,12 @@ Examples:
     p_gc = sub.add_parser(
         "gc",
         help="Run repository garbage collection",
-        description="Clean up unreachable objects and optimize the internal object database to reclaim storage space.",
-        epilog="""
+        description="Clean up unreachable objects and optimize the internal object database.",
+        epilog=f"""
 Examples:
-  deep gc                    # Execute garbage collection and database optimization
-  deep gc --dry-run          # List objects that would be removed without deleting them
+{format_example("deep gc", "Execute garbage collection and optimization")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_gc.add_argument("--dry-run", action="store_true", help="Display what would be cleaned up without making changes")
     p_gc.add_argument("-v", "--verbose", action="store_true", help="Display detailed information during the optimization process")
@@ -1011,13 +989,13 @@ Examples:
     # ── debug-tree (Diagnostics) ────────────────────────────────────
     p_debug = sub.add_parser(
         "debug-tree",
-        help="Inspect tree contents with hidden character visibility",
-        description="Forensic tool to inspect Deep tree objects. Uses repr() to reveal hidden characters for debugging purposes.",
-        epilog="""
+        help="Inspect tree contents (diagnostics)",
+        description="Forensic tool to inspect Deep tree objects with hidden character visibility.",
+        epilog=f"""
 Examples:
-  deep debug-tree <sha>      # Reveal hidden characters in the specified tree or commit object
+{format_example("deep debug-tree <sha>", "Reveal hidden characters in tree object")}
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=DeepHelpFormatter,
     )
     p_debug.add_argument("sha", nargs="?", help="The SHA-1 hash of the tree or commit object to inspect")
 

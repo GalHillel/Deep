@@ -15,36 +15,27 @@ from pathlib import Path
 
 from deep.core.config import Config
 from deep.core.repository import find_repo
-from deep.utils.ux import Color, print_error, print_success, print_info, print_warning
-from deep.core.errors import DeepCLIException
-from deep.core.issue import IssueManager, Issue
-import deep.utils.network as net
+from deep.utils.ux import (
+    Color, print_error, print_success, print_info, print_warning,
+    format_header, format_example
+)
+
 
 def get_description() -> str:
-    return f"{Color.wrap(Color.CYAN, 'Hybrid Local-First Issue Tracking Engine')}\n" \
-           f"Seamlessly manage tasks and bugs locally with optional GitHub synchronization."
+    """Return a description for the issue command."""
+    return "Global Issue tracking and lifecycle management for the Deep platform."
+
 
 def get_epilog() -> str:
-    header = lambda s: Color.wrap(Color.BOLD + Color.CYAN, f"\n[{s}]")
-    cmd = lambda c, d: f"  {Color.wrap(Color.YELLOW, f'deep issue {c:<10}')} {Color.wrap(Color.GREEN, f'# {d}')}"
-    
-    res = []
-    res.append(header("CORE COMMANDS"))
-    res.append(cmd("create", "Open a smart, interactive issue template"))
-    res.append(cmd("list", "Display all local issues with status colors"))
-    res.append(cmd("show <id>", "Display detailed report, description, and timeline"))
-    
-    res.append(header("WORKFLOW"))
-    res.append(cmd("close <id>", "Mark an issue as resolved (locally)"))
-    res.append(cmd("reopen <id>", "Resume work on a closed issue"))
-    res.append(cmd("sync", "Synchronize local issues with GitHub remote"))
-    
-    res.append(header("WHY LOCAL-FIRST?"))
-    res.append(f"  - {Color.wrap(Color.WHITE, 'Instant responsiveness')} (no network lag)")
-    res.append(f"  - {Color.wrap(Color.WHITE, 'Full offline support')} for deep work")
-    res.append(f"  - {Color.wrap(Color.WHITE, 'Native integration')} with Deep PRs and commits")
-    
-    return "\n".join(res) + "\n"
+    """Return an epilog with usage examples."""
+    return f"""
+{format_header("Examples")}
+{format_example("deep issue create", "Open an interactive issue template")}
+{format_example("deep issue list", "Display all local issues")}
+{format_example("deep issue show 12", "Show details for Issue #12")}
+{format_example("deep issue close 12", "Mark an issue as resolved")}
+{format_example("deep issue sync", "Sync local issues with remote")}
+"""
 
 def get_author(repo_root: Path) -> str:
     """Get the current user name from config."""

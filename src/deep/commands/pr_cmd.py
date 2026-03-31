@@ -18,20 +18,27 @@ from deep.core.repository import find_repo
 from deep.core.pr import PRManager
 from deep.core.config import Config
 from deep.core.refs import list_branches, get_current_branch, find_merge_base, resolve_revision, get_all_branches, update_head
-from deep.utils.ux import Color, print_error, print_success, print_info
-import deep.utils.network as net
+from deep.utils.ux import (
+    Color, print_error, print_success, print_info,
+    format_header, format_example
+)
 
-def ns(**kwargs):
-    import argparse
-    return argparse.Namespace(**kwargs)
 
 def get_description() -> str:
-    return f"{Color.wrap(Color.CYAN, 'Elite Pull Request & Code Review Platform')}\n" \
-           f"Manage local-first discussions, threads, formal reviews, and merge intelligence."
+    """Return a description for the pr command."""
+    return "Comprehensive Pull Request lifecycle management for the Deep platform."
+
 
 def get_epilog() -> str:
-    header = lambda s: Color.wrap(Color.BOLD + Color.CYAN, f"\n[{s}]")
-    cmd = lambda c, d: f"  {Color.wrap(Color.YELLOW, f'deep pr {c:<12}')} {Color.wrap(Color.GREEN, f'# {d}')}"
+    """Return an epilog with usage examples."""
+    return f"""
+{format_header("Examples")}
+{format_example("deep pr create", "Open an interactive PR template")}
+{format_example("deep pr list", "Browse open pull requests")}
+{format_example("deep pr show 42", "View thread and status for PR #42")}
+{format_example("deep pr merge 42", "Finalize and merge PR #42")}
+{format_example("deep pr review 42", "Start interactive code review")}
+"""
     
     res = []
     res.append(header("CORE COMMANDS"))
