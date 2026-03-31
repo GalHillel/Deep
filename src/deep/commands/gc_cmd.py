@@ -12,7 +12,9 @@ from pathlib import Path
 
 from deep.core.gc import collect_garbage
 from deep.core.repository import find_repo
-from deep.utils.ux import DeepHelpFormatter, format_example
+from deep.utils.ux import (
+    DeepHelpFormatter, format_header, format_example, format_description
+)
 from typing import Any
 
 
@@ -20,12 +22,14 @@ def setup_parser(subparsers: Any) -> None:
     """Set up the 'gc' command parser."""
     p_gc = subparsers.add_parser(
         "gc",
-        help="Cleanup unnecessary files and optimize the local repository",
-        description="Run garbage collection to remove unreachable objects and compress the database.",
+        help="Cleanup and optimize the local repository",
+        description=format_description("Run Garbage Collection (gc) to optimize the object database. This command removes unreachable objects, compresses history, and performs general maintenance to keep the repository fast and lean."),
         epilog=f"""
-Examples:
-{format_example("deep gc", "Run default maintenance")}
-{format_example("deep gc --prune", "Prune unreachable objects")}
+{format_header("Examples")}
+{format_example("deep gc", "Perform standard repository maintenance and optimization")}
+{format_example("deep gc --prune=now", "Immediately remove all unreachable objects")}
+{format_example("deep gc --aggressive", "Perform a deep, time-consuming compression of history")}
+{format_example("deep gc --auto", "Only run if the repository satisfies optimization thresholds")}
 """,
         formatter_class=DeepHelpFormatter,
     )
