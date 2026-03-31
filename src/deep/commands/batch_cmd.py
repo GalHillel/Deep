@@ -18,6 +18,22 @@ import sys
 from pathlib import Path
 
 from deep.core.repository import find_repo, DEEP_DIR
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'commit-graph' command parser."""
+    subparsers.add_parser(
+        "commit-graph",
+        help="Write and verify the commit-graph file",
+        description="Manage the commit-graph binary index to accelerate history walks.",
+        epilog=f"""
+Examples:
+{format_example("deep commit-graph write", "Regenerate the commit-graph index")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
 
 
 def run(args) -> None:
