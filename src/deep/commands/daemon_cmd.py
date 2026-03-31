@@ -13,7 +13,25 @@ from pathlib import Path
 
 from deep.core.repository import find_repo
 from deep.network.daemon import DeepDaemon
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'daemon' command parser."""
+    p_daemon = subparsers.add_parser(
+        "daemon",
+        help="Start a background Deep service",
+        description="Runs a background process to handle periodic tasks like GC, sync, and indexing.",
+        epilog=f"""
+Examples:
+{format_example("deep daemon", "Start the Deep background service on default port")}
+{format_example("deep daemon --port 9999", "Start daemon on a custom port")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_daemon.add_argument("--host", default="127.0.0.1", help="The host address to bind to (default: 127.0.0.1)")
+    p_daemon.add_argument("--port", type=int, default=8888, help="The port number to listen on (default: 8888)")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
