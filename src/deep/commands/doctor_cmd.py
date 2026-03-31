@@ -20,10 +20,24 @@ from deep.storage.objects import Blob, Commit, Tag, Tree, read_object, DeepObjec
 from deep.core.refs import list_branches, resolve_head, list_tags, get_tag, get_branch
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import Color
-from deep.core.gc import mark_reachable
-from deep.core.pr import PRManager
-from deep.core.issue import IssueManager
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'doctor' command parser."""
+    p_doctor = subparsers.add_parser(
+        "doctor",
+        help="Check the repository for consistency and health",
+        description="Check the repository for consistency and integrity of objects, refs, and the index.",
+        epilog=f"""
+Examples:
+{format_example("deep doctor", "Run a diagnostic check on the repository")}
+{format_example("deep doctor --fix", "Attempt to repair minor inconsistencies")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    p_doctor.add_argument("--fix", action="store_true", help="Attempt to automatically repair detected issues")
 
 
 def run(args) -> None:  # type: ignore[no-untyped-def]
