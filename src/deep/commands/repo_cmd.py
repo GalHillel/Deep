@@ -13,7 +13,41 @@ from pathlib import Path
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.platform.platform import PlatformManager
-from deep.utils.ux import Color
+from deep.utils.ux import DeepHelpFormatter, format_example
+from typing import Any
+
+
+def setup_parser(subparsers: Any) -> None:
+    """Set up the 'repo' command parser."""
+    p_repo = subparsers.add_parser(
+        "repo",
+        help="Manage repository metadata and platform links",
+        description="Configure repository-level settings and links to the Deep platform.",
+        epilog=f"""
+Examples:
+{format_example("deep repo list", "List all repositories in the current server instance")}
+{format_example("deep repo create my-project", "Create a new repository on the server")}
+""",
+        formatter_class=DeepHelpFormatter,
+    )
+    rsub = p_repo.add_subparsers(dest="repo_command", metavar="ACTION")
+    
+    p_create = rsub.add_parser("create", help="Create a new repository")
+    p_create.add_argument("name", help="The name for the new repository")
+    
+    rsub.add_parser("list", help="List all repositories")
+    
+    p_delete = rsub.add_parser("delete", help="Delete a repository")
+    p_delete.add_argument("name", help="The name of the repository to delete")
+    
+    p_clone = rsub.add_parser("clone", help="Clone a repository")
+    p_clone.add_argument("url", help="The URL to clone from")
+    p_clone.add_argument("name", nargs="?", help="The local directory name for the clone")
+    
+    p_permit = rsub.add_parser("permit", help="Set user permissions for a repository")
+    p_permit.add_argument("user", help="The username to grant permission to")
+    p_permit.add_argument("role", choices=["owner", "admin", "writer", "reader"], help="The role to assign")
+    p_permit.add_argument("--name", help="The repository name (optional, defaults to current)")
 
 def run(args) -> None:
     """Execute the ``repo`` command."""
