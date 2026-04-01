@@ -287,6 +287,29 @@ def list_branches(dg_dir: Path) -> list[str]:
     )
 
 
+def list_remote_branches(dg_dir: Path) -> dict[str, list[str]]:
+    """Return a mapping of remote name to a sorted list of branch names."""
+    remotes_dir = dg_dir / "refs" / "remotes"
+    if not remotes_dir.exists():
+        return {}
+        
+    results: dict[str, list[str]] = {}
+    for remote_path in remotes_dir.iterdir():
+        if not remote_path.is_dir():
+            continue
+        
+        remote_name = remote_path.name
+        branches = sorted(
+            p.relative_to(remote_path).as_posix()
+            for p in remote_path.rglob("*")
+            if p.is_file() and not p.name.endswith(".lock") and not p.name.startswith(".")
+        )
+        if branches:
+            results[remote_name] = branches
+            
+    return results
+
+
 def get_all_branches(dg_dir: Path) -> list[str]:
     """Helper for PR system to get all local branches."""
     return list_branches(dg_dir)

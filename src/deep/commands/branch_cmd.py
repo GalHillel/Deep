@@ -33,9 +33,26 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     dg_dir = repo_root / DEEP_DIR
 
     with TransactionManager(dg_dir) as tm:
-        # 1. List branches (Read-only)
-        if args.name is None and not getattr(args, "list", False):
-            # No tm.begin() here, it's read-only
+        # 1. Handle Deletion
+        if getattr(args, "delete", False):
+            if not args.name:
+                print("Deep: error: branch name required for deletion", file=sys.stderr)
+                raise DeepCLIException(1)
+            
+            tm.begin("branch_delete")
+            from deep.core.refs import delete_branch
+            try:
+                delete_branch(dg_dir, args.name)
+                print(f"Deleted branch '{args.name}'.")
+                tm.commit()
+            except Exception as e:
+                print(f"Deep: error: {e}", file=sys.stderr)
+                # Cleanup transaction if failed? TransactionManager handle it usually
+                raise DeepCLIException(1)
+            return
+
+        # 2. Handle Listing (Default if no name provided)
+        if args.name is None:
             current = get_current_branch(dg_dir)
             from deep.core.config import Config
             config = Config(repo_root)
@@ -52,97 +69,61 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 print("No branches yet (make a commit first).")
                 return
 
-            verbose = getattr(args, "verbose", 0)
+            verboseTotal = getattr(args, "verbose", 0)
             if getattr(args, "vv", False):
-                verbose = 2
+                verboseTotal = 2
+            
             for b in branches:
                 is_remote = b.startswith("remotes/")
-                actual_name = b.split("/", 2)[-1] if is_remote else b
+                current_sha = None
                 
                 prefix = "* " if b == current else "  "
-                line = f"{prefix}{b}"
                 
-                if verbose > 0:
+                if verboseTotal > 0:
                     from deep.core.refs import get_branch, get_remote_ref
                     if is_remote:
-                        parts = b.split("/")
-                        sha = get_remote_ref(dg_dir, parts[1], parts[2])
+                        # Format: remotes/<remote>/<branch>
+                        parts = b.split("/", 2)
+                        if len(parts) >= 3:
+                            current_sha = get_remote_ref(dg_dir, parts[1], parts[2])
                     else:
-                        sha = get_branch(dg_dir, b)
+                        current_sha = get_branch(dg_dir, b)
                     
-                    sha_str = Color.wrap(Color.YELLOW, sha[:7] if sha else "unknown")
-                    line = f"{prefix}{sha_str} {b}"
-                    
-                    if verbose > 1 and not is_remote:
-                        remote = config.get(f"branch.{b}.remote")
-                        merge = config.get(f"branch.{b}.merge")
-                        if remote and merge:
-                            line += f" [{Color.wrap(Color.BLUE, remote)}/{Color.wrap(Color.CYAN, merge.replace('refs/heads/', ''))}]"
+                    sha_display = Color.wrap(Color.YELLOW, current_sha[:7] if current_sha else "unknown")
+                    line = f"{prefix}{sha_display} {b}"
+                else:
+                    line = f"{prefix}{b}"
+                
+                if verboseTotal > 1 and not is_remote:
+                    # Show tracking info
+                    remote_tracking = config.get(f"branch.{b}.remote")
+                    merge_tracking = config.get(f"branch.{b}.merge")
+                    if remote_tracking and merge_tracking:
+                        short_merge = merge_tracking.replace("refs/heads/", "")
+                        line += f" [{Color.wrap(Color.BLUE, remote_tracking)}/{Color.wrap(Color.CYAN, short_merge)}]"
 
                 if b == current:
                     print(Color.wrap(Color.GREEN, line))
                 else:
-                    print(line)
+                    color_line = Color.wrap(Color.RED, line) if is_remote else line
+                    print(color_line)
             return
 
-        # 2. Delete branch
-        if getattr(args, "delete", False):
-            tm.begin("branch_delete")
-            from deep.core.refs import delete_branch
-            try:
-                delete_branch(dg_dir, args.name)
-                print(f"Deleted branch '{args.name}'.")
-                tm.commit()
-            except Exception as e:
-                print(f"Deep: error: {e}", file=sys.stderr)
-                raise DeepCLIException(1)
-            return
-
-        # 3. Rename branch
-        if getattr(args, "rename", None):
-            tm.begin("branch_rename")
-            from deep.core.refs import delete_branch
-            old_name = args.rename
-            new_name = args.name
-            sha = resolve_head(dg_dir) # Default to HEAD if no start_point
-            if hasattr(args, "start_point") and args.start_point:
-                from deep.core.refs import resolve_revision
-                sha = resolve_revision(dg_dir, args.start_point)
+        # 3. Handle Creation
+        if not args.name:
+            # Should be handled by argparse or listing logic above, but safety check
+            raise DeepCLIException(1)
             
-            # If we are renaming the branch we are currently on, we need special care?
-            # Standard deep -m allows renaming current branch.
-            # deep.core.refs.delete_branch refuses to delete current branch.
-            target_sha = resolve_head(dg_dir) if old_name == get_current_branch(dg_dir) else None
-            
-            # Get the actual SHA of the old branch
-            from deep.core.refs import get_branch
-            old_sha = get_branch(dg_dir, old_name)
-            if not old_sha:
-                print(f"Deep: error: branch '{old_name}' not found.", file=sys.stderr)
-                raise DeepCLIException(1)
-                
-            update_branch(dg_dir, new_name, old_sha)
-            
-            # If it was current branch, we need to update HEAD to point to the new name
-            if old_name == get_current_branch(dg_dir):
-                from deep.core.refs import update_head
-                update_head(dg_dir, f"ref: refs/heads/{new_name}")
-                
-            delete_branch(dg_dir, old_name)
-            print(f"Renamed branch '{old_name}' to '{new_name}'.")
-            tm.commit()
-            return
-
-        # 4. Create a new branch.
         tm.begin("branch_create")
         from deep.core.refs import resolve_revision
-        start_point = args.start_point if hasattr(args, "start_point") else "HEAD"
+        start_point = getattr(args, "start_point", "HEAD")
         target_sha = resolve_revision(dg_dir, start_point)
         
         if target_sha is None:
             print(f"Deep: error: Not a valid object name: '{start_point}'", file=sys.stderr)
             raise DeepCLIException(1)
             
+        from deep.core.refs import update_branch
         update_branch(dg_dir, args.name, target_sha)
         print(f"Created branch '{args.name}' at {target_sha[:7]}")
         tm.commit()
