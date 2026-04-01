@@ -16,7 +16,7 @@ from deep.network.daemon import DeepDaemon
 from deep.utils.ux import Color
 
 
-def run(args) -> None:  # type: ignore[no-untyped-def]
+def run(args) -> None:
     """Execute the ``daemon`` command."""
     try:
         repo_root = find_repo()
@@ -25,11 +25,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         raise DeepCLIException(1)
 
     host = getattr(args, "host", "127.0.0.1")
-    port = getattr(args, "port", 8888)
+    port = getattr(args, "port", 9090)
 
     daemon = DeepDaemon(repo_root, host=host, port=port)
     
-    print(Color.wrap(Color.CYAN, f"Starting Deep Daemon on {host}:{port}..."))
+    print(Color.wrap(Color.CYAN, f"⚓ Starting Deep Daemon on {host}:{port}..."))
     print(Color.wrap(Color.DIM, f"Serving repository: {repo_root}"))
     
     try:
