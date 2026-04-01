@@ -102,6 +102,8 @@ def build_parser() -> argparse.ArgumentParser:
   \033[1msandbox\033[0m    Launch an isolated environment
   \033[1mrollback\033[0m   Recover from broken transactions
   \033[1mmaintenance\033[0m Run scheduled maintenance tasks
+  \033[1mbenchmark\033[0m   Run performance benchmarks and compare
+  \033[1mmigrate\033[0m     Migrate a legacy Git repository into Deep
 
 \033[1;36m💡 TIPS\033[0m
   \033[1;34mdeep <command> --help\033[0m  # Detailed help for any command

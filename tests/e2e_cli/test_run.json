@@ -48871,3 +48871,5 @@ uration": 0.8790699999954086}
 {"cmd": "deep push -h", "exit_code": 0, "duration": 0.6431803000014042}
 {"cmd": "deep push -h", "exit_code": 0, "duration": 0.4809787000012875}
 {"cmd": "deep push -h", "exit_code": 0, "duration": 0.495038699998986}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.8807352000003448}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 1.1586829000007128}
