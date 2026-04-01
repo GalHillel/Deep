@@ -58,6 +58,22 @@ print_success(Color.wrap(Color.BOLD, "Operation complete."))
 
 While Deep VCS is a next-gen tool, we maintain header compatibility with Git for objects (`<type> <size>\0<content>`). This allows for future interoperability and leverage of existing tools.
 
----
+## Testing & Benchmarking
 
-*For information on testing, see the [Testing Guide](testing.md).*
+Every PR must pass the test suite reliably. We use `pytest` for all unit and integration testing.
+
+```bash
+# Run the full suite in parallel
+pytest -n auto tests/
+
+# Run tests with coverage
+pytest --cov=deep tests/
+```
+
+### Performance Benchmarking
+Deep includes a built-in benchmarking suite to track performance over time:
+
+```bash
+deep benchmark
+deep benchmark --compare-git
+```
