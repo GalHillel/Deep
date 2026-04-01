@@ -54,48 +54,94 @@ def run(args: argparse.Namespace) -> None:
     dg_dir = repo_root / DEEP_DIR
 
     with TransactionManager(dg_dir) as tm:
-        if paths:
-            tm.begin("checkout_paths")
-            # File-level restore
+        import sys
+        # Identify if explicitly used '--' (argparse consumes it)
+        try:
+            co_idx = sys.argv.index("checkout")
+            has_sep = "--" in sys.argv[co_idx:]
+        except ValueError:
+            has_sep = False
+
+        # If paths are provided via argparse 'paths' or if target is not a revision,
+        # we treat this as a file-restoration command.
+        is_restore = bool(paths) or (has_sep)
+        
+        # If no paths but target looks like a path (and not a branch), treat as restore from index
+        if not is_restore and target and target != "--":
             from deep.core.refs import resolve_revision
-            from deep.storage.objects import read_object, Commit, Tree
-            
+            if not resolve_revision(dg_dir, target):
+                from deep.storage.index import read_index
+                index = read_index(dg_dir)
+                if target in index.entries:
+                    is_restore = True
+
+        if is_restore:
+            tm.begin("checkout_paths")
             objects_dir = dg_dir / "objects"
             
-            target_sha = resolve_revision(dg_dir, target)
-            if not target_sha:
-                print(f"Deep: error: '{target}' is not a valid revision.", file=sys.stderr)
-                raise DeepCLIException(1)
-                
-            commit = read_object(objects_dir, target_sha)
-            if not isinstance(commit, Commit):
-                print(f"Deep: error: '{target}' is not a commit.", file=sys.stderr)
-                raise DeepCLIException(1)
-                
-            from deep.core.repository import _get_tree_files
-            all_files = _get_tree_files(objects_dir, commit.tree_sha)
+            # Determine source and paths
+            # If target is a real revision, use it. Otherwise use index.
+            from deep.core.refs import resolve_revision
+            target_sha = resolve_revision(dg_dir, target) if target and target != "--" else None
             
-            for p in paths:
-                # Normalize path
-                rel_p = Path(p).resolve().relative_to(repo_root).as_posix()
-                if rel_p not in all_files:
-                    print(f"Deep: error: path '{rel_p}' not found in {target}.", file=sys.stderr)
+            if target == "--" or (has_sep and target_sha is None) or (not target_sha and not paths):
+                # Restore from Index
+                from deep.storage.index import read_index
+                index = read_index(dg_dir)
+                source_files = {path: entry.content_hash for path, entry in index.entries.items()}
+                source_desc = "index"
+                # The target itself might be a path if no -- was used, or after --
+                actual_paths = list(paths)
+                if target and target != "--" and target_sha is None:
+                    actual_paths.insert(0, target)
+            else:
+                # Restore from Commit (target_sha)
+                from deep.storage.objects import read_object, Commit
+                commit = read_object(objects_dir, target_sha)
+                if not isinstance(commit, Commit):
+                    print(f"Deep: error: '{target}' is not a commit.", file=sys.stderr)
+                    raise DeepCLIException(1)
+                from deep.core.repository import _get_tree_files
+                source_files = _get_tree_files(objects_dir, commit.tree_sha)
+                source_desc = target_sha[:7]
+                actual_paths = list(paths)
+
+            if not actual_paths:
+                print("Deep: error: nothing specified. Please provide paths or a branch name.", file=sys.stderr)
+                raise DeepCLIException(1)
+
+            # Perform restoration
+            from deep.storage.objects import read_object
+            for p in actual_paths:
+                try:
+                    # Robust path resolution relative to repo root
+                    abs_p = Path(p).resolve()
+                    rel_p = abs_p.relative_to(repo_root.resolve()).as_posix()
+                except ValueError:
+                    print(f"Deep: error: path '{p}' is outside repository.", file=sys.stderr)
+                    continue
+
+                if rel_p not in source_files:
+                    print(f"Deep: error: path '{rel_p}' not found in {source_desc}.", file=sys.stderr)
                     continue
                     
-                sha = all_files[rel_p]
-                blob = read_object(objects_dir, sha)
+                sha = source_files[rel_p]
+                blob_obj = read_object(objects_dir, sha)
+                dest_file = repo_root / rel_p
+                dest_file.parent.mkdir(parents=True, exist_ok=True)
                 
-                dest = repo_root / rel_p
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                if hasattr(blob, "data"):
-                    dest.write_bytes(blob.data)
-                else:
-                    dest.write_bytes(blob.serialize_content())
-                print(f"Updated 1 path from {target_sha[:7]}")
+                content = blob_obj.data if hasattr(blob_obj, "data") else blob_obj.serialize_content()
+                dest_file.write_bytes(content)
+                print(f"Updated 1 path from {source_desc}")
+            
             tm.commit()
             return
 
         # 3. Branch/Commit switching
+        if not target:
+            print("Deep: error: branch name or commit SHA required.", file=sys.stderr)
+            raise DeepCLIException(1)
+            
         tm.begin("checkout_branch")
         try:
             from deep.core.repository import checkout

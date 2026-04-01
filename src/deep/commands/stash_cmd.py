@@ -37,7 +37,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     elif action == "list":
         stashes = get_stash_list(dg_dir)
         if not stashes:
-            # Match git output: nothing to show
+            # Nothing to show
             return
         
         # Invert to show newest stash (stack top) first

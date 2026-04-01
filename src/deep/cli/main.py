@@ -322,7 +322,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_checkout.add_argument("-f", "--force", action="store_true", help="Force branch switching even if there are uncommitted local changes")
     p_checkout.add_argument("-b", "--branch", action="store_true", help="Create a new branch")
-    p_checkout.add_argument("target", help="The branch name or commit SHA to switch to")
+    p_checkout.add_argument("target", nargs="?", help="The branch name or commit SHA to switch to")
+    p_checkout.add_argument("paths", nargs="*", help="Optional paths to restore from the target")
 
     # ── merge ───────────────────────────────────────────────────────
     p_merge = sub.add_parser(
@@ -1500,7 +1501,7 @@ def main(argv: list[str] | None = None) -> None:
         raise DeepCLIException(1)
         
     # Phase 6: State Consistency Guarantee
-    if args.command in ("merge", "rollback", "checkout"):
+    if args.command in ("merge", "rollback"):
         from deep.core.status import compute_status # type: ignore[import]
         status = compute_status(repo_root)
         if status.staged_new or status.staged_modified or status.staged_deleted or status.modified or status.deleted:
