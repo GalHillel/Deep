@@ -54,13 +54,20 @@ def _list_tree(objects_dir: Path, tree: Tree, prefix: str, recursive: bool) -> N
     """Helper to list tree entries recursively."""
     for entry in tree.entries:
         mode = entry.mode
-        obj_type = "tree" if mode == "040000" else "blob"
+        # Deep stores "40000", but Git expects "040000" for CLI output.
+        # Ensure we recognize both internally as trees.
+        is_directory = mode in ("40000", "040000")
+        
+        # Consistent display mode (Git-compat)
+        display_mode = "040000" if is_directory else mode
+        obj_type = "tree" if is_directory else "blob"
+        
         path = prefix + entry.name
         
-        # Git ls-tree format: <mode> <type> <sha> <path>
-        print(f"{mode} {obj_type} {entry.sha}    {path}")
+        # Git ls-tree format: <mode> <type> <sha>\t<path>
+        print(f"{display_mode} {obj_type} {entry.sha}\t{path}")
         
-        if recursive and obj_type == "tree":
+        if recursive and is_directory:
             sub_tree = read_object(objects_dir, entry.sha)
             if isinstance(sub_tree, Tree):
                 _list_tree(objects_dir, sub_tree, path + "/", recursive)
