@@ -625,8 +625,9 @@ def build_parser() -> argparse.ArgumentParser:
 """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_fetch.add_argument("url", help="The remote name or URL to fetch from")
+    p_fetch.add_argument("url", nargs="?", help="The remote name or URL to fetch from")
     p_fetch.add_argument("sha", nargs="?", help="A specific commit SHA to fetch (optional)")
+    p_fetch.add_argument("--all", action="store_true", help="Fetch updates from all registered remotes")
 
     # ── ls-remote ────────────────────────────────────────────────────
     p_ls_remote = sub.add_parser(
