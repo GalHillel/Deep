@@ -140,12 +140,17 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         raise DeepCLIException(1)
 
     # Handle --abort
-    if getattr(args, "abort", False):
+    is_abort = getattr(args, "abort", False)
+    if is_abort:
         print("Aborting merge: resetting working directory and index to HEAD.")
         from deep.commands.reset_cmd import run as reset_run
         reset_args = type('Namespace', (), {'commit': 'HEAD', 'hard': True, 'soft': False})()
         reset_run(reset_args)
         return
+
+    if not target_branch:
+        print("Deep: error: merge branch required unless using --abort.", file=sys.stderr)
+        raise DeepCLIException(1)
 
     # 1. Dirty check (REQUIRED for safety)
     from deep.core.status import compute_status
@@ -171,6 +176,8 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         print("Already up to date.")
         return
 
+    no_ff = getattr(args, "no_ff", False)
+
     with TransactionManager(dg_dir) as tm:
         telemetry = TelemetryCollector(dg_dir)
         audit = AuditLog(dg_dir)
@@ -181,7 +188,7 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
             current_branch = get_current_branch(dg_dir)
 
             # Case A: Fast-forward.
-            if lca_sha == head_sha:
+            if lca_sha == head_sha and not no_ff:
                 tm.begin(
                     operation="merge",
                     details=f"fast-forward merge {target_branch}",

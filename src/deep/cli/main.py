@@ -346,6 +346,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_merge.add_argument("branch", nargs="?", default=None, help="The name of the branch to merge into the current one")
     p_merge.add_argument("--abort", action="store_true", help="Abort the current merge operation")
+    p_merge.add_argument("--no-ff", action="store_true", help="Force a merge commit even if a fast-forward is possible")
 
     # ── rm ──────────────────────────────────────────────────────────
     p_rm = sub.add_parser(

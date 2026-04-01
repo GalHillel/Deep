@@ -108,6 +108,12 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             else:
                 print(f"{graph_prefix}{Color.wrap(Color.YELLOW, 'commit ' + sha)}{dec_str}")
                 graph_pad = "| " if is_graph else ""
+                
+                # Render Merge parents if a merge commit
+                if len(obj.parent_shas) > 1:
+                    parent_display = " ".join(p[:7] for p in obj.parent_shas)
+                    print(f"{graph_pad}{Color.wrap(Color.BOLD, 'Merge:')}  {parent_display}")
+
                 print(f"{graph_pad}{Color.wrap(Color.BOLD, 'Author:')} {obj.author}")
                 date_str = format_date(obj.timestamp, obj.timezone)
                 print(f"{graph_pad}{Color.wrap(Color.BOLD, 'Date:')}   {date_str}")
