@@ -42,6 +42,10 @@ def init_repo(path: Union[str, Path] = ".", bare: bool = False) -> Path:
     # For bare repos, the root itself is the deep dir
     dg = repo_root if bare else _get_dg_path(repo_root)
 
+    # Validate that we're not trying to initialize inside an existing file
+    if not bare and repo_root.exists() and not repo_root.is_dir():
+        raise FileExistsError(f"Target repository root exists but is not a directory: {repo_root}")
+
     # If the internal directory already exists, treat init as idempotent.
     if dg.exists():
         if not dg.is_dir():
