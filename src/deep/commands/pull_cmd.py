@@ -106,7 +106,7 @@ def run(args) -> None:
             if url_or_name != "origin":
                 update_remote_ref(dg_dir, "origin", branch, remote_sha)
 
-            # 4. Merge (or fast-forward if local has no commits)
+            # 4. Integrate changes (Merge or Rebase)
             head_sha = resolve_head(dg_dir)
             if not head_sha:
                 # Empty repo: fast-forward by setting branch and checking out
@@ -119,6 +119,11 @@ def run(args) -> None:
                     checkout_run(Namespace(target=branch, force=True, branch=None, files=[]))
                 except Exception:
                     pass  # Working tree update is best-effort
+            elif getattr(args, "rebase", False):
+                print(f"Rebasing current branch onto {remote_sha[:7]}...")
+                from deep.commands.rebase_cmd import run as rebase_run
+                rebase_args = Namespace(branch=remote_sha, interactive=False, continue_rebase=False, abort=False)
+                rebase_run(rebase_args)
             else:
                 print(f"Merging {remote_sha[:7]} into current branch...")
                 from deep.commands.merge_cmd import run as merge_run
@@ -126,7 +131,7 @@ def run(args) -> None:
                 try:
                     merge_run(merge_args)
                 except DeepCLIException:
-                    # Write MERGE_HEAD
+                    # Write MERGE_HEAD for conflict state
                     merge_head = dg_dir / "MERGE_HEAD"
                     if not merge_head.exists():
                         merge_head.write_text(remote_sha + "\n", encoding="utf-8")

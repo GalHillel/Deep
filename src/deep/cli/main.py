@@ -607,6 +607,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_pull.add_argument("url", nargs="?", help="The remote name or URL to pull from")
     p_pull.add_argument("branch", nargs="?", help="The name of the branch to integrate")
+    p_pull.add_argument("--rebase", action="store_true", help="Fetch and rebase local changes onto the remote branch")
 
     # ── fetch ────────────────────────────────────────────────────────
     p_fetch = sub.add_parser(
