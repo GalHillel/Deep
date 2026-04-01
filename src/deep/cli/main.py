@@ -439,6 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_rebase.add_argument("branch", nargs="?", help="The branch or commit identifier to rebase onto")
     p_rebase.add_argument("--continue", action="store_true", dest="continue_rebase", help="Continue the rebase process after resolving conflicts")
     p_rebase.add_argument("--abort", action="store_true", help="Abort the rebase operation and restore the original branch state")
+    p_rebase.add_argument("-i", "--interactive", action="store_true", help="Start an interactive rebase Session")
 
     # ── inspect-tree ──────────────────────────────────────────────
     p_inspect_tree = sub.add_parser(
@@ -539,6 +540,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_config.add_argument("value", nargs="?", help="The value to assign to the key")
 
     # ── Group: Remote & Distributed
+
     # ── clone ───────────────────────────────────────────────────────
     p_clone = sub.add_parser(
         "clone",

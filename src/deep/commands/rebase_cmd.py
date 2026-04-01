@@ -37,36 +37,52 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
-    if getattr(args, "continue_rebase", False):
-        print("Rebase continue requested. (Not fully implemented, but avoiding crash).")
+    if getattr(args, "interactive", False):
+        print("Interactive rebase (-i) is currently not supported in this version.")
         return
+
+    if getattr(args, "continue_rebase", False):
+        # In the current atomic logical_rebase model, there is no intermediate state to continue.
+        # If the rebase was successful, everything is done. If it failed, it rolled back.
+        print("No rebase in progress to continue (current rebase model is atomic).")
+        return
+
     if getattr(args, "abort", False):
         from deep.storage.txlog import TransactionLog
         txlog = TransactionLog(dg_dir)
-        if txlog.rollback():
-            print("Rebase aborted and state restored.")
+        
+        # Check if there's an incomplete rebase transaction (simulating "in-progress")
+        incomplete = txlog.get_incomplete()
+        rebase_tx = [r for r in incomplete if r.operation == "rebase"]
+        
+        if rebase_tx:
+            # We found a crashed/incomplete rebase. Abort it.
+            if txlog.rollback(rebase_tx[0].tx_id, "User requested rebase abort"):
+                print("Rebase aborted and state restored.")
+            else:
+                print("Deep: error: could not abort the active rebase.", file=sys.stderr)
+                raise DeepCLIException(1)
         else:
             print("No active rebase to abort.")
         return
 
     target_branch = args.branch
     if target_branch is None:
-        print("Deep: error: the following arguments are required: branch", file=sys.stderr)
+        print("Deep: error: the following arguments are required: branch (when not using --continue/--abort)", file=sys.stderr)
         raise DeepCLIException(1)
 
-    # Resolve head and target branch
+    # 1. Resolve current HEAD.
     head_sha = resolve_head(dg_dir)
-    if not head_sha:
+    if head_sha is None:
         print("Deep: error: no commits on current branch.", file=sys.stderr)
         raise DeepCLIException(1)
 
-    target_sha = get_branch(dg_dir, target_branch)
-    if not target_sha:
-        # Try resolving as SHA directly
-        target_sha = target_branch if len(target_branch) == 40 else ""
-        if not target_sha:
-            print(f"Deep: error: branch or SHA '{target_branch}' not found.", file=sys.stderr)
-            raise DeepCLIException(1)
+    # 2. Resolve target branch.
+    from deep.core.refs import resolve_revision
+    target_sha = resolve_revision(dg_dir, target_branch)
+    if target_sha is None:
+        print(f"Deep: error: revision '{target_branch}' not found.", file=sys.stderr)
+        raise DeepCLIException(1)
 
     if head_sha == target_sha:
         print("Current branch is up to date.")
