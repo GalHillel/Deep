@@ -68,7 +68,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     diffs.append((path, res))
             _render_diffs(diffs)
     elif isinstance(obj, Tag):
-        print(f"tag {obj.name}")
+        print(f"tag {obj.tag_name}")
         print(f"Tagger: {obj.tagger}")
         print(f"Date:   {format_date(obj.timestamp, obj.timezone)}")
         print()

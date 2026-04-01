@@ -421,6 +421,25 @@ def create_tag(dg_dir: Path, name: str, sha: str) -> None:
             aw.write(sha + "\n")
 
 
+def delete_tag(dg_dir: Path, name: str) -> None:
+    """Delete a tag ref.
+
+    Args:
+        dg_dir: Path to ``.deep``.
+        name:   Tag name to delete.
+
+    Raises:
+        FileNotFoundError: If the tag does not exist.
+    """
+    tp = _tag_path(dg_dir, name)
+    if not tp.exists():
+        raise FileNotFoundError(f"Tag '{name}' not found")
+        
+    lock = FileLock(str(tp) + ".lock")
+    with lock:
+        tp.unlink()
+
+
 # ── DAG traversal ───────────────────────────────────────────────────
 
 def log_history(
