@@ -102,3 +102,13 @@ tests/e2e_cli/failures
 tests/e2e_cli/*.json
 
 tests/e2e_cli/test_run.json
+
+# === Explicit Cleanup Rules ===
+# Logs
+logs/
+logs/*
+!logs/.gitkeep
+
+# Debugging scripts
+*debug*.py
+repro_*.py
