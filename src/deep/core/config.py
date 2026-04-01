@@ -27,7 +27,13 @@ class Config:
         self.global_path = Path.home() / ".deepconfig"
         self.local_path = None
         if repo_root:
-            self.local_path = repo_root / DEEP_DIR / "config"
+            # Bare repo check: if root contains objects/ but no .deep/, it's a bare repository
+            # and the config file is 'config' instead of '.deep/config'.
+            is_bare = (repo_root / "objects").is_dir() and not (repo_root / DEEP_DIR).exists()
+            if is_bare:
+                self.local_path = repo_root / "config"
+            else:
+                self.local_path = repo_root / DEEP_DIR / "config"
             
         self.reload()
 

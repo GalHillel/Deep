@@ -267,26 +267,29 @@ class SmartTransportClient:
         objects_dir: Path,
         depth: Optional[int] = None,
         filter_spec: Optional[str] = None,
+        shallow_since: Optional[str] = None,
     ) -> Tuple[Dict[str, str], str]:
         """Clone a remote repository.
 
         Args:
             objects_dir: Local .deep/objects/ directory.
             depth: Optional shallow clone depth.
+            shallow_since: Optional cut-off date for history.
 
         Returns:
             (refs, head_ref_name)
         """
         if self._transport_type in ("https", "http"):
-            return self._clone_https(objects_dir, depth, filter_spec)
+            return self._clone_https(objects_dir, depth, filter_spec, shallow_since)
         else:
-            return self._clone_ssh(objects_dir, depth, filter_spec)
+            return self._clone_ssh(objects_dir, depth, filter_spec, shallow_since)
 
     def _clone_https(
         self,
         objects_dir: Path,
         depth: Optional[int],
         filter_spec: Optional[str] = None,
+        shallow_since: Optional[str] = None,
     ) -> Tuple[Dict[str, str], str]:
         transport = HTTPSTransport(self.url, token=self.token)
         service = self._select_service("deep-upload-pack", self._remote_type)
@@ -308,7 +311,7 @@ class SmartTransportClient:
 
         # Step 2: Build want/have negotiation request
         request_body = self._build_upload_request(
-            refs, set(), server_caps, depth=depth, filter_spec=filter_spec
+            refs, set(), server_caps, depth=depth, filter_spec=filter_spec, shallow_since=shallow_since
         )
 
         # Step 3: POST upload-pack request
@@ -329,6 +332,7 @@ class SmartTransportClient:
         objects_dir: Path,
         depth: Optional[int],
         filter_spec: Optional[str] = None,
+        shallow_since: Optional[str] = None,
     ) -> Tuple[Dict[str, str], str]:
         transport = SSHTransport(self.url)
         try:
@@ -349,7 +353,7 @@ class SmartTransportClient:
 
             # Step 2: Send want/have/done
             self._send_upload_request_ssh(
-                transport, refs, set(), server_caps, depth=depth, filter_spec=filter_spec
+                transport, refs, set(), server_caps, depth=depth, filter_spec=filter_spec, shallow_since=shallow_since
             )
 
             # Step 3: Read packfile
@@ -371,6 +375,7 @@ class SmartTransportClient:
         have_shas: Optional[List[str]] = None,
         depth: Optional[int] = None,
         filter_spec: Optional[str] = None,
+        shallow_since: Optional[str] = None,
     ) -> int:
         """Fetch objects from remote.
 
@@ -378,14 +383,15 @@ class SmartTransportClient:
             objects_dir: Local .deep/objects/ directory.
             want_shas: Specific SHAs to fetch (None = all remote refs).
             have_shas: SHAs we already have locally.
+            shallow_since: Optional cut-off date for history.
 
         Returns:
             Number of objects fetched.
         """
         if self._transport_type in ("https", "http"):
-            return self._fetch_https(objects_dir, want_shas, have_shas, depth, filter_spec)
+            return self._fetch_https(objects_dir, want_shas, have_shas, depth, filter_spec, shallow_since)
         else:
-            return self._fetch_ssh(objects_dir, want_shas, have_shas, depth, filter_spec)
+            return self._fetch_ssh(objects_dir, want_shas, have_shas, depth, filter_spec, shallow_since)
 
     def _fetch_https(
         self,
@@ -394,6 +400,7 @@ class SmartTransportClient:
         have_shas: Optional[List[str]],
         depth: Optional[int] = None,
         filter_spec: Optional[str] = None,
+        shallow_since: Optional[str] = None,
     ) -> int:
         transport = HTTPSTransport(self.url, token=self.token)
         service = self._select_service("deep-upload-pack", self._remote_type)
@@ -416,7 +423,7 @@ class SmartTransportClient:
             return 0
 
         request_body = self._build_upload_request(
-            refs, local_shas, server_caps, depth=depth, filter_spec=filter_spec, want_refs=wants
+            refs, local_shas, server_caps, depth=depth, filter_spec=filter_spec, want_refs=wants, shallow_since=shallow_since
         )
         resp = transport.post_service(service, request_body)
         pack_data = self._receive_pack_https(resp, server_caps)
@@ -432,6 +439,7 @@ class SmartTransportClient:
         have_shas: Optional[List[str]],
         depth: Optional[int] = None,
         filter_spec: Optional[str] = None,
+        shallow_since: Optional[str] = None,
     ) -> int:
         transport = SSHTransport(self.url)
         try:
@@ -452,7 +460,7 @@ class SmartTransportClient:
                 return 0
 
             self._send_upload_request_ssh(
-                transport, refs, local_shas, server_caps, depth=depth, filter_spec=filter_spec, want_refs=wants
+                transport, refs, local_shas, server_caps, depth=depth, filter_spec=filter_spec, want_refs=wants, shallow_since=shallow_since
             )
             pack_data = self._receive_pack_ssh(transport, server_caps)
 
@@ -551,6 +559,7 @@ class SmartTransportClient:
         depth: Optional[int] = None,
         filter_spec: Optional[str] = None,
         want_refs: Optional[Set[str]] = None,
+        shallow_since: Optional[str] = None,
     ) -> bytes:
         """Build the POST body for deep-upload-pack (HTTPS)."""
         buf = io.BytesIO()
@@ -589,6 +598,11 @@ class SmartTransportClient:
             write_pkt_line(buf, f"deepen {depth}".encode("ascii"))
             write_flush(buf)
 
+        # Shallow Since
+        if shallow_since:
+            write_pkt_line(buf, f"deepen-since {shallow_since}".encode("ascii"))
+            write_flush(buf)
+
         # Filter
         if filter_spec:
             write_pkt_line(buf, f"filter {filter_spec}".encode("ascii"))
@@ -612,6 +626,7 @@ class SmartTransportClient:
         depth: Optional[int] = None,
         filter_spec: Optional[str] = None,
         want_refs: Optional[Set[str]] = None,
+        shallow_since: Optional[str] = None,
     ) -> None:
         """Send want/have/done over SSH."""
         if want_refs:
@@ -642,6 +657,11 @@ class SmartTransportClient:
         if depth:
             write_pkt_line(transport.stdin,
                           f"deepen {depth}".encode("ascii"))
+            write_flush(transport.stdin)
+
+        if shallow_since:
+            write_pkt_line(transport.stdin,
+                          f"deepen-since {shallow_since}".encode("ascii"))
             write_flush(transport.stdin)
 
         # Filter

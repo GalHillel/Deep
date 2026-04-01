@@ -147,7 +147,7 @@ class RemoteClient:
         """Alias for ls_refs for protocol parity."""
         return self.ls_refs()
 
-    def clone(self, objects_dir: Path, depth: Optional[int] = None, filter_spec: Optional[str] = None) -> tuple[dict[str, str], str]:
+    def clone(self, objects_dir: Path, depth: Optional[int] = None, filter_spec: Optional[str] = None, shallow_since: Optional[str] = None) -> tuple[dict[str, str], str]:
         """Clone a remote repository."""
         self.connect()
         try:
@@ -165,12 +165,12 @@ class RemoteClient:
                         head_ref = r
                         break
             
-            self.fetch(objects_dir, want_shas=[latest_sha] if latest_sha else [], depth=depth, filter_spec=filter_spec)
+            self.fetch(objects_dir, want_shas=[latest_sha] if latest_sha else [], depth=depth, filter_spec=filter_spec, shallow_since=shallow_since)
             return refs, head_ref
         finally:
             self.disconnect()
 
-    def fetch(self, objects_dir: Path, want_shas: Optional[List[str]] = None, have_shas: Optional[List[str]] = None, depth: Optional[int] = None, filter_spec: Optional[str] = None) -> int:
+    def fetch(self, objects_dir: Path, want_shas: Optional[List[str]] = None, have_shas: Optional[List[str]] = None, depth: Optional[int] = None, filter_spec: Optional[str] = None, shallow_since: Optional[str] = None) -> int:
         """Standardized fetch for protocol compatibility."""
         self.connect()
         try:
@@ -185,17 +185,19 @@ class RemoteClient:
             for sha in target_shas:
                 if sha == "0"*40: continue
                 # We reuse the existing _fetch_single (renamed from fetch)
-                count += self._fetch_single(objects_dir, sha, depth=depth, filter_spec=filter_spec)
+                count += self._fetch_single(objects_dir, sha, depth=depth, filter_spec=filter_spec, shallow_since=shallow_since)
             return count
         finally:
             self.disconnect()
 
-    def _fetch_single(self, objects_dir: Path, target_sha: str, depth: int | None = None, filter_spec: str | None = None):
+    def _fetch_single(self, objects_dir: Path, target_sha: str, depth: int | None = None, filter_spec: str | None = None, shallow_since: str | None = None):
         """Internal fetch for a single SHA."""
         # Previous fetch logic...
         cmd_parts = [f"fetch {target_sha}"]
         if depth is not None:
             cmd_parts.append(f"--depth {depth}")
+        if shallow_since is not None:
+            cmd_parts.append(f"--shallow-since {shallow_since}")
         if filter_spec is not None:
             cmd_parts.append(f"--filter {filter_spec}")
             
@@ -320,11 +322,11 @@ class LocalClient:
             
         return refs
 
-    def clone(self, objects_dir: Path, depth: Optional[int] = None, filter_spec: Optional[str] = None) -> tuple[dict[str, str], str]:
+    def clone(self, objects_dir: Path, depth: Optional[int] = None, filter_spec: Optional[str] = None, shallow_since: Optional[str] = None) -> tuple[dict[str, str], str]:
         refs = self.ls_remote()
         head_sha = refs.get("HEAD", "")
         if head_sha:
-            self.fetch(objects_dir, want_shas=[head_sha], depth=depth, filter_spec=filter_spec)
+            self.fetch(objects_dir, want_shas=[head_sha], depth=depth, filter_spec=filter_spec, shallow_since=shallow_since)
         
         # Determine head_ref
         head_ref = "refs/heads/main"
@@ -335,7 +337,7 @@ class LocalClient:
         
         return refs, head_ref
 
-    def fetch(self, objects_dir: Path, want_shas: Optional[List[str]] = None, have_shas: Optional[List[str]] = None, depth: Optional[int] = None, filter_spec: Optional[str] = None) -> int:
+    def fetch(self, objects_dir: Path, want_shas: Optional[List[str]] = None, have_shas: Optional[List[str]] = None, depth: Optional[int] = None, filter_spec: Optional[str] = None, shallow_since: Optional[str] = None) -> int:
         from deep.storage.objects import get_reachable_objects
         from deep.storage.pack import create_pack, unpack
         
@@ -345,7 +347,7 @@ class LocalClient:
         
         # Get all objects from source repo
         src_objects_dir = self.dg_dir / "objects"
-        reachable_shas = get_reachable_objects(src_objects_dir, want_shas, depth, filter_spec)
+        reachable_shas = get_reachable_objects(src_objects_dir, want_shas, depth, filter_spec, shallow_since)
         
         # Create pack from source and unpack to destination
         pack_data = create_pack(src_objects_dir, reachable_shas)

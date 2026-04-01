@@ -882,7 +882,7 @@ def generate_object_index(dg_dir: Path) -> Dict[str, str]:
         aw.write(json.dumps(index, indent=2))
     return index
 
-def get_reachable_objects(objects_dir: Path, shas: list[str], max_depth: int | None = None, filter_spec: str | None = None) -> list[str]:
+def get_reachable_objects(objects_dir: Path, shas: list[str], max_depth: int | None = None, filter_spec: str | None = None, shallow_since: int | None = None) -> list[str]:
     """Return all objects reachable from the given SHAs (commits, trees, blobs), supporting depth and filters."""
     seen = set()
     queue = deque((sha, 1) for sha in shas)
@@ -906,22 +906,36 @@ def get_reachable_objects(objects_dir: Path, shas: list[str], max_depth: int | N
             if blob_none and isinstance(obj, Blob):
                 continue
                 
-            reachable.append(sha)
-            
             if isinstance(obj, Commit):
+                # Apply shallow_since: if commit is older than requested date, don't traverse parents
+                is_too_old = False
+                if shallow_since is not None:
+                    if obj.timestamp < shallow_since:
+                        is_too_old = True
+
+                if is_too_old:
+                    # If this commit is already too old, we don't include it or its parents
+                    continue
+
+                reachable.append(sha)
+
                 if obj.tree_sha:
                     queue.append((obj.tree_sha, depth)) # Trees don't increase commit depth
                 
-                # Check depth bound before adding parents
+                # Check depth bound and time bound before adding parents
                 if max_depth is None or (isinstance(max_depth, int) and depth < max_depth):
                     for p in obj.parent_shas:
                         queue.append((p, depth + 1))
-            elif isinstance(obj, Tree):
-                for entry in obj.entries:
-                    queue.append((entry.sha, depth))
-            elif isinstance(obj, Tag):
-                if obj.target_sha:
-                    queue.append((obj.target_sha, depth))
+            else:
+                # Trees, Blobs, Tags are added normally
+                reachable.append(sha)
+                
+                if isinstance(obj, Tree):
+                    for entry in obj.entries:
+                        queue.append((entry.sha, depth))
+                elif isinstance(obj, Tag):
+                    if obj.target_sha:
+                        queue.append((obj.target_sha, depth))
         except (FileNotFoundError, ValueError):
             # Ignore missing objects
             pass

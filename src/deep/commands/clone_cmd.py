@@ -49,6 +49,30 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         raise DeepCLIException(1)
 
     mirror = getattr(args, "mirror", False)
+    shallow_since_val = getattr(args, "shallow_since", None)
+    
+    # Parse shallow_since into a timestamp for the protocol
+    shallow_since_ts = None
+    if shallow_since_val:
+        try:
+            # Try as a float/int timestamp first
+            shallow_since_ts = int(float(shallow_since_val))
+        except ValueError:
+            # Try ISO format or similar
+            from datetime import datetime
+            try:
+                # Basic ISO format support
+                dt = datetime.fromisoformat(shallow_since_val.replace("Z", "+00:00"))
+                shallow_since_ts = int(dt.timestamp())
+            except ValueError:
+                # If we can't parse it, pass it through as is to the wire (maybe server can parse)
+                # But for LocalClient we need an int.
+                print(f"Deep: warning: Could not parse date '{shallow_since_val}', using as raw timestamp", file=sys.stderr)
+                try:
+                    shallow_since_ts = int(shallow_since_val)
+                except ValueError:
+                    shallow_since_ts = None
+
     target_dir.mkdir(parents=True, exist_ok=True)
     success = False
 
@@ -77,6 +101,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             objects_dir,
             depth=getattr(args, "depth", None),
             filter_spec=getattr(args, "filter", None),
+            shallow_since=shallow_since_ts,
         )
 
         # Determine main branch
@@ -102,14 +127,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                     head_sha = sha
                     break
 
-        if not head_sha:
-            print("Deep: warning: Remote repository appears empty", file=sys.stderr)
-            success = True # Ambiguous, but repo is initialized
-            return
-
         # Update refs
-        update_branch(dg_dir, main_branch, head_sha)
-        update_head(dg_dir, f"ref: refs/heads/{main_branch}")
+        if head_sha:
+            update_branch(dg_dir, main_branch, head_sha)
+            update_head(dg_dir, f"ref: refs/heads/{main_branch}")
 
         # Store all remote refs as remote tracking branches
         for ref_name, sha in refs.items():
@@ -126,6 +147,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         if mirror:
             config.set_local("remote.origin.mirror", "true")
             config.set_local("remote.origin.fetch", "+refs/*:refs/*")
+
+        if not head_sha:
+            print("Deep: warning: Remote repository appears empty", file=sys.stderr)
+            success = True # Ambiguous, but repo is initialized
+            return
 
         # Checkout working tree
         if not mirror:
