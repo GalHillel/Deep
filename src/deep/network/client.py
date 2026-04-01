@@ -305,8 +305,7 @@ class LocalClient:
             raise FileNotFoundError(f"Not a Deep repository (missing .deep): {self.repo_root}")
 
     def ls_remote(self) -> Dict[str, str]:
-        from deep.core.refs import list_branches, get_branch
-        branches = list_branches(self.dg_dir)
+        from deep.core.refs import list_branches, list_tags, get_branch, get_tag
         refs = {}
         # Add all branches
         for b in list_branches(self.dg_dir):
@@ -314,6 +313,12 @@ class LocalClient:
             if sha:
                 refs[f"refs/heads/{b}"] = sha
         
+        # Add all tags
+        for t in list_tags(self.dg_dir):
+            sha = get_tag(self.dg_dir, t)
+            if sha:
+                refs[f"refs/tags/{t}"] = sha
+
         # Resolve HEAD
         from deep.core.refs import resolve_head
         head_sha = resolve_head(self.dg_dir)

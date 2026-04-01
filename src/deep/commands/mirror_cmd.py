@@ -17,45 +17,72 @@ from deep.utils.ux import Color
 
 def run(args) -> None:
     """Execute the ``mirror`` command."""
-    try:
-        repo_root = find_repo()
-    except FileNotFoundError as exc:
-        print(f"Deep: error: {exc}", file=sys.stderr)
+    url = args.url
+    path = Path(args.path).resolve()
+
+    if path.exists() and any(path.iterdir()):
+        print(f"Deep: error: destination path '{path}' already exists and is not empty.", file=sys.stderr)
         raise DeepCLIException(1)
 
-    dg_dir = repo_root / DEEP_DIR
-    manager = MirrorManager(dg_dir)
-    config = Config(repo_root)
-    auth_token = config.get("auth.token")
+    # 1. Initialize new deep repo
+    path.mkdir(parents=True, exist_ok=True)
+    dg_dir = path / DEEP_DIR
     
-    cmd = args.mirror_command
+    from deep.commands.init_cmd import run as init_run
+    from argparse import Namespace
+    init_run(Namespace(path=str(path)))
+
+    print(Color.wrap(Color.CYAN, f"⚓ Mirroring {url} into {path}..."))
+
+    # 2. Add remote origin
+    from deep.core.config import Config
+    config = Config(path)
+    config.set_local("remote.origin.url", url)
+    # Configure for mirroring: Fetch all refs
+    config.set_local("remote.origin.fetch", "+refs/*:refs/*")
+    config.set_local("core.mirror", "true")
+
+    # 3. Synchronize all refs
+    from deep.network.client import get_remote_client
+    from deep.core.refs import update_branch, create_tag
+    from deep.storage.transaction import TransactionManager
     
-    if cmd == "add":
-        manager.add_mirror(args.url)
-        print(Color.wrap(Color.GREEN, f"Mirror added: {args.url}"))
-        
-    elif cmd == "sync":
-        print(Color.wrap(Color.CYAN, "Synchronizing all mirrors..."))
-        from deep.storage.transaction import TransactionManager
-        with TransactionManager(dg_dir) as tm:
-            tm.begin("mirror-sync")
-            results = manager.sync_all(auth_token=auth_token)
-            for url, res in results.items():
-                print(f"\nMirror: {url}")
-                if "error" in res:
-                    print(Color.wrap(Color.RED, f"  Error: {res['error']}"))
-                elif not res:
-                    print(Color.wrap(Color.DIM, "  Everything up to date."))
-                else:
-                    for k, v in res.items():
-                        print(f"  {k}: {v}")
-            tm.commit()
-                    
-    elif cmd == "list":
-        mirrors = manager.list_mirrors()
-        if not mirrors:
-            print("No mirrors configured.")
+    client = get_remote_client(url)
+    try:
+        if hasattr(client, "connect"):
+            client.connect()
+        refs = client.ls_remote()
+        if not refs:
+            print(Color.wrap(Color.DIM, "Source repository is empty."))
             return
-        print("Configured mirrors:")
-        for m in mirrors:
-            print(f"  - {m}")
+
+        with TransactionManager(dg_dir) as tm:
+            tm.begin("mirror-create")
+            for ref, sha in refs.items():
+                print(f"  Fetching {ref} [{sha[:7]}]...")
+                # Note: fetch expects a list of SHAs
+                client.fetch(dg_dir / "objects", [sha])
+                
+                # Update local refs
+                if ref.startswith("refs/heads/"):
+                    branch = ref[len("refs/heads/"):]
+                    update_branch(dg_dir, branch, sha)
+                elif ref.startswith("refs/tags/"):
+                    tag = ref[len("refs/tags/"):]
+                    try:
+                        create_tag(dg_dir, tag, sha)
+                    except FileExistsError:
+                        # In mirror mode, we can overwrite or just ignore if already exists
+                        pass
+                elif ref == "HEAD":
+                    (dg_dir / "HEAD").write_text(sha)
+            tm.commit()
+
+        print(Color.wrap(Color.GREEN, "\nMirror complete."))
+
+    except Exception as e:
+        print(f"Deep: error: mirror failed: {e}", file=sys.stderr)
+        raise DeepCLIException(1)
+    finally:
+        if hasattr(client, "disconnect"):
+            client.disconnect()
