@@ -19,7 +19,7 @@ def run(args) -> None:
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"Deep: error: {exc}", file=sys.stderr)
         raise DeepCLIException(1)
 
     config = Config(repo_root)
@@ -27,26 +27,43 @@ def run(args) -> None:
     if args.remote_command == "add":
         name = args.name
         url = args.url
+        if not name or not url:
+            print("Deep: error: both remote name and URL are required for 'add'", file=sys.stderr)
+            raise DeepCLIException(1)
+        
+        # Check if remote already exists
+        if config.parser.has_section(f"remote.{name}"):
+            print(f"Deep: error: remote '{name}' already exists", file=sys.stderr)
+            raise DeepCLIException(1)
+
         config.set_local(f"remote.{name}.url", url)
         print(f"Added remote '{name}' with URL '{url}'")
+
     elif args.remote_command == "remove":
         name = args.name
+        if not name:
+            print("Deep: error: remote name required for 'remove'", file=sys.stderr)
+            raise DeepCLIException(1)
+        
+        if not config.parser.has_section(f"remote.{name}"):
+            print(f"Deep: error: remote '{name}' not found", file=sys.stderr)
+            raise DeepCLIException(1)
+
         config.remove_local(f"remote.{name}")
         print(f"Removed remote '{name}'")
+
     else:
-        # Listing remotes (default)
-        remotes = []
+        # Listing remotes
+        remotes = {}
         for section in config.parser.sections():
             if section.startswith("remote."):
-                parts = section.split(".")
-                if len(parts) >= 2:
-                    remotes.append(parts[1])
+                name = section[7:] # strip "remote."
+                url = config.parser.get(section, "url", fallback="unknown")
+                remotes[name] = url
         
-        # Deduplicate and sort
-        remotes = sorted(list(set(remotes)))
         if not remotes:
             return
             
-        for r in remotes:
-            url = config.parser.get(f"remote.{r}", "url", fallback="unknown")
-            print(f"{Color.wrap(Color.BOLD, r)}\t{url}")
+        for name in sorted(remotes.keys()):
+            url = remotes[name]
+            print(f"{Color.wrap(Color.BOLD, name)}\t{url}")

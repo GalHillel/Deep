@@ -663,7 +663,7 @@ def build_parser() -> argparse.ArgumentParser:
 """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_remote.add_argument("remote_command", choices=["add", "remove", "list"], help="The remote management action to perform")
+    p_remote.add_argument("remote_command", choices=["add", "remove", "list"], nargs="?", default="list", help="The remote management action to perform")
     p_remote.add_argument("name", nargs="?", help="The short name for the remote")
     p_remote.add_argument("url", nargs="?", help="The URL of the remote repository")
 
