@@ -45,7 +45,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
         except Exception as e:
-            print(f"CRITICAL: Failed to send JSON response: {e}")
+            print(f"Deep Studio: failed to send response: {e}", file=__import__('sys').stderr)
 
     def _serve_file(self, path: Path, content_type: str):
         try:
@@ -70,7 +70,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 try:
                     return v2_fn(*args, **kwargs)
                 except Exception as e:
-                    print(f"[studio] V2 backend failed, falling back to V1: {e}")
+                    pass  # Silently fall back to V1
                     return v1_fn(*args, **kwargs)
 
             if path == "" or path == "/" or path == "/index.html":
@@ -141,7 +141,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             
             return self.send_error(404)
         except (Exception, DeepCLIException) as e:
-            traceback.print_exc()
+            print(f"Deep Studio GET error: {e}", file=__import__('sys').stderr)
             msg = getattr(e, "message", str(e)) if not isinstance(e, DeepCLIException) else f"CLI Exit {e.code}"
             return self.send_json({"success": False, "error": f"Server GET Error: {msg}"}, 500)
 
@@ -220,7 +220,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             elif path.startswith("/api/"):
                 return self.send_json({"success": False, "error": f"API POST route not found: {path}"}, 404)
         except (Exception, DeepCLIException) as e:
-            traceback.print_exc()
+            print(f"Deep Studio POST error: {e}", file=__import__('sys').stderr)
             msg = getattr(e, "message", str(e)) if not isinstance(e, DeepCLIException) else f"CLI Exit {e.code}"
             return self.send_json({"success": False, "error": f"Server POST Error: {msg}"}, 500)
 
@@ -265,8 +265,7 @@ def start_dashboard(repo_root: Path, host: str = "127.0.0.1", port: int = 9000):
     DashboardHandler.repo_root = repo_root
 
     server = ThreadingHTTPServer((host, port), DashboardHandler)
-    print(f"Deep Studio (Final) running at http://{host}:{port}")
-    print("[studio] using snapshot backend (v2 default with v1 fallback)")
+    print(f"Deep Studio running at http://{host}:{port}")
     try: server.serve_forever()
     except KeyboardInterrupt: pass
     finally: server.server_close()

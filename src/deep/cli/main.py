@@ -26,37 +26,86 @@ from deep.utils.ux import DEEP_LOGO
 VERSION = "1.0.0"
 
 
+class DeepHelpFormatter(argparse.RawTextHelpFormatter):
+    def _format_action(self, action: argparse.Action) -> str:
+        if isinstance(action, argparse._SubParsersAction):
+            return "" # Hide the flat list completely, we use the epilog
+        return super()._format_action(action)
+
 def build_parser() -> argparse.ArgumentParser:
     """Build and return the top-level argument parser."""
     parser = argparse.ArgumentParser(
         prog="deep",
         description=DEEP_LOGO,
-        formatter_class=argparse.RawTextHelpFormatter,
+        formatter_class=DeepHelpFormatter,
         epilog="""
-\033[1;32m🌱 STARTING A WORKING AREA\033[0m
-    \033[1;36minit, clone, config\033[0m
+\033[1;36m⚓️ CORE WORKFLOW\033[0m
+  \033[1minit\033[0m       Initialize a new empty Deep repository
+  \033[1mclone\033[0m      Clone an existing repository
+  \033[1mconfig\033[0m     Get and set repository or global options
 
-\033[1;33m📦 WORK ON THE CURRENT CHANGE\033[0m
-    \033[1;36madd, rm, mv, reset, stash\033[0m
+\033[1;36m⚓️ CHANGES \033[0m
+  \033[1madd\033[0m        Add file contents to the staging index
+  \033[1mcommit\033[0m     Record changes to the repository history
+  \033[1mrm\033[0m         Remove files from the working tree and index
+  \033[1mmv\033[0m         Move or rename a file, directory, or symlink
+  \033[1mreset\033[0m      Reset current HEAD to the specified state
+  \033[1mstash\033[0m      Stash the changes in a dirty working directory
 
-\033[1;32m🌿 EXAMINE THE HISTORY AND STATE\033[0m
-    \033[1;36mstatus, log, diff, show, ls-tree, graph, search\033[0m
+\033[1;36m⚓️ HISTORY & OVERVIEW\033[0m
+  \033[1mstatus\033[0m     Show the working tree and index status
+  \033[1mlog\033[0m        Display commit history logs
+  \033[1mdiff\033[0m       Show changes between commits or the working tree
+  \033[1mshow\033[0m       Show various types of objects
+  \033[1mgraph\033[0m      Visualize history with an ASCII graph
+  \033[1msearch\033[0m     Search through repository history
+  \033[1mls-tree\033[0m    List the contents of a tree object
 
-\033[1;35m🔄 GROW, MARK AND TWEAK YOUR COMMON HISTORY\033[0m
-    \033[1;36mcommit, branch, checkout, merge, rebase, tag\033[0m
+\033[1;36m⚓️ BRANCHING & MERGING\033[0m
+  \033[1mbranch\033[0m     Manage repository branches
+  \033[1mcheckout\033[0m   Switch branches or restore files
+  \033[1mmerge\033[0m      Join two or more development histories
+  \033[1mrebase\033[0m     Reapply commits on top of another base tip
+  \033[1mtag\033[0m        Create or delete a tag object
 
-\033[1;34m🌐 COLLABORATE (P2P & REMOTE)\033[0m
-    \033[1;36mpush, pull, fetch, remote, p2p, sync, ls-remote, mirror, daemon\033[0m
+\033[1;36m⚓️ COLLABORATION\033[0m
+  \033[1mremote\033[0m     Manage set of tracked repositories
+  \033[1mpush\033[0m       Update remote refs along with associated objects
+  \033[1mpull\033[0m       Fetch from and integrate with another repository
+  \033[1mfetch\033[0m      Download objects and refs from another repository
+  \033[1mp2p\033[0m        Discover and sync with local peers
+  \033[1msync\033[0m       Orchestrate high-level synchronization
+  \033[1mls-remote\033[0m  List references in a remote repository
+  \033[1mdaemon\033[0m     Serve the Deep protocol natively
+  \033[1mmirror\033[0m     Manage periodic sync tasks
 
-\033[1;35m🧠 AI & PLATFORM\033[0m
-    \033[1;36mai, pr, issue, pipeline, studio, repo, user, auth, server\033[0m
+\033[1;36m⚓️ PLATFORM & AI\033[0m
+  \033[1mpr\033[0m         Manage local pull requests
+  \033[1missue\033[0m      Manage repository issues
+  \033[1mpipeline\033[0m   Run CI/CD pipelines
+  \033[1mstudio\033[0m     Launch the Deep Studio Web UI
+  \033[1mserver\033[0m     Start the full platform server
+  \033[1mrepo\033[0m       Manage platform repositories
+  \033[1mauth\033[0m       Authenticate with a Deep server
+  \033[1muser\033[0m       Manage server identities
+  \033[1mai\033[0m         Run AI-assisted workflows
 
-\033[1;31m🛠️ MAINTENANCE & DIAGNOSTICS\033[0m
-    \033[1;36mdoctor, fsck, gc, verify, repack, benchmark, audit, ultra, batch, sandbox, rollback, migrate, maintenance\033[0m
+\033[1;36m⚓️ MAINTENANCE\033[0m
+  \033[1mdoctor\033[0m     Analyze and repair repository health
+  \033[1mfsck\033[0m       Verify connectivity and validity of objects
+  \033[1mgc\033[0m         Cleanup unreachable objects
+  \033[1mverify\033[0m     Check cryptographic integrity
+  \033[1mrepack\033[0m     Pack unpacked objects in a repository
+  \033[1maudit\033[0m      View the repository access and event log
+  \033[1multra\033[0m      Run extreme full-repository optimization
+  \033[1mbatch\033[0m      Execute a batch of Deep commands
+  \033[1msandbox\033[0m    Launch an isolated environment
+  \033[1mrollback\033[0m   Recover from broken transactions
+  \033[1mmaintenance\033[0m Run scheduled maintenance tasks
 
-\033[1;33m💡 UNIVERSAL SHORTCUTS\033[0m
-    \033[1;36mdeep <command> --help\033[0m    # Detailed help for any command
-    \033[1;36mdeep version\033[0m             # Show version and logo
+\033[1;36m💡 TIPS\033[0m
+  \033[1;34mdeep <command> --help\033[0m  # Detailed help for any command
+  \033[1;34mdeep version\033[0m         # Show version and logo
 """,
     )
     sub = parser.add_subparsers(dest="command", metavar="")

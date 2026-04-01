@@ -112,7 +112,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     has_unstaged = status.modified or status.deleted
 
     if has_staged:
-        print("Changes to be committed:")
+        print(Color.wrap(Color.BOLD + Color.CYAN, "Changes to be committed:"))
         for f in status.staged_new:
             print(f"  {Color.wrap(Color.GREEN, 'new file:   ' + f)}")
         for f in status.staged_modified:
@@ -122,7 +122,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print()
 
     if has_unstaged:
-        print("Changes not staged for commit:")
+        print(Color.wrap(Color.BOLD + Color.YELLOW, "Changes not staged for commit:"))
         for f in status.modified:
             print(f"  {Color.wrap(Color.RED, 'modified:   ' + f)}")
         for f in status.deleted:
@@ -130,7 +130,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print()
 
     if status.untracked:
-        print("Untracked files:")
+        print(Color.wrap(Color.BOLD + Color.RED, "Untracked files:"))
         for f in status.untracked:
             print(f"  {Color.wrap(Color.RED, f)}")
         print()

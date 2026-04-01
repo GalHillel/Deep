@@ -1,64 +1,105 @@
-# Installation Guide
+# Installing Deep
 
-This guide provides comprehensive instructions for installing and uninstalling Deep on various platforms.
+## Requirements
 
-## Prerequisites
+- **Python 3.8+** (check with `python --version`)
+- **pip** (ships with Python)
 
-- **Python**: Version 3.8 or higher is required.
-- **Pip**: The Python package manager should be installed.
+That's it. No native dependencies, no build tools, no Docker.
 
-## Quick Installation
+## Install from Source
 
-For most users, installing from the source repository in editable mode is the recommended approach during the current release phase:
-
-1.  **Clone the Repository**:
-    ```bash
-    git clone https://github.com/yourusername/Deep.git
-    cd Deep
-    ```
-
-2.  **Install the Package**:
-    ```bash
-    pip install -e .
-    ```
-
-3.  **Verify the Installation**:
-    ```bash
-    deep --version
-    ```
-
-## Installation Options
-
-### 1. Developer (Editable) Mode
-This is useful if you plan to contribute to Deep or want to test the latest changes.
 ```bash
+# Clone the repository
+git clone https://github.com/GalHillel/DeepGit.git
+cd DeepGit
+
+# Install (editable mode recommended for now)
+pip install -e .
+
+# Verify it works
+deep version
+```
+
+You should see:
+
+```
+Deep version 1.0.0
+```
+
+## Platform-Specific Notes
+
+### Windows
+
+```powershell
+git clone https://github.com/GalHillel/DeepGit.git
+cd DeepGit
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e .
+deep version
+```
+
+If `deep` isn't found after install, make sure your Python `Scripts` directory is in your `PATH`:
+```powershell
+$env:PATH += ";$env:LOCALAPPDATA\Programs\Python\Python311\Scripts"
+```
+
+### macOS / Linux
+
+```bash
+git clone https://github.com/GalHillel/DeepGit.git
+cd DeepGit
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+deep version
+```
+
+If you get a permission error:
+```bash
+pip install --user -e .
+```
+
+## Dependencies
+
+Deep installs these automatically:
+
+| Package | Why |
+|---|---|
+| `rich` | Terminal colors and formatting |
+| `cryptography` | GPG signing and security features |
+| `aiohttp` | Async HTTP for network operations |
+| `pydantic` | Data validation for platform features |
+
+## Uninstall
+
+```bash
+pip uninstall deep-vcs
+```
+
+Verify by running `deep version` — it should return "command not found."
+
+To also remove cloned source:
+```bash
+rm -rf DeepGit/
+```
+
+## Upgrading
+
+```bash
+cd DeepGit
+git pull
 pip install -e .
 ```
 
-### 2. Standard Installation
-To install the package normally:
-```bash
-pip install .
-```
-
-## Uninstallation
-
-To completely remove Deep from your system:
-
-1.  **Uninstall via Pip**:
-    ```bash
-    pip uninstall deep-vcs
-    ```
-
-2.  **Verify Uninstallation**:
-    ```bash
-    deep --version
-    ```
-    *(This should result in a "command not found" error)*
-
 ## Troubleshooting
 
-- **Command Not Found**: Ensure your Python scripts directory (e.g., `~/.local/bin` on Linux/macOS or the Scripts folder in your Python installation on Windows) is in your system's `PATH`.
-- **Permission Errors**: If you encounter permission issues, try adding `--user` to your pip command: `pip install --user -e .`.
+**`deep: command not found`**
+Your Python scripts directory isn't in PATH. Run `python -m deep.cli.main version` as a workaround, then fix your PATH.
 
-For more detailed issues, please refer to the [Troubleshooting Guide](docs/troubleshooting.md).
+**`ModuleNotFoundError: No module named 'deep'`**
+You didn't install the package. Run `pip install -e .` from the DeepGit directory.
+
+**Permission errors on Linux**
+Try `pip install --user -e .` or use a virtual environment (recommended).

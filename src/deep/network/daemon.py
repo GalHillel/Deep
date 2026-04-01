@@ -271,8 +271,7 @@ class DeepDaemon:
                 except Exception as ci_err:
                     await stream.write(f"ok push successful: {moved_count} objects moved. (CI trigger failed)".encode("ascii"))
             except Exception as e:
-                import traceback
-                traceback.print_exc()
+                print(f"Deep Daemon: push error: {e}", file=sys.stderr)
                 await stream.write(f"error push failed: {e}".encode("ascii"))
             finally:
                 if tmp_pack_path.exists():

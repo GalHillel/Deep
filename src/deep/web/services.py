@@ -150,7 +150,7 @@ class DashboardService:
             res = fn(*args, **kwargs)
             return {"success": True, "data": res}
         except (Exception, DeepCLIException) as e:
-            traceback.print_exc()
+            print(f"Deep Studio service error: {e}", file=__import__('sys').stderr)
             msg = getattr(e, "message", str(e)) if not isinstance(e, DeepCLIException) else f"CLI Exit {e.code}"
             return {"success": False, "error": msg}
 
