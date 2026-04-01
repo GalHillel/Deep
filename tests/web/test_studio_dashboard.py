@@ -20,22 +20,30 @@ def repo_with_server(tmp_path):
     repo.mkdir()
     init_repo(repo)
     
+    # Get a free port
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        port = s.getsockname()[1]
+    
     # Start server in a background process
-    proc = multiprocessing.Process(target=start_dashboard, args=(repo, "127.0.0.1", 9091))
+    proc = multiprocessing.Process(target=start_dashboard, args=(repo, "127.0.0.1", port))
     proc.daemon = True
     proc.start()
+    
+    url = f"http://127.0.0.1:{port}"
     
     # Wait for server to be ready
     max_retries = 10
     while max_retries > 0:
         try:
-            requests.get("http://127.0.0.1:9091/api/status")
+            requests.get(f"{url}/api/status")
             break
         except:
             time.sleep(0.5)
             max_retries -= 1
             
-    yield repo, "http://127.0.0.1:9091"
+    yield repo, url
     
     proc.terminate()
     proc.join()
@@ -66,14 +74,22 @@ def test_dashboard_empty_repo(tmp_path):
     repo.mkdir()
     init_repo(repo)
     
-    proc = multiprocessing.Process(target=start_dashboard, args=(repo, "127.0.0.1", 9092))
+    # Get a free port
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        port = s.getsockname()[1]
+
+    proc = multiprocessing.Process(target=start_dashboard, args=(repo, "127.0.0.1", port))
     proc.daemon = True
     proc.start()
+    
+    url = f"http://127.0.0.1:{port}"
     
     try:
         # Wait for ready
         time.sleep(2)
-        resp = requests.get("http://127.0.0.1:9092/api/graph")
+        resp = requests.get(f"{url}/api/graph")
         assert resp.status_code == 200
         data = resp.json()
         assert "commits" in data or "data" in data # v2 might wrap in data

@@ -180,7 +180,9 @@ class PRManager:
         prs = []
         for p in self.prs_dir.glob("*.json"):
             try:
-                prs.append(self.get_pr(int(p.stem)))
+                pr = self.get_pr(int(p.stem))
+                if pr:
+                    prs.append(pr)
             except Exception:
                 continue
         return sorted(prs, key=lambda x: x.id)
