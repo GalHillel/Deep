@@ -406,8 +406,9 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p_reset.add_argument("commit", nargs="?", default="HEAD", help="The commit identifier to reset to (default: HEAD)")
-    p_reset.add_argument("--hard", action="store_true", help="Reset index and working tree (all local changes will be lost)")
-    p_reset.add_argument("--soft", action="store_true", help="Keep index and working tree (all changes are preserved as staged)")
+    g_reset = p_reset.add_mutually_exclusive_group()
+    g_reset.add_argument("--hard", action="store_true", help="Reset index and working tree (all local changes will be lost)")
+    g_reset.add_argument("--soft", action="store_true", help="Keep index and working tree (all changes are preserved as staged)")
 
     # ── rebase ──────────────────────────────────────────────────────
     p_rebase = sub.add_parser(
