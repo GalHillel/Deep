@@ -32,80 +32,105 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
+    objects_dir = dg_dir / "objects"
 
+    src_path_str = args.source
+    dest_path_str = args.destination
+
+    # Use absolute paths for physical disk operations
+    src_abs = Path(src_path_str).absolute()
+    dest_abs = Path(dest_path_str).absolute()
+
+    if not src_abs.exists():
+        print(f"Deep: error: bad source, source={src_path_str}", file=sys.stderr)
+        raise DeepCLIException(1)
+
+    try:
+        rel_src = src_abs.relative_to(repo_root).as_posix()
+    except ValueError:
+        print(f"Deep: error: source '{src_path_str}' is outside the repository.", file=sys.stderr)
+        raise DeepCLIException(1)
+
+    # 1. Determine if moving into a folder
+    if dest_abs.is_dir():
+        dest_abs = dest_abs / src_abs.name
+        
+    try:
+        rel_dest = dest_abs.relative_to(repo_root).as_posix()
+    except ValueError:
+        print(f"Deep: error: destination '{dest_path_str}' is outside the repository.", file=sys.stderr)
+        raise DeepCLIException(1)
+
+    if dest_abs.exists():
+        print(f"Deep: error: destination exists, source={src_path_str}, destination={dest_path_str}", file=sys.stderr)
+        raise DeepCLIException(1)
+
+    # 2. Collect targeted tracked files
+    from deep.storage.index import read_index_no_lock, write_index_no_lock
+    index = read_index_no_lock(dg_dir)
+    to_remove: list[str] = []
+    to_update: dict[str, DeepIndexEntry] = {}
+    
+    import hashlib
+    import struct
+
+    if rel_src in index.entries:
+        # Single file move
+        entry = index.entries[rel_src]
+        to_remove.append(rel_src)
+        
+        stat = src_abs.stat()
+        path_hash_full = hashlib.sha256(rel_dest.encode()).digest()
+        path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
+        to_update[rel_dest] = DeepIndexEntry(
+            content_hash=entry.content_hash, 
+            mtime_ns=stat.st_mtime_ns,
+            size=stat.st_size, 
+            path_hash=path_hash_int
+        )
+    else:
+        # Directory or untracked file check
+        prefix = f"{rel_src}/" if rel_src != "." else ""
+        for path, entry in index.entries.items():
+            if path == rel_src or path.startswith(prefix):
+                # Calculate new relative path
+                suffix = path[len(rel_src):].lstrip("/")
+                new_rel = f"{rel_dest}/{suffix}" if suffix else rel_dest
+                
+                to_remove.append(path)
+                
+                # We'll re-stat the actual disk file for metadata accuracy
+                try:
+                    stat = (repo_root / path).stat()
+                    path_hash_full = hashlib.sha256(new_rel.encode()).digest()
+                    path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
+                    to_update[new_rel] = DeepIndexEntry(
+                        content_hash=entry.content_hash, 
+                        mtime_ns=stat.st_mtime_ns,
+                        size=stat.st_size, 
+                        path_hash=path_hash_int
+                    )
+                except FileNotFoundError:
+                    # File was deleted from disk but is in index (should still be "moved" in index)
+                    path_hash_full = hashlib.sha256(new_rel.encode()).digest()
+                    path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
+                    to_update[new_rel] = entry._replace(path_hash=path_hash_int)
+
+    if not to_remove:
+        print(f"Deep: error: source '{src_path_str}' is not tracked.", file=sys.stderr)
+        raise DeepCLIException(1)
+
+    # 3. Perform move and update index in a transaction
     with TransactionManager(dg_dir) as tm:
-        tm.begin("mv")
-        objects_dir = dg_dir / "objects"
-
-        src_path_str = args.source
-        dest_path_str = args.destination
-
-        src_path = Path(src_path_str).resolve()
-        dest_path = Path(dest_path_str).resolve()
-
-        if not src_path.exists():
-            print(f"Deep: error: bad source, source={src_path_str}, destination={dest_path_str}", file=sys.stderr)
-            raise DeepCLIException(1)
-
-        rel_src = src_path.relative_to(repo_root).as_posix()
-
-        if dest_path.is_dir():
-            dest_path = dest_path / src_path.name
-            
-        rel_dest = dest_path.relative_to(repo_root).as_posix()
-
-        if dest_path.exists():
-            print(f"Deep: error: destination exists, source={src_path_str}, destination={dest_path_str}", file=sys.stderr)
-            raise DeepCLIException(1)
-
-        # 1. Collect stats BEFORE moving
-        from deep.storage.index import read_index_no_lock, write_index_no_lock
-        index = read_index_no_lock(dg_dir)
-        to_remove = []
-        to_update = {} # path -> entry
+        tm.begin("mv", details=f"{rel_src} -> {rel_dest}")
         
-        if rel_src in index.entries:
-            # Single file move
-            entry = index.entries[rel_src]
-            to_remove.append(rel_src)
-            stat = src_path.stat() # Stat source before move
-            path_hash_full = hashlib.sha256(rel_dest.encode()).digest()
-            path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
-            to_update[rel_dest] = DeepIndexEntry(
-                content_hash=entry.content_hash, 
-                mtime_ns=stat.st_mtime_ns,
-                size=stat.st_size, 
-                path_hash=path_hash_int
-            )
-        else:
-            # Directory move (look for prefix)
-            prefix = rel_src + "/"
-            for path, entry in index.entries.items():
-                if path.startswith(prefix):
-                    new_path = rel_dest + path[len(rel_src):]
-                    to_remove.append(path)
-                    try:
-                        stat = (repo_root / path).stat() # Stat source path
-                        path_hash_full = hashlib.sha256(new_path.encode()).digest()
-                        path_hash_int = struct.unpack(">Q", path_hash_full[:8])[0]
-                        to_update[new_path] = DeepIndexEntry(
-                            content_hash=entry.content_hash, 
-                            mtime_ns=stat.st_mtime_ns,
-                            size=stat.st_size, 
-                            path_hash=path_hash_int
-                        )
-                    except FileNotFoundError:
-                        pass
-
-        # 2. Prepare move path
-        tmp_dest = dest_path.with_name(dest_path.name + ".deep_tmp_move")
-        if tmp_dest.exists():
-             shutil.rmtree(tmp_dest) if tmp_dest.is_dir() else tmp_dest.unlink()
+        # Ensure destination directory exists
+        dest_abs.parent.mkdir(parents=True, exist_ok=True)
         
-        # Move to temp location
-        shutil.move(str(src_path), str(tmp_dest))
-
-        # 3. Update index
+        # Physical move
+        shutil.move(str(src_abs), str(dest_abs))
+        
+        # Index update
         for p in to_remove:
             if p in index.entries:
                 del index.entries[p]
@@ -114,10 +139,5 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             
         write_index_no_lock(dg_dir, index)
         tm.commit()
-
-        # 4. Final rename to target location
-        if dest_path.exists():
-             shutil.rmtree(dest_path) if dest_path.is_dir() else dest_path.unlink()
-        shutil.move(str(tmp_dest), str(dest_path))
 
     print(f"Renamed {rel_src} -> {rel_dest}")
