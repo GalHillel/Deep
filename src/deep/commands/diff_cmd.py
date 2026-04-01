@@ -42,8 +42,9 @@ def run(args) -> None:  # type: ignore[no-untyped_def]
         if not rev1:
             print(f"Deep: error: Invalid revision {revisions[0]}", file=sys.stderr)
             raise DeepCLIException(1)
-        # diff <rev> is rev vs working tree (via index)
-        diffs = diff_trees(dg_dir, rev1, "HEAD")
+        # diff <rev> is rev vs working tree
+        from deep.core.diff import diff_commit_vs_working_tree
+        diffs = diff_commit_vs_working_tree(repo_root, rev1)
     elif cached:
         from deep.core.diff import diff_index_vs_head
         diffs = diff_index_vs_head(repo_root)

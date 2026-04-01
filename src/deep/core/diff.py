@@ -273,3 +273,59 @@ def diff_index_vs_head(repo_root: Path) -> list[tuple[str, str]]:
             if res:
                 diffs.append((path, res))
     return diffs
+
+
+def diff_commit_vs_working_tree(repo_root: Path, commit_sha: str) -> list[tuple[str, str]]:
+    """Compute diffs for a specific commit vs the working directory."""
+    from deep.core.constants import DEEP_DIR
+    from deep.storage.objects import Commit, read_object
+    from deep.core.status import compute_status
+    from deep.storage.index import read_index
+    
+    dg_dir = repo_root / DEEP_DIR
+    objs_dir = dg_dir / "objects"
+    
+    head_files = {}
+    try:
+        commit = read_object(objs_dir, commit_sha)
+        if isinstance(commit, Commit):
+            head_files = _get_tree_entries_recursive(objs_dir, commit.tree_sha)
+    except Exception:
+        pass
+        
+    status = compute_status(repo_root)
+    index = read_index(dg_dir)
+    all_paths = set(head_files.keys()) | set(index.entries.keys()) | set(status.untracked)
+    
+    diffs = []
+    
+    for rel_path in sorted(all_paths):
+        file_path = repo_root / rel_path
+        s1 = head_files.get(rel_path)
+        
+        try:
+            old_text = ""
+            if s1:
+                obj_a = read_object(objs_dir, s1)
+                old_text = robust_decode(obj_a.data)
+                
+            new_text = ""
+            if file_path.exists():
+                new_text = robust_decode(file_path.read_bytes())
+                
+            old_lines = old_text.splitlines()
+            new_lines = new_text.splitlines()
+            
+            if old_lines == new_lines:
+                continue
+                
+            from_label = f"a/{rel_path}" if s1 else "/dev/null"
+            to_label = f"b/{rel_path}" if file_path.exists() else "/dev/null"
+            
+            res = diff_lines(old_lines, new_lines, from_label, to_label)
+            if res:
+                diffs.append((rel_path, res))
+        except Exception:
+            pass
+            
+    return diffs
