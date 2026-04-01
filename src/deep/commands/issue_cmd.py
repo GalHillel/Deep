@@ -153,13 +153,15 @@ def run(args: Any) -> None:
 
     if cmd == "create":
         title = getattr(args, "title", None)
-        itype = getattr(args, "type", "bug")
+        itype = getattr(args, "type", None) or "bug"
+        description = getattr(args, "description", None) or ""
+        priority = getattr(args, "priority", None) or "Medium"
         
         if title:
             # Non-interactive creation
             author = get_author(repo_root)
-            issue = manager.create_issue(title, "", itype, author)
-            manager.add_event(issue.id, author, "created", "Issue created via CLI")
+            issue = manager.create_issue(title, description, itype, author, priority=priority)
+            manager.add_event(issue.id, author, "created", f"Issue created via CLI (non-interactive, priority: {priority})")
             print_success(f"Issue #{issue.id} created locally (non-interactive).")
         else:
             try:
@@ -179,9 +181,12 @@ def run(args: Any) -> None:
         for issue in issues:
             status_col = Color.GREEN if issue.status == "open" else Color.RED
             type_col = Color.RED if issue.type == "bug" else (Color.CYAN if issue.type == "feature" else Color.YELLOW)
+            priority_val = issue.priority or "Medium"
+            priority_col = Color.RED if priority_val.lower() == "high" else (Color.YELLOW if priority_val.lower() == "medium" else Color.GREEN)
             
             print(f"#{issue.id:<3} [{Color.wrap(status_col, issue.status.upper())}]   "
                   f"{Color.wrap(type_col, issue.type.lower()):<8} "
+                  f"({Color.wrap(priority_col, priority_val)}) "
                   f"{issue.title}")
         print()
 
@@ -201,13 +206,17 @@ def run(args: Any) -> None:
             return
 
         status_col = Color.GREEN if issue.status == "open" else Color.RED
+        priority_val = issue.priority or "Medium"
+        priority_col = Color.RED if priority_val.lower() == "high" else (Color.YELLOW if priority_val.lower() == "medium" else Color.GREEN)
+        
         print(f"\n=== Issue #{issue.id} ===")
-        print(f"Type:   {issue.type.upper()}")
-        print(f"Status: {Color.wrap(status_col, issue.status.upper())}")
-        print(f"Author: {issue.author}")
-        print(f"Title:  {issue.title}")
+        print(f"Type:     {issue.type.upper()}")
+        print(f"Priority: {Color.wrap(priority_col, priority_val)}")
+        print(f"Status:   {Color.wrap(status_col, issue.status.upper())}")
+        print(f"Author:   {issue.author}")
+        print(f"Title:    {issue.title}")
         print("-" * 20)
-        print(issue.description)
+        print(issue.description or "No description provided.")
         print("-" * 20)
 
         if issue.linked_prs:
@@ -271,5 +280,34 @@ def run(args: Any) -> None:
             print_success(f"Issue #{args.id} reopened.")
         except Exception as e:
             print_error(str(e))
+
+    elif cmd == "sync":
+        gh_repo = net.get_github_remote(repo_root)
+        token = net.get_token()
+        
+        if not gh_repo or not token:
+            print_error("Sync requires a GitHub remote and GH_TOKEN.")
+            raise DeepCLIException(1)
+            
+        print_info(f"Syncing local issues with {gh_repo}...")
+        issues = manager.list_issues()
+        synced_count = 0
+        for issue in issues:
+            # For simplicity, we sync all open issues that aren't already linked 
+            # (In a real system, we'd track a 'synced' boolean or github_id)
+            if issue.status == "open":
+                print_info(f"Syncing #{issue.id}: {issue.title}...")
+                res = net.api_request(f"repos/{gh_repo}/issues", method="POST", data={
+                    "title": issue.title,
+                    "body": issue.description or "Synced from Deep VCS"
+                })
+                if res and isinstance(res, dict) and "number" in res:
+                    manager.add_event(issue.id, "system", "synced", f"Synced to GitHub as #{res['number']}")
+                    synced_count += 1
+                else:
+                    print_warning(f"Failed to sync issue #{issue.id}")
+                    
+        print_success(f"Successfully synced {synced_count} issues.")
+
     else:
         print_error(f"Unknown command: {cmd}")
