@@ -119,11 +119,37 @@ def run(args) -> None:
         
         files_to_add: list[Path] = []
         paths_to_remove: list[str] = []
+        
+        is_update = getattr(args, "update", False)
+
+        if not args.files:
+            if is_update:
+                args.files = ["."]
+            else:
+                print("Nothing specified, nothing added.\nMaybe you wanted to say 'deep add .'?", file=sys.stderr)
+                raise DeepCLIException(1)
+
+        # Pre-process for deletions when -u is used: compare index entries against arguments
+        if is_update:
+            for rel_path in index.entries:
+                full_path = repo_root / rel_path
+                if not full_path.exists():
+                    # Check if this missing file is covered by any arg in args.files
+                    for file_path_str in args.files:
+                        p = Path(file_path_str).absolute()
+                        try:
+                            # Use rel_path matching
+                            p_rel = p.relative_to(repo_root).as_posix()
+                            if p_rel == "." or rel_path == p_rel or rel_path.startswith(f"{p_rel}/"):
+                                paths_to_remove.append(rel_path)
+                                break
+                        except ValueError:
+                            pass
 
         for file_path_str in args.files:
             path = Path(file_path_str).absolute()
             if not path.exists():
-                # Handle staging of deletions
+                # Handle explicit staging of specific deleted files
                 try:
                     rel_path = path.relative_to(repo_root).as_posix()
                     rel_path, _ = sanitize_path(rel_path)
@@ -133,15 +159,24 @@ def run(args) -> None:
                     raise DeepCLIException(1)
                     
                 if rel_path in index.entries:
-                    paths_to_remove.append(rel_path)
+                    if rel_path not in paths_to_remove:
+                        paths_to_remove.append(rel_path)
                     continue
                 else:
-                    print(f"Deep: error: {file_path_str} does not exist", file=sys.stderr)
-                    # The transaction will automatically rollback when DeepCLIException is raised
-                    raise DeepCLIException(1)
+                    if not is_update:
+                        print(f"Deep: error: {file_path_str} does not exist", file=sys.stderr)
+                        raise DeepCLIException(1)
+                    continue
                 
             if path.is_file():
-                files_to_add.append(path)
+                try:
+                    rel_file = path.relative_to(repo_root).as_posix()
+                    rel_file, _ = sanitize_path(rel_file)
+                    if is_update and rel_file not in index.entries:
+                        continue
+                    files_to_add.append(path)
+                except ValueError:
+                    pass
             elif path.is_dir():
                 for dirpath, dirnames, filenames in os.walk(path):
                     rel_dir = Path(dirpath).relative_to(repo_root).as_posix()
@@ -158,6 +193,9 @@ def run(args) -> None:
                     for f in filenames:
                         f_rel = f"{rel_dir}/{f}" if rel_dir != "." else f
                         if not ignore_engine.is_ignored(f_rel, is_dir=False):
+                            f_rel, _ = sanitize_path(f_rel)
+                            if is_update and f_rel not in index.entries:
+                                continue
                             files_to_add.append(Path(dirpath) / f)
 
         if paths_to_remove:

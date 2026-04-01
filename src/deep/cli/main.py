@@ -157,7 +157,8 @@ def build_parser() -> argparse.ArgumentParser:
 """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_add.add_argument("files", nargs="+", help="One or more files or directory paths to stage for commit")
+    p_add.add_argument("-u", "--update", action="store_true", help="Update tracked files only (do not stage new files)")
+    p_add.add_argument("files", nargs="*", default=[], help="One or more files or directory paths to stage for commit")
 
     # ── commit ───────────────────────────────────────────────────────
     p_commit = sub.add_parser(

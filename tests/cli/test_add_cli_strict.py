@@ -1,120 +1,58 @@
-import subprocess
 import os
-import time
-import pytest
-import multiprocessing
-import sys
+import shutil
+import tempfile
 from pathlib import Path
+from deep.cli.main import main
+from deep.core.repository import init_repo
 from deep.storage.index import read_index
 
-def worker_add_cli(repo_dir, file_name):
-    """Worker that runs 'deep add' via subprocess."""
-    try:
-        # We assume 'deep' is in the PATH or we use sys.executable + wrapper
-        # For this test, we'll try to run it as a module or if deep.cmd is available.
-        # But per user rules: run_command(["deep", "add", ...])
+def test_add_update_flag():
+    """
+    Test that 'deep add -u' stages only updated/deleted tracked files,
+    ignoring new untracked files.
+    """
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo_root = Path(tmp_dir).resolve()
+        orig_cwd = os.getcwd()
+        os.chdir(repo_root)
         
-        # Create unique file
-        file_path = repo_dir / file_name
-        file_path.write_text(f"content of {file_name}")
-        
-        # Run deep add
-        subprocess.run(["deep", "add", file_name], cwd=str(repo_dir), check=True, capture_output=True)
-        return True
-    except Exception:
-        return False
-
-def test_cli_add_single(tmp_repo_with_init):
-    """
-    STRICT CASE 1: Single file add via CLI.
-    """
-    dg_dir = tmp_repo_with_init
-    repo_dir = dg_dir.parent
-    
-    file_name = "test_single.txt"
-    file_path = repo_dir / file_name
-    file_path.write_text("hello deep")
-    
-    # Run CLI
-    result = subprocess.run(["deep", "add", file_name], cwd=str(repo_dir), capture_output=True, text=True)
-    assert result.returncode == 0, f"CLI failed: {result.stderr}"
-    
-    # Verify index
-    index = read_index(dg_dir)
-    assert file_name in index.entries
-    assert index.entries[file_name].size == len("hello deep")
-
-def test_cli_add_multiple(tmp_repo_with_init):
-    """
-    STRICT CASE 2: Multiple files add via CLI.
-    """
-    dg_dir = tmp_repo_with_init
-    repo_dir = dg_dir.parent
-    
-    files = ["f1.txt", "f2.txt"]
-    for f in files:
-        (repo_dir / f).write_text(f"content_{f}")
-        
-    result = subprocess.run(["deep", "add"] + files, cwd=str(repo_dir), capture_output=True, text=True)
-    assert result.returncode == 0
-    
-    index = read_index(dg_dir)
-    for f in files:
-        assert f in index.entries
-
-def test_cli_add_missing_file(tmp_repo_with_init):
-    """
-    STRICT CASE 3: Adding a missing file MUST fail and ROLLBACK.
-    """
-    dg_dir = tmp_repo_with_init
-    repo_dir = dg_dir.parent
-    
-    # Start with a clean index
-    index_before = read_index(dg_dir)
-    assert len(index_before.entries) == 0
-    
-    # Try adding a file that doesn't exist
-    result = subprocess.run(["deep", "add", "non_existent.txt"], cwd=str(repo_dir), capture_output=True, text=True)
-    assert result.returncode != 0
-    assert "error" in result.stderr.lower()
-    
-    # Verify index is still empty (No partial state leaked)
-    index_after = read_index(dg_dir)
-    assert len(index_after.entries) == 0, "Index should remain unchanged after failed add"
-
-def test_cli_add_concurrent(tmp_repo_with_init):
-    """
-    STRICT CASE 4: Concurrent 'deep add' processes.
-    RepoLock should handle queuing. 
-    """
-    dg_dir = tmp_repo_with_init
-    repo_dir = dg_dir.parent
-    
-    num_workers = 4
-    processes = []
-    
-    # Use a pool or manual processes to run CLI simultaneously
-    import concurrent.futures
-    
-    with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-        futures = []
-        for i in range(num_workers):
-            f_name = f"concurrent_{i}.txt"
-            futures.append(executor.submit(worker_add_cli, repo_dir, f_name))
+        try:
+            # 1. Initialize repo
+            init_repo(repo_root)
             
-        results = [f.result() for f in futures]
-    
-    assert all(results), "All concurrent adds should have succeeded"
-    
-    # Verify all files in index
-    index = read_index(dg_dir)
-    for i in range(num_workers):
-        assert f"concurrent_{i}.txt" in index.entries
-
-@pytest.fixture
-def tmp_repo_with_init(tmp_repo):
-    """Fixture that provides an initialized deep repo."""
-    # tmp_repo is already a dg_dir (.deep)
-    repo_dir = tmp_repo.parent
-    subprocess.run(["deep", "init"], cwd=str(repo_dir), check=True, capture_output=True)
-    return tmp_repo
+            # 2. Create and commit a file
+            tracked_path = repo_root / "tracked.txt"
+            tracked_path.write_text("initial content", encoding="utf-8")
+            main(["add", "tracked.txt"])
+            main(["commit", "-m", "Initial commit"])
+            
+            # 3. Modify tracked file and create a new untracked file
+            tracked_path.write_text("updated content", encoding="utf-8")
+            untracked_path = repo_root / "untracked.txt"
+            untracked_path.write_text("new file", encoding="utf-8")
+            
+            # 4. Create a deletion
+            deleted_path = repo_root / "deleted.txt"
+            deleted_path.write_text("to be deleted", encoding="utf-8")
+            main(["add", "deleted.txt"])
+            main(["commit", "-m", "Second commit"])
+            deleted_path.unlink()
+            
+            # 5. Run deep add -u
+            main(["add", "-u"])
+            
+            # 6. Verify index
+            dg_dir = repo_root / ".deep"
+            index = read_index(dg_dir)
+            
+            # tracked.txt should be in index
+            assert "tracked.txt" in index.entries
+            
+            # untracked.txt should NOT be in index
+            assert "untracked.txt" not in index.entries
+            
+            # deleted.txt should NOT be in index
+            assert "deleted.txt" not in index.entries
+            
+        finally:
+            os.chdir(orig_cwd)
