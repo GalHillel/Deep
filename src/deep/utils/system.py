@@ -49,3 +49,16 @@ def safe_rmtree(path: Path | str, retries: int = 5, delay: float = 0.2, ignore_e
                     return
                 raise
             time.sleep(delay * (i + 1))
+
+
+def make_directory_hidden(path: Path) -> None:
+    """Make a directory hidden on Windows (no-op on Unix/macOS)."""
+    if os.name == 'nt':
+        try:
+            import ctypes
+            # FILE_ATTRIBUTE_HIDDEN = 0x02
+            ret = ctypes.windll.kernel32.SetFileAttributesW(str(path.resolve()), 0x02)
+            if not ret:
+                logger.debug(f"Failed to set hidden attribute on {path}")
+        except Exception as e:
+            logger.debug(f"Failed to hide {path}: {e}")

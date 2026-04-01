@@ -49,6 +49,10 @@ def init_repo(path: Union[str, Path] = ".", bare: bool = False) -> Path:
     else:
         # Create directory tree for a brand-new repository.
         (dg / "objects").mkdir(parents=True, exist_ok=True)
+        
+        from deep.utils.system import make_directory_hidden
+        make_directory_hidden(dg)
+
         (dg / "refs" / "heads").mkdir(parents=True, exist_ok=True)
         (dg / "objects" / "vault").mkdir(parents=True, exist_ok=True)
 
