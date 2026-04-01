@@ -586,6 +586,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_push.add_argument("url", nargs="?", help="The remote name (e.g., 'origin') or a direct URL")
     p_push.add_argument("branch", nargs="?", help="The name of the branch to push")
     p_push.add_argument("-u", "--set-upstream", action="store_true", help="Set upstream tracking for the branch")
+    p_push.add_argument("--tags", action="store_true", help="Push all local tags to the remote")
     p_push.add_argument("--force", action="store_true", help="Force the push even if it's non-fast-forward")
 
     # ── pull ────────────────────────────────────────────────────────

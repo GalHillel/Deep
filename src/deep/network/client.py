@@ -370,12 +370,20 @@ class LocalClient:
         unpack(io.BytesIO(pack_data), target_objects_dir)
         
         # 3. Update the ref in the target repo
-        # Note: LocalClient handles local paths, so we update the branch in self.dg_dir
-        branch_name = ref
-        if branch_name.startswith("refs/heads/"):
-            branch_name = branch_name[len("refs/heads/"):]
-            
-        update_branch(self.dg_dir, branch_name, new_sha)
+        if ref.startswith("refs/heads/"):
+            branch_name = ref[len("refs/heads/"):]
+            from deep.core.refs import update_branch
+            update_branch(self.dg_dir, branch_name, new_sha)
+        elif ref.startswith("refs/tags/"):
+            tag_name = ref[len("refs/tags/"):]
+            from deep.core.refs import create_tag, delete_tag
+            try:
+                create_tag(self.dg_dir, tag_name, new_sha)
+            except FileExistsError:
+                # Overwrite if forced (though local client doesn't explicitly check force arg here, 
+                # we can use the same logic as branch updates)
+                delete_tag(self.dg_dir, tag_name)
+                create_tag(self.dg_dir, tag_name, new_sha)
         return f"ok push {ref} succeeded"
 
 

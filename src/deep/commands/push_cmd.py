@@ -42,23 +42,13 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     url_or_name = args.url or "origin"
     url = config.get(f"remote.{url_or_name}.url", url_or_name)
 
-    # Resolving Branch
+    # Resolving Branch (optional if --tags is provided)
     branch = args.branch or get_current_branch(dg_dir)
-    if not branch:
-        print("Deep: error: could not determine branch to push (specify <branch> or set upstream).", file=sys.stderr)
-        raise DeepCLIException(1)
-
-    local_sha = get_branch(dg_dir, branch)
-    if not local_sha:
-        print(f"Deep: error: Branch '{branch}' not found locally", file=sys.stderr)
-        raise DeepCLIException(1)
-
-    dg_dir = repo_root / DEEP_DIR
-
+    
     from deep.storage.transaction import TransactionManager
     from deep.core.telemetry import TelemetryCollector, Timer
     from deep.core.audit import AuditLog
-    from deep.core.refs import get_current_branch, update_branch, update_remote_ref
+    from deep.core.refs import get_current_branch, update_branch, update_remote_ref, list_tags, get_tag
 
     telemetry = TelemetryCollector(dg_dir)
     audit = AuditLog(dg_dir)
@@ -66,7 +56,30 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     with TransactionManager(dg_dir) as tm:
         tm.begin("push")
         try:
-            run_hook(dg_dir, "pre-push", args=[url, branch])
+            # 1. Prepare push operations
+            push_ops = [] # list of (ref, local_sha)
+            
+            if branch:
+                local_sha = get_branch(dg_dir, branch)
+                if local_sha:
+                    push_ops.append((f"refs/heads/{branch}", local_sha))
+                elif not getattr(args, "tags", False):
+                    print(f"Deep: error: Branch '{branch}' not found locally", file=sys.stderr)
+                    raise DeepCLIException(1)
+            
+            if getattr(args, "tags", False):
+                tags = list_tags(dg_dir)
+                for t in tags:
+                    t_sha = get_tag(dg_dir, t)
+                    if t_sha:
+                        push_ops.append((f"refs/tags/{t}", t_sha))
+
+            if not push_ops:
+                print("Deep: error: nothing to push (no branch determined and no tags found).", file=sys.stderr)
+                raise DeepCLIException(1)
+
+            # 2. Execute push operations
+            run_hook(dg_dir, "pre-push", args=[url, branch or ""])
             with Timer(telemetry, "push"):
                 # Use native smart protocol
                 from deep.network.client import get_remote_client
@@ -75,82 +88,69 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                 auth_token = config.get("auth.token") or get_auth_token()
                 client = get_remote_client(url, auth_token=auth_token)
                 
-                # BUG 1 FIX: SmartTransportClient manages its own connection. 
-                # LocalClient also doesn't need manual connect().
                 if hasattr(client, 'connect'):
                     client.connect()
 
                 # Discover remote refs
-                print(f"Checking remote {branch} state...")
+                print(f"Checking remote state for {url}...")
                 remote_refs = client.ls_remote()
-
-                remote_ref = f"refs/heads/{branch}"
-                remote_sha = remote_refs.get(remote_ref, "0" * 40)
-
-                if remote_sha == local_sha:
-                    print("Everything up-to-date.")
-                    tm.commit()
-                    return
-
                 objects_dir = dg_dir / "objects"
 
-                # Fetch remote objects before FF check so is_ancestor
-                # can walk the DAG reliably even after merge/conflict resolution
-                if remote_sha and remote_sha != "0" * 40:
-                    from deep.objects.hash_object import object_exists
-                    if not object_exists(objects_dir, remote_sha):
-                        try:
-                            client.fetch(
-                                objects_dir,
-                                want_shas=[remote_sha],
-                                have_shas=[local_sha],
-                            )
-                        except Exception:
-                            pass  # Best-effort; is_ancestor will still try
+                any_pushed = False
+                for ref, local_sha in push_ops:
+                    remote_sha = remote_refs.get(ref, "0" * 40)
 
-                # Check for divergence/non-fast-forward
-                if remote_sha and remote_sha != "0" * 40:
-                    from deep.core.refs import is_ancestor
-                    from deep.storage.objects import read_object as _ro, Commit as _Commit
+                    # Update local tracking info even if up-to-date
+                    if ref.startswith("refs/heads/"):
+                        b_name = ref[len("refs/heads/"):]
+                        if getattr(args, "set_upstream", False) and b_name == branch:
+                            config.set_local(f"branch.{b_name}.remote", url_or_name)
+                            config.set_local(f"branch.{b_name}.merge", f"refs/heads/{b_name}")
+                            print(f"Branch '{b_name}' set up to track remote branch '{b_name}' from '{url_or_name}'.")
 
-                    is_ff = is_ancestor(objects_dir, remote_sha, local_sha)
+                    if remote_sha == local_sha:
+                        # Still update remote ref mapping for local tracking
+                        if ref.startswith("refs/heads/"):
+                            b_name = ref[len("refs/heads/"):]
+                            update_remote_ref(dg_dir, url_or_name, b_name, local_sha)
+                        continue
+                    
+                    any_pushed = True
 
-                    if not is_ff:
-                        print(Color.wrap(Color.YELLOW,
-                              "hint: Updates were rejected because the tip of your current branch is behind\n"
-                              "hint: its remote counterpart. Integrate the remote changes (e.g.,\n"
-                              "hint: 'deep pull ...') before pushing again.\n"
-                              "hint: See the 'Note about fast-forwards' in 'deep push --help' for details."),
-                              file=sys.stderr)
-                        
-                        if not getattr(args, 'force', False):
-                            raise DeepCLIException(1)
+                    # Fast-forward check for branches
+                    if ref.startswith("refs/heads/") and remote_sha != "0" * 40:
+                        from deep.core.refs import is_ancestor
+                        # Ensure remote objects exist for FF check
+                        from deep.objects.hash_object import object_exists
+                        if not object_exists(objects_dir, remote_sha):
+                            try:
+                                client.fetch(objects_dir, want_shas=[remote_sha], have_shas=[local_sha])
+                            except Exception: pass
 
-                print(f"Pushing {branch} to {url}...")
-                resp = client.push(
-                    objects_dir,
-                    remote_ref,
-                    remote_sha,
-                    local_sha,
-                )
-                print(f"Push result: {resp}")
+                        if not is_ancestor(objects_dir, remote_sha, local_sha):
+                            if not getattr(args, 'force', False):
+                                print(Color.wrap(Color.YELLOW,
+                                      f"hint: Updates were rejected for '{ref}' because the remote contains work\n"
+                                      "hint: that you do not have locally."), file=sys.stderr)
+                                raise DeepCLIException(1)
 
-                # Update remote tracking ref
-                update_remote_ref(dg_dir, url_or_name, branch, local_sha)
-                if url_or_name != "origin":
-                    update_remote_ref(dg_dir, "origin", branch, local_sha)
+                    print(f"Pushing {ref} to {url}...")
+                    resp = client.push(objects_dir, ref, remote_sha, local_sha)
+                    
+                    if ref.startswith("refs/heads/"):
+                        b_name = ref[len("refs/heads/"):]
+                        update_remote_ref(dg_dir, url_or_name, b_name, local_sha)
+                        if url_or_name != "origin":
+                            update_remote_ref(dg_dir, "origin", b_name, local_sha)
 
-                # Support --set-upstream
-                if getattr(args, "set_upstream", False):
-                    config.set_local(f"branch.{branch}.remote", url_or_name)
-                    config.set_local(f"branch.{branch}.merge", f"refs/heads/{branch}")
-                    print(f"Branch '{branch}' set up to track remote branch '{branch}' from '{url_or_name}'.")
+                if not any_pushed:
+                    print("Everything up-to-date.")
 
             tm.commit()
-            audit.record("local", "push", ref=branch, sha=local_sha, client=url)
+            if branch:
+                audit.record("local", "push", ref=branch, sha=get_branch(dg_dir, branch), client=url)
 
         except Exception as e:
-            # Re-raise to let TransactionManager handle rollback and main.py handle exit
             if not isinstance(e, DeepCLIException):
                 print(f"Deep: error: push failed: {e}", file=sys.stderr)
             raise e
