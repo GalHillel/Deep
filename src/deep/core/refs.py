@@ -157,14 +157,13 @@ def resolve_revision(dg_dir: Path, revision: str) -> Optional[str]:
             bucket_dir = objs_dir / bucket_name
             
             if bucket_dir.is_dir():
-                for p in bucket_dir.iterdir():
-                    if p.is_file():
-                        sha_candidate = bucket_name + p.name
+                for p in bucket_dir.rglob("*"):
+                    if p.is_file() and not p.name.endswith(".lock"):
+                        rel = p.relative_to(objs_dir)
+                        sha_candidate = "".join(rel.parts)
                         if sha_candidate.startswith(revision):
                             return sha_candidate
             else:
-                # Fallback if revision is < 2 chars or bucket doesn't exist
-                # deep usually requires at least 4 chars for short SHA anyway.
                 pass
         except ValueError:
             pass
