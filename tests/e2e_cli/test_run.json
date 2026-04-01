@@ -47460,3 +47460,62 @@ uration": 0.8790699999954086}
 {"cmd": "deep ultra", "exit_code": 0, "duration": 0.7315186999985599}
 {"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.9314415000008012}
 {"cmd": "deep add change.txt", "exit_code": 0, "duration": 1.3123917000011716}
+{"cmd": "deep commit -m commit 97", "exit_code": 0, "duration": 1.0825375000022177}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 1.385391299998446}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 1.3232604000004358}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 1.9395558000032906}
+{"cmd": "deep commit -m commit 98", "exit_code": 0, "duration": 2.0278006000007736}
+{"cmd": "deep add change.txt", "exit_code": 0, "duration": 1.050909199999296}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 1.042780200001289}
+{"cmd": "deep ai suggest", "exit_code": 0, "duration": 1.6126518000019132}
+{"cmd": "deep commit -m commit 99", "exit_code": 0, "duration": 1.6653492000004917}
+{"cmd": "deep ultra", "exit_code": 0, "duration": 0.7682195000015781}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.8483022000000346}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.8893893999993452}
+{"cmd": "deep commit -m commit 100", "exit_code": 0, "duration": 0.8866803999990225}
+{"cmd": "deep add file_0.txt", "exit_code": 0, "duration": 0.8312278000012157}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.7199111000008998}
+{"cmd": "deep commit -m commit 0", "exit_code": 0, "duration": 0.6757128999997803}
+{"cmd": "deep commit -m commit 101", "exit_code": 0, "duration": 0.6914809999980207}
+{"cmd": "deep search content 0", "exit_code": 0, "duration": 0.4858472999985679}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5657848000009835}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2468\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.6678097000003618}
+{"cmd": "deep add file_1.txt", "exit_code": 0, "duration": 0.509822100000747}
+{"cmd": "deep commit -m commit 102", "exit_code": 0, "duration": 0.6365609000022232}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5223574999981793}
+{"cmd": "deep commit -m commit 1", "exit_code": 0, "duration": 0.6091020000021672}
+{"cmd": "deep search content 1", "exit_code": 0, "duration": 0.4777332000012393}
+{"cmd": "deep commit -m commit 103", "exit_code": 0, "duration": 0.6624260999997205}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5230936999978439}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2468\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.6852868999994826}
+{"cmd": "deep add file_2.txt", "exit_code": 0, "duration": 0.5361374999993131}
+{"cmd": "deep commit -m commit 104", "exit_code": 0, "duration": 0.6610875000005763}
+{"cmd": "deep commit -m commit 2", "exit_code": 0, "duration": 0.6164950000020326}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5640743000003567}
+{"cmd": "deep search content 2", "exit_code": 0, "duration": 0.5112765999983822}
+{"cmd": "deep commit -m commit 105", "exit_code": 0, "duration": 0.6889405000001716}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2468\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.6692062999973132}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5489594999999099}
+{"cmd": "deep add file_3.txt", "exit_code": 0, "duration": 0.6120444999978645}
+{"cmd": "deep commit -m commit 106", "exit_code": 0, "duration": 0.8782776000007289}
+{"cmd": "deep commit -m commit 3", "exit_code": 0, "duration": 0.6698624999989988}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5151915999995254}
+{"cmd": "deep search content 3", "exit_code": 0, "duration": 0.46418940000148723}
+{"cmd": "deep commit -m commit 107", "exit_code": 0, "duration": 0.6268431999997119}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2468\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.6454640000010841}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5187304999999469}
+{"cmd": "deep add file_4.txt", "exit_code": 0, "duration": 0.5203532999985327}
+{"cmd": "deep commit -m commit 108", "exit_code": 0, "duration": 0.6631772000000637}
+{"cmd": "deep commit -m commit 4", "exit_code": 0, "duration": 0.6886182999987795}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5787444000015967}
+{"cmd": "deep search content 4", "exit_code": 0, "duration": 0.4966620999985025}
+{"cmd": "deep commit -m commit 109", "exit_code": 0, "duration": 0.6340006999998877}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2468\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.6501757000005455}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5587770999991335}
+{"cmd": "deep add file_5.txt", "exit_code": 0, "duration": 0.6180851999997685}
+{"cmd": "deep commit -m commit 110", "exit_code": 0, "duration": 0.7201748000006774}
+{"cmd": "deep commit -m commit 5", "exit_code": 0, "duration": 0.6041815999997198}
+{"cmd": "deep add f.txt", "exit_code": 0, "duration": 0.5823655000021972}
+{"cmd": "deep search content 5", "exit_code": 0, "duration": 0.6047722000002977}
+{"cmd": "deep commit -m commit 111", "exit_code": 0, "duration": 0.7026764000002004}
+{"cmd": "deep batch C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2468\\popen-gw2\\test_batch_and_search0\\search_test\\test.deep", "exit_code": 0, "duration": 0.7060319999982312}

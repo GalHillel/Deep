@@ -1,6 +1,6 @@
 # ⚓️ Deep CLI Reference
 
-Deep v1.1.0 - Next-generation Distributed Version Control System.
+Deep v1.0.0 - Next-generation Distributed Version Control System.
 
 ## Main Menu Categorization
 

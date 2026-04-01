@@ -45,7 +45,7 @@ class Color:
             return f"{color}{text}{cls.RESET}"
         return text
 
-DEEP_LOGO = "\033[1;34m⚓️ Deep\033[0m v1.1.0 - Next-generation Distributed VCS"
+DEEP_LOGO = "\033[1;34m⚓️ Deep\033[0m v1.0.0 - Next-generation Distributed VCS"
 
 
 def print_error(message: str):
