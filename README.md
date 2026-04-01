@@ -30,7 +30,7 @@ graph TD
     Core --> Plugins[Extensible Plugin System]
 ```
 
-[Read the full Architecture Guide →](docs/architecture.md)
+[Read the full Architecture Guide →](docs/architecture.md) | [Analysis Report →](docs/analysis_report.md)
 
 ## 📦 Installation
 
@@ -42,7 +42,7 @@ git clone https://github.com/GalHillel/Deep.git
 cd Deep && pip install -e .
 ```
 
-For detailed instructions on various platforms and uninstallation, see [INSTALL.md](INSTALL.md).
+For detailed instructions on various platforms and uninstallation, see [INSTALL.md](docs/INSTALL.md).
 
 ## 🛠 Quick Start
 
@@ -63,6 +63,25 @@ deep status
 ```
 
 [Follow the full Quick Start Guide →](docs/quickstart.md)
+
+## 🛠 Development & Testing
+
+To set up a local development environment and run the test suite:
+
+```bash
+# 1. Install in editable mode
+pip install -e .
+
+# 2. Run the full test suite
+pytest -vv tests/
+
+# 3. Run specific test suites (e.g., storage, cli, network)
+pytest -vv tests/storage
+pytest -vv tests/cli
+pytest -vv tests/network
+```
+
+[Read more about testing here →](docs/testing.md)
 
 ## 📖 Command Ecosystem
 

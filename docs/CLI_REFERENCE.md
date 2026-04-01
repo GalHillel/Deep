@@ -84,3 +84,13 @@ Deep organizes its commands into logical groups to facilitate discovery and work
 
 ---
 ⚓️ **Deep** - Build the future of version control.
+
+### 📖 Getting Detailed Help
+
+Every Deep command is built with embedded intelligence and documentation. To see the full usage, arguments, and practical examples for any command, run:
+
+```bash
+deep <command> --help
+```
+
+Example: `deep checkout --help`

@@ -36414,3 +36414,26 @@ uration": 0.8790699999954086}
 {"cmd": "deep merge branch_4", "exit_code": 0, "duration": 0.5622754999985773}
 {"cmd": "deep verify", "exit_code": 0, "duration": 0.33654939999905764}
 {"cmd": "deep init", "exit_code": 0, "duration": 0.3764024000010977}
+{"cmd": "deep init", "exit_code": 0, "duration": 1.1777636000006169}
+{"cmd": "deep add .", "exit_code": 0, "duration": 1.916505999999572}
+{"cmd": "deep commit -m initial --sign --all", "exit_code": 0, "duration": 2.69478909999998}
+{"cmd": "deep add file1.txt", "exit_code": 0, "duration": 1.9536670000015874}
+{"cmd": "deep commit --amend -m amended commit", "exit_code": 0, "duration": 2.5819000999999844}
+{"cmd": "deep log -n 1", "exit_code": 0, "duration": 1.0873418999999558}
+{"cmd": "deep init", "exit_code": 0, "duration": 1.026884799999607}
+{"cmd": "deep commit --allow-empty -m empty commit", "exit_code": 0, "duration": 1.3816475000003265}
+{"cmd": "deep add file_0.txt", "exit_code": 0, "duration": 1.3179410000011558}
+{"cmd": "deep init", "exit_code": 0, "duration": 0.956873799999812}
+{"cmd": "deep commit -m commit 0", "exit_code": 0, "duration": 1.208804699999746}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 1.1087588000009418}
+{"cmd": "deep add file_1.txt", "exit_code": 0, "duration": 1.2093575999988389}
+{"cmd": "deep commit -m commit 0", "exit_code": 0, "duration": 1.3375980999990134}
+{"cmd": "deep commit -m commit 1", "exit_code": 0, "duration": 1.3092364999993151}
+{"cmd": "deep status", "exit_code": 0, "duration": 1.0038002000001143}
+{"cmd": "deep log", "exit_code": 0, "duration": 0.9638909000004787}
+{"cmd": "deep add file_2.txt", "exit_code": 0, "duration": 1.3583290000005945}
+{"cmd": "deep init", "exit_code": 0, "duration": 1.1760086999984196}
+{"cmd": "deep commit -m commit 2", "exit_code": 0, "duration": 1.6146884000008868}
+{"cmd": "deep add file.txt", "exit_code": 0, "duration": 1.5396147000010387}
+{"cmd": "deep commit -m commit 1", "exit_code": 3221225786, "duration": 0.984333800000968}
+{"cmd": "deep add file_3.txt", "exit_code": 0, "duration": 1.9475926000013715}
