@@ -44,7 +44,7 @@ def run(args) -> None:
         raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
-    p2p_cmd = args.p2p_command or "list"
+    p2p_cmd = args.p2p_command
 
     if p2p_cmd == "start":
         port = args.port or 9001
@@ -72,12 +72,11 @@ def run(args) -> None:
             engine.stop()
             daemon.stop()
 
-    elif p2p_cmd == "list":
-        # This requires the p2p engine to be running in the background normally,
-        # but for a CLI command we'll just listen for a few seconds.
+    elif p2p_cmd in ["list", "discover"]:
+        # discover is an alias for list with a mandatory scan
         engine = P2PEngine(dg_dir)
         engine.start()
-        print("🔍 Searching for peers (5s)...")
+        print(f"🔍 {'Discovering' if p2p_cmd == 'discover' else 'Listing'} peers (5s)...")
         time.sleep(5)
         peers = engine.get_peers()
         engine.stop()
@@ -86,24 +85,39 @@ def run(args) -> None:
             print("No peers found.")
             return
             
-        print(f"{'Node ID':\u003c30} {'Address':\u003c20} {'Last Seen'}")
+        print(f"{'Node ID':<30} {'Address':<20} {'Last Seen'}")
         print("-" * 65)
         for p in peers:
-            print(f"{p.node_id:\u003c30} {p.host + ':' + str(p.port):\u003c20} {int(time.time() - p.last_seen)}s ago")
+            print(f"{p.node_id:<30} {p.host + ':' + str(p.port):<20} {int(time.time() - p.last_seen)}s ago")
             for b, sha in p.branches.items():
                 print(f"  - {b}: {sha[:7]}")
 
-    elif p2p_cmd == "sync":
-        from deep.storage.transaction import TransactionManager # type: ignore[import]
+    elif p2p_cmd == "status":
+        port = args.port or 9001
+        print(f"🖥️  {Color.wrap(Color.BOLD, 'P2P Node Status')}")
+        print(f"  - Node ID: {socket.gethostname()}")
+        print(f"  - Repository: {repo_root}")
         
-        # real-world TCP object exchange sync
+        # Check if daemon is responding on port
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1)
+        try:
+            s.connect(('127.0.0.1', port))
+            print(f"  - Listener: {Color.wrap(Color.GREEN, 'Active')} (Port {port})")
+            s.close()
+        except:
+            print(f"  - Listener: {Color.wrap(Color.RED, 'Inactive')} (Default Port {port})")
+
+    elif p2p_cmd == "sync":
+        from deep.storage.transaction import TransactionManager
+        
         engine = P2PEngine(dg_dir)
         engine.start()
         
+        # Handle manual peer override
         peer_addr = getattr(args, "peer", None)
         if peer_addr:
             print(f"🔗 Manually connecting to peer at {peer_addr}...")
-            # For manual peer, we skip discovery and inject it
             if ":" in peer_addr:
                 host, port_str = peer_addr.split(":", 1)
                 port = int(port_str)
@@ -116,7 +130,7 @@ def run(args) -> None:
                 host=host,
                 port=port,
                 last_seen=time.time(),
-                branches={}, # Will be populated during handshake
+                branches={},
                 repo_name=""
             )
             from deep.network.client import get_remote_client
@@ -136,13 +150,21 @@ def run(args) -> None:
         time.sleep(3)
         conflicts = engine.discover_conflicts()
         
+        # Filter by target if provided
+        target = getattr(args, "target", None)
+        if target:
+            conflicts = [c for c in conflicts if c['peer'] == target or c['node_id'] == target]
+            if not conflicts:
+                print(f"No divergent branches found for target peer '{target}'.")
+                engine.stop()
+                return
+
         if not conflicts:
             print("All branches up to date with discovered peers.")
             engine.stop()
             return
 
         print(f"Found {len(conflicts)} divergent/behind branches.")
-        
         from deep.network.client import get_remote_client
         from deep.core.refs import update_branch, is_ancestor
 
@@ -160,17 +182,10 @@ def run(args) -> None:
                     client = get_remote_client(peer_url)
                     try:
                         client.connect()
-                        # Fetch missing objects
                         objects_dir = dg_dir / "objects"
                         count = client.fetch(objects_dir, remote_sha)
                         print(f"  Fetched {count} objects.")
                         
-                        # CHAOS TRIGGER for testing rollback
-                        if os.environ.get("DEEP_P2P_CHAOS"):
-                            print("🔥 CHAOS MODE: Simulating failure mid-sync...")
-                            raise RuntimeError("P2P CHAOS: Simulated failure")
-                        
-                        # Check for fast-forward
                         if is_ancestor(objects_dir, local_sha, remote_sha):
                             update_branch(dg_dir, branch, remote_sha)
                             print(f"  ✅ Fast-forwarded '{branch}' to {remote_sha[:7]}")
@@ -182,7 +197,6 @@ def run(args) -> None:
                 tm.commit()
             except Exception as e:
                 print(f"  ❌ Sync failed: {e}")
-                # TransactionManager handles rollback
                 raise DeepCLIException(1)
             finally:
                 engine.stop()
