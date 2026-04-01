@@ -495,6 +495,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p_stash.add_argument("action", choices=["push", "save", "pop", "list", "drop", "clear", "apply"], nargs="?", default="save", help="The stash operation to perform (default: save)")
+    p_stash.add_argument("message", nargs="?", help="Optional message for the stash")
 
     # ── migrate ─────────────────────────────────────────────────────
     p_migrate = sub.add_parser(

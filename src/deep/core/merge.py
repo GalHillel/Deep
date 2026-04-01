@@ -179,9 +179,9 @@ def three_way_merge(
             continue
             
         # 2. Both changed. Check if both are trees.
-        o_is_tree = o and o.mode == "040000"
-        t_is_tree = t and t.mode == "040000"
-        b_is_tree = b and b.mode == "040000"
+        o_is_tree = o and o.mode == "40000"
+        t_is_tree = t and t.mode == "40000"
+        b_is_tree = b and b.mode == "40000"
         
         if o_is_tree and t_is_tree:
             # Recursive tree merge

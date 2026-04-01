@@ -36,7 +36,7 @@ def get_stash_list(dg_dir: Path) -> list[str]:
     return [ln.strip() for ln in lines if ln.strip()]
 
 
-def save_stash(repo_root: Path) -> Optional[str]:
+def save_stash(repo_root: Path, message: Optional[str] = None) -> Optional[str]:
     """Save the local modifications to a stash commit and reset the working tree.
     
     Returns the SHA of the stash commit, or None if nothing to stash.
@@ -78,12 +78,15 @@ def save_stash(repo_root: Path) -> Optional[str]:
     branch_name = get_current_branch(dg_dir) or "(detached HEAD)"
     short_head = head_sha[:7] if head_sha else "empty"
 
+    default_msg = f"WIP on {branch_name}: {short_head}"
+    final_msg = f"{message}" if message else default_msg
+
     commit = Commit(
         tree_sha=tree_sha,
         parent_shas=[head_sha] if head_sha else [],
         author="Deep Stash <stash@deep>",
         committer="Deep Stash <stash@deep>",
-        message=f"WIP on {branch_name}: {short_head}",
+        message=final_msg,
         timestamp=int(time.time()),
     )
     commit_sha = commit.write(objects_dir)
@@ -135,31 +138,25 @@ def save_stash(repo_root: Path) -> Optional[str]:
     return commit_sha
 
 
-def pop_stash(repo_root: Path) -> bool:
-    """Pop the most recent stash from the stack and apply to the working tree.
-    
-    Returns True if successful, False if there was a conflict.
+def _apply_stash_to_wd(repo_root: Path, stash_sha: str) -> bool:
+    """Helper to apply a specific stash SHA to the working tree.
+    Does NOT remove it from the refs/stash file.
     """
     dg_dir = repo_root / DEEP_DIR
-    stashes = get_stash_list(dg_dir)
-    if not stashes:
-        raise RuntimeError("No stash entries found.")
-
-    stash_sha = stashes.pop()
     objects_dir = dg_dir / "objects"
     stash_commit = read_object(objects_dir, stash_sha)
     assert isinstance(stash_commit, Commit)
 
     # Perform a 3-way merge to working dir
-    # Base = stash parent (HEAD when stash was saved)
-    # Ours = current HEAD
-    # Theirs = stash tree
     base_sha = stash_commit.parent_shas[0] if stash_commit.parent_shas else None
     base_tree_sha = ""
     if base_sha:
-        base_commit = read_object(objects_dir, base_sha)
-        assert isinstance(base_commit, Commit)
-        base_tree_sha = base_commit.tree_sha
+        try:
+            base_commit = read_object(objects_dir, base_sha)
+            if isinstance(base_commit, Commit):
+                base_tree_sha = base_commit.tree_sha
+        except (FileNotFoundError, ValueError):
+            pass
 
     curr_head_sha = resolve_head(dg_dir)
     curr_tree_sha = ""
@@ -168,12 +165,12 @@ def pop_stash(repo_root: Path) -> bool:
         assert isinstance(curr_head_commit, Commit)
         curr_tree_sha = curr_head_commit.tree_sha
 
-    # We must ensure working dir is clean before popping!
+    # Ensure working dir is clean before apply
     status = compute_status(repo_root)
     if status.staged_new or status.staged_modified or status.staged_deleted or status.modified or status.deleted:
         raise RuntimeError(
-            "Error: your local changes would be overwritten by pop.\n"
-            "Please commit or stash them."
+            "Error: your local changes would be overwritten by apply.\n"
+            "Please commit or stash them before applying."
         )
 
     merged_tree_sha, conflicts = three_way_merge(
@@ -187,62 +184,75 @@ def pop_stash(repo_root: Path) -> bool:
     current_index = read_index(dg_dir)
     for rel_path in current_index.entries:
         full = repo_root / rel_path
-        if full.exists():
+        if full.exists() and full.is_file():
             full.unlink()
 
-    # Read the merged tree to get entries
+    # Apply merged tree
     merged_tree = read_object(objects_dir, merged_tree_sha)
     assert isinstance(merged_tree, Tree)
 
     new_index = DeepIndex()
-    for entry in merged_tree.entries:
-        name = entry.name
-        sha = entry.sha
-        if sha is None:
-            continue
-        obj = read_object(objects_dir, sha)
-        if isinstance(obj, Blob):
-            p = repo_root / name
-            p.parent.mkdir(parents=True, exist_ok=True)
-            with AtomicWriter(p, mode="wb") as aw:
-                aw.write(obj.data)
-            
-            stat = p.stat()
-            import struct
-            new_index.entries[name] = DeepIndexEntry(
-                path_hash=struct.unpack(">Q", hashlib.sha256(name.encode()).digest()[:8])[0],
-                content_hash=sha,
-                mtime_ns=stat.st_mtime_ns,
-                size=stat.st_size,
-            )
-        elif isinstance(obj, Tree):
-            # Handle subtrees by flattening
-            from deep.commands.merge_cmd import _get_tree_files
-            sub_files = _get_tree_files(objects_dir, sha, prefix=name)
-            for sub_path, sub_sha in sub_files.items():
-                sub_blob = read_object(objects_dir, sub_sha)
-                if isinstance(sub_blob, Blob):
-                    p = repo_root / sub_path
+    
+    def _flatten_tree(tree_sha: str, prefix: str = ""):
+        t = read_object(objects_dir, tree_sha)
+        assert isinstance(t, Tree)
+        for entry in t.entries:
+            full_name = f"{prefix}/{entry.name}" if prefix else entry.name
+            if entry.mode == "40000": # dir
+                _flatten_tree(entry.sha, full_name)
+            else:
+                obj = read_object(objects_dir, entry.sha)
+                if isinstance(obj, Blob):
+                    p = repo_root / full_name
                     p.parent.mkdir(parents=True, exist_ok=True)
                     with AtomicWriter(p, mode="wb") as aw:
-                        aw.write(sub_blob.data)
+                        aw.write(obj.data)
                     stat = p.stat()
                     import struct
-                    new_index.entries[sub_path] = DeepIndexEntry(
-                        path_hash=struct.unpack(">Q", hashlib.sha256(sub_path.encode()).digest()[:8])[0],
-                        content_hash=sub_sha,
+                    new_index.entries[full_name] = DeepIndexEntry(
+                        path_hash=struct.unpack(">Q", hashlib.sha256(full_name.encode()).digest()[:8])[0],
+                        content_hash=entry.sha,
                         mtime_ns=stat.st_mtime_ns,
                         size=stat.st_size,
                     )
-
+    
+    _flatten_tree(merged_tree_sha)
     write_index(dg_dir, new_index)
 
     if conflicts:
         print("Stash applied with conflicts. Please resolve them.", file=sys.stderr)
-        # Keep stash entry on conflict
         return False
-    else:
-        # Success — rewrite stash file
+    return True
+
+
+def apply_stash(repo_root: Path, index: int = 0) -> bool:
+    """Apply a specific stash by index without removing it from the stack."""
+    dg_dir = repo_root / DEEP_DIR
+    stashes = get_stash_list(dg_dir)
+    if not stashes:
+        raise RuntimeError("No stash entries found.")
+    
+    # newest is at the end of the list, index 0 is newest in Git commands
+    idx = len(stashes) - 1 - index
+    if idx < 0 or idx >= len(stashes):
+        raise RuntimeError(f"Index {index} is out of range for stash stack.")
+    
+    stash_sha = stashes[idx]
+    return _apply_stash_to_wd(repo_root, stash_sha)
+
+
+def pop_stash(repo_root: Path) -> bool:
+    """Pop the most recent stash from the stack and apply to the working tree."""
+    dg_dir = repo_root / DEEP_DIR
+    stashes = get_stash_list(dg_dir)
+    if not stashes:
+        raise RuntimeError("No stash entries found.")
+
+    stash_sha = stashes[-1]
+    success = _apply_stash_to_wd(repo_root, stash_sha)
+    
+    if success:
+        stashes.pop()
         sf = _stash_file(dg_dir)
         lock = FileLock(str(sf) + ".lock")
         with lock:
@@ -250,3 +260,35 @@ def pop_stash(repo_root: Path) -> bool:
                 aw.write("\n".join(stashes) + "\n")
         print(f"Dropped refs/stash@{{0}} ({stash_sha[:7]})")
         return True
+    return False
+
+
+def drop_stash(repo_root: Path, index: int = 0) -> None:
+    """Remove a specific stash from the stack."""
+    dg_dir = repo_root / DEEP_DIR
+    stashes = get_stash_list(dg_dir)
+    if not stashes:
+        raise RuntimeError("No stash entries found.")
+    
+    idx = len(stashes) - 1 - index
+    if idx < 0 or idx >= len(stashes):
+        raise RuntimeError(f"Index {index} is out of range for stash stack.")
+    
+    dropped_sha = stashes.pop(idx)
+    sf = _stash_file(dg_dir)
+    lock = FileLock(str(sf) + ".lock")
+    with lock:
+        with AtomicWriter(sf, mode="w") as aw:
+            aw.write("\n".join(stashes) + "\n")
+    print(f"Dropped refs/stash@{{{index}}} ({dropped_sha[:7]})")
+
+
+def clear_stash(repo_root: Path) -> None:
+    """Delete all stashes."""
+    dg_dir = repo_root / DEEP_DIR
+    sf = _stash_file(dg_dir)
+    if sf.exists():
+        lock = FileLock(str(sf) + ".lock")
+        with lock:
+            sf.unlink()
+    print("Stash cleared.")
