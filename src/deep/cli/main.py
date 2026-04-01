@@ -364,6 +364,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p_rm.add_argument("files", nargs="+", help="One or more files or directory paths to remove")
+    p_rm.add_argument("-r", "--recursive", action="store_true", help="Recursively remove a directory and its contents")
     p_rm.add_argument("--cached", action="store_true", help="Remove from the index only, keeping the file in the working tree")
 
     # ── mv ──────────────────────────────────────────────────────────
