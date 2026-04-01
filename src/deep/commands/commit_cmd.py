@@ -49,17 +49,10 @@ def _build_tree_recursive(objects_dir: Path, files: dict[str, str]) -> str:
     return tree.write(objects_dir)
 
 
-def _build_tree_from_index(dg_dir: Path, allow_empty: bool = False) -> str:
-    """Read the index and build a proper recursive Tree object.
-
-    If the index is empty and ``allow_empty`` is False, abort the commit.
-    """
+def _build_tree_from_index(dg_dir: Path) -> str:
+    """Read the index and build a proper recursive Tree object."""
     from deep.storage.index import read_index_no_lock
     index = read_index_no_lock(dg_dir)
-    if not index.entries and not allow_empty:
-        print("Deep: error: nothing to commit (no staged changes).", file=sys.stderr)
-        raise DeepCLIException(1)
-
     objects_dir = dg_dir / "objects"
     files = {path: entry.content_hash for path, entry in index.entries.items()}
     return _build_tree_recursive(objects_dir, files)
@@ -76,64 +69,16 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
 
-    allow_empty = getattr(args, "allow_empty", False)
-    tree_sha = _build_tree_from_index(dg_dir, allow_empty=allow_empty)
-    parent_sha = resolve_head(dg_dir)
-    parent_tree_sha = None
-    if parent_sha:
-        try:
-            p_obj = read_object(objects_dir, parent_sha)
-            if isinstance(p_obj, Commit):
-                parent_tree_sha = p_obj.tree_sha
-        except Exception:
-            pass
-
-    # Phase 7 / 5: Commit Without Changes Guard (skip for --amend)
-    if parent_tree_sha and tree_sha == parent_tree_sha and not allow_empty and not getattr(args, "amend", False):
-        print("No changes to commit.")
-        raise DeepCLIException(1)
-
-    message = getattr(args, "message", None)
-    if not message and getattr(args, "ai", False):
-        from deep.ai.assistant import DeepAI
-        ai = DeepAI(repo_root)
-        suggestion = ai.suggest_commit_message()
-        message = suggestion.text
-        
-        print(f"Deep: AI suggestion (confidence: {suggestion.confidence:.2f}):\n---")
-        print(message)
-        print("---")
-        ans = input("Accept this commit message? [y/N]: ")
-        if ans.lower() != "y":
-            print("Commit aborted.", file=sys.stderr)
-            raise DeepCLIException(1)
-    
-    # Handle interactive editor prompt if message is missing
-    if not message and not getattr(args, "ai", False):
-        initial_text = ""
-        if getattr(args, "amend", False):
-            parent_sha = resolve_head(dg_dir)
-            if parent_sha:
-                try:
-                    p_obj = read_object(objects_dir, parent_sha)
-                    if isinstance(p_obj, Commit):
-                        initial_text = p_obj.message
-                except Exception:
-                    pass
-        
-        from deep.utils.ux import prompt_for_editor
-        message = prompt_for_editor(initial_text)
-
+    # --- PHASE 1: AUTO-STAGING (-a) ---
     if getattr(args, "all", False):
         from deep.core.status import compute_status
-
         status = compute_status(repo_root)
-
         files_to_update = list(status.modified)
         files_to_remove = list(status.deleted)
 
         if files_to_update or files_to_remove:
             from deep.storage.index import (
+                read_index,
                 add_multiple_to_index,
                 remove_multiple_from_index
             )
@@ -150,18 +95,14 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             if files_to_update:
                 results = []
                 max_workers = min(os.cpu_count() or 4, len(files_to_update))
-
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
                     futures = []
-
                     for rel_path in files_to_update:
                         file_path = repo_root / rel_path
                         entry = index.entries.get(rel_path)
-
                         p_sha = entry.content_hash if entry else None
                         p_size = entry.size if entry else None
                         p_mtime_ns = entry.mtime_ns if entry else None
-
                         futures.append(executor.submit(
                             _add_file_worker,
                             repo_root,
@@ -171,16 +112,83 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
                             p_size,
                             p_mtime_ns
                         ))
-
                     for future in as_completed(futures):
                         results.append(future.result())
 
                 actual_results = [r for r in results if r[1] is not None]
-
                 if actual_results:
                     add_multiple_to_index(dg_dir, actual_results)
 
             print(f"Deep: Auto-staged {len(files_to_update)} modified and {len(files_to_remove)} deleted files.")
+
+    # --- PHASE 2: RECONCILE INDEX & AMEND GUARD ---
+    from deep.storage.index import read_index_no_lock
+    index = read_index_no_lock(dg_dir)
+    allow_empty = getattr(args, "allow_empty", False)
+    
+    parent_sha = resolve_head(dg_dir)
+    if getattr(args, "amend", False) and not parent_sha:
+        print("Deep: error: you have nothing to amend.", file=sys.stderr)
+        raise DeepCLIException(1)
+
+    # Git behavior: Fail if index is empty (unless allow_empty)
+    if not index.entries and not allow_empty:
+        print("Deep: error: nothing to commit (no staged changes).", file=sys.stderr)
+        raise DeepCLIException(1)
+
+    # --- PHASE 3: MESSAGE DETERMINATION ---
+    message = getattr(args, "message", None)
+    if not message and getattr(args, "ai", False):
+        try:
+            from deep.ai.assistant import DeepAI
+            ai = DeepAI(repo_root)
+            suggestion = ai.suggest_commit_message()
+            message = suggestion.text
+            
+            print(f"Deep: AI suggestion (confidence: {suggestion.confidence:.2f}):\n---")
+            print(message)
+            print("---")
+            ans = input("Accept this commit message? [y/N]: ")
+            if ans.lower() != "y":
+                print("Commit aborted.", file=sys.stderr)
+                raise DeepCLIException(1)
+        except Exception as e:
+            if isinstance(e, DeepCLIException): raise
+            print(f"Deep: AI Assistant Error: {e}", file=sys.stderr)
+            raise DeepCLIException("AI suggestion failed. Please provide a message manually with -m.")
+    
+    if not message and not getattr(args, "ai", False):
+        initial_text = ""
+        if getattr(args, "amend", False):
+            try:
+                p_obj = read_object(objects_dir, parent_sha)
+                if isinstance(p_obj, Commit):
+                    initial_text = p_obj.message
+            except Exception:
+                pass
+        
+        from deep.utils.ux import prompt_for_editor
+        try:
+            message = prompt_for_editor(initial_text)
+        except Exception as e:
+            if isinstance(e, DeepCLIException): raise
+            # ... handle error ...
+            raise DeepCLIException(1)
+
+    # --- PHASE 4: TREE & CHANGE GUARD ---
+    tree_sha = _build_tree_from_index(dg_dir)
+    parent_tree_sha = None
+    if parent_sha:
+        try:
+            p_obj = read_object(objects_dir, parent_sha)
+            if isinstance(p_obj, Commit):
+                parent_tree_sha = p_obj.tree_sha
+        except Exception:
+            pass
+
+    if parent_tree_sha and tree_sha == parent_tree_sha and not allow_empty and not getattr(args, "amend", False):
+        print("No changes to commit.")
+        raise DeepCLIException(1)
 
     from deep.storage.transaction import TransactionManager
     from deep.core.errors import DeepError
@@ -203,10 +211,10 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         # Use TransactionManager to handle Repo, Branch, and Index locks + WAL
         with TransactionManager(dg_dir, branch_name=branch) as tx:
             with Timer(telemetry, "commit"):
-                allow_empty = getattr(args, "allow_empty", False)
-                tree_sha = _build_tree_from_index(dg_dir, allow_empty=allow_empty)
-
-                parent_sha = resolve_head(dg_dir)
+                # We already computed tree_sha, parent_shas, etc. outside for validation.
+                # However, within a transaction, we should use the same values or re-derive if needed.
+                # Since tree_sha was built from the index, we reuse it.
+                
                 if getattr(args, "amend", False) and parent_sha:
                     try:
                         p_obj = read_object(objects_dir, parent_sha)
