@@ -539,10 +539,24 @@ def run(args) -> None:
         
         try:
             pr_id = int(id_val)
-            pr = manager.close_pr(pr_id)
-            print_success(f"Pull Request #{pr_id} is now closed.")
+            manager.close_pr(pr_id)
+            print_success(f"Pull Request #{pr_id} closed.")
         except Exception as e:
-            print_error(f"Error: {e}")
+            print_error(f"Failed to close PR: {e}")
+            raise DeepCLIException(1)
+
+    elif cmd == "reopen":
+        id_val = getattr(args, "id", None)
+        if not id_val:
+            print_error("Missing PR ID for reopen.")
+            raise DeepCLIException(1)
+        
+        try:
+            pr_id = int(id_val)
+            manager.reopen_pr(pr_id)
+            print_success(f"Pull Request #{pr_id} reopened.")
+        except Exception as e:
+            print_error(f"Failed to reopen PR: {e}")
             raise DeepCLIException(1)
 
     elif cmd == "comment":
