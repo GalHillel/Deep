@@ -164,8 +164,8 @@ class DeepDaemon:
             try:
                 writer.close()
                 await writer.wait_closed()
-            except (ConnectionError, OSError):
-                # Ignore errors during final closure
+            except (ConnectionError, OSError, RuntimeError, asyncio.CancelledError):
+                # Ignore errors during final closure, especially if event loop is already shut down
                 pass
 
     MAX_PACK_SIZE = 500 * 1024 * 1024 # 500MB Limit
