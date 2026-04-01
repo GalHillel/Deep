@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 from deep.storage.objects import Commit, read_object
-from deep.core.refs import get_commit_decorations, log_history, resolve_head
+from deep.core.refs import get_commit_decorations, log_history, resolve_head, resolve_revision
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
 from deep.utils.ux import Color
@@ -29,23 +29,50 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
 
+    start_sha = None
+    exclude_shas = set()
+
+    revisions = getattr(args, "revisions", [])
+    if revisions:
+        rev = revisions[0]
+        if ".." in rev:
+            left, right = rev.split("..", 1)
+            left_sha = resolve_revision(dg_dir, left if left else "HEAD")
+            right_sha = resolve_revision(dg_dir, right if right else "HEAD")
+            if not left_sha or not right_sha:
+                print(f"Deep: error: Invalid revision range {rev}", file=sys.stderr)
+                raise DeepCLIException(1)
+            
+            # exclude ancestors of left_sha
+            exclude_shas = set(log_history(dg_dir, left_sha))
+            start_sha = right_sha
+        else:
+            start_sha = resolve_revision(dg_dir, rev)
+            if not start_sha:
+                print(f"Deep: error: unknown revision {rev}", file=sys.stderr)
+                raise DeepCLIException(1)
+
+    max_count = getattr(args, "max_count", None)
+
     if getattr(args, "graph", False):
         from deep.core.graph import get_history_graph, render_graph
-        max_count = getattr(args, "max_count", 100)
-        nodes = get_history_graph(dg_dir, max_count=max_count)
+        graph_max_count = max_count if max_count is not None else 100
+        nodes = get_history_graph(dg_dir, start_sha=start_sha, max_count=graph_max_count, exclude_shas=exclude_shas)
         if not nodes:
             print("No commits yet.")
         else:
             render_graph(nodes)
         return
 
-    shas = log_history(dg_dir)
+    shas = log_history(dg_dir, start_sha=start_sha)
+    if exclude_shas:
+        shas = [s for s in shas if s not in exclude_shas]
     if not shas:
         print("No commits yet.")
         return
 
-    if hasattr(args, "max_count") and args.max_count is not None:
-        shas = shas[:args.max_count]
+    if max_count is not None:
+        shas = shas[:max_count]
 
     decs = get_commit_decorations(dg_dir)
 

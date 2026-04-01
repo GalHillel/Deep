@@ -25,7 +25,7 @@ class GraphNode:
     tags: List[str] = field(default_factory=list)
     message: str = ""
 
-def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: Optional[int] = 100, all_refs: bool = False) -> List[GraphNode]:
+def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: Optional[int] = 100, all_refs: bool = False, exclude_shas: Optional[Set[str]] = None) -> List[GraphNode]:
     """Traverse commits and build a graph structure for rendering."""
     if max_count is not None and not isinstance(max_count, int):
         from deep.core.errors import DeepCLIException
@@ -89,6 +89,7 @@ def get_history_graph(dg_dir: Path, start_sha: Optional[str] = None, max_count: 
 
     def _push_commit(sha: str):
         if sha in processed: return
+        if exclude_shas and sha in exclude_shas: return
         meta = _get_commit_meta(sha)
         if meta:
             ts, parents, tree, msg = meta

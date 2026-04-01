@@ -242,6 +242,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_log.add_argument("--oneline", action="store_true", help="Display each commit entry on a single concise line")
     p_log.add_argument("-n", "--max-count", type=int, help="Limit the number of commits to display")
     p_log.add_argument("--graph", action="store_true", help="Render a text-based representation of the commit graph")
+    p_log.add_argument("revisions", nargs="*", help="Revisions to log (e.g. master..feature)")
 
     # ── diff ─────────────────────────────────────────────────────────
     p_diff = sub.add_parser(
