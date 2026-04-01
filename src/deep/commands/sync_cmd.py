@@ -15,12 +15,18 @@ from deep.commands import pull_cmd
 from deep.core.repository import find_repo
 
 
+from deep.core.config import Config
+from deep.core.constants import DEEP_DIR
+from deep.core.refs import get_current_branch
+
 def ns(**kwargs):
     import argparse
-    return argparse.Namespace(**kwargs)
+    # Ensure all pull_cmd expected args are present
+    defaults = {"rebase": False, "url": None, "branch": None}
+    defaults.update(kwargs)
+    return argparse.Namespace(**defaults)
 
-
-def run(args) -> None:  # type: ignore[no-untyped-def]
+def run(args) -> None:
     """Execute the ``sync`` command."""
     try:
         repo_root = find_repo()
@@ -28,26 +34,29 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print(f"Deep: error: {exc}", file=sys.stderr)
         raise DeepCLIException(1)
 
-    peer = getattr(args, "peer", None)
+    dg_dir = repo_root / DEEP_DIR
+    config = Config(repo_root)
     
-    # Sync is essentially a pull from the peer or origin
-    url = peer or "origin"
-    
-    print(f"Deep: syncing with '{url}'...")
-    
-    # We call pull_cmd.run with the url
-    # We need to know the current branch to pull into it
-    from deep.core.refs import get_current_branch
-    from deep.core.constants import DEEP_DIR
-    branch = get_current_branch(repo_root / DEEP_DIR)
-    
+    branch = get_current_branch(dg_dir)
     if not branch:
         print("Deep: error: cannot sync in detached HEAD state", file=sys.stderr)
         raise DeepCLIException(1)
-        
+
+    # 1. Determine the remote to sync with
+    peer = getattr(args, "peer", None)
+    if peer:
+        url_or_name = peer
+    else:
+        # Check track configuration for the current branch
+        url_or_name = config.get(f"branch.{branch}.remote") or "origin"
+
+    print(f"Deep: syncing branch '{branch}' with '{url_or_name}'...")
+    
     try:
-        pull_cmd.run(ns(url=url, branch=branch))
+        # Pull performs fetch + merge/rebase
+        pull_cmd.run(ns(url=url_or_name, branch=branch))
         print("Deep: sync complete.")
     except Exception as e:
-        print(f"Deep: error: sync failed: {e}", file=sys.stderr)
-        raise DeepCLIException(1)
+        if not isinstance(e, DeepCLIException):
+            print(f"Deep: error: sync failed: {e}", file=sys.stderr)
+        raise e
