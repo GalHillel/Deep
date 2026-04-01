@@ -1,13 +1,5 @@
-# Examples of Deep VCS Configuration
+# Deep Examples
 
-This directory contains example configurations and templates to help you get started with Deep VCS features.
+This directory contains standalone, runnable code scripts that demonstrate how to interact programmatically with Deep VCS or build plugins around its architecture.
 
-## Contents
-
-- **[.deepci.yml](ci-testing.yml)**: A standard CI configuration for running tests and linting.
-- **[plugins/](plugins/)**: Example plugin implementations.
-    - **[slack_notifier.py](plugins/slack_notifier.py)**: A plugin that sends notifications to Slack on commit.
-
----
-
-*For more information, see the [Quick Start Guide](../docs/quickstart.md).*
+For conceptual workflow examples (like remote synchronization or branching strategies), refer to the official [Deep User Guide](../docs/USER_GUIDE.md) and the `docs/guides/` directory.

@@ -1,105 +1,89 @@
 # Installing Deep
 
+Deep is a system-level CLI tool. It should be installed globally so you can execute the `deep` command from any directory on your machine without managing virtual environments.
+
 ## Requirements
 
-- **Python 3.8+** (check with `python --version`)
-- **pip** (ships with Python)
+- **Python 3.9+** (Check with `python --version`)
+- **pipx** (Highly recommended) or **pip**
 
-That's it. No native dependencies, no build tools, no Docker.
+No native C dependencies, no build tools, no Docker required.
 
-## Install from Source
+---
+
+## 1. System-Wide Install (Recommended)
+
+Using `pipx` is the standard best practice for Python CLI tools. It isolates Deep's dependencies while exposing the `deep` executable globally on your `$PATH`.
 
 ```bash
-# Clone the repository
+# 1. Install pipx if you don't have it
+python3 -m pip install --user pipx
+python3 -m pipx ensurepath
+
+# 2. Clone the repository
 git clone https://github.com/GalHillel/DeepGit.git
 cd DeepGit
 
-# Install (editable mode recommended for now)
-pip install -e .
+# 3. Install Deep globally
+pipx install .
 
-# Verify it works
+# 4. Verify installation
 deep version
 ```
 
-You should see:
+### Alternative: Global Pip Install
 
-```
-Deep version 1.0.0
-```
-
-## Platform-Specific Notes
-
-### Windows
-
-```powershell
-git clone https://github.com/GalHillel/DeepGit.git
-cd DeepGit
-python -m venv .venv
-.venv\Scripts\activate
-pip install -e .
-deep version
-```
-
-If `deep` isn't found after install, make sure your Python `Scripts` directory is in your `PATH`:
-```powershell
-$env:PATH += ";$env:LOCALAPPDATA\Programs\Python\Python311\Scripts"
-```
-
-### macOS / Linux
+If you prefer standard `pip`, install it to your user directory:
 
 ```bash
 git clone https://github.com/GalHillel/DeepGit.git
 cd DeepGit
+pip install --user .
+```
+*(Ensure your Python user `Scripts` or `bin` directory is in your `$PATH`!)*
+
+---
+
+## 2. Developer Install (For Contributors)
+
+If you plan to modify Deep's source code, you must install it in editable (`-e`) mode so changes apply immediately.
+
+```bash
+# 1. Clone
+git clone https://github.com/GalHillel/DeepGit.git
+cd DeepGit
+
+# 2. Create and activate a virtual environment
 python3 -m venv .venv
+
+# macOS / Linux:
 source .venv/bin/activate
+
+# Windows (PowerShell):
+.venv\Scripts\activate
+
+# 3. Install in editable mode
 pip install -e .
+
+# 4. Verify
 deep version
 ```
 
-If you get a permission error:
-```bash
-pip install --user -e .
-```
-
-## Dependencies
-
-Deep installs these automatically:
-
-| Package | Why |
-|---|---|
-| `rich` | Terminal colors and formatting |
-| `cryptography` | GPG signing and security features |
-| `aiohttp` | Async HTTP for network operations |
-| `pydantic` | Data validation for platform features |
+---
 
 ## Uninstall
 
+If installed via `pipx`:
+```bash
+pipx uninstall deep-vcs
+```
+
+If installed via `pip`:
 ```bash
 pip uninstall deep-vcs
 ```
 
-Verify by running `deep version` — it should return "command not found."
-
-To also remove cloned source:
-```bash
-rm -rf DeepGit/
-```
-
-## Upgrading
-
-```bash
-cd DeepGit
-git pull
-pip install -e .
-```
-
 ## Troubleshooting
 
-**`deep: command not found`**
-Your Python scripts directory isn't in PATH. Run `python -m deep.cli.main version` as a workaround, then fix your PATH.
-
-**`ModuleNotFoundError: No module named 'deep'`**
-You didn't install the package. Run `pip install -e .` from the DeepGit directory.
-
-**Permission errors on Linux**
-Try `pip install --user -e .` or use a virtual environment (recommended).
+- **`deep: command not found`**: Your system `$PATH` does not include the directory where `pipx` or `pip --user` installs binaries. Run `python -m pipx ensurepath` or manually add `~/.local/bin` (Linux/macOS) or `%LOCALAPPDATA%\Programs\Python\Python39\Scripts` (Windows).
+- **`ModuleNotFoundError: No module named 'deep'`**: You are trying to run the source code directly without installing it. Follow the Developer Install steps.
