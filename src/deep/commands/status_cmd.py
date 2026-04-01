@@ -17,7 +17,7 @@ from deep.core.status import compute_status
 from deep.utils.ux import Color
 
 
-def run(args) -> None:  # type: ignore[no-untyped-def]
+def run(args) -> None:  # type: ignore[no-untyped_def]
     """Execute the ``status`` command."""
     try:
         repo_root = find_repo()
@@ -28,15 +28,6 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
-    branch = get_current_branch(dg_dir)
-    if branch:
-        print(f"On branch {Color.wrap(Color.CYAN, branch)}")
-    else:
-        head_sha = resolve_head(dg_dir)
-        detached_msg = f"HEAD detached at {head_sha[:7]}" if head_sha else "HEAD detached"
-        print(Color.wrap(Color.YELLOW, detached_msg))
-    print()
-
     status = compute_status(repo_root)
 
     if getattr(args, "porcelain", False):
@@ -48,6 +39,16 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         for f in status.deleted: print(f" D {f}")
         for f in status.untracked: print(f"?? {f}")
         return
+
+    # --- Human Readable Path ---
+    branch = get_current_branch(dg_dir)
+    if branch:
+        print(f"On branch {Color.wrap(Color.CYAN, branch)}")
+    else:
+        head_sha = resolve_head(dg_dir)
+        detached_msg = f"HEAD detached at {head_sha[:7]}" if head_sha else "HEAD detached"
+        print(Color.wrap(Color.YELLOW, detached_msg))
+    print()
 
     if getattr(args, "work", False):
         print(f"{Color.wrap(Color.CYAN, '--- Connected Development Workflow ---')}\n")
@@ -133,6 +134,25 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         print(Color.wrap(Color.BOLD + Color.RED, "Untracked files:"))
         for f in status.untracked:
             print(f"  {Color.wrap(Color.RED, f)}")
+        print()
+
+    if getattr(args, "verbose", False) and has_staged:
+        print(Color.wrap(Color.BOLD + Color.CYAN, "Changes to be committed (diff):"))
+        from deep.core.diff import diff_index_vs_head
+        diffs = diff_index_vs_head(repo_root)
+        for rel_path, diff_text in diffs:
+            print(f"\033[1;36mdiff --deep a/{rel_path} b/{rel_path}\033[0m")
+            for line in diff_text.splitlines():
+                if line.startswith("+++") or line.startswith("---"):
+                    print(f"\033[1;36m{line}\033[0m")
+                elif line.startswith("+"):
+                    print(f"\033[32m{line}\033[0m")
+                elif line.startswith("-"):
+                    print(f"\033[31m{line}\033[0m")
+                elif line.startswith("@@"):
+                    print(f"\033[33m{line}\033[0m")
+                else:
+                    print(line)
         print()
 
     if not has_staged and not has_unstaged and not status.untracked:

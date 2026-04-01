@@ -212,6 +212,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p_status.add_argument("--porcelain", action="store_true", help="Produce machine-readable output format")
+    p_status.add_argument("-v", "--verbose", action="store_true", help="Show more detailed information about tracked files")
 
     # ── log ──────────────────────────────────────────────────────────
     p_log = sub.add_parser(
