@@ -17,7 +17,7 @@ from deep.core.refs import list_branches, list_tags, get_branch, get_tag
 from deep.core.constants import DEEP_DIR
 
 
-def run(args) -> None:  # type: ignore[no-untyped-def]
+def run(args) -> None:
     """Execute the ``ls-remote`` command."""
     url = args.url
     repo_root = None
@@ -30,9 +30,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     if repo_root:
         from deep.core.config import Config
         config = Config(repo_root)
-        url = config.get(f"remote.{url}.url", url)
+        resolved_url = config.get(f"remote.{url}.url")
+        if resolved_url:
+            url = resolved_url
 
-    # Check if it's a local path first
+    # Check if it's a local path
     target = Path(url).resolve()
     if (target / DEEP_DIR).exists():
         _ls_remote_local(target / DEEP_DIR)
@@ -46,6 +48,7 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     try:
         from deep.network.client import get_remote_client
         client = get_remote_client(url)
+        # ls_remote() is a wrapper for ls_refs() in client.py
         refs = client.ls_remote()
 
         if not refs:
@@ -63,19 +66,17 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
 def _ls_remote_local(dg_dir: Path) -> None:
     """List refs from a local repository."""
-    # Debug
-    print(f"DEBUG: ls-remote-local dg_dir={dg_dir}", file=sys.stderr)
     from deep.core.refs import resolve_head
     head_sha = resolve_head(dg_dir)
     if head_sha:
         print(f"{head_sha}\tHEAD")
         
-    for branch in list_branches(dg_dir):
+    for branch in sorted(list_branches(dg_dir)):
         sha = get_branch(dg_dir, branch)
         if sha:
             print(f"{sha}\trefs/heads/{branch}")
 
-    for tag in list_tags(dg_dir):
+    for tag in sorted(list_tags(dg_dir)):
         sha = get_tag(dg_dir, tag)
         if sha:
             print(f"{sha}\trefs/tags/{tag}")

@@ -1,0 +1,54 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.1, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\galh2\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\galh2\Documents\GitHub\DeepGit
+configfile: pyproject.toml
+plugins: anyio-4.8.0, cov-6.0.0, timeout-2.4.0, xdist-3.6.1
+collecting ... collected 3 items
+
+tests/cli/test_ls_remote_flags_healing.py::test_ls_remote_local FAILED   [ 33%]
+tests/cli/test_ls_remote_flags_healing.py::test_ls_remote_alias FAILED   [ 66%]
+tests/cli/test_ls_remote_flags_healing.py::test_ls_remote_invalid_url PASSED [100%]
+
+================================== FAILURES ===================================
+____________________________ test_ls_remote_local _____________________________
+
+repo_setup = (WindowsPath('C:/Users/galh2/AppData/Local/Temp/pytest-of-galh2/pytest-2628/test_ls_remote_local0/remote'), '73d773e')
+
+    def test_ls_remote_local(repo_setup):
+        """Test ls-remote against a local path."""
+        remote_dir, sha = repo_setup
+    
+        # We can run it from anywhere
+        res = run_deep(remote_dir.parent, ["ls-remote", str(remote_dir)])
+        assert res.returncode == 0
+>       assert f"{sha}\tHEAD" in res.stdout
+E       AssertionError: assert '73d773e\tHEAD' in '73d773e65916d31a2edc9533e2657fa8417f3bba\tHEAD\n73d773e65916d31a2edc9533e2657fa8417f3bba\trefs/heads/main\n73d773e65916d31a2edc9533e2657fa8417f3bba\trefs/tags/v1.0\n'
+E        +  where '73d773e65916d31a2edc9533e2657fa8417f3bba\tHEAD\n73d773e65916d31a2edc9533e2657fa8417f3bba\trefs/heads/main\n73d773e65916d31a2edc9533e2657fa8417f3bba\trefs/tags/v1.0\n' = CompletedProcess(args=['deep', 'ls-remote', 'C:\\Users\\galh2\\AppData\\Local\\Temp\\pytest-of-galh2\\pytest-2628\\test_ls_remote_local0\\remote'], returncode=0, stdout='73d773e65916d31a2edc9533e2657fa8417f3bba\tHEAD\n73d773e65916d31a2edc9533e2657fa8417f3bba\trefs/heads/main\n73d773e65916d31a2edc9533e2657fa8417f3bba\trefs/tags/v1.0\n', stderr='').stdout
+
+tests\cli\test_ls_remote_flags_healing.py:39: AssertionError
+____________________________ test_ls_remote_alias _____________________________
+
+repo_setup = (WindowsPath('C:/Users/galh2/AppData/Local/Temp/pytest-of-galh2/pytest-2628/test_ls_remote_alias0/remote'), '92a5dcb')
+tmp_path = WindowsPath('C:/Users/galh2/AppData/Local/Temp/pytest-of-galh2/pytest-2628/test_ls_remote_alias0')
+
+    def test_ls_remote_alias(repo_setup, tmp_path):
+        """Test ls-remote using a remote alias (origin)."""
+        remote_dir, sha = repo_setup
+    
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
+        run_deep(local_dir, ["init"])
+        run_deep(local_dir, ["remote", "add", "origin", str(remote_dir)])
+    
+        res = run_deep(local_dir, ["ls-remote", "origin"])
+        assert res.returncode == 0
+>       assert f"{sha}\tHEAD" in res.stdout
+E       AssertionError: assert '92a5dcb\tHEAD' in '92a5dcb70089a4bf0052967b632ff63ee44b773d\tHEAD\n92a5dcb70089a4bf0052967b632ff63ee44b773d\trefs/heads/main\n92a5dcb70089a4bf0052967b632ff63ee44b773d\trefs/tags/v1.0\n'
+E        +  where '92a5dcb70089a4bf0052967b632ff63ee44b773d\tHEAD\n92a5dcb70089a4bf0052967b632ff63ee44b773d\trefs/heads/main\n92a5dcb70089a4bf0052967b632ff63ee44b773d\trefs/tags/v1.0\n' = CompletedProcess(args=['deep', 'ls-remote', 'origin'], returncode=0, stdout='92a5dcb70089a4bf0052967b632ff63ee44b773d\tHEAD\n92a5dcb70089a4bf0052967b632ff63ee44b773d\trefs/heads/main\n92a5dcb70089a4bf0052967b632ff63ee44b773d\trefs/tags/v1.0\n', stderr='').stdout
+
+tests\cli\test_ls_remote_flags_healing.py:54: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/cli/test_ls_remote_flags_healing.py::test_ls_remote_local - Asse...
+FAILED tests/cli/test_ls_remote_flags_healing.py::test_ls_remote_alias - Asse...
+========================= 2 failed, 1 passed in 4.98s =========================
