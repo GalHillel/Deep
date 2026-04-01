@@ -108,21 +108,21 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             print("Commit aborted.", file=sys.stderr)
             raise DeepCLIException(1)
     
-    # Handle --amend message logic
-    if getattr(args, "amend", False):
-        if not message:
+    # Handle interactive editor prompt if message is missing
+    if not message and not getattr(args, "ai", False):
+        initial_text = ""
+        if getattr(args, "amend", False):
             parent_sha = resolve_head(dg_dir)
             if parent_sha:
                 try:
                     p_obj = read_object(objects_dir, parent_sha)
                     if isinstance(p_obj, Commit):
-                        message = p_obj.message
+                        initial_text = p_obj.message
                 except Exception:
                     pass
-    
-    if not message:
-        print("Deep: error: must provide a commit message (-m) or use --ai.", file=sys.stderr)
-        raise DeepCLIException(1)
+        
+        from deep.utils.ux import prompt_for_editor
+        message = prompt_for_editor(initial_text)
 
     if getattr(args, "all", False):
         from deep.core.status import compute_status

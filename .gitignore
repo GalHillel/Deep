@@ -112,3 +112,5 @@ logs/*
 # Debugging scripts
 *debug*.py
 repro_*.py
+command-help.txt
+scripts/generate_help.py

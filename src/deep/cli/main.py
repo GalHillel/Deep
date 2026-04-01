@@ -180,7 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
   \033[1;34m⚓️ deep commit -S -m "Signed"\033[0m
      Create a cryptographically signed commit.
 
-  \033[1;34m⚓️ deep commit --allow-empty\033[0m
+  \033[1;34m⚓️ deep commit --allow-empty -m "Trigger CI"\033[0m
      Create a commit even if no changes are staged.
 """,
         formatter_class=argparse.RawTextHelpFormatter,

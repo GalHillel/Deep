@@ -10,6 +10,8 @@ Consolidates color management and terminal UI components.
 import sys
 import os
 import difflib
+import subprocess
+import tempfile
 from typing import List, Optional
 
 
@@ -117,3 +119,51 @@ class ProgressBar:
         color_prefix = Color.wrap(Color.CYAN, self.prefix)
         sys.stdout.write(f'\r{color_prefix} |{bar}| {percent}% {suffix}')
         sys.stdout.flush()
+
+
+def prompt_for_editor(initial_text: str = "") -> str:
+    """Open the system editor to prompt the user for a commit message."""
+    from deep.core.errors import DeepCLIException
+    
+    # CI/CD Safety Check
+    if not sys.stdin.isatty():
+        raise DeepCLIException("must provide a commit message (-m) or use --ai in non-interactive mode.")
+
+    editor = os.environ.get('EDITOR')
+    if not editor:
+        editor = 'notepad' if os.name == 'nt' else 'nano'
+
+    # Create instruction header
+    header = "\n\n# Please enter the commit message for your changes. Lines starting\n"
+    header += "# with '#' will be ignored. An empty message aborts the commit.\n"
+    
+    try:
+        # Use a suffix to help editors with syntax highlighting if possible
+        with tempfile.NamedTemporaryFile(mode='w+', suffix='.tmp', delete=False, encoding='utf-8') as tf:
+            tf.write(initial_text)
+            tf.write(header)
+            temp_path = tf.name
+
+        # Spawn editor
+        subprocess.call([editor, temp_path])
+
+        # Read back
+        with open(temp_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        # Cleanup
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+        # Filter comments and strip
+        message = "".join([line for line in lines if not line.strip().startswith("#")]).strip()
+        
+        if not message:
+            raise DeepCLIException("Aborting commit due to empty commit message.")
+            
+        return message
+
+    except Exception as e:
+        if isinstance(e, DeepCLIException):
+            raise
+        raise DeepCLIException(f"Failed to open editor '{editor}': {e}")
