@@ -140,14 +140,14 @@ def _internal_serve(repo_root: Path, args):
     """The actual persistent worker loop."""
     host = "127.0.0.1"
     port = 8080
-    git_port = 9091 # Default deep daemon port
+    deep_port = 9091 # Default deep daemon port
 
     # Start threads
     threading.Thread(target=run_web_server, args=(repo_root, host, port), daemon=True).start()
     threading.Thread(target=run_mirror_sync, args=(repo_root,), daemon=True).start()
     
     # Start the Deep protocol daemon in the main loop
-    daemon = DeepDaemon(repo_root, host=host, port=git_port)
+    daemon = DeepDaemon(repo_root, host=host, port=deep_port)
     
     try:
         asyncio.run(daemon.start())
