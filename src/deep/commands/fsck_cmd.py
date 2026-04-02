@@ -35,13 +35,15 @@ def run(args):
     from deep.core.repository import find_repo, DEEP_DIR
     from deep.storage.objects import read_object, Commit, Tree, Blob
     from deep.core.refs import list_branches, list_tags, resolve_head, get_branch, get_tag
+    from deep.core.errors import DeepCLIException
     from rich.console import Console
 
     console = Console()
-    repo_root = find_repo(Path.cwd())
-    if not repo_root:
-        console.print("[red]Deep: error: not a Deep repository[/red]")
-        return
+    try:
+        repo_root = find_repo(Path.cwd())
+    except FileNotFoundError as exc:
+        console.print(f"[red]Deep: error: {exc}[/red]")
+        raise DeepCLIException(1)
     
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
@@ -124,6 +126,6 @@ def run(args):
             console.print(f"  ... and {len(dangling) - 5} more.")
     
     if not corrupt_objects and not missing:
-        console.print("\n[bold green]Fsck complete. Repository is healthy.[/bold green]")
+        console.print("\n[bold green]⚓️ Fsck complete. Repository is healthy.[/bold green]")
     else:
-        console.print("\n[bold red]Fsck complete. Repository has ISSUES.[/bold red]")
+        console.print("\n[bold red]⚓️ Fsck complete. Repository has integrity ISSUES.[/bold red]")
