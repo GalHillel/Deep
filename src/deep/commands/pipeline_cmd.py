@@ -40,9 +40,13 @@ def get_epilog() -> str:
   \033[1;34m⚓️ deep pipeline sync\033[0m
      Fetch and synchronize remote workflow statuses from GitHub Actions.
 
-\033[1;33m💡 SETUP TOKEN (Windows):\033[0m
+\033[1;33m💡 SETUP TOKEN:\033[0m
+  # Windows (PowerShell/CMD):
   $env:GH_TOKEN="..."  # PowerShell
   set GH_TOKEN=...      # CMD
+
+  # Linux / macOS (Zsh/Bash):
+  export GH_TOKEN="..."
 
 \033[1;31m⚠️  NOTE:\033[0m 'sync' requires a GitHub remote and GH_TOKEN/DEEP_TOKEN.
       Without these, all operations remain local-only.
@@ -61,7 +65,7 @@ def run(args) -> None:
     runner = PipelineRunner(dg_dir)
     verbose = getattr(args, "verbose", False)
     
-    cmd = getattr(args, "pipe_command", None) or getattr(args, "pipeline_command", None) or "list"
+    cmd = getattr(args, "pipe_command", None) or "list"
     
     if cmd in ("run", "trigger"):
         sha = getattr(args, "commit", None) or resolve_head(dg_dir)
@@ -75,7 +79,7 @@ def run(args) -> None:
         print_success(f"Pipeline complete. Status: {pipeline_run.status.upper()}")
 
     elif cmd == "status":
-        run_id = getattr(args, "id", None) or getattr(args, "run_id", None)
+        run_id = getattr(args, "id", None)
         runs = runner.list_runs()
         
         if not run_id:
