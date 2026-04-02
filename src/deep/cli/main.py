@@ -1135,7 +1135,7 @@ def build_parser() -> argparse.ArgumentParser:
     ai_choices = [
         "suggest", "generate", "analyze", "branch-name", "review", 
         "predict-merge", "predict-push", "cross-repo", 
-        "refactor", "cleanup", "interactive", "assistant"
+        "refactor", "cleanup", "interactive", "assistant", "explain"
     ]
     p_ai.add_argument("ai_command", choices=ai_choices, nargs="?", default="suggest", help="The Deep AI tool to invoke (default: suggest)")
     p_ai.add_argument("target", nargs="?", help="The target file, branch, or commit SHA for the AI tool")

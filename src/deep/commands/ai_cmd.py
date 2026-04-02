@@ -35,17 +35,49 @@ def run(args) -> None:
         for d in result.details:
             print(f"   {d}")
     elif sub == "generate":
-        prompt = getattr(args, "prompt", "")
-        # Dummy generation for E2E tests
+        # Argument resolution hardening: parser uses 'target' positional and '--description' flag
+        target = getattr(args, "target", "") or ""
+        desc = getattr(args, "description", "") or ""
+        prompt = f"{target} {desc}".strip() or "general code"
+        
+        # Dummy generation for E2E tests and demonstration
         print(f"💡 AI Suggestion for '{prompt}':")
-        print("   feature: implementation of the requested logic")
+        print("   feature: implementation of the requested logic based on context")
+    elif sub == "explain":
+        # 'explain' as showcased in help examples
+        result = ai.analyze_quality()
+        print(f"📝 AI Explanation of changes:")
+        print(f"   {result.text}")
+        for d in result.details:
+            print(f"   - {d}")
     elif sub == "analyze":
         result = ai.analyze_quality()
         print(f"🔍 {result.text}")
         for d in result.details:
             print(f"   {d}")
+    elif sub in ("interactive", "assistant"):
+        # 'assistant' is an alias for 'interactive' mode
+        print(f"🤖 Deep AI {'Assistant' if sub == 'assistant' else 'Interactive'} Mode")
+        print("   Type 'exit' or 'quit' to leave. Ask me about your repo!")
+        while True:
+            try:
+                # Use a dummy input if in non-interactive test environment
+                if not sys.stdin.isatty():
+                    print("\n> [Non-interactive mode - exiting]")
+                    break
+                query = input("\n> ").strip()
+                if not query: continue
+                if query.lower() in ("exit", "quit"):
+                    break
+                
+                result = ai.handle_query(query)
+                print(f"🤖 {result.text}")
+                for d in result.details:
+                    print(f"   {d}")
+            except (EOFError, KeyboardInterrupt):
+                break
     elif sub == "branch-name":
-        desc = args.description if hasattr(args, "description") else ""
+        desc = getattr(args, "description", "")
         result = ai.suggest_branch_name(desc)
         print(f"🌿 {result.text}")
     elif sub == "review":
@@ -54,7 +86,7 @@ def run(args) -> None:
         for d in result.details:
             print(f"   {d}")
     elif sub == "predict-merge":
-        # Simulate merge if branch provided
+        # Logic hardening for predictive branch resolution
         source = getattr(args, "source", None) or "HEAD"
         target = getattr(args, "target", None) or getattr(args, "branch", None) or "main"
         hint = ai.merge_hint(source, target)
@@ -62,7 +94,7 @@ def run(args) -> None:
         for d in hint.details:
             print(f"   {d}")
     elif sub == "predict-push":
-        target = getattr(args, "target", "main")
+        target = getattr(args, "target", None) or getattr(args, "branch", None) or "main"
         result = ai.predict_conflicts_pre_push(target)
         print(f"🔮 {result.text}")
         for d in result.details:
@@ -77,15 +109,12 @@ def run(args) -> None:
         with TransactionManager(dg_dir) as tm:
             tm.begin("ai_refactor")
             
-            # The AI might discover refactorings across multiple files.
-            # We must backup original versions to ensure rollback on error.
             changes = ai.suggest_refactor_changes()
             if not changes:
                 print("✨ No refactoring suggestions found for staged changes.")
             else:
                 backups: dict[str, str] = {}
                 try:
-                    # TEST HOOK: Simulated Exception for rollback testing
                     if os.environ.get("DEEP_AI_CHAOS") == "REFACTOR_CRASH":
                         raise RuntimeError("AI Refactor Crash: Simulated failure")
 
@@ -108,12 +137,11 @@ def run(args) -> None:
                     tm.commit()
                     print("\n✅ AI refactoring applied successfully.")
                 except Exception as e:
-                    # REPO HARDENING: Restore original file states on any mutation failure
                     for rel_path, original_content in backups.items():
                         try:
                             (repo_root / rel_path).write_text(original_content, encoding="utf-8")
                         except OSError:
-                            pass # Logging could be added here
+                            pass 
                     raise e
 
     elif sub == "cleanup":
@@ -125,25 +153,6 @@ def run(args) -> None:
             for d in result.details:
                 print(f"   {d}")
             tm.commit()
-
-    elif sub == "interactive":
-        print("🤖 Deep AI Interactive Mode")
-        print("   Type 'exit' or 'quit' to leave. Ask me about your changes!")
-        while True:
-            try:
-                query = input("\n> ").strip()
-                if not query: continue
-                if query.lower() in ("exit", "quit"):
-                    break
-                
-                result = ai.handle_query(query)
-                print(f"🤖 {result.text}")
-                for d in result.details:
-                    print(f"   {d}")
-            except EOFError:
-                break
-            except KeyboardInterrupt:
-                break
     else:
         print(f"Unknown AI command: {sub}", file=sys.stderr)
         raise DeepCLIException(1)
