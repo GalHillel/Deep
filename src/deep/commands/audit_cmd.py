@@ -11,15 +11,18 @@ from __future__ import annotations
 from deep.core.errors import DeepCLIException
 
 import sys
+import datetime
 from pathlib import Path
 
 from deep.core.audit import AuditLog
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import Color
 
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
 
-def _run_scan() -> None:
+def _run_scan(console: Console) -> None:
     """Scan source code for forbidden patterns. Exits with error if any found."""
     from deep.core.runtime_guard import scan_source
     
@@ -27,57 +30,79 @@ def _run_scan() -> None:
     import deep as deep_pkg
     pkg_dir = Path(deep_pkg.__file__).parent
     
-    print(f"Scanning: {pkg_dir}")
+    console.print(f"[blue]⚓️ Security Scan: [bold]{pkg_dir}[/bold][/blue]")
     violations = scan_source(str(pkg_dir))
     
     if not violations:
-        print(Color.wrap(Color.SUCCESS, "✅ AUDIT PASSED: Zero forbidden word violations found."))
+        console.print("[bold green]⚓️ AUDIT PASSED: Zero forbidden word violations found.[/bold green]")
         return
     
-    print(Color.wrap(Color.ERROR, f"❌ AUDIT FAILED: {len(violations)} violation(s) found:\n"))
+    console.print(f"[bold red]⚓️ AUDIT FAILED: {len(violations)} violation(s) found:[/bold red]\n")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("File", style="yellow")
+    table.add_column("Line", justify="right")
+    table.add_column("Content")
+    
     for fpath, lineno, line in violations:
         rel = fpath
         try:
             rel = str(Path(fpath).relative_to(pkg_dir))
         except ValueError:
             pass
-        print(f"  {Color.wrap(Color.YELLOW, rel)}:{lineno}: {line}")
+        table.add_row(rel, str(lineno), line.strip())
     
-    print(f"\n{Color.wrap(Color.ERROR, f'Total: {len(violations)} violation(s). AUDIT FAILED.')}")
+    console.print(table)
+    console.print(f"\n[bold red]Total: {len(violations)} violation(s). AUDIT FAILED.[/bold red]")
     raise DeepCLIException(1)
 
-
 def run(args) -> None:
+    console = Console()
     audit_command = getattr(args, "audit_command", "show") or "show"
     
     # Scan does not require a repository
     if audit_command == "scan":
-        _run_scan()
+        _run_scan(console)
         return
 
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Deep: error: {exc}", file=sys.stderr)
+        console.print(f"[red]Deep: error: {exc}[/red]")
         raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
     audit = AuditLog(dg_dir)
 
     if audit_command == "report":
-        print(audit.export_report())
+        console.print("[blue]⚓️ Generating Comprehensive Security Audit Report...[/blue]")
+        report_text = audit.export_report()
+        console.print(Panel(report_text, title="⚓️ DEEP SECURITY AUDIT", border_style="cyan"))
         return
 
     # Default: show entries
-    entries = audit.read_all()
+    try:
+        entries = audit.read_all()
+    except Exception as e:
+        console.print(f"[red]Deep: error: Failed to read audit log: {e}[/red]")
+        raise DeepCLIException(1)
+
     if not entries:
-        print("No audit entries recorded.")
+        console.print("[yellow]⚓️ No audit entries recorded.[/yellow]")
         return
         
-    print(f"{'TIMESTAMP':<20} | {'USER':<15} | {'ACTION':<15} | {'DETAILS'}")
-    print("-" * 80)
+    table = Table(title="⚓️ RECENT SECURITY EVENTS", title_style="bold green")
+    table.add_column("Timestamp", style="cyan")
+    table.add_column("User", style="green")
+    table.add_column("Action", style="magenta")
+    table.add_column("Details")
     
-    for e in entries[-50:]:  # Show last 50
-        import datetime
+    # Show last 50 entries
+    for e in entries[-50:]:
         ts = datetime.datetime.fromtimestamp(e.timestamp).strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{ts:<20} | {e.user:<15} | {e.action:<15} | {e.details}")
+        table.add_row(ts, e.user, e.action, e.details)
+    
+    console.print(table)
+
+if __name__ == "__main__":
+    pass
