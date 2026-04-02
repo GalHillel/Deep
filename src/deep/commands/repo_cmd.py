@@ -6,6 +6,7 @@ deep.commands.repo_cmd
 
 from __future__ import annotations
 from deep.core.errors import DeepCLIException
+from deep.utils.logger import shutdown_logging
 
 import sys
 from pathlib import Path
@@ -38,10 +39,15 @@ def run(args) -> None:
                 
         elif cmd == "delete":
             try:
+                # Ensure we release any file locks (like logs) before deleting
+                shutdown_logging()
                 manager.delete_repo(args.name)
                 print(Color.wrap(Color.YELLOW, f"Repository '{args.name}' deleted."))
             except ValueError as e:
-                print(f"Error: {e}", file=sys.stderr)
+                print( Color.wrap(Color.RED, f"Error: {e}"), file=sys.stderr)
+                raise DeepCLIException(1)
+            except PermissionError as e:
+                print(Color.wrap(Color.RED, f"Error (Permission denied): {e}. This often happens on Windows if a process is still holding a handle to deep.log."), file=sys.stderr)
                 raise DeepCLIException(1)
                 
         elif cmd == "list":
@@ -64,8 +70,25 @@ def run(args) -> None:
             clone_run(clone_args_instance)
 
         elif cmd == "permit":
-            user = args.user
-            role = args.role
+            user = getattr(args, "user", None)
+            role = getattr(args, "role", None)
+            
+            if not user or not role:
+                print(Color.wrap(Color.RED, "Error: '--user' and '--role' are required for 'repo permit'."), file=sys.stderr)
+                raise DeepCLIException(1)
+            
+            # Map CLI-friendly roles to core logic roles
+            ROLE_MAP = {
+                "admin": "owner",
+                "maintainer": "maintainer",
+                "write": "contributor",
+                "contributor": "contributor",
+                "read": "viewer",
+                "viewer": "viewer"
+            }
+            
+            target_role = ROLE_MAP.get(role.lower(), role)
+
             try:
                 from deep.core.access import AccessManager
                 target_repo_name = getattr(args, "name", None)
@@ -79,8 +102,8 @@ def run(args) -> None:
                     raise DeepCLIException(1)
                     
                 access = AccessManager(repo_path)
-                access.set_permission(user, role)
-                print(Color.wrap(Color.GREEN, f"Permission set: {user} is now a {role} for {repo_path.parent.name}."))
+                access.set_permission(user, target_role)
+                print(Color.wrap(Color.GREEN, f"Permission set: {user} is now a {target_role} for {repo_path.parent.name}."))
             except Exception as e:
                 print(Color.wrap(Color.RED, f"Error setting permission: {e}"), file=sys.stderr)
                 raise DeepCLIException(1)
