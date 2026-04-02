@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from rich.console import Console
 
-def run(args):
+def run(args) -> None:
     from deep.core.repository import find_repo, DEEP_DIR
     from deep.storage.pack import PackWriter
     from deep.storage.bitmap import generate_pack_bitmaps
@@ -19,17 +19,21 @@ def run(args):
     from deep.storage.transaction import TransactionManager
     
     console = Console()
-    repo_root = find_repo(Path.cwd())
-    if not repo_root:
-        console.print("[red]Error: not a deep repository[/red]")
+    try:
+        repo_root = find_repo()
+    except FileNotFoundError as exc:
+        console.print(f"[red]Deep: error: {exc}[/red]")
         raise DeepCLIException(1)
         
     dg_dir = repo_root / DEEP_DIR
     objects_dir = dg_dir / "objects"
     
+    # Flag check: --no-bitmaps sets 'bitmaps' to False via action="store_false"
+    bitmaps_enabled = getattr(args, "bitmaps", True)
+    
     with TransactionManager(dg_dir) as tm:
         tm.begin("repack")
-        console.print("[bold blue]Repacking repository objects...[/bold blue]")
+        console.print("[bold blue]⚓️ Repacking repository objects...[/bold blue]")
         
         # 1. Identify all reachable SHAs
         heads = set()
@@ -43,22 +47,32 @@ def run(args):
         if head_sha: heads.add(head_sha)
         
         if not heads:
-            console.print("[yellow]Nothing to repack (no commits).[/yellow]")
+            console.print("[yellow]⚓️ Nothing to repack (no commits found).[/yellow]")
             return
             
-        reachable_shas = get_reachable_objects(objects_dir, list(heads))
-        console.print(f"Found {len(reachable_shas)} reachable objects.")
-        
-        # 2. Write new packfile
-        pw = PackWriter(dg_dir)
-        pack_sha, idx_sha = pw.create_pack(reachable_shas)
-        console.print(f"[green]Created pack-{pack_sha}.pack[/green]")
-        
-        # 3. Generate bitmaps
-        if getattr(args, "bitmaps", True):
-            console.print("[bold blue]Generating reachability bitmaps...[/bold blue]")
-            num_bm = generate_pack_bitmaps(dg_dir, pack_sha)
-            console.print(f"[green]Generated bitmaps for {num_bm} commits.[/green]")
+        try:
+            reachable_shas = get_reachable_objects(objects_dir, list(heads))
+            console.print(f"Found [yellow]{len(reachable_shas)}[/yellow] reachable objects.")
             
-        tm.commit()
-        console.print("[bold green]Repack complete.[/bold green]")
+            # 2. Write new packfile
+            pw = PackWriter(dg_dir)
+            pack_sha, idx_sha = pw.create_pack(reachable_shas)
+            console.print(f"[green]⚓️ Created pack-{pack_sha}.pack[/green]")
+            
+            # 3. Generate bitmaps
+            if bitmaps_enabled:
+                console.print("[bold blue]⚓️ Generating reachability bitmaps...[/bold blue]")
+                num_bm = generate_pack_bitmaps(dg_dir, pack_sha)
+                console.print(f"[green]⚓️ Generated bitmaps for {num_bm} commits.[/green]")
+            else:
+                console.print("[yellow]⚓️ Bitmap generation disabled by user flag.[/yellow]")
+                
+            tm.commit()
+            console.print("[bold green]⚓️ Repack complete. Object database optimized.[/bold green]")
+            
+        except Exception as e:
+            console.print(f"[red]Deep: error: Object optimization failed: {e}[/red]")
+            raise DeepCLIException(1)
+
+if __name__ == "__main__":
+    pass

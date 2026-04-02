@@ -6,14 +6,14 @@ configfile: pyproject.toml
 plugins: anyio-4.8.0, cov-6.0.0, timeout-2.4.0, xdist-3.6.1
 collecting ... collected 5 items
 
-tests/cli/test_verify_flags_healing.py::TestVerifyFlagsHealing::test_verify_all_objects FAILED [ 20%]
-tests/cli/test_verify_flags_healing.py::TestVerifyFlagsHealing::test_verify_corruption PASSED [ 40%]
-tests/cli/test_verify_flags_healing.py::TestVerifyFlagsHealing::test_verify_help PASSED [ 60%]
-tests/cli/test_verify_flags_healing.py::TestVerifyFlagsHealing::test_verify_reachable_default FAILED [ 80%]
-tests/cli/test_verify_flags_healing.py::TestVerifyFlagsHealing::test_verify_verbose PASSED [100%]
+tests/cli/test_repack_flags_healing.py::TestRepackFlagsHealing::test_repack_default FAILED [ 20%]
+tests/cli/test_repack_flags_healing.py::TestRepackFlagsHealing::test_repack_help PASSED [ 40%]
+tests/cli/test_repack_flags_healing.py::TestRepackFlagsHealing::test_repack_no_bitmaps FAILED [ 60%]
+tests/cli/test_repack_flags_healing.py::TestRepackFlagsHealing::test_repack_no_heads FAILED [ 80%]
+tests/cli/test_repack_flags_healing.py::TestRepackFlagsHealing::test_repack_no_repo FAILED [100%]
 
 ================================== FAILURES ===================================
-_______________ TestVerifyFlagsHealing.test_verify_all_objects ________________
+_________________ TestRepackFlagsHealing.test_repack_default __________________
 ..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1421: in patched
     with self.decoration_helper(patched,
 ..\..\..\AppData\Local\Programs\Python\Python313\Lib\contextlib.py:141: in __enter__
@@ -30,7 +30,7 @@ _______________ TestVerifyFlagsHealing.test_verify_all_objects ________________
                       ^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <unittest.mock._patch object at 0x000001C1A0549480>
+self = <unittest.mock._patch object at 0x000001F0C65B5400>
 
     def get_original(self):
         target = self.getter()
@@ -53,49 +53,141 @@ self = <unittest.mock._patch object at 0x000001C1A0549480>
 >           raise AttributeError(
                 "%s does not have the attribute %r" % (target, name)
             )
-E           AttributeError: <module 'deep.commands.verify_cmd' from 'C:\\Users\\galh2\\Documents\\GitHub\\DeepGit\\src\\deep\\commands\\verify_cmd.py'> does not have the attribute 'walk_loose_shas'
+E           AttributeError: <module 'deep.commands.repack_cmd' from 'C:\\Users\\galh2\\Documents\\GitHub\\DeepGit\\src\\deep\\commands\\repack_cmd.py'> does not have the attribute 'find_repo'
 
 ..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1465: AttributeError
-____________ TestVerifyFlagsHealing.test_verify_reachable_default _____________
+________________ TestRepackFlagsHealing.test_repack_no_bitmaps ________________
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1421: in patched
+    with self.decoration_helper(patched,
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1403: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\contextlib.py:530: in enter_context
+    result = _enter(cm)
+             ^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1495: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <test_verify_flags_healing.TestVerifyFlagsHealing testMethod=test_verify_reachable_default>
-mock_read = <MagicMock name='read_object' id='1931134958432'>
-mock_read_safe = <MagicMock name='read_object_safe' id='1931134959104'>
-mock_tags = <MagicMock name='list_tags' id='1931134943312'>
-mock_branches = <MagicMock name='list_branches' id='1931134958096'>
-mock_head = <MagicMock name='resolve_head' id='1931133658720'>
-mock_find = <MagicMock name='find_repo' id='1931155295600'>
+self = <unittest.mock._patch object at 0x000001F0C65B9260>
 
-    @patch("deep.commands.verify_cmd.find_repo")
-    @patch("deep.core.refs.resolve_head")
-    @patch("deep.core.refs.list_branches")
-    @patch("deep.core.refs.list_tags")
-    @patch("deep.storage.objects.read_object_safe")
-    @patch("deep.storage.objects.read_object")
-    def test_verify_reachable_default(self, mock_read, mock_read_safe, mock_tags, mock_branches, mock_head, mock_find):
-        """Verify 'deep verify' only checks reachable objects by default."""
-        mock_find.return_value = self.repo_root
-        mock_head.return_value = self.fake_sha
-        mock_branches.return_value = []
-        mock_tags.return_value = []
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
     
-        # Mock Commit object
-        mock_commit = MagicMock()
-        mock_commit.tree_sha = "tree_sha_12345678901234567890123456789012"
-        mock_commit.parent_shas = []
-        mock_commit.signature = None
+        original = DEFAULT
+        local = False
     
-        mock_read.return_value = mock_commit
-        mock_read_safe.return_value = mock_commit
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
     
-        with patch("sys.stdout", new=StringIO()) as fake_out:
-            main(["verify"])
-            output = fake_out.getvalue()
->           self.assertIn("⚓️ DEEP VERIFICATION REPORT", output)
-E           AssertionError: '⚓️ DEEP VERIFICATION REPORT' not found in '⚓️ Scanning reachable objects from branches, tags, and HEAD...\n\n\n┌─────────────────────────────────────────────────────────────────────────────┐\n│  ⚓️ DEEP VERIFICATION                                                       │\n│         REPORT                                                              │\n│  Object Integrity   ✅                                                      │\n│  Commit Signatures  ✅                                                      │\n│  DAG Graph          ✅                                                      │\n│  Audit Chain        ✅                                                      │\n│  WAL Security       ✅                                                      │\n└─────────────────────────────────────────────────────────────────────────────┘\n\nDetails:\n  Objects: 1 scanned, 0 corruption(s)\n  Signatures: 0 commits found, 0 signed, 0 verified\n  DAG: Reachable graph is consistent\n  Audit chain: 0 entries, integrity verified\n  WAL: 0 entries, all signatures valid\n\n⚓️ Overall: ALL CHECKS PASSED\n'
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'deep.commands.repack_cmd' from 'C:\\Users\\galh2\\Documents\\GitHub\\DeepGit\\src\\deep\\commands\\repack_cmd.py'> does not have the attribute 'find_repo'
 
-tests\cli\test_verify_flags_healing.py:51: AssertionError
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1465: AttributeError
+_________________ TestRepackFlagsHealing.test_repack_no_heads _________________
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1421: in patched
+    with self.decoration_helper(patched,
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1403: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\contextlib.py:530: in enter_context
+    result = _enter(cm)
+             ^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1495: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F0C6628130>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'deep.commands.repack_cmd' from 'C:\\Users\\galh2\\Documents\\GitHub\\DeepGit\\src\\deep\\commands\\repack_cmd.py'> does not have the attribute 'find_repo'
+
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1465: AttributeError
+_________________ TestRepackFlagsHealing.test_repack_no_repo __________________
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1421: in patched
+    with self.decoration_helper(patched,
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1403: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\contextlib.py:530: in enter_context
+    result = _enter(cm)
+             ^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1495: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F0C653A5D0>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'deep.commands.repack_cmd' from 'C:\\Users\\galh2\\Documents\\GitHub\\DeepGit\\src\\deep\\commands\\repack_cmd.py'> does not have the attribute 'find_repo'
+
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1465: AttributeError
 =========================== short test summary info ===========================
-FAILED tests/cli/test_verify_flags_healing.py::TestVerifyFlagsHealing::test_verify_all_objects
-FAILED tests/cli/test_verify_flags_healing.py::TestVerifyFlagsHealing::test_verify_reachable_default
-========================= 2 failed, 3 passed in 0.87s =========================
+FAILED tests/cli/test_repack_flags_healing.py::TestRepackFlagsHealing::test_repack_default
+FAILED tests/cli/test_repack_flags_healing.py::TestRepackFlagsHealing::test_repack_no_bitmaps
+FAILED tests/cli/test_repack_flags_healing.py::TestRepackFlagsHealing::test_repack_no_heads
+FAILED tests/cli/test_repack_flags_healing.py::TestRepackFlagsHealing::test_repack_no_repo
+========================= 4 failed, 1 passed in 0.99s =========================
