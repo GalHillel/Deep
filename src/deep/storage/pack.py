@@ -166,6 +166,21 @@ class PackReader:
                 return self._read_at(p_path, offset)
         return None
 
+    def get_all_shas(self) -> List[str]:
+        """Return a list of all SHAs stored in all packfiles."""
+        all_shas = []
+        for p_sha, (p_path, i_path) in self._packs.items():
+            data = i_path.read_bytes()
+            if data[:4] != b"DIDX": continue
+            # Total count is at fanout[255], which is at offset 8 + 255*4 = 1028
+            total_count = struct.unpack(">I", data[1028:1032])[0]
+            sha_start = 1032
+            for i in range(total_count):
+                pos = sha_start + i * 20
+                sha_bytes = data[pos : pos + 20]
+                all_shas.append(sha_bytes.hex())
+        return all_shas
+
     def _find_offset(self, idx_path: Path, sha: str) -> Optional[int]:
         data = idx_path.read_bytes()
         if data[:4] != b"DIDX": return None
