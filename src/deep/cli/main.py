@@ -796,7 +796,7 @@ def build_parser() -> argparse.ArgumentParser:
 """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_server.add_argument("server_command", choices=["start", "stop", "status", "restart"], help="The lifecycle command to execute")
+    p_server.add_argument("server_command", choices=["start", "stop", "status", "restart", "_serve"], help="The lifecycle command to execute")
 
     # ── repo ─────────────────────────────────────────────────────────
     p_repo = sub.add_parser(
