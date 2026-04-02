@@ -179,6 +179,9 @@ def run(args) -> None:
                     
                     print(f"\n🔄 Syncing branch '{branch}' from peer {c['peer']} ({peer_url})...")
                     
+                    if os.environ.get("DEEP_P2P_CHAOS") == "1":
+                        raise Exception("CHAOS TRIGGERED: Simulating failure mid-sync for rollback verification.")
+
                     client = get_remote_client(peer_url)
                     try:
                         client.connect()

@@ -22,7 +22,7 @@ from pathlib import Path
 from deep.core.repository import find_repo, DEEP_DIR
 from deep.core.refs import resolve_head, get_branch
 from deep.core.config import Config
-from deep.utils.ux import Color
+from deep.utils.ux import Color, print_success
 from deep.core.hooks import run_hook
 
 
@@ -149,6 +149,8 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
             tm.commit()
             if branch:
                 audit.record("local", "push", ref=branch, sha=get_branch(dg_dir, branch), client=url)
+            
+            print_success("push successful")
 
         except Exception as e:
             if not isinstance(e, DeepCLIException):

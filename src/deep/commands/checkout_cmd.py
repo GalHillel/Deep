@@ -108,7 +108,7 @@ def run(args: argparse.Namespace) -> None:
 
             if not actual_paths:
                 print("Deep: error: nothing specified. Please provide paths or a branch name.", file=sys.stderr)
-                raise DeepCLIException(1)
+                raise DeepCLIException(2)
 
             # Perform restoration
             from deep.storage.objects import read_object
@@ -140,7 +140,7 @@ def run(args: argparse.Namespace) -> None:
         # 3. Branch/Commit switching
         if not target:
             print("Deep: error: branch name or commit SHA required.", file=sys.stderr)
-            raise DeepCLIException(1)
+            raise DeepCLIException(2)
             
         tm.begin("checkout_branch")
         try:

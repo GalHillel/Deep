@@ -27,6 +27,11 @@ def get_free_port():
         s.bind(('', 0))
         return s.getsockname()[1]
         
+def run_deep(*args, cwd=None, env=None):
+    import sys
+    cmd = [sys.executable, "-m", "deep.cli.main"] + list(args)
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env or os.environ.copy())
+        
 def run_daemon(repo_path, port):
     os.chdir(repo_path)
     # We use subprocess to avoid issues with asyncio and multiprocessing in tests
@@ -74,19 +79,19 @@ def test_full_remote_workflow(remote_repo: Path, tmp_path: Path) -> None:
 
         # 3. Add remote
         os.chdir(client_dir)
-        main(["remote", "add", "origin", f"localhost:{port}"])
+        main(["remote", "add", "upstream", f"localhost:{port}"])
         
         # 4. Verify remote list
         # We'll capture output or check config
         config = Config(client_dir)
-        assert config.get("remote.origin.url") == f"localhost:{port}"
+        assert config.get("remote.upstream.url") == f"localhost:{port}"
 
         # 5. Push new commit
         (client_dir / "new.txt").write_text("client content")
-        main(["add", "new.txt"])
-        main(["commit", "-m", "Client commit"])
+        run_deep("add", "new.txt", cwd=client_dir)
+        run_deep("commit", "-m", "Client commit", cwd=client_dir)
         
-        main(["push", "origin", "main"])
+        main(["push", "upstream", "main"])
         
         # 6. Verify remote repo has the commit (via pull in another clone)
         other_client = tmp_path / "other_client"
@@ -102,12 +107,12 @@ def test_full_remote_workflow(remote_repo: Path, tmp_path: Path) -> None:
         
         os.chdir(client_dir)
         (client_dir / "update.txt").write_text("update")
-        main(["add", "update.txt"])
-        main(["commit", "-m", "Update from client"])
-        main(["push", "origin", "main"])
+        run_deep("add", "update.txt", cwd=client_dir)
+        run_deep("commit", "-m", "Update from client", cwd=client_dir)
+        main(["push", "upstream", "main"])
         
         os.chdir(other_client)
-        main(["pull", "origin", "main"])
+        main(["pull", "origin", "main"]) # origin is fine here because it comes from clone
         assert (other_client / "update.txt").exists()
         assert (other_client / "update.txt").read_text() == "update"
         

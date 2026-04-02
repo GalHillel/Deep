@@ -40,8 +40,8 @@ def test_checkout_no_args_shows_error(tmp_path, monkeypatch, capsys):
     assert cm.value.code == 2
     
     captured = capsys.readouterr()
-    # Argparse usually prints to stderr for missing arguments
-    assert "the following arguments are required: target" in captured.err
+    # Argparse usually prints to stderr for missing arguments, but we use a custom error check
+    assert "branch name or commit SHA required" in captured.err
 
 def test_checkout_error_handling(tmp_path, monkeypatch, capsys):
     """Test specific DeepError messages."""
