@@ -35,7 +35,10 @@ def run(args) -> None:
     public_key = getattr(args, "public_key", None) or getattr(args, "public_key_flag", None)
     email = getattr(args, "email", None) or getattr(args, "email_flag", None)
     
-    if cmd == "add":
+    if cmd in ("add", "create"):
+        if not username:
+            print("Deep: error: 'username' is required for users to be created.", file=sys.stderr)
+            raise DeepCLIException(1)
         try:
             user = manager.add_user(username, public_key, email)
             print(Color.wrap(Color.GREEN, f"User '{user.username}' added successfully."))
@@ -45,6 +48,9 @@ def run(args) -> None:
             raise DeepCLIException(1)
             
     elif cmd == "remove":
+        if not username:
+            print("Deep: error: 'username' is required for users to be removed.", file=sys.stderr)
+            raise DeepCLIException(1)
         try:
             manager.remove_user(username)
             print(Color.wrap(Color.YELLOW, f"User '{username}' removed."))

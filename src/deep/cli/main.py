@@ -839,7 +839,7 @@ def build_parser() -> argparse.ArgumentParser:
 """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_user.add_argument("user_command", choices=["add", "remove", "list", "info", "show"], help="The user account operation to perform")
+    p_user.add_argument("user_command", choices=["add", "create", "remove", "list", "info", "show"], help="The user account operation to perform")
     p_user.add_argument("username", nargs="?", help="The username of the account")
     p_user.add_argument("public_key", nargs="?", help="The public SSH key for authentication")
     p_user.add_argument("email", nargs="?", help="The email address associated with the account")
