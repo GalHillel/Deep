@@ -1172,6 +1172,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_batch.add_argument("script", help="The filesystem path to the batch operation script file")
 
+    # ── _serve (Internal) ────────────────────────────────────────────
+    p_serve = sub.add_parser(
+        "_serve",
+        help=argparse.SUPPRESS,
+        description="Internal background service for deep-serve and platform synchronization.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_serve.add_argument("--port", type=int, default=11300, help="The port to listen on for internal requests")
+
     # ── search ───────────────────────────────────────────────────────
     p_search = sub.add_parser(
         "search",
@@ -1409,6 +1418,8 @@ def main(argv: list[str] | None = None) -> None:
         return
     elif args.command == "maintenance":
         from deep.commands.maintenance_cmd import run # type: ignore[import]
+    elif args.command == "_serve":
+        from deep.commands.server_cmd import run_internal_serve as run # type: ignore[import]
     elif args.command == "help":
         if args.subcommand:
             # We must find the subparser for this command
