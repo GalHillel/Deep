@@ -850,7 +850,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ── auth ─────────────────────────────────────────────────────────
     p_auth = sub.add_parser(
         "auth",
-        help="Platform authentication management",
+        help="Manage platform authentication",
         description="Manage session tokens, credentials, and login status for the Deep platform.",
         epilog="""
 \033[1mEXAMPLES:\033[0m
@@ -862,11 +862,12 @@ def build_parser() -> argparse.ArgumentParser:
      Display the current authentication status and active user.
 
   \033[1;34m⚓️ deep auth logout\033[0m
-     Clear local session tokens and logout.
+     Clear global session tokens and logout.
 """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p_auth.add_argument("auth_command", choices=["login", "logout", "status", "token"], help="The authentication action to perform")
+    p_auth.add_argument("token", nargs="?", help="The authentication token (optional for login)")
 
     # ── pr ───────────────────────────────────────────────────────────
     from deep.commands import pr_cmd
@@ -1444,7 +1445,7 @@ def main(argv: list[str] | None = None) -> None:
 
     from deep.core.repository import find_repo, DEEP_DIR # type: ignore[import]
     try:
-        if args.command not in ("init", "clone", "version"):
+        if args.command not in ("init", "clone", "version", "auth"):
             repo_root = find_repo()
             dg_dir = repo_root / DEEP_DIR
             
