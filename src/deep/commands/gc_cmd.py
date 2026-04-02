@@ -20,11 +20,14 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
     from deep.storage.transaction import TransactionManager
     from deep.core.constants import DEEP_DIR
 
+    from rich.console import Console
+
+    console = Console()
     try:
         repo_root = find_repo()
         dg_dir = repo_root / DEEP_DIR
     except FileNotFoundError as exc:
-        print(f"Deep: error: {exc}", file=sys.stderr)
+        console.print(f"[red]Deep: error: {exc}[/red]")
         raise DeepCLIException(1)
 
     dry_run = getattr(args, "dry_run", False)
@@ -39,11 +42,14 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
         tm.commit()
 
     if dry_run:
-        print(f"Found {unreachable_count} unreachable objects (out of {total_count} total).")
-        print("Run without --dry-run to quarantine them.")
+        console.print(f"\n[bold blue]⚓️ Cleanup summary (dry-run):[/bold blue]")
+        console.print(f"  Unreachable objects that would be pruned: [yellow]{unreachable_count}[/yellow]")
+        console.print(f"  Total objects in database: {total_count}")
+        console.print(f"\nRun without [bold]--dry-run[/bold] to relocate them to quarantine.")
     else:
+        console.print(f"\n[bold green]⚓️ Garbage collection complete.[/bold green]")
         if unreachable_count > 0:
-            print(f"Relocated {unreachable_count} unreachable objects to quarantine.")
+            console.print(f"  Relocated [yellow]{unreachable_count}[/yellow] unreachable objects to quarantine.")
         else:
-            print("No unreachable objects found.")
-        print(f"Done. {total_count - unreachable_count} objects remaining in database.")
+            console.print("  No unreachable objects required pruning.")
+        console.print(f"  Database optimized. [bold]{total_count - unreachable_count}[/bold] objects remaining.")

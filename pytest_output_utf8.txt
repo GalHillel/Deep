@@ -1,0 +1,69 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.1, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\galh2\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\galh2\Documents\GitHub\DeepGit
+configfile: pyproject.toml
+plugins: anyio-4.8.0, cov-6.0.0, timeout-2.4.0, xdist-3.6.1
+collecting ... collected 5 items
+
+tests/cli/test_gc_flags_healing.py::TestGcFlagsHealing::test_gc_default PASSED [ 20%]
+tests/cli/test_gc_flags_healing.py::TestGcFlagsHealing::test_gc_dry_run FAILED [ 40%]
+tests/cli/test_gc_flags_healing.py::TestGcFlagsHealing::test_gc_help PASSED [ 60%]
+tests/cli/test_gc_flags_healing.py::TestGcFlagsHealing::test_gc_no_repo PASSED [ 80%]
+tests/cli/test_gc_flags_healing.py::TestGcFlagsHealing::test_gc_verbose_prune FAILED [100%]
+
+================================== FAILURES ===================================
+_____________________ TestGcFlagsHealing.test_gc_dry_run ______________________
+
+self = <test_gc_flags_healing.TestGcFlagsHealing testMethod=test_gc_dry_run>
+mock_collect = <MagicMock name='collect_garbage' id='2145123210576'>
+mock_tm = <MagicMock name='TransactionManager' id='2145124417616'>
+mock_find = <MagicMock name='find_repo' id='2145125389312'>
+
+    @patch("deep.commands.gc_cmd.find_repo")
+    @patch("deep.storage.transaction.TransactionManager")
+    @patch("deep.core.gc.collect_garbage")
+    def test_gc_dry_run(self, mock_collect, mock_tm, mock_find):
+        """Verify 'deep gc --dry-run'."""
+        mock_find.return_value = self.repo_root
+        mock_collect.return_value = (5, 100)
+    
+        mock_tm.return_value.__enter__.return_value = MagicMock()
+    
+        with patch("sys.stdout", new=StringIO()) as fake_out:
+            main(["gc", "--dry-run"])
+            output = fake_out.getvalue()
+            self.assertIn("⚓️ Cleanup summary (dry-run):", output)
+>           self.assertIn("Unreachable objects that would be pruned: 5", output)
+E           AssertionError: 'Unreachable objects that would be pruned: 5' not found in '\n⚓️ Cleanup summary (dry-run):\n  Unreachable objects that would be pruned: 0\n  Total objects in database: 100\n\nRun without --dry-run to relocate them to quarantine.\n'
+
+tests\cli\test_gc_flags_healing.py:62: AssertionError
+__________________ TestGcFlagsHealing.test_gc_verbose_prune ___________________
+
+self = <test_gc_flags_healing.TestGcFlagsHealing testMethod=test_gc_verbose_prune>
+mock_collect = <MagicMock name='collect_garbage' id='2145130860224'>
+mock_tm = <MagicMock name='TransactionManager' id='2145130860560'>
+mock_find = <MagicMock name='find_repo' id='2145130860896'>
+
+    @patch("deep.commands.gc_cmd.find_repo")
+    @patch("deep.storage.transaction.TransactionManager")
+    @patch("deep.core.gc.collect_garbage")
+    def test_gc_verbose_prune(self, mock_collect, mock_tm, mock_find):
+        """Verify 'deep gc -v --prune 120'."""
+        mock_find.return_value = self.repo_root
+        mock_collect.return_value = (10, 100)
+    
+        mock_tm.return_value.__enter__.return_value = MagicMock()
+    
+        with patch("sys.stdout", new=StringIO()) as fake_out:
+            main(["gc", "-v", "--prune", "120"])
+            output = fake_out.getvalue()
+            self.assertIn("⚓️ Garbage collection complete.", output)
+>           self.assertIn("Relocated 10 unreachable objects", output)
+E           AssertionError: 'Relocated 10 unreachable objects' not found in '\n⚓️ Garbage collection complete.\n  No unreachable objects required pruning.\n  Database optimized. 100 objects remaining.\n'
+
+tests\cli\test_gc_flags_healing.py:84: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/cli/test_gc_flags_healing.py::TestGcFlagsHealing::test_gc_dry_run
+FAILED tests/cli/test_gc_flags_healing.py::TestGcFlagsHealing::test_gc_verbose_prune
+========================= 2 failed, 3 passed in 0.71s =========================
