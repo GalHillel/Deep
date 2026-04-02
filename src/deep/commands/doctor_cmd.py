@@ -188,8 +188,11 @@ def run(args) -> None:  # type: ignore[no-untyped-def]
 
     print()
     if errors == 0:
-        print(Color.wrap(Color.GREEN, f"Repository consistent. {warnings} warnings."))
+        if warnings == 0:
+            print(Color.wrap(Color.GREEN, f"⚓️ Repository consistent and healthy."))
+        else:
+            print(Color.wrap(Color.YELLOW, f"⚓️ Repository consistent, but {warnings} warnings found."))
     else:
-        print(Color.wrap(Color.RED, f"Integrity compromised. {errors} errors, {warnings} warnings."))
+        print(Color.wrap(Color.RED, f"⚓️ Integrity compromised. {errors} errors, {warnings} warnings."))
         raise DeepCLIException(1)
 
