@@ -18,44 +18,47 @@ from pathlib import Path
 
 from deep.core.constants import DEEP_DIR
 from deep.core.repository import find_repo
-from deep.utils.ux import Color
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.rule import Rule
 
 def run(args) -> None:
     """Execute the ultra optimization command."""
+    console = Console()
     try:
         repo_root = find_repo()
     except FileNotFoundError as exc:
-        print(f"Deep: error: {exc}", file=sys.stderr)
+        console.print(f"[red]Deep: error: {exc}[/red]")
         raise DeepCLIException(1)
 
     dg_dir = repo_root / DEEP_DIR
 
-    print(Color.wrap(Color.BOLD + Color.MAGENTA, "═══ DEEP ULTRA MODE ═══"))
-    print(Color.wrap(Color.DIM, "System-wide optimization in 3 stages\n"))
+    console.print(Panel(
+        "[bold magenta]⚓️ DEEP ULTRA MODE[/bold magenta]\n"
+        "[dim]System-wide optimization in 3 stages[/dim]",
+        expand=False,
+        border_style="magenta"
+    ))
 
     total_start = time.time()
 
     # ── Stage 1: Garbage Collection ──────────────────────────────────
-    print(Color.wrap(Color.CYAN, "▶ Stage 1: Garbage Collection"))
-    print(Color.wrap(Color.DIM, "  WHY: Removes unreachable objects (orphaned blobs, trees, commits)"))
-    print(Color.wrap(Color.DIM, "       that are no longer referenced by any branch, tag, or stash."))
-    print(Color.wrap(Color.DIM, "  WHAT: Walks all refs to find reachable objects, then deletes the rest.\n"))
-
+    console.print(Rule("[cyan]Stage 1: Garbage Collection[/cyan]"))
+    console.print("[dim]  WHY: Removes unreachable objects (orphaned blobs, trees, commits).[/dim]")
+    
     try:
         from deep.core.gc import collect_garbage
         gc_start = time.time()
-        removed, kept = collect_garbage(repo_root, verbose=True)
+        removed, kept = collect_garbage(repo_root, verbose=False)
         gc_time = time.time() - gc_start
-        print(f"  {Color.wrap(Color.GREEN, '✓')} Removed {removed} unreachable objects, kept {kept} ({gc_time:.2f}s)\n")
+        console.print(f"  [green]✅[/green] Removed {removed} unreachable objects, kept {kept} ({gc_time:.2f}s)")
     except Exception as e:
-        print(f"  {Color.wrap(Color.YELLOW, '⚠')} GC skipped: {e}\n")
+        console.print(f"  [yellow]⚠[/yellow] GC stage skipped or failed: {e}")
 
     # ── Stage 2: Object Repacking ────────────────────────────────────
-    print(Color.wrap(Color.CYAN, "▶ Stage 2: Object Repacking"))
-    print(Color.wrap(Color.DIM, "  WHY: Loose objects on disk are individually stored and slow to access."))
-    print(Color.wrap(Color.DIM, "       Packing consolidates them into efficient packfiles with delta compression."))
-    print(Color.wrap(Color.DIM, "  WHAT: Collects all loose objects, builds a packfile, removes originals.\n"))
+    console.print(Rule("[cyan]Stage 2: Object Repacking[/cyan]"))
+    console.print("[dim]  WHY: Consolidates loose objects into efficient packfiles.[/dim]")
 
     try:
         from deep.storage.objects import walk_loose_shas
@@ -66,29 +69,31 @@ def run(args) -> None:
         loose_shas = list(walk_loose_shas(objects_dir))
 
         if len(loose_shas) < 5:
-            print(f"  {Color.wrap(Color.DIM, '–')} Only {len(loose_shas)} loose objects, skipping repack.\n")
+            console.print(f"  [dim]– Only {len(loose_shas)} loose objects, skipping repack.[/dim]")
         else:
             writer = PackWriter(dg_dir)
             pack_sha, _ = writer.create_pack(loose_shas)
             repack_time = time.time() - repack_start
-            print(f"  {Color.wrap(Color.GREEN, '✓')} Packed {len(loose_shas)} objects into pack-{pack_sha}.pack ({repack_time:.2f}s)\n")
+            console.print(f"  [green]✅[/green] Packed {len(loose_shas)} objects into pack-{pack_sha}.pack ({repack_time:.2f}s)")
     except Exception as e:
-        print(f"  {Color.wrap(Color.YELLOW, '⚠')} Repack skipped: {e}\n")
+        console.print(f"  [yellow]⚠[/yellow] Repack stage skipped or failed: {e}")
 
     # ── Stage 3: Commit Graph Optimization ───────────────────────────
-    print(Color.wrap(Color.CYAN, "▶ Stage 3: Commit Graph Optimization"))
-    print(Color.wrap(Color.DIM, "  WHY: The commit-graph index accelerates history traversal by storing"))
-    print(Color.wrap(Color.DIM, "       pre-computed parent pointers and generation numbers."))
-    print(Color.wrap(Color.DIM, "  WHAT: Walks all commits, builds a binary index for fast lookups.\n"))
+    console.print(Rule("[cyan]Stage 3: Commit Graph Optimization[/cyan]"))
+    console.print("[dim]  WHY: Accelerates history traversal with reachability indexes.[/dim]")
 
     try:
         from deep.storage.commit_graph import build_history_graph
         cg_start = time.time()
         num_commits = build_history_graph(dg_dir)
         cg_time = time.time() - cg_start
-        print(f"  {Color.wrap(Color.GREEN, '✓')} Commit graph rebuilt for {num_commits} commits ({cg_time:.2f}s)\n")
+        console.print(f"  [green]✅[/green] Commit graph rebuilt for {num_commits} commits ({cg_time:.2f}s)")
     except Exception as e:
-        print(f"  {Color.wrap(Color.YELLOW, '⚠')} Commit graph skipped: {e}\n")
+        console.print(f"  [yellow]⚠[/yellow] Commit graph stage skipped or failed: {e}")
 
     total_time = time.time() - total_start
-    print(Color.wrap(Color.BOLD + Color.GREEN, f"═══ ULTRA COMPLETE ({total_time:.2f}s) ═══"))
+    console.print(Rule(style="magenta"))
+    console.print(f"\n[bold green]⚓️ ULTRA COMPLETE ({total_time:.2f}s)[/bold green]")
+
+if __name__ == "__main__":
+    pass
