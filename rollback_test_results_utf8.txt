@@ -1,0 +1,160 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.1, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\galh2\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\galh2\Documents\GitHub\DeepGit
+configfile: pyproject.toml
+plugins: anyio-4.8.0, cov-6.0.0, timeout-2.4.0, xdist-3.6.1
+collecting ... collected 4 items
+
+tests/cli/test_rollback_flags_healing.py::TestRollbackFlagsHealing::test_rollback_help PASSED [ 25%]
+tests/cli/test_rollback_flags_healing.py::TestRollbackFlagsHealing::test_rollback_verify_audit FAILED [ 50%]
+tests/cli/test_rollback_flags_healing.py::TestRollbackFlagsHealing::test_rollback_with_wal FAILED [ 75%]
+tests/cli/test_rollback_flags_healing.py::TestRollbackFlagsHealing::test_rollback_explicit_commit FAILED [100%]
+
+================================== FAILURES ===================================
+_____________ TestRollbackFlagsHealing.test_rollback_verify_audit _____________
+
+self = <test_rollback_flags_healing.TestRollbackFlagsHealing object at 0x00000281F7289BD0>
+
+    def test_rollback_verify_audit(self):
+        """Verify 'deep rollback --verify' triggers WAL audit."""
+        # Create an empty WAL
+        (self.dg_dir / "txlog").write_text("")
+    
+        with patch("sys.stdout", new=StringIO()) as fake_out:
+            # We mock the actual rollback part to avoid errors since repo is empty
+>           with patch("deep.commands.rollback_cmd.resolve_head", return_value=None):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\cli\test_rollback_flags_healing.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1495: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x00000281F74AA030>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'deep.commands.rollback_cmd' from 'C:\\Users\\galh2\\Documents\\GitHub\\DeepGit\\src\\deep\\commands\\rollback_cmd.py'> does not have the attribute 'resolve_head'
+
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1465: AttributeError
+_______________ TestRollbackFlagsHealing.test_rollback_with_wal _______________
+
+self = <test_rollback_flags_healing.TestRollbackFlagsHealing object at 0x00000281F72D16E0>
+
+    def test_rollback_with_wal(self):
+        """Verify 'deep rollback' uses WAL to find previous commit."""
+        from deep.storage.txlog import TxRecord, TransactionLog
+    
+        # Set up two commits
+        sha1 = "1111111111111111111111111111111111111111"
+        sha2 = "2222222222222222222222222222222222222222"
+    
+        # Mock read_object and tree collection
+>       with patch("deep.commands.rollback_cmd.read_object") as mock_read:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\cli\test_rollback_flags_healing.py:60: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1495: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x00000281F74866C0>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'deep.commands.rollback_cmd' from 'C:\\Users\\galh2\\Documents\\GitHub\\DeepGit\\src\\deep\\commands\\rollback_cmd.py'> does not have the attribute 'read_object'
+
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1465: AttributeError
+___________ TestRollbackFlagsHealing.test_rollback_explicit_commit ____________
+
+self = <test_rollback_flags_healing.TestRollbackFlagsHealing object at 0x00000281F72D1810>
+
+    def test_rollback_explicit_commit(self):
+        """Verify 'deep rollback <sha>' resets to specific commit."""
+        sha_target = "abcde1234567890abcdef1234567890abcdef123"
+    
+        with patch("deep.core.refs.resolve_revision", return_value=sha_target):
+>           with patch("deep.commands.rollback_cmd.read_object") as mock_read:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\cli\test_rollback_flags_healing.py:92: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1495: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x00000281F74FE270>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'deep.commands.rollback_cmd' from 'C:\\Users\\galh2\\Documents\\GitHub\\DeepGit\\src\\deep\\commands\\rollback_cmd.py'> does not have the attribute 'read_object'
+
+..\..\..\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1465: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/cli/test_rollback_flags_healing.py::TestRollbackFlagsHealing::test_rollback_verify_audit
+FAILED tests/cli/test_rollback_flags_healing.py::TestRollbackFlagsHealing::test_rollback_with_wal
+FAILED tests/cli/test_rollback_flags_healing.py::TestRollbackFlagsHealing::test_rollback_explicit_commit
+========================= 3 failed, 1 passed in 0.76s =========================
