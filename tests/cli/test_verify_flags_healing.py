@@ -48,7 +48,7 @@ class TestVerifyFlagsHealing(unittest.TestCase):
         with patch("sys.stdout", new=StringIO()) as fake_out:
             main(["verify"])
             output = fake_out.getvalue()
-            self.assertIn("DEEP VERIFICATION", output)
+            self.assertIn("VERIFICATION REPORT", output)
             self.assertIn("⚓️ Overall: ALL CHECKS PASSED", output)
             
             # Should have walked HEAD and its tree

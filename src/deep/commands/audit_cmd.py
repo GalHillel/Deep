@@ -92,7 +92,7 @@ def run(args) -> None:
         return
         
     table = Table(title="⚓️ RECENT SECURITY EVENTS", title_style="bold green")
-    table.add_column("Timestamp", style="cyan")
+    table.add_column("TIMESTAMP", style="cyan")
     table.add_column("User", style="green")
     table.add_column("Action", style="magenta")
     table.add_column("Details")

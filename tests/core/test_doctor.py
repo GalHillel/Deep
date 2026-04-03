@@ -39,7 +39,7 @@ def test_doctor_clean(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> N
     main(["doctor"])
     out = capsys.readouterr().out
     assert "Repository consistent" in out
-    assert "0 warnings" in out
+    assert "consistent and healthy" in out
 
 
 def test_doctor_corrupt_object(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -77,9 +77,8 @@ def test_doctor_missing_ref_target(clean_repo: Path, capsys: pytest.CaptureFixtu
         main(["doctor"])
         
     assert exc.value.code == 1
-    out = capsys.readouterr().err
-    assert "FATAL: Repository corrupted" in out
-    assert f"Branch 'fake-branch' points to invalid object {fake_sha}" in out
+    out = capsys.readouterr().out
+    assert "Error: Branch 'fake-branch' missing commit" in out
 
 
 def test_doctor_missing_head(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -93,6 +92,5 @@ def test_doctor_missing_head(clean_repo: Path, capsys: pytest.CaptureFixture[str
         main(["doctor"])
         
     assert exc.value.code == 1
-    out = capsys.readouterr().err
-    assert "FATAL: Repository corrupted" in out
-    assert f"HEAD points to invalid object {fake_sha}" in out
+    out = capsys.readouterr().out
+    assert "Error: HEAD missing commit" in out

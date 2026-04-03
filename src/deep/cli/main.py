@@ -1467,30 +1467,6 @@ def main(argv: list[str] | None = None) -> None:
                 if txlog.log_path.exists() and txlog.needs_recovery():
                     print("Running crash recovery...", file=sys.stderr)
                     txlog.recover()
-
-            # Corruption detection for doctor and other integrity-sensitive commands
-            if args.command in ("doctor",):
-                from deep.core.refs import resolve_head, list_branches, get_branch # type: ignore[import]
-                from deep.storage.objects import read_object_safe # type: ignore[import]
-                
-                objects_dir = dg_dir / "objects"
-                
-                head_sha = resolve_head(dg_dir)
-                if head_sha:
-                    try:
-                        read_object_safe(objects_dir, head_sha)
-                    except (FileNotFoundError, ValueError) as e:
-                        print(f"FATAL: Repository corrupted. HEAD points to invalid object {head_sha}. ({e})", file=sys.stderr)
-                        raise DeepCLIException(1)
-                        
-                for branch in list_branches(dg_dir):
-                    branch_sha = get_branch(dg_dir, branch)
-                    if branch_sha:
-                        try:
-                            read_object_safe(objects_dir, branch_sha)
-                        except (FileNotFoundError, ValueError) as e:
-                            print(f"FATAL: Repository corrupted. Branch '{branch}' points to invalid object {branch_sha}. ({e})", file=sys.stderr)
-                            raise DeepCLIException(1)
     except FileNotFoundError:
         pass 
 

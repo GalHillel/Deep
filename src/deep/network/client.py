@@ -83,20 +83,24 @@ class RemoteClient:
         if caps_pkt and caps_pkt.startswith(b"capabilities: "):
             cap_str = caps_pkt[14:].decode("ascii")
             self.server_caps = set(cap_str.split())
+        # 3. Consume handshake flush
+        self.stream.read_pkt()
 
         if self.repo_name:
             self.stream.write(f"select {self.repo_name}".encode("ascii"))
             resp = self.stream.read_pkt()
             if not resp or not resp.startswith(b"ok "):
                 raise RuntimeError(f"Repository selection failed: {resp}")
+            # Consume select flush
+            self.stream.read_pkt()
 
         if self.auth_token:
             self.stream.write(f"auth {self.auth_token}".encode("ascii"))
             resp = self.stream.read_pkt()
             if not resp or not resp.startswith(b"ok "):
                 raise RuntimeError(f"Authentication failed: {resp}")
-
-        self.stream.read_until_flush()
+            # Consume auth flush
+            self.stream.read_pkt()
 
     def disconnect(self):
         if self.sock:

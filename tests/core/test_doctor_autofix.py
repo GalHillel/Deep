@@ -42,7 +42,7 @@ def test_doctor_detects_dangling(clean_repo: Path, capsys: pytest.CaptureFixture
     out = capsys.readouterr().out
     
     assert "1 dangling objects found" in out
-    assert "Repository consistent. 1 warnings." in out  # Only warnings, no errors
+    assert "consistent, but 1 warnings found" in out  # Only warnings, no errors
 
 
 def test_doctor_fix_quarantines_dangling(clean_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:

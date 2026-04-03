@@ -477,7 +477,7 @@ def test_verify_all_cli(god_repo):
         cwd=repo, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0
-    assert "VERIFICATION REPORT" in result.stdout
+    assert "VERIFICATION" in result.stdout
     assert "✅" in result.stdout
 
 

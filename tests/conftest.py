@@ -3,6 +3,35 @@ import sys
 import subprocess
 import pytest
 from typing import Any, List, Union
+from unittest.mock import patch
+
+# --- GLOBAL ENVIRONMENT SANITIZER ---
+
+@pytest.fixture(autouse=True, scope="session")
+def sanitize_auth_env(tmp_path_factory):
+    """Ensure no ambient auth tokens or global configs leak from the developer's environment into tests."""
+    temp_home = tmp_path_factory.mktemp("fake_home")
+    # Redirect common home environment variables
+    new_env = {
+        "DEEP_TOKEN": "",
+        "GH_TOKEN": "",
+        "GITHUB_TOKEN": "",
+        "GL_TOKEN": "",
+        "HOME": str(temp_home),
+        "USERPROFILE": str(temp_home),
+        "APPDATA": str(temp_home / "AppData" / "Roaming"),
+        "LOCALAPPDATA": str(temp_home / "AppData" / "Local"),
+        "GIT_AUTHOR_NAME": "Deep User",
+        "GIT_AUTHOR_EMAIL": "user@example.com",
+        "GIT_COMMITTER_NAME": "Deep User",
+        "GIT_COMMITTER_EMAIL": "user@example.com",
+        "GIT_CONFIG_NOSYSTEM": "1",
+    }
+    
+    with patch.dict(os.environ, new_env, clear=False):
+        # Also mock Path.home() to ensure pathlib-based lookups are isolated
+        with patch("pathlib.Path.home", return_value=temp_home):
+            yield
 
 # --- ZERO-TRUST AUDIT GUARD ---
 

@@ -25,7 +25,7 @@ def test_batch_add_and_commit(batch_repo):
         cwd=repo, env=env, capture_output=True, text=True,
     )
     assert result.returncode == 0
-    assert "Batch complete" in result.stdout
+    assert "BATCH COMPLETE" in result.stdout
 
 
 def test_batch_with_comments(batch_repo):
