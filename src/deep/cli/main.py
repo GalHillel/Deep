@@ -1313,7 +1313,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "remote":
         from deep.commands.remote_cmd import run # type: ignore[import]
     elif args.command == "migrate":
-        from deep.commands.migrate_cmd import migrate_cmd as run # type: ignore[import]
+        from deep.commands.migrate_cmd import run # type: ignore[import]
     elif args.command == "add":
         from deep.commands.add_cmd import run # type: ignore[import]
     elif args.command == "commit":
