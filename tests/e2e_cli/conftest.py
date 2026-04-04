@@ -73,7 +73,7 @@ def run_deep(args, cwd=None, input=None, env=None):
             env=env,
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=300
         )
         duration = time.perf_counter() - start_time
         

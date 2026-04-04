@@ -29,8 +29,8 @@ def test_benchmark_report_and_compare(tmp_path: Path):
     with open(report_file, "r") as f:
         data = json.load(f)
         
-    assert "deep_blob_total_time" in data
-    assert "deep_commit_avg_time" in data
+    assert "index_add_10k_time" in data
+    assert "commit_10k_tree_time" in data
     
     # If deep was found and run successfully
     if "deep" in data:

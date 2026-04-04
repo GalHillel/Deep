@@ -21,9 +21,9 @@ def test_benchmark_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys:
     main(["benchmark"])
     
     out = capsys.readouterr().out
-    assert "RESULTS" in out
-    assert "Blob Hashing" in out
-    assert "Commit Speed" in out
+    assert "MASSIVE SCALE PERFORMANCE REPORT" in out
+    assert "Graphics Index Engine" in out
+    assert "Object Commits" in out
     assert "Benchmark complete" in out
 
 

@@ -26,6 +26,13 @@ class TestRollbackFlagsHealing:
             # Mock find_repo globally
             stack.enter_context(patch("deep.core.repository.find_repo", return_value=self.repo_root))
             stack.enter_context(patch("deep.commands.rollback_cmd.find_repo", return_value=self.repo_root))
+            mock_status = MagicMock()
+            mock_status.staged_new = []
+            mock_status.staged_modified = []
+            mock_status.staged_deleted = []
+            mock_status.modified = []
+            mock_status.deleted = []
+            stack.enter_context(patch("deep.core.status.compute_status", return_value=mock_status))
             
             self.mocks = stack
             yield
