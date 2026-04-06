@@ -1,7 +1,7 @@
 """Bulk fix: Replace all occurrences of int(stat.st_mtime * 1e9) with stat.st_mtime_ns across the codebase."""
 import os
 
-root = r'c:\Users\galh2\Documents\GitHub\DeepGit'
+root = r'c:\Users\galh2\Documents\GitHub\Deep'
 
 files_to_fix = [
     'src/deep/commands/merge_cmd.py',

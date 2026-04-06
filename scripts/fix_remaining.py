@@ -1,7 +1,7 @@
 """Fix all remaining forbidden word violations across the codebase."""
 import os
 
-root = r'c:\Users\galh2\Documents\GitHub\DeepGit'
+root = r'c:\Users\galh2\Documents\GitHub\Deep'
 
 def fix_file(filepath, replacements):
     full = os.path.join(root, filepath)

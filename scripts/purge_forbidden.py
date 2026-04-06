@@ -14,7 +14,7 @@ def replace_in_file(filepath, replacements):
         return True
     return False
 
-root = r'c:\Users\galh2\Documents\GitHub\DeepGit'
+root = r'c:\Users\galh2\Documents\GitHub\Deep'
 
 # objects/ package files
 objects_replacements = [

@@ -17,7 +17,7 @@ def fix_file(filepath):
         print(f"Fixed {filepath}")
 
 def main():
-    repo_dir = Path("c:/Users/galh2/Documents/GitHub/DeepGit")
+    repo_dir = Path("c:/Users/galh2/Documents/GitHub/Deep")
     main_py = repo_dir / "src/deep/cli/main.py"
     fix_file(main_py)
     

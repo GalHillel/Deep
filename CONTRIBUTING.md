@@ -13,8 +13,8 @@ Thanks for wanting to help. Whether you're fixing a typo, squashing a bug, or ad
 
 ```bash
 # 1. Fork and clone
-git clone https://github.com/<your-username>/DeepGit.git
-cd DeepGit
+git clone https://github.com/<your-username>/Deep.git
+cd Deep
 
 # 2. Create a virtual environment
 python -m venv .venv

@@ -21,7 +21,7 @@ python3 -m pip install --user pipx
 python3 -m pipx ensurepath
 
 # 2. Install Deep directly from GitHub
-pipx install git+https://github.com/GalHillel/DeepGit.git
+pipx install git+https://github.com/GalHillel/Deep.git
 
 # 3. Verify
 deep version
@@ -30,7 +30,7 @@ deep version
 ### Alternative: Global Pip Install
 
 ```bash
-pip install --user git+https://github.com/GalHillel/DeepGit.git
+pip install --user git+https://github.com/GalHillel/Deep.git
 ```
 
 Make sure your Python user `Scripts` or `bin` directory is in your `$PATH`.
@@ -43,8 +43,8 @@ If you plan to modify Deep's source code, install it in editable (`-e`) mode so 
 
 ```bash
 # 1. Clone
-git clone https://github.com/GalHillel/DeepGit.git
-cd DeepGit
+git clone https://github.com/GalHillel/Deep.git
+cd Deep
 
 # 2. Create and activate a virtual environment
 python3 -m venv .venv

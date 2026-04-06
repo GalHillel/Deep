@@ -9,8 +9,8 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-3776AB.svg?logo=python&logoColor=white" alt="Python 3.9+"></a>
-  <a href="https://github.com/GalHillel/DeepGit/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build passing"></a>
-  <a href="https://github.com/GalHillel/DeepGit/releases"><img src="https://img.shields.io/badge/version-1.0.0-orange.svg" alt="Version 1.0.0"></a>
+  <a href="https://github.com/GalHillel/Deep/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build passing"></a>
+  <a href="https://github.com/GalHillel/Deep/releases"><img src="https://img.shields.io/badge/version-1.0.0-orange.svg" alt="Version 1.0.0"></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-ff69b4.svg" alt="PRs Welcome"></a>
   <img src="https://img.shields.io/badge/tests-991%2F991-brightgreen.svg" alt="Tests 991/991">
 </p>

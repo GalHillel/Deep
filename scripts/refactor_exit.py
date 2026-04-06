@@ -4,8 +4,8 @@ from pathlib import Path
 
 def main():
     target_dirs = [
-        Path(r"c:\Users\galh2\Documents\GitHub\DeepGit\src\deep\commands"),
-        Path(r"c:\Users\galh2\Documents\GitHub\DeepGit\src\deep\cli"),
+        Path(r"c:\Users\galh2\Documents\GitHub\Deep\src\deep\commands"),
+        Path(r"c:\Users\galh2\Documents\GitHub\Deep\src\deep\cli"),
     ]
     for d in target_dirs:
         for p in d.glob("*.py"):
