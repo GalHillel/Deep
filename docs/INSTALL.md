@@ -1,52 +1,45 @@
 # Installing Deep
 
-Deep is a system-level CLI tool. It should be installed globally so you can execute the `deep` command from any directory on your machine without managing virtual environments.
+Deep is a system-level CLI tool. Install it globally so you can run `deep` from any directory without managing virtual environments.
 
 ## Requirements
 
-- **Python 3.9+** (Check with `python --version`)
-- **pipx** (Highly recommended) or **pip**
+- **Python 3.9+** (check with `python --version`)
+- **pipx** (recommended) or **pip**
 
-No native C dependencies, no build tools, no Docker required.
+No native C dependencies. No build tools. No Docker.
 
 ---
 
 ## 1. System-Wide Install (Recommended)
 
-Using `pipx` is the standard best practice for Python CLI tools. It isolates Deep's dependencies while exposing the `deep` executable globally on your `$PATH`.
+Using `pipx` isolates Deep's dependencies while exposing the `deep` executable on your `$PATH`.
 
 ```bash
 # 1. Install pipx if you don't have it
 python3 -m pip install --user pipx
 python3 -m pipx ensurepath
 
-# 2. Clone the repository
-git clone https://github.com/GalHillel/DeepGit.git
-cd DeepGit
+# 2. Install Deep directly from GitHub
+pipx install git+https://github.com/GalHillel/DeepGit.git
 
-# 3. Install Deep globally
-pipx install .
-
-# 4. Verify installation
+# 3. Verify
 deep version
 ```
 
 ### Alternative: Global Pip Install
 
-If you prefer standard `pip`, install it to your user directory:
-
 ```bash
-git clone https://github.com/GalHillel/DeepGit.git
-cd DeepGit
-pip install --user .
+pip install --user git+https://github.com/GalHillel/DeepGit.git
 ```
-*(Ensure your Python user `Scripts` or `bin` directory is in your `$PATH`!)*
+
+Make sure your Python user `Scripts` or `bin` directory is in your `$PATH`.
 
 ---
 
 ## 2. Developer Install (For Contributors)
 
-If you plan to modify Deep's source code, you must install it in editable (`-e`) mode so changes apply immediately.
+If you plan to modify Deep's source code, install it in editable (`-e`) mode so changes apply immediately.
 
 ```bash
 # 1. Clone
@@ -67,6 +60,7 @@ pip install -e .
 
 # 4. Verify
 deep version
+pytest -n auto tests/ -q
 ```
 
 ---
@@ -85,5 +79,5 @@ pip uninstall deep-vcs
 
 ## Troubleshooting
 
-- **`deep: command not found`**: Your system `$PATH` does not include the directory where `pipx` or `pip --user` installs binaries. Run `python -m pipx ensurepath` or manually add `~/.local/bin` (Linux/macOS) or `%LOCALAPPDATA%\Programs\Python\Python39\Scripts` (Windows).
-- **`ModuleNotFoundError: No module named 'deep'`**: You are trying to run the source code directly without installing it. Follow the Developer Install steps.
+- **`deep: command not found`**: Your `$PATH` doesn't include the directory where `pipx` or `pip --user` installs binaries. Run `python -m pipx ensurepath` or manually add `~/.local/bin` (Linux/macOS) or `%LOCALAPPDATA%\Programs\Python\Python3x\Scripts` (Windows).
+- **`ModuleNotFoundError: No module named 'deep'`**: You're running the source code without installing it. Follow the Developer Install steps above.

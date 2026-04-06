@@ -1,13 +1,13 @@
 # Contributing to Deep
 
-Hey — thanks for wanting to help. Whether you're fixing a typo, squashing a bug, or adding a whole new command, this guide will get you set up in under five minutes.
+Thanks for wanting to help. Whether you're fixing a typo, squashing a bug, or adding a whole new command, this guide gets you set up in under five minutes.
 
 ## Ground Rules
 
-1. **Don't break the tests.** Every PR must pass `pytest -n auto`. No exceptions.
-2. **One command, one file.** Commands live in `src/deep/commands/<name>_cmd.py` and expose a `run(args)` function.
+1. **Don't break the tests.** Every PR must pass `pytest -n auto` with zero failures. No exceptions.
+2. **One command, one file.** Commands live in `src/deep/commands/<name>_cmd.py` and export a `run(args)` function.
 3. **No raw `print()` for errors.** Use `print(..., file=sys.stderr)` or the helpers in `deep.utils.ux`.
-4. **Type hints on new code.** We're not militant about 100% coverage, but new functions should have signatures.
+4. **Type hints on new code.** We don't enforce 100% coverage, but new functions should have signatures.
 
 ## Setup
 
@@ -33,7 +33,7 @@ deep version
 pytest -n auto tests/ -q
 ```
 
-You should see all tests passing. If something fails on a clean clone, that's a bug — please open an issue.
+All 991 tests should pass. If something fails on a clean clone, that's a bug — open an issue.
 
 ## Architecture at a Glance
 
@@ -51,12 +51,12 @@ Core       →  refs.py, merge.py, diff.py, status.py, graph.py, etc.
 Storage    →  objects.py (CAS), index.py (staging), txlog.py (WAL).
               Raw data persistence. Only core/ should call into this.
                 ↓
-Network    →  Remote sync (HTTP), P2P discovery, daemon server.
+Network    →  Remote sync (HTTP/SSH), P2P discovery, daemon server.
 ```
 
 **Key rule:** Commands → Core → Storage. Never skip a layer.
 
-For the full breakdown, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For the full breakdown, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). For byte-level internals, see [docs/INTERNALS.md](docs/INTERNALS.md).
 
 ## Making Changes
 
@@ -139,4 +139,4 @@ By contributing, you agree your code will be released under the [MIT License](LI
 
 ---
 
-Questions? Open a discussion or ping [@GalHillel](https://github.com/GalHillel). We're friendly.
+Questions? Open a discussion or ping [@GalHillel](https://github.com/GalHillel).

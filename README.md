@@ -1,8 +1,8 @@
 <p align="center">
   <h1 align="center">⚓️ Deep</h1>
   <p align="center">
-    <strong>A next-generation version control system that doesn't need a server.</strong><br>
-    Built from scratch in Python. P2P-native. Crash-proof. AI-assisted.
+    <strong>A version control system that doesn't need a server. Or Git.</strong><br>
+    Pure Python. P2P-native. Crash-proof. 55+ commands. Zero external dependencies.
   </p>
 </p>
 
@@ -12,63 +12,127 @@
   <a href="https://github.com/GalHillel/DeepGit/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build passing"></a>
   <a href="https://github.com/GalHillel/DeepGit/releases"><img src="https://img.shields.io/badge/version-1.0.0-orange.svg" alt="Version 1.0.0"></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-ff69b4.svg" alt="PRs Welcome"></a>
+  <img src="https://img.shields.io/badge/tests-991%2F991-brightgreen.svg" alt="Tests 991/991">
 </p>
 
 ---
 
 ## Why Deep?
 
-Git changed the world in 2005. But it was designed before peer-to-peer protocols matured, before content-addressable storage was ubiquitous, and before anyone thought a VCS should ship with its own CI runner.
+Git shipped in 2005. It assumed you'd always have a central server. It assumed no one would want CI/CD baked into their VCS. It assumed content-addressable storage was exotic. Twenty years later, those assumptions are wrong.
 
-**Deep** is what happens when you start over with modern assumptions. It is a completely independent, `pipx`-installable monolith that replaces Git, GitHub, and your CI provider simultaneously—running securely on your own hardware. 
+**Deep** is a ground-up rewrite. Not a wrapper. Not a shim. A standalone DVCS and developer platform that ships as a single `pip install`. No C extensions. No `libgit2`. No shelling out to `git`.
 
-### Elite Features
+### What you get
 
-*   **🌐 P2P Synchronization**: No central server required. Discover peers on your local network and pull branches directly over the `deep p2p` protocol.
-*   **🛡️ Crash-Proof WAL Storage**: Every write goes through a strict Write-Ahead Log. If your machine loses power mid-commit, Deep recovers the index automatically. 
-*   **🧠 AI Native**: Built-in `deep ai` workflows automatically analyze diffs, generate optimal commit messages, and aggressively forecast merge conflicts.
-*   **📦 Embedded Platform**: Pull Requests, Issues, and CI/CD pipelines (`.deepci.yml`) operate locally and travel seamlessly with your fetched objects.
-*   **📸 CAS Architecture**: Compatible header format with Git (`<type> <size>\0<content>`), meaning migrations and cross-system integrations are natively possible.
+| Capability | How it works |
+|---|---|
+| **ACID-compliant storage** | Every write passes through a Write-Ahead Log. Kill the process mid-commit — Deep recovers the index on the next invocation. Zero data loss. |
+| **Native P2P sync** | No GitHub required. `deep p2p discover` finds peers on your LAN via UDP multicast. `deep p2p sync` pulls branches directly. Cryptographically signed beacons prevent spoofing. |
+| **Content-Addressable Object Store** | Blobs, Trees, Commits, and Tags stored as `<type> <size>\0<content>` — the same header format as Git. Migrations are byte-compatible. |
+| **Delta compression** | Rabin-Karp rolling hash identifies shared blocks between object versions. Only diffs are stored. Packfiles use a sliding window of 10 objects for optimal compression ratios. |
+| **Content-Defined Chunking** | Large files are split at content-dependent boundaries (FastCDC-style) for sub-file deduplication. Move a function between files and Deep stores the chunk once. |
+| **Smart Protocol** | Full upload-pack / receive-pack implementation over SSH and HTTPS. `multi_ack_detailed`, `side-band-64k`, thin packs. Push to GitHub without Git installed. |
+| **Embedded platform** | Pull Requests, Issues, CI/CD pipelines — stored as JSON inside `.deep/platform/` and replicated with your objects. `deep pr create`, `deep issue list`, `deep pipeline run` all work offline. |
+| **AI-assisted workflows** | `deep ai suggest` generates commit messages from diffs. `deep ai predict-merge` forecasts conflicts. `deep ai review` runs automated code review. |
+| **55+ CLI commands** | From `deep init` to `deep ultra` — a complete VCS experience with categorized help, ANSI-colored output, and `argparse`-based discoverability. |
 
 ---
 
-## 🚀 3-Step Quick Start
+## Quickstart
 
-Deep is a system-level CLI tool. It is recommended to install it globally via `pipx`.
-
-**1. Install**
 ```bash
-pipx install git+https://github.com/GalHillel/DeepGit.git
-```
+# Install
+pip install -e .
 
-**2. Initialize**
-```bash
+# Create a repository
 mkdir my-project && cd my-project
 deep init
-```
 
-**3. Commit**
-```bash
-# Add some files and commit
+# Do work
+echo "hello" > README.md
 deep add .
-deep commit -m "Initial commit to Deep VCS"
+deep commit -m "first commit"
 
 # Check your history
 deep log --oneline
 ```
 
+For system-wide installation via `pipx`, see [docs/INSTALL.md](docs/INSTALL.md).
+
 ---
 
-## 📚 Documentation 
+## Architecture (30-second version)
 
-Deep is extensive. For deep-dives into the architecture, commands, and workflows, consult the official documentation:
+```
+CLI (main.py)  ──→  Commands (*_cmd.py)  ──→  Core Engine (core/)
+                                                    │
+                                        ┌───────────┼───────────┐
+                                    Storage/     Network/     Platform/
+                                    objects.py   daemon.py    pr.py
+                                    txlog.py     p2p.py       pipeline.py
+                                    pack.py      smart_protocol.py
+                                    index.py     transport.py
+```
 
-*   📖 **[The Deep User Guide](docs/USER_GUIDE.md)** — Step-by-step from branching to remote synching.
-*   ⚙️ **[Installation & Setup](docs/INSTALL.md)** — Global installs, shell completion, and developer environments.
-*   🛠️ **[CLI Reference](docs/CLI_REFERENCE.md)** — Exhaustive documentation for all 55+ `deep` commands.
-*   🏗️ **[Architecture Deep-Dive](docs/ARCHITECTURE.md)** — Understand the internal CAS, WAL, and protocol layers.
-*   💻 **[Contributing Guidelines](CONTRIBUTING.md)** — How to write code for Deep VCS.
-*   🧪 **[Developer Guide](docs/development.md)** — Implementation standards and testing workflows.
+**Hard rule:** Commands → Core → Storage. Never skip a layer.
+
+For the real deep-dive, read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/INTERNALS.md](docs/INTERNALS.md).
+
+---
+
+## Project Layout
+
+```
+src/deep/
+├── cli/main.py           # 55+ subcommands, single-file argparse dispatcher
+├── commands/             # One file per command (*_cmd.py → run(args))
+├── core/                 # Business logic: merge, diff, refs, status, graph, stash, gc
+├── storage/              # CAS objects, WAL, packfiles, delta compression, index
+│   ├── objects.py        # Blob/Tree/Commit/Tag + read/write pipeline
+│   ├── txlog.py          # Write-Ahead Log with HMAC-signed entries
+│   ├── pack.py           # PACK/DIDX packfile format (delta-compressed)
+│   ├── chunking.py       # Content-Defined Chunking (FastCDC-style)
+│   └── transaction.py    # ACID transaction manager with lock hierarchy
+├── network/              # P2P, daemon, smart protocol, SSH/HTTPS transport
+├── objects/              # Low-level packfile parser, fsck, hash_object
+├── ai/                   # LLM integration for commit/review/predict
+├── plugins/              # Runtime plugin discovery and dispatch
+├── server/               # Platform HTTP API
+└── web/                  # Deep Studio dashboard (HTML/JS)
+```
+
+---
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [**Architecture**](docs/ARCHITECTURE.md) | Layer diagram, object model, WAL mechanics, ref system |
+| [**Internals**](docs/INTERNALS.md) | Byte-level object format, delta encoding, packfile structure, P2P gossip |
+| [**User Guide**](docs/USER_GUIDE.md) | Branching, merging, remote sync, stash, rebase |
+| [**CLI Reference**](docs/CLI_REFERENCE.md) | Exhaustive list of all 55+ commands with flags and examples |
+| [**Contributing**](CONTRIBUTING.md) | Setup, architecture rules, PR checklist, commit conventions |
+| [**Installation**](docs/INSTALL.md) | pipx, pip, editable installs, troubleshooting |
+
+---
+
+## Testing
+
+991 tests. Zero tolerance for regressions.
+
+```bash
+# Full parallel run
+pytest -n auto
+
+# By area
+pytest tests/core/
+pytest tests/storage/
+pytest tests/network/
+pytest tests/cli/
+```
+
+The test suite creates temporary `.deep` repositories — no real data is ever touched.
 
 ---
 

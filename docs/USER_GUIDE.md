@@ -1,313 +1,422 @@
 # Deep User Guide
 
-This guide covers everything you need to go from `deep init` to a productive workflow. Every command shown here is copy-pasteable.
+A practical guide to everyday Deep workflows. This covers the operations you'll use daily — branching, merging, syncing with remotes, stashing, and recovering from mistakes.
 
-## 1. Creating a Repository
+For the architecture behind these operations, see [ARCHITECTURE.md](ARCHITECTURE.md). For byte-level details, see [INTERNALS.md](INTERNALS.md).
+
+---
+
+## Getting Started
+
+### Initialize a Repository
 
 ```bash
-# Initialize in the current directory
+mkdir my-project && cd my-project
 deep init
-
-# Or create a new project directory
-deep init my-project
-cd my-project
 ```
 
-This creates a `.deep/` directory containing the object database, refs, index, and transaction log.
+This creates a `.deep/` directory with the object store, refs, index, and configuration.
 
-## 2. Tracking Files
+### Your First Commit
 
 ```bash
-# Stage a specific file
+echo "# My Project" > README.md
 deep add README.md
+deep commit -m "Initial commit"
+```
 
-# Stage everything in the current directory
-deep add .
+`deep add` hashes the file, stores it as a blob, and updates the staging index. `deep commit` reads the index, builds a tree hierarchy, creates a commit object, and advances the branch pointer.
 
-# Check what's staged
+### Check Status
+
+```bash
 deep status
 ```
 
-### Understanding Status Output
+Shows three categories: staged changes (green), unstaged modifications (red), and untracked files.
 
-```
-On branch main
+For scripts, use `deep status --porcelain` — the output format is stable and machine-parseable.
 
-Changes to be committed:
-  new file:   README.md
-  modified:   src/app.py
+---
 
-Changes not staged for commit:
-  modified:   config.yaml
+## Branching
 
-Untracked files:
-  notes.txt
-```
-
-- **Changes to be committed** — these will be included in your next `deep commit`
-- **Changes not staged** — modified files that haven't been `deep add`ed yet
-- **Untracked files** — new files Deep doesn't know about
-
-## 3. Committing
+### Create and Switch
 
 ```bash
-# Standard commit
-deep commit -m "Add user authentication module"
-
-# Auto-stage all tracked changes + commit
-deep commit -a -m "Fix login timeout"
-
-# Let AI write the message for you
-deep commit --ai -a
-
-# Sign the commit cryptographically
-deep commit -S -m "Security patch"
-```
-
-## 4. Viewing History
-
-```bash
-# Full log
-deep log
-
-# One-line summary
-deep log --oneline
-
-# Last 5 commits
-deep log -n 5
-
-# Visual graph
-deep log --graph
-
-# Show a specific commit's details
-deep show HEAD
-deep show abc1234
-```
-
-## 5. Branching
-
-```bash
-# List branches
-deep branch
-
 # Create a branch
-deep branch feature/auth
+deep branch feature
 
 # Switch to it
-deep checkout feature/auth
+deep checkout feature
 
-# Create and switch in one step
-deep checkout -b feature/auth
-
-# Delete a branch
-deep branch -d feature/auth
+# Or do both at once
+deep checkout -b feature
 ```
 
-## 6. Merging
+A branch is just a file in `.deep/refs/heads/` containing a 40-character SHA. Creating one is instantaneous.
+
+### List Branches
 
 ```bash
-# Merge feature branch into current branch
-deep merge feature/auth
+deep branch          # Local branches
+deep branch -a       # Include remote-tracking branches
+deep branch -v       # Show SHA and upstream info
+```
 
-# If there are conflicts, resolve them manually, then:
-deep add .
-deep commit -m "Resolve merge conflicts"
+### Delete a Branch
 
-# Abort a merge
+```bash
+deep branch -d feature
+```
+
+---
+
+## Merging
+
+### Fast-Forward Merge
+
+If the target branch has all your current commits as ancestors, Deep moves the pointer forward. No merge commit is created.
+
+```bash
+deep checkout main
+deep merge feature    # Fast-forward if possible
+```
+
+### Three-Way Merge
+
+If both branches have diverged, Deep finds the Lowest Common Ancestor (LCA), diffs `base→ours` and `base→theirs`, and combines the changes:
+
+```bash
+deep merge feature
+# Auto-resolves non-conflicting changes
+# Marks conflicts with <<<<<<< / ======= / >>>>>>> markers
+```
+
+If there are conflicts, edit the files, `deep add` them, and `deep commit`.
+
+### Force a Merge Commit
+
+```bash
+deep merge --no-ff feature
+```
+
+Always creates a merge commit even if fast-forward is possible.
+
+### Abort a Merge
+
+```bash
 deep merge --abort
 ```
 
-## 7. Diffing
+---
+
+## Rebasing
+
+Rebase replays your commits on top of another branch, producing a linear history.
 
 ```bash
-# Working tree vs staging area
-deep diff
-
-# Staged changes (what will be committed)
-deep diff --cached
-
-# Between two commits
-deep diff abc1234 def5678
+deep checkout feature
+deep rebase main
 ```
 
-## 8. Stashing
+If conflicts arise:
 
 ```bash
-# Save current changes temporarily
-deep stash save
+# Edit conflicting files
+deep add <resolved-files>
+deep rebase --continue
 
-# View stashed changes
+# Or give up
+deep rebase --abort
+```
+
+### Interactive Rebase
+
+```bash
+deep rebase -i HEAD~3
+```
+
+---
+
+## Working with Remotes
+
+### Add a Remote
+
+```bash
+deep remote add origin https://github.com/user/repo.git
+```
+
+### Push
+
+```bash
+deep push origin main
+
+# Set upstream tracking
+deep push -u origin main
+
+# Push tags
+deep push --tags origin
+
+# Force push (overwrites remote history)
+deep push --force origin main
+```
+
+### Pull
+
+```bash
+deep pull origin main
+
+# Rebase instead of merge
+deep pull --rebase origin main
+```
+
+### Fetch
+
+```bash
+deep fetch origin        # Download without merging
+deep fetch --all         # All remotes
+```
+
+### Clone
+
+```bash
+deep clone https://github.com/user/repo.git
+deep clone https://github.com/user/repo.git my-folder
+
+# Shallow clone
+deep clone --depth 1 https://github.com/user/repo.git
+
+# Partial clone (skip blobs)
+deep clone --filter blob:none https://github.com/user/repo.git
+```
+
+---
+
+## P2P Synchronization
+
+Deep can sync directly between machines on your local network with no server.
+
+### Discover Peers
+
+```bash
+deep p2p discover
+```
+
+Lists all Deep repositories broadcasting on the local network via UDP multicast.
+
+### Sync with a Peer
+
+```bash
+deep p2p sync <peer-id>
+```
+
+### Start the P2P Listener
+
+```bash
+deep p2p start --port 5007
+```
+
+---
+
+## Stashing
+
+Temporarily save uncommitted changes.
+
+```bash
+# Save current changes
+deep stash save "work in progress"
+
+# List stashes
 deep stash list
 
-# Restore the latest stash
+# Restore and remove
 deep stash pop
 
-# Apply without removing from stash
+# Restore without removing
 deep stash apply
+
+# Drop a stash
+deep stash drop
+
+# Clear all stashes
+deep stash clear
 ```
 
-## 9. Tags
+---
+
+## Undoing Things
+
+### Unstage a File
 
 ```bash
-# Create a lightweight tag
+deep reset HEAD file.txt
+```
+
+### Discard Working Tree Changes
+
+```bash
+deep checkout -- file.txt
+```
+
+### Undo the Last Commit (Keep Changes)
+
+```bash
+deep reset --soft HEAD~1
+```
+
+### Undo the Last Commit (Discard Everything)
+
+```bash
+deep reset --hard HEAD~1
+```
+
+### WAL Rollback
+
+If something went wrong and you need to revert the entire last transaction:
+
+```bash
+deep rollback
+deep rollback --verify    # Check WAL integrity first
+```
+
+---
+
+## Tagging
+
+### Lightweight Tag
+
+```bash
 deep tag v1.0.0
+```
 
-# Create an annotated tag
-deep tag -a v1.0.0 -m "First stable release"
+### Annotated Tag
 
-# List all tags
-deep tag
+```bash
+deep tag -a v1.0.0 -m "Release 1.0.0"
+```
 
-# Delete a tag
+### Delete a Tag
+
+```bash
 deep tag -d v1.0.0
 ```
 
-## 10. Remote Collaboration
+---
 
-### Setting Up Remotes
+## Inspecting History
+
+### Log
 
 ```bash
-# Add a remote
-deep remote add origin https://example.com/repo
-
-# List remotes
-deep remote list
-
-# Remove a remote
-deep remote remove origin
+deep log                  # Full details
+deep log --oneline        # Compact view
+deep log -n 10            # Last 10 commits
+deep log --graph          # ASCII graph
+deep log main..feature    # Commits on feature not on main
 ```
 
-### Push, Pull, Fetch
+### Diff
 
 ```bash
-# Push your branch
-deep push origin main
-
-# Pull changes
-deep pull origin main
-
-# Fetch without merging
-deep fetch origin
+deep diff                 # Working tree vs index
+deep diff --cached        # Index vs last commit
+deep diff HEAD~3 HEAD     # Between two commits
+deep diff --stat          # Summary only
 ```
 
-### Cloning
+### Show
 
 ```bash
-# Clone a repository
-deep clone https://example.com/repo
-
-# Shallow clone (last N commits only)
-deep clone https://example.com/repo --depth 10
+deep show HEAD            # Last commit details
+deep show abc1234         # Specific object
 ```
 
-## 11. Pull Requests (Local)
+### Graph
 
 ```bash
-# Create a PR
-deep pr create --title "Add JWT auth" --base main --head feature/auth
-
-# List open PRs
-deep pr list
-
-# Show PR details
-deep pr show 1
-
-# Merge a PR
-deep pr merge 1
-
-# Add a comment
-deep pr comment 1 -m "Looks good"
+deep graph                # Current branch
+deep graph --all          # All branches
+deep graph -n 50          # Limit to 50 commits
 ```
 
-## 12. Issue Tracking
+### Search
 
 ```bash
-# Create an issue
-deep issue create -t "Login page broken" --type bug --priority high
-
-# List issues
-deep issue list
-
-# Close an issue
-deep issue close 5
+deep search "TODO"        # Find across all history
 ```
 
-## 13. P2P Synchronization
+---
+
+## AI-Assisted Workflows
+
+### Generate a Commit Message
 
 ```bash
-# Discover peers on your network
-deep p2p discover
-
-# Sync with a specific peer
-deep p2p sync <peer-id>
-
-# Start the P2P listener
-deep p2p start
+deep commit --ai -a       # Auto-stage + AI message
+deep ai suggest           # Preview without committing
 ```
 
-## 14. AI Tools
+### Code Review
 
 ```bash
-# Generate a commit message from staged changes
-deep ai suggest
+deep ai review            # Automated review of staged changes
+```
 
-# AI code review
-deep ai review
+### Predict Merge Conflicts
 
-# Predict if a merge will conflict
+```bash
 deep ai predict-merge --source feature --branch main
-
-# Generate a branch name from a description
-deep ai branch-name --description "fix the login timeout bug"
 ```
 
-## 15. Diagnostics
+---
+
+## Repository Maintenance
+
+### Health Check
 
 ```bash
-# Full health check
-deep doctor
-
-# Auto-repair common issues
-deep doctor --fix
-
-# Object integrity verification
-deep fsck
-
-# Cryptographic verification of all objects
-deep verify --all
-
-# Garbage collection
-deep gc
-
-# Performance benchmark
-deep benchmark
+deep doctor               # Diagnose problems
+deep doctor --fix         # Auto-repair
 ```
 
-## 16. Configuration
+### Garbage Collection
 
 ```bash
-# Set your name (local to this repo)
+deep gc                   # Clean up unreachable objects
+deep gc --dry-run         # Preview what would be removed
+```
+
+### Full Optimization
+
+```bash
+deep ultra                # GC + repack + commit-graph rebuild
+```
+
+### Integrity Verification
+
+```bash
+deep fsck                 # Check object connectivity
+deep verify --all         # Cryptographic hash verification
+```
+
+---
+
+## Configuration
+
+```bash
 deep config user.name "Alice"
-
-# Set your email globally
-deep config --global user.email "alice@example.com"
-
-# Set preferred editor
-deep config core.editor vim
+deep config user.email "alice@example.com"
+deep config --global core.editor vim
 ```
 
-## Getting Help
+Configuration is stored in `.deep/config` (local) or `~/.deepconfig` (global) as JSON.
 
-Every command supports `--help`:
+---
 
-```bash
-deep status --help
-deep merge --help
-deep ai --help
-```
+## Next Steps
 
-For the top-level command list:
-
-```bash
-deep -h
-```
+- [CLI Reference](CLI_REFERENCE.md) — every command, every flag
+- [Architecture](ARCHITECTURE.md) — how the layers fit together
+- [Internals](INTERNALS.md) — byte-level object format and algorithms
+- [Contributing](../CONTRIBUTING.md) — how to add features and fix bugs
