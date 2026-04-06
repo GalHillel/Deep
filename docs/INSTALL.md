@@ -1,83 +1,146 @@
 # Installing Deep
 
-Deep is a system-level CLI tool. Install it globally so you can run `deep` from any directory without managing virtual environments.
+Deep is a system-level CLI tool. Install it once and use `deep` from any directory on your machine.
 
 ## Requirements
 
 - **Python 3.9+** (check with `python --version`)
-- **pipx** (recommended) or **pip**
-
-No native C dependencies. No build tools. No Docker.
+- **No native C dependencies.** No Docker. No build tools. Pure Python.
 
 ---
 
-## 1. System-Wide Install (Recommended)
+## For Users — Permanent Global Install
 
-Using `pipx` isolates Deep's dependencies while exposing the `deep` executable on your `$PATH`.
+### Option A: pipx (Recommended)
+
+`pipx` isolates Deep's dependencies in a managed virtual environment while exposing the `deep` command globally on your `$PATH`.
 
 ```bash
-# 1. Install pipx if you don't have it
 python3 -m pip install --user pipx
+```
+
+```bash
 python3 -m pipx ensurepath
+```
 
-# 2. Install Deep directly from GitHub
+```bash
 pipx install git+https://github.com/GalHillel/Deep.git
+```
 
-# 3. Verify
+```bash
 deep version
 ```
 
-### Alternative: Global Pip Install
+### Updating
+
+```bash
+pipx upgrade deep-vcs
+```
+
+### Option B: Global pip
+
+If you don't want to use `pipx`, a direct `pip` install works:
 
 ```bash
 pip install --user git+https://github.com/GalHillel/Deep.git
 ```
 
-Make sure your Python user `Scripts` or `bin` directory is in your `$PATH`.
+Ensure your Python `Scripts`/`bin` directory is on your `$PATH`.
 
 ---
 
-## 2. Developer Install (For Contributors)
+## For Contributors — Development Mode
 
-If you plan to modify Deep's source code, install it in editable (`-e`) mode so changes apply immediately.
+Editable (`-e`) installs link the `deep` command directly to your local source tree. Every code change takes effect immediately — no reinstall needed.
+
+### Step 1: Clone
 
 ```bash
-# 1. Clone
 git clone https://github.com/GalHillel/Deep.git
+```
+
+```bash
 cd Deep
+```
 
-# 2. Create and activate a virtual environment
+### Step 2: Virtual Environment
+
+```bash
 python3 -m venv .venv
+```
 
-# macOS / Linux:
+macOS / Linux:
+
+```bash
 source .venv/bin/activate
+```
 
-# Windows (PowerShell):
+Windows (PowerShell):
+
+```powershell
 .venv\Scripts\activate
+```
 
-# 3. Install in editable mode
+### Step 3: Editable Install
+
+```bash
 pip install -e .
+```
 
-# 4. Verify
+### Step 4: Verify
+
+```bash
 deep version
+```
+
+```bash
 pytest -n auto tests/ -q
 ```
+
+All 991 tests should pass. If something fails on a clean clone, that's a bug — [open an issue](https://github.com/GalHillel/Deep/issues).
 
 ---
 
 ## Uninstall
 
 If installed via `pipx`:
+
 ```bash
 pipx uninstall deep-vcs
 ```
 
 If installed via `pip`:
+
 ```bash
 pip uninstall deep-vcs
 ```
 
+---
+
 ## Troubleshooting
 
-- **`deep: command not found`**: Your `$PATH` doesn't include the directory where `pipx` or `pip --user` installs binaries. Run `python -m pipx ensurepath` or manually add `~/.local/bin` (Linux/macOS) or `%LOCALAPPDATA%\Programs\Python\Python3x\Scripts` (Windows).
-- **`ModuleNotFoundError: No module named 'deep'`**: You're running the source code without installing it. Follow the Developer Install steps above.
+### `deep: command not found`
+
+Your `$PATH` doesn't include the directory where `pipx` or `pip --user` installs binaries.
+
+```bash
+python -m pipx ensurepath
+```
+
+On Linux/macOS, manually add `~/.local/bin`. On Windows, add `%LOCALAPPDATA%\Programs\Python\Python3x\Scripts`.
+
+### `ModuleNotFoundError: No module named 'deep'`
+
+You're running the source code without installing it. Follow the [contributor setup](#for-contributors--development-mode) above.
+
+### Tests fail on Windows with `TimeoutExpired`
+
+Some network-related tests use background daemon processes. Increase the timeout by setting:
+
+```powershell
+$env:DEEP_TEST_TIMEOUT = "30"
+```
+
+---
+
+**Next:** [User Guide](USER_GUIDE.md) · [CLI Reference](CLI_REFERENCE.md) · [Architecture](ARCHITECTURE.md)

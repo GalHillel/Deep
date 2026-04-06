@@ -1,6 +1,8 @@
 # Deep Architecture
 
-This document describes the internal architecture of Deep VCS. Read this before touching any code.
+Technical architecture of Deep VCS. Read this before modifying any subsystem.
+
+---
 
 ## Layer Diagram
 
@@ -41,30 +43,32 @@ This document describes the internal architecture of Deep VCS. Read this before 
 
 ## 1. CLI Layer
 
-**File:** `src/deep/cli/main.py` (single file, ~1500 lines)
+**File:** `src/deep/cli/main.py` (~1,500 lines)
 
-The CLI is one `argparse.ArgumentParser` with 55+ subcommands. When you type `deep commit -m "fix"`:
+The CLI is one `argparse.ArgumentParser` with 55+ subcommands. Execution flow:
 
 1. `build_parser()` constructs the full argument tree (subparsers, flags, epilogs)
 2. `main()` calls `parser.parse_args()` → `Namespace` object
-3. A long `if/elif` chain maps `args.command` to the correct `run(args)` function
+3. An `if/elif` chain maps `args.command` to the correct `run(args)` function
 4. The target module is imported lazily — only the invoked command's code is loaded
 
-**Why lazy imports?** Startup latency. Importing the entire codebase on every `deep status` would be slow. Each command module is loaded only when called.
+**Why lazy imports?** Startup latency. Importing the entire codebase on every `deep status` would add measurable overhead. Each command module loads only when called.
 
 ### Error Handling
 
-The `main()` function wraps every `run(args)` call:
-
 | Exception type | Behavior |
 |---|---|
-| `DeepError` | Clean message to stderr |
-| `DeepCLIException` | Exit with specific code |
+| `DeepError` | Clean message to stderr, exit code 1 |
+| `DeepCLIException` | Exit with the exception's specific code |
 | Any other `Exception` | "internal error" message (full traceback if `DEEP_DEBUG=1`) |
 
 ### Post-Command Hooks
 
-After certain commands (`commit`, `merge`, `rollback`), `main()` runs a state consistency check. After mutation commands (`commit`, `push`, `pull`, `merge`, `add`), it triggers background auto-maintenance (GC + repack if enough time has elapsed).
+After certain commands, `main()` runs additional logic:
+
+- **State consistency check** (`commit`, `merge`, `rollback`): Verifies HEAD, INDEX, and WORKING TREE are consistent. Exits non-zero if they diverge.
+- **Auto-maintenance** (`commit`, `push`, `pull`, `merge`, `add`): Triggers background GC + repack if enough time has elapsed since the last maintenance run.
+- **WAL recovery** (`commit`, `merge`, `push`, `pull`, `rollback`, `checkout`, `status`): If incomplete transactions exist in the WAL, recovery runs before the command executes.
 
 ---
 
@@ -72,7 +76,7 @@ After certain commands (`commit`, `merge`, `rollback`), `main()` runs a state co
 
 **Directory:** `src/deep/storage/`
 
-This is the foundation. Every piece of data — file content, directory structure, commit metadata — is stored as an **object** identified by its SHA-1 hash.
+Every piece of data — file content, directory structure, commit metadata — is stored as an **object** identified by its SHA-1 hash.
 
 ### Object Types
 
@@ -83,10 +87,16 @@ This is the foundation. Every piece of data — file content, directory structur
 | `commit` | `Commit` | Tree SHA + parent SHAs + author/committer + timestamp + message |
 | `tag` | `Tag` | Target SHA + tagger + message |
 | `delta` | `DeltaObject` | Base SHA + delta instruction stream |
-| `chunk` | `Chunk` | Sub-file content block |
+| `chunk` | `Chunk` | Sub-file content block (Content-Defined Chunking) |
 | `chunked_blob` | `ChunkedBlob` | Manifest of chunk SHAs |
 
-All objects share a common wire format: `<type> <size>\0<content>`. Objects are zlib-compressed before writing to disk.
+All objects share a common wire format:
+
+```
+<type> <size>\0<content>
+```
+
+Objects are zlib-compressed before writing to disk.
 
 ### On-Disk Layout
 
@@ -96,60 +106,74 @@ All objects share a common wire format: `<type> <size>\0<content>`. Objects are 
 │   ├── ab/cd/ef1234...     ← Level-2 fan-out (xx/yy/zzzz...)
 │   ├── pack/
 │   │   ├── pack-<sha>.pack ← Packed objects with delta compression
-│   │   └── pack-<sha>.idx  ← DIDX fan-out index for fast lookup
+│   │   └── pack-<sha>.idx  ← DIDX fan-out index for O(1) lookup
 │   └── vault/
-│       └── *.dvpf          ← Vault packfiles (format v2)
+│       └── *.dvpf          ← Vault packfiles (v2 format)
 ├── refs/
 │   ├── heads/main          ← SHA of the branch tip
 │   ├── tags/v1.0.0
 │   └── remotes/origin/main
 ├── HEAD                     ← "ref: refs/heads/main" or detached SHA
-├── index                    ← Binary staging area (v2 format)
+├── index                    ← Binary staging area (v2 format, DIDX magic)
 ├── txlog                    ← Write-Ahead Log entries (JSON lines)
-├── config                   ← Repository configuration (JSON)
+├── config                   ← Repository configuration (INI format)
+├── keys/
+│   └── keyring.enc          ← Encrypted signing keys (HMAC-SHA256)
+├── hooks/                   ← pre-commit, pre-push, post-merge scripts
+├── plugins/                 ← Runtime-discovered plugin modules (*.py)
 └── platform/                ← PRs, issues, pipeline runs (JSON)
 ```
 
-### Read Pipeline
+### Read Pipeline (`read_object`)
 
 When `read_object(objects_dir, sha)` is called:
 
 1. Check Level-2 fan-out path (`objects/xx/yy/zzzz...`)
 2. Fall back to Level-1 path (`objects/xx/yyyy...`) for legacy repos
 3. Check the global object index cache (`object_index.json`)
-4. Search packfiles via DIDX index fan-out tables
-5. Search vault files (`.dvpf`)
+4. Search vault files (`.dvpf`)
+5. Search packfiles via DIDX index fan-out tables
 6. Attempt lazy fetch from promisor remote (partial clone support)
 7. If all fail → `FileNotFoundError`
 
-Results are cached in an LRU cache (10,240 entries) for hot-path performance.
+Results are cached in a `functools.lru_cache` (10,240 entries) for hot-path performance. Delta objects are reconstructed transparently with a max chain depth of 50 to prevent pathological recursion.
 
 ### Write Pipeline
 
 1. Compute full serialization: `<type> <size>\0<content>`
 2. SHA-1 hash the full serialization
-3. Check if object already exists (dedup)
-4. zlib compress
-5. Write atomically via `AtomicWriter` (write to temp → `os.replace`)
+3. Check if object already exists (content-addressable dedup)
+4. zlib compress the full serialization
+5. Write atomically via `AtomicWriter` (write to temp file → `os.replace`)
 
 ### Index (Staging Area)
 
 The index (`.deep/index`) is a binary file using a custom v2 format:
 
-- Magic bytes: `DIDX`
-- Version byte: `2`
-- Entries: sorted by path, each containing `(content_hash, mtime_ns, size, path_hash)`
-- SHA-256 integrity trailer
+- **Magic bytes:** `DIDX`
+- **Version byte:** `2`
+- **Entries:** sorted by path, each containing `(content_hash, mtime_ns, size, path_hash)`
+- **Integrity trailer:** SHA-256 checksum
 
-The index maps filesystem paths to object SHAs. `deep add` updates the index; `deep commit` reads it to build tree objects.
+The index maps filesystem paths to object SHAs. `deep add` updates the index; `deep commit` reads it to construct the tree hierarchy.
+
+### Why WAL + CAS Makes Deep Safer Than Traditional VCS
+
+Traditional VCS implementations update refs and the working tree as independent, non-atomic operations. If the process is killed between updating the ref pointer and writing the tree objects, the repository can be left in a corrupted state that requires manual intervention.
+
+Deep's approach:
+
+1. **Write-Ahead Log records intent before any mutation.** The WAL entry captures the operation type, target object, branch ref, and previous commit SHA. If the process crashes, the WAL tells recovery exactly what was in progress.
+2. **Content-addressable objects are immutable and self-verifying.** Once written, an object's SHA-1 hash guarantees its integrity forever. There's no partial-write corruption risk — either the object matches its hash or it doesn't exist.
+3. **Recovery is deterministic.** On startup, if incomplete transactions exist: (a) if the target object was fully written, roll forward; (b) if not, roll back to the previous commit SHA. No heuristics, no data loss.
+
+This combination means you can safely `kill -9` a `deep commit` mid-flight and resume seamlessly.
 
 ---
 
 ## 3. Write-Ahead Log & Transactions
 
 **Files:** `src/deep/storage/txlog.py`, `src/deep/storage/transaction.py`
-
-This is what makes Deep crash-proof.
 
 ### Transaction Lifecycle
 
@@ -178,16 +202,31 @@ TransactionManager.__exit__()
 
 ### WAL Record Fields
 
-Each `TxRecord` stores: `tx_id`, `operation`, `status`, `timestamp`, `target_object_id`, `branch_ref`, `previous_commit_sha`. Optionally, records can be HMAC-signed for tamper detection during recovery.
+Each `TxRecord` contains:
 
-### Crash Recovery
+| Field | Purpose |
+|---|---|
+| `tx_id` | Unique ID: `<operation>_<timestamp_ms>_<uuid_suffix>` |
+| `operation` | `commit`, `checkout`, `merge`, `merge-ff`, `merge-3way`, `reset-hard`, etc. |
+| `status` | `BEGIN`, `COMMIT`, `ROLLBACK` |
+| `timestamp` | Unix timestamp (float) |
+| `target_object_id` | SHA of the new commit/object being created |
+| `branch_ref` | The ref being updated (e.g. `refs/heads/main`) |
+| `previous_commit_sha` | SHA of the ref before the operation (rollback target) |
+| `signature` | Optional HMAC-SHA256 signature for tamper detection |
+| `signing_key_id` | Key ID used for the signature |
+
+### Crash Recovery Algorithm
 
 On startup, if `txlog.needs_recovery()` returns `True`:
 
-1. Find all incomplete transactions (BEGIN without COMMIT/ROLLBACK)
-2. For each: verify signature (if signed), check if target object exists on disk
-3. If target object exists → roll forward (update ref, restore working directory)
-4. If target object is missing → roll back (restore ref to `previous_commit_sha`)
+1. Find all incomplete transactions (BEGIN without matching COMMIT/ROLLBACK)
+2. For each incomplete transaction:
+   - If signed: verify HMAC signature. Reject tampered records.
+   - If `target_object_id` exists on disk → **roll forward** (update ref, restore working directory if needed)
+   - If `target_object_id` is missing → **roll back** (restore ref to `previous_commit_sha`)
+   - If neither is possible → abort the transaction with a ROLLBACK record
+3. For operations that modify the working directory (`checkout`, `reset-hard`, `merge`), recovery also restores file contents from the target commit's tree.
 
 ---
 
@@ -210,6 +249,7 @@ Key functions:
 | `update_branch(dg_dir, name, sha)` | Atomically write new SHA to branch ref |
 | `log_history(dg_dir)` | BFS parent traversal from HEAD |
 | `get_commit_decorations(dg_dir)` | Map SHAs → branch/tag labels for `deep log` |
+| `resolve_revision(dg_dir, rev)` | Resolve branch name, tag name, or partial SHA to full SHA |
 
 ---
 
@@ -255,7 +295,7 @@ The client auto-detects remote type: external Git servers (GitHub, GitLab) get `
 
 ### Daemon (`daemon.py`)
 
-`DeepDaemon` is an asyncio TCP server handling push/fetch over PKT-LINE framing. Features:
+`DeepDaemon` is an asyncio TCP server handling push/fetch over PKT-LINE framing:
 
 - Streaming pack reception with 500MB size limit
 - Transactional unpack (temporary directory → atomic move)
@@ -265,29 +305,119 @@ The client auto-detects remote type: external Git servers (GitHub, GitLab) get `
 
 ### P2P Engine (`p2p.py`)
 
-Peer discovery via UDP multicast (`239.255.255.250:5007`):
+Zero-config peer discovery via UDP multicast (`239.255.255.250:5007`):
 
-- 5-second beacon interval
-- HMAC-signed payloads to prevent spoofing
-- Rate limiting (10 packets/second per IP)
-- 30-second peer timeout
-- Zero-trust commit verification — unsigned commits from peers are rejected
+| Property | Value |
+|---|---|
+| Beacon interval | 5 seconds |
+| Payload signing | HMAC-SHA256 (per-repository signing key) |
+| Rate limiting | 10 packets/second per source IP |
+| Peer timeout | 30 seconds |
+| Packet size limit | 4,000 bytes |
+| Commit policy | Zero-trust — unsigned commits from peers are rejected |
+
+Discovery flow:
+
+1. Node broadcasts its `node_id`, `repo_name`, branch states, and presence info on the multicast group
+2. Listener receives beacon, verifies HMAC signature, rejects unsigned or tampered payloads
+3. Peers are tracked with a 30-second expiry window
+4. `discover_conflicts()` compares local branch state with peer branch state to identify divergent histories
+
+### Offline Queue (`offline_queue.py`)
+
+Operations that fail due to network unavailability are queued and replayed when connectivity returns.
 
 ---
 
-## 7. Platform Features
+## 7. Security Architecture
 
-Pull Requests, Issues, and CI/CD Pipelines are stored as JSON in `.deep/platform/`. They replicate with your objects — clone a repo and get the full history.
+**File:** `src/deep/core/security.py`
+
+### Key Management
+
+Keys are stored in `.deep/keys/keyring.enc`, encrypted with a passphrase-derived key (SHA-256 of passphrase → XOR stream cipher). Operations:
+
+| Operation | Method |
+|---|---|
+| Generate a key | `KeyManager.generate_key()` → 32-byte HMAC-SHA256 secret |
+| Get active key | `KeyManager.get_active_key()` → most recent non-revoked key |
+| Revoke a key | `KeyManager.revoke_key(key_id)` → marks as revoked, re-encrypts keyring |
+| Rotate keys | `KeyManager.rotate_key()` → revoke old + generate new |
+
+### Commit Signing
+
+`CommitSigner.sign(data)` produces an HMAC-SHA256 signature stored in the commit's `gpgsig` header. Signature format: `SIG:<key_id>:<hex_signature>`.
+
+Verification rejects signatures from revoked keys.
+
+### Merkle Audit Chain
+
+`MerkleAuditChain` builds SHA-256 hash chains over audit log entries. Each entry's hash is `SHA-256(prev_hash | entry_data)`. Verification walks the chain and detects any tampering.
+
+### Sandbox Execution
+
+`SandboxRunner` executes scripts in isolated subprocesses with:
+
+- Minimal environment variables (no `PYTHONPATH`)
+- Filesystem write restrictions to allowlisted paths only
+- Configurable timeout (default: 30 seconds)
+- Full operation logging
+
+---
+
+## 8. Platform Features
+
+Pull Requests, Issues, and CI/CD Pipelines are stored as JSON in `.deep/platform/`. They replicate with your objects — clone a repo and get the full project history.
 
 ### CI/CD
 
-The pipeline runner reads `.deepci.yml`, parses job definitions, and executes them in sandboxed subprocesses. Pipeline runs are stored as metadata and queryable via `deep pipeline list`.
+The pipeline runner reads `.deepci.yml`, parses job definitions (name + command pairs), and executes them in sandboxed subprocesses. Pipeline runs are stored as metadata and queryable via `deep pipeline list`.
 
 ---
 
-## 8. Plugin System
+## 9. Configuration System
 
-Plugins are discovered at startup from `.deep/plugins/`. Each plugin registers custom commands that appear in `deep -h` and are dispatched through the same `run(args)` pattern as built-in commands.
+**File:** `src/deep/core/config.py`
+
+Configuration uses INI format (not JSON) with a two-level hierarchy:
+
+1. **Local:** `.deep/config` — overrides global settings for this repository
+2. **Global:** `~/.deepconfig` — user-wide defaults
+
+Key format: `section.key` (e.g. `user.name`, `core.editor`, `remote.origin.url`).
+
+---
+
+## 10. Hook System
+
+**File:** `src/deep/core/hooks.py`
+
+Hooks are executable scripts in `.deep/hooks/`. Supported hooks:
+
+| Hook name | Triggered by |
+|---|---|
+| `pre-commit` | Before creating a commit object |
+| `pre-push` | Before uploading objects to a remote |
+| `post-merge` | After a successful merge |
+
+On Windows, the hook runner searches for `<name>`, `<name>.bat`, `<name>.exe`, `<name>.py`, and `<name>.cmd`. Python scripts are invoked via `sys.executable`.
+
+The hook's exit code determines behavior: non-zero aborts the operation and prints stderr.
+
+Environment variable `DEEP_DIR` is set to the `.deep` directory path for hooks to locate repository internals.
+
+---
+
+## 11. Plugin System
+
+**File:** `src/deep/plugins/plugin.py`
+
+Plugins are discovered at startup from `.deep/plugins/*.py`. Each plugin module receives a `__plugin_manager__` attribute pointing to the `PluginManager` instance. It can call:
+
+- `manager.register_command(name, handler)` — Add a CLI subcommand
+- `manager.register_hook(hook_name, callback)` — Register a lifecycle hook (`pre-commit`, `post-commit`, `pre-push`)
+
+Registered commands appear in `deep -h` and are dispatched through the same `run(args)` pattern as built-in commands.
 
 ---
 
@@ -306,4 +436,12 @@ tests/
 └── web/          # Dashboard and API tests
 ```
 
-Run with `pytest -n auto`. The suite creates temporary `.deep` repositories in memory — no real repo is ever modified.
+```bash
+pytest -n auto tests/
+```
+
+The suite creates temporary `.deep` repositories in memory — no real repo is ever modified. All 991 tests run in parallel by default.
+
+---
+
+**Next:** [Internals](INTERNALS.md) · [CLI Reference](CLI_REFERENCE.md) · [User Guide](USER_GUIDE.md)
