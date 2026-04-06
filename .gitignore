@@ -114,3 +114,10 @@ logs/*
 repro_*.py
 command-help.txt
 scripts/generate_help.py
+
+# === Ignore scripts ===
+scripts/refactor_exit.py
+scripts/fix_remaining.py
+scripts/fix_mtime.py
+scripts/purge_forbidden.py
+scripts/generate_help.py
