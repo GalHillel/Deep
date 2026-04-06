@@ -42,7 +42,8 @@ def test_daemon_handshake_sync(tmp_path):
     port = get_free_port()
     # Start daemon in Separate Process
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd() / "src")
+    repo_src = str(Path(__file__).parent.parent.parent / "src")
+    env["PYTHONPATH"] = repo_src + os.pathsep + env.get("PYTHONPATH", "")
     env["PYTHONUNBUFFERED"] = "1"
     proc = subprocess.Popen(
         [sys.executable, "-m", "deep.cli.main", "daemon", "--port", str(port)],
@@ -50,7 +51,7 @@ def test_daemon_handshake_sync(tmp_path):
         stderr=subprocess.PIPE,
         env=env
     )
-    time.sleep(1) # Give it time to start
+    time.sleep(3) # Give it time to start on Windows
     
     try:
         with socket.create_connection(("127.0.0.1", port), timeout=5) as s:
@@ -110,7 +111,8 @@ def test_daemon_push_sync(tmp_path):
     # Start server
     port = get_free_port()
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd() / "src")
+    repo_src = str(Path(__file__).parent.parent.parent / "src")
+    env["PYTHONPATH"] = repo_src + os.pathsep + env.get("PYTHONPATH", "")
     env["PYTHONUNBUFFERED"] = "1"
     proc = subprocess.Popen(
         [sys.executable, "-m", "deep.cli.main", "daemon", "--port", str(port)],
@@ -119,7 +121,7 @@ def test_daemon_push_sync(tmp_path):
         cwd=str(server_root),
         env=env
     )
-    time.sleep(1)
+    time.sleep(3) # Give it time to start on Windows
     
     try:
         with socket.create_connection(("127.0.0.1", port), timeout=5) as s:

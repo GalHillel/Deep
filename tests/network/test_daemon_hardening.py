@@ -35,7 +35,8 @@ def repo_with_subprocess_daemon(tmp_path):
     
     port = get_free_port()
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd() / "src")
+    repo_src = str(Path(__file__).parent.parent.parent / "src")
+    env["PYTHONPATH"] = repo_src + os.pathsep + env.get("PYTHONPATH", "")
     env["PYTHONUNBUFFERED"] = "1"
     env["DEEP_INSECURE_SKIP_AUTH"] = "1"
     
@@ -46,7 +47,7 @@ def repo_with_subprocess_daemon(tmp_path):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )
-    time.sleep(1.5) # Give it plenty of time on Windows
+    time.sleep(3) # Give it plenty of time on Windows
     
     yield port, tmp_path
     
