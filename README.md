@@ -12,7 +12,7 @@
   <a href="https://github.com/GalHillel/Deep/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build passing"></a>
   <a href="https://github.com/GalHillel/Deep/releases"><img src="https://img.shields.io/badge/version-1.0.0-orange.svg" alt="Version 1.0.0"></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-ff69b4.svg" alt="PRs Welcome"></a>
-  <img src="https://img.shields.io/badge/tests-991%2F991-brightgreen.svg" alt="Tests 991/991">
+
 </p>
 
 ---
@@ -43,7 +43,7 @@ Git shipped in 2005. It assumed you'd always have a central server. It assumed n
 
 ```bash
 # Install
-pip install -e .
+pipx install git+https://github.com/GalHillel/Deep.git
 
 # Create a repository
 mkdir my-project && cd my-project
@@ -117,29 +117,10 @@ src/deep/
 
 ---
 
-## Testing
-
-991 tests. Zero tolerance for regressions.
-
-```bash
-# Full parallel run
-pytest -n auto
-
-# By area
-pytest tests/core/
-pytest tests/storage/
-pytest tests/network/
-pytest tests/cli/
-```
-
-The test suite creates temporary `.deep` repositories — no real data is ever touched.
-
----
-
 ## License
 
 MIT — do whatever you want with it. See [LICENSE](LICENSE).
 
 <p align="center">
-  <sub>Built by <a href="https://github.com/GalHillel">@GalHillel</a> and contributors.</sub>
+  <sub>Built by <a href="https://github.com/GalHillel">@GalHillel</a> .</sub>
 </p>
